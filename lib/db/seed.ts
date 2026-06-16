@@ -17,6 +17,7 @@ import { config } from "dotenv";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { createClient } from "@supabase/supabase-js";
 
 import type { MatchFormat, WeeklySlot } from "./schema";
 import {
@@ -42,8 +43,71 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is not set — cannot seed.");
 }
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+if (!supabaseUrl || !supabaseSecretKey) {
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be set to seed auth users.",
+  );
+}
+
 const client = postgres(connectionString, { prepare: false, max: 1 });
 const db = drizzle(client, { schema: { users, organizations } });
+
+// Admin (service-role) Supabase client — trusted server job only (CLAUDE.md).
+// Used to create real, email-confirmed auth.users; the DB trigger mirrors each
+// into public.users, satisfying the public.users.id -> auth.users(id) FK.
+const admin = createClient(supabaseUrl, supabaseSecretKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+// All seeded accounts share this password (dev only) so you can log in as them.
+const SEED_PASSWORD = "volleyball123";
+const SEED_EMAIL_DOMAIN = "@example.com";
+
+/** Delete pre-existing seed auth users so the seed can re-run cleanly. */
+async function deleteSeedAuthUsers(): Promise<void> {
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+    if (error) throw error;
+    for (const u of data.users) {
+      if (u.email?.endsWith(SEED_EMAIL_DOMAIN)) {
+        const { error: delErr } = await admin.auth.admin.deleteUser(u.id);
+        if (delErr) throw delErr;
+      }
+    }
+    if (data.users.length < 1000) break;
+  }
+}
+
+/** Create a confirmed auth user; the trigger mirrors it into public.users. */
+async function createAuthUser(
+  email: string,
+  displayName: string,
+): Promise<string> {
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password: SEED_PASSWORD,
+    email_confirm: true,
+    user_metadata: { display_name: displayName },
+  });
+  if (error || !data.user) {
+    throw error ?? new Error(`failed to create auth user ${email}`);
+  }
+  return data.user.id;
+}
+
+/** Create auth users sequentially (avoids admin-API rate limits). */
+async function createAuthUsers(
+  specs: { email: string; displayName: string }[],
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (const s of specs) ids.push(await createAuthUser(s.email, s.displayName));
+  return ids;
+}
 
 // --- match formats (PRD §6) ----------------------------------------------
 
@@ -169,15 +233,14 @@ async function main() {
     restart identity cascade
   `);
 
+  // Remove prior seed auth users (public rows are already truncated above, so
+  // the auth.users -> public.users cascade has nothing left to restrict).
+  console.log("Removing existing seed auth users…");
+  await deleteSeedAuthUsers();
+
   // --- organization + owner ------------------------------------------------
   console.log("Seeding organization…");
-  const [owner] = await db
-    .insert(users)
-    .values({
-      email: "mark@example.com",
-      displayName: "Mark Organizer",
-    })
-    .returning();
+  const ownerId = await createAuthUser("mark@example.com", "Mark Organizer");
 
   const [org] = await db
     .insert(organizations)
@@ -185,13 +248,13 @@ async function main() {
       slug: "toronto-volleyball-collective",
       name: "Toronto Volleyball Collective",
       contactEmail: "mark@example.com",
-      ownerUserId: owner.id,
+      ownerUserId: ownerId,
     })
     .returning();
 
   await db.insert(orgMembers).values({
     orgId: org.id,
-    userId: owner.id,
+    userId: ownerId,
     role: "owner",
   });
 
@@ -236,15 +299,12 @@ async function main() {
     .returning();
 
   // 8 captains + 8 teams
-  const leagueCaptains = await db
-    .insert(users)
-    .values(
-      LEAGUE_TEAM_NAMES.map((_, i) => ({
-        email: `league.captain${i + 1}@example.com`,
-        displayName: `League Captain ${i + 1}`,
-      })),
-    )
-    .returning();
+  const leagueCaptainIds = await createAuthUsers(
+    LEAGUE_TEAM_NAMES.map((_, i) => ({
+      email: `league.captain${i + 1}@example.com`,
+      displayName: `League Captain ${i + 1}`,
+    })),
+  );
 
   const leagueTeams = await db
     .insert(teams)
@@ -254,7 +314,7 @@ async function main() {
         divisionId: leagueDivision.id,
         name,
         seed: i + 1,
-        captainUserId: leagueCaptains[i].id,
+        captainUserId: leagueCaptainIds[i],
       })),
     )
     .returning();
@@ -262,7 +322,7 @@ async function main() {
   await db.insert(teamMembers).values(
     leagueTeams.map((t, i) => ({
       teamId: t.id,
-      userId: leagueCaptains[i].id,
+      userId: leagueCaptainIds[i],
       role: "captain" as const,
       jerseyNumber: 1,
     })),
@@ -367,15 +427,12 @@ async function main() {
     .returning();
 
   // 12 captains + 12 teams, snake-drafted by seed into 3 pools.
-  const tCaptains = await db
-    .insert(users)
-    .values(
-      BEACH_PAIRS.map((pair, i) => ({
-        email: `beach.captain${i + 1}@example.com`,
-        displayName: pair[0],
-      })),
-    )
-    .returning();
+  const tCaptainIds = await createAuthUsers(
+    BEACH_PAIRS.map((pair, i) => ({
+      email: `beach.captain${i + 1}@example.com`,
+      displayName: pair[0],
+    })),
+  );
 
   // Snake draft: seed 1→A,2→B,3→C,4→C,5→B,6→A,7→A,8→B,9→C,10→C,11→B,12→A …
   const poolCount = poolRows.length;
@@ -394,7 +451,7 @@ async function main() {
         poolId: poolRows[snakePoolForSeed(i)].id,
         name: `${pair[0]}/${pair[1]}`,
         seed: i + 1,
-        captainUserId: tCaptains[i].id,
+        captainUserId: tCaptainIds[i],
       })),
     )
     .returning();
@@ -402,7 +459,7 @@ async function main() {
   await db.insert(teamMembers).values(
     tTeams.map((t, i) => ({
       teamId: t.id,
-      userId: tCaptains[i].id,
+      userId: tCaptainIds[i],
       role: "captain" as const,
     })),
   );
@@ -477,6 +534,12 @@ async function main() {
   `);
   console.log("Seed complete:");
   for (const row of counts) console.log(`  ${row.tbl}: ${row.n}`);
+  console.log(
+    `\nSeeded accounts are confirmed and can log in. Password: ${SEED_PASSWORD}`,
+  );
+  console.log("  owner:           mark@example.com");
+  console.log("  league captains: league.captain1..8@example.com");
+  console.log("  beach captains:  beach.captain1..12@example.com");
 }
 
 main()
