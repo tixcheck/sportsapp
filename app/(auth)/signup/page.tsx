@@ -23,9 +23,9 @@ export default function SignupPage() {
         <SignupForm />
       </CardContent>
       <CardFooter className="justify-center">
-        <p className="text-sm text-slate-600">
+        <p className="text-muted-foreground text-sm">
           Already have an account?{" "}
-          <Link href="/login" className="text-sky-600 hover:underline">
+          <Link href="/login" className="text-primary hover:underline">
             Sign in
           </Link>
         </p>

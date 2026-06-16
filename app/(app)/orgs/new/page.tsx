@@ -14,7 +14,7 @@ export default function NewOrgPage() {
     <div className="mx-auto max-w-lg">
       <Link
         href="/dashboard"
-        className="text-sm text-slate-500 hover:underline"
+        className="text-muted-foreground text-sm hover:underline"
       >
         ← Back to dashboard
       </Link>

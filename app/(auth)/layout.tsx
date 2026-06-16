@@ -6,13 +6,13 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-[#FAFAFA] px-4 py-12">
+    <div className="bg-background flex min-h-svh flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <Link
           href="/"
-          className="mb-8 flex items-center justify-center gap-2 text-lg font-semibold tracking-tight text-slate-900"
+          className="font-display text-foreground mb-8 flex items-center justify-center gap-2 text-lg font-semibold tracking-tight"
         >
-          <span className="grid size-7 place-items-center rounded-lg bg-sky-500 text-sm text-white">
+          <span className="bg-primary text-primary-foreground grid size-7 place-items-center rounded-lg text-sm">
             V
           </span>
           Volleyball

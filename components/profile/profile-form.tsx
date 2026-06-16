@@ -62,7 +62,7 @@ export function ProfileForm({
             <AvatarImage src={watched.avatarUrl || undefined} alt="" />
             <AvatarFallback className="text-base">{initials}</AvatarFallback>
           </Avatar>
-          <div className="text-sm text-slate-600">{email}</div>
+          <div className="text-muted-foreground text-sm">{email}</div>
         </div>
 
         <FormField

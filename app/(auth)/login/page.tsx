@@ -30,9 +30,9 @@ export default async function LoginPage({
         <LoginForm next={sp.next} />
       </CardContent>
       <CardFooter className="justify-center">
-        <p className="text-sm text-slate-600">
+        <p className="text-muted-foreground text-sm">
           New here?{" "}
-          <Link href="/signup" className="text-sky-600 hover:underline">
+          <Link href="/signup" className="text-primary hover:underline">
             Create an account
           </Link>
         </p>

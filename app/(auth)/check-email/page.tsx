@@ -19,9 +19,9 @@ export default function CheckEmailPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-slate-600">
+        <p className="text-muted-foreground text-sm">
           Didn&apos;t get it? Check your spam folder, or{" "}
-          <Link href="/signup" className="text-sky-600 hover:underline">
+          <Link href="/signup" className="text-primary hover:underline">
             try again
           </Link>
           .

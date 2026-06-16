@@ -16,10 +16,10 @@ export default async function DashboardPage() {
   if (orgs.length === 0) {
     return (
       <div className="mx-auto max-w-md py-16 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
           Welcome 👋
         </h1>
-        <p className="mt-2 text-slate-600">
+        <p className="text-muted-foreground mt-2">
           Create your organization to start running leagues and tournaments.
         </p>
         <Button asChild className="mt-6">
@@ -36,10 +36,10 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
             Your organizations
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-muted-foreground text-sm">
             Leagues and tournaments live inside an organization.
           </p>
         </div>

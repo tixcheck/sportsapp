@@ -10,7 +10,7 @@ export default async function AppLayout({
   await requireUser();
 
   return (
-    <div className="min-h-svh bg-[#FAFAFA]">
+    <div className="bg-background min-h-svh">
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
     </div>

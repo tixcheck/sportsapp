@@ -15,14 +15,14 @@ export async function Navbar() {
   const currentOrgId = cookieStore.get(CURRENT_ORG_COOKIE)?.value;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
+    <header className="border-border bg-card/80 sticky top-0 z-40 border-b backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 font-semibold tracking-tight text-slate-900"
+            className="font-display text-foreground flex items-center gap-2 font-semibold tracking-tight"
           >
-            <span className="grid size-6 place-items-center rounded-md bg-sky-500 text-xs text-white">
+            <span className="bg-primary text-primary-foreground grid size-6 place-items-center rounded-md text-xs">
               V
             </span>
             <span className="hidden sm:inline">Volleyball</span>

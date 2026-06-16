@@ -40,7 +40,7 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <p className="text-sm text-slate-600">
+      <p className="text-muted-foreground text-sm">
         If an account exists for that email, we&apos;ve sent a link to reset
         your password. Check your inbox.
       </p>

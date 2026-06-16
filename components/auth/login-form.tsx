@@ -64,7 +64,7 @@ export function LoginForm({ next }: { next?: string }) {
                 <FormLabel>Password</FormLabel>
                 <Link
                   href="/forgot-password"
-                  className="text-xs text-sky-600 hover:underline"
+                  className="text-primary text-xs hover:underline"
                 >
                   Forgot password?
                 </Link>

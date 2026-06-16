@@ -38,7 +38,7 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50"
+          className="focus-visible:ring-ring/50 rounded-full outline-none focus-visible:ring-2"
           aria-label="Account menu"
         >
           <Avatar className="size-8">
