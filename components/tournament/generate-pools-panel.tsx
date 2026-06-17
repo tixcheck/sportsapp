@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowDown,
@@ -23,6 +23,14 @@ import {
   suggestPoolStructure,
   validatePoolStructure,
 } from "@/lib/scheduler/pools";
+import {
+  addPlacementPool,
+  movePlacement,
+  placementFromPools,
+  removePlacementPool,
+  type MoveDest,
+  type Placement,
+} from "@/lib/scheduler/placement";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +48,7 @@ import { Label } from "@/components/ui/label";
 
 type Team = { id: string; name: string; seed: number | null };
 type DivisionTeams = { id: string; name: string; teams: Team[] };
+type Mode = "auto" | "manual";
 
 /** Sort by seed (seeded first), falling back to the given registration order. */
 function seedOrder(teams: Team[]): Team[] {
@@ -51,6 +60,11 @@ function seedOrder(teams: Team[]): Team[] {
 
 function shortDefaults(sizes: number[]): boolean[] {
   return sizes.map((s) => poolPlan(s).suggestedFormat !== null);
+}
+
+/** Whether a pool of `size` is suggested to run the short 15/11 format. */
+function suggestedShort(size: number): boolean {
+  return poolPlan(size).suggestedFormat !== null;
 }
 
 export function GeneratePoolsPanel({
@@ -82,12 +96,24 @@ export function GeneratePoolsPanel({
       ]),
     ),
   );
+  const [mode, setMode] = useState<Record<string, Mode>>(() =>
+    Object.fromEntries(divisions.map((d) => [d.id, "auto"])),
+  );
+  // Manual mode: live placement + per-pool format override (null = follow the
+  // size-based suggestion). `selected` drives tap-to-move.
+  const [placement, setPlacement] = useState<Record<string, Placement>>({});
+  const [override, setOverride] = useState<Record<string, (boolean | null)[]>>(
+    {},
+  );
+  const [selected, setSelected] = useState<{
+    divId: string;
+    teamId: string;
+  } | null>(null);
 
   // Re-sync when the team set changes on the server (team added/removed, or
-  // pools generated). A changed team count invalidates the chosen structure, so
-  // we reset it to the suggested default for the new count — making the common
-  // post-removal case a one-click accept-and-regenerate. Local reordering never
-  // triggers this (`divisions` only gets a new ref on a server re-render).
+  // pools generated). A changed count invalidates any chosen structure, so we
+  // reset to the suggested default for the new count and drop back to auto mode
+  // — making the post-removal case a one-click accept-and-regenerate.
   useEffect(() => {
     setOrders((prev) => {
       const next: Record<string, Team[]> = {};
@@ -111,10 +137,15 @@ export function GeneratePoolsPanel({
         Object.entries(suggested).map(([id, s]) => [id, shortDefaults(s)]),
       ),
     );
+    setMode(Object.fromEntries(divisions.map((d) => [d.id, "auto"])));
+    setPlacement({});
+    setOverride({});
+    setSelected(null);
   }, [divisions]);
 
   const totalTeams = divisions.reduce((n, d) => n + d.teams.length, 0);
 
+  // --- auto-mode editing ---
   function move(divId: string, index: number, dir: -1 | 1) {
     setOrders((prev) => {
       const list = [...prev[divId]];
@@ -124,12 +155,10 @@ export function GeneratePoolsPanel({
       return { ...prev, [divId]: list };
     });
   }
-
   function autoSeed(divId: string) {
     const d = divisions.find((x) => x.id === divId);
     if (d) setOrders((prev) => ({ ...prev, [divId]: [...d.teams] }));
   }
-
   function setSize(divId: string, i: number, delta: number) {
     setSizes((prev) => {
       const list = [...prev[divId]];
@@ -137,12 +166,10 @@ export function GeneratePoolsPanel({
       return { ...prev, [divId]: list };
     });
   }
-
   function addPool(divId: string) {
     setSizes((prev) => ({ ...prev, [divId]: [...prev[divId], 1] }));
     setShort((prev) => ({ ...prev, [divId]: [...prev[divId], false] }));
   }
-
   function removePool(divId: string, i: number) {
     setSizes((prev) => ({
       ...prev,
@@ -153,7 +180,6 @@ export function GeneratePoolsPanel({
       [divId]: prev[divId].filter((_, j) => j !== i),
     }));
   }
-
   function toggleShort(divId: string, i: number) {
     setShort((prev) => {
       const list = [...prev[divId]];
@@ -161,7 +187,6 @@ export function GeneratePoolsPanel({
       return { ...prev, [divId]: list };
     });
   }
-
   function resetStructure(divId: string) {
     const d = divisions.find((x) => x.id === divId);
     if (!d) return;
@@ -170,15 +195,92 @@ export function GeneratePoolsPanel({
     setShort((prev) => ({ ...prev, [divId]: shortDefaults(s) }));
   }
 
-  function generate() {
-    // Validate every non-empty division's structure first.
-    for (const d of divisions) {
-      if (d.teams.length === 0) continue;
-      const v = validatePoolStructure(sizes[d.id] ?? [], d.teams.length);
-      if (!v.ok) {
-        toast.error(`${d.name}: ${v.errors[0]}`);
-        return;
+  // --- mode switching ---
+  function enterManual(divId: string) {
+    const orderIds = (orders[divId] ?? []).map((t) => t.id);
+    const drafted = snakeDraftIntoSizes(orderIds, sizes[divId] ?? []);
+    setPlacement((prev) => ({ ...prev, [divId]: placementFromPools(drafted) }));
+    setOverride((prev) => ({ ...prev, [divId]: drafted.map(() => null) }));
+    setMode((prev) => ({ ...prev, [divId]: "manual" }));
+    setSelected(null);
+  }
+  function exitManual(divId: string) {
+    setMode((prev) => ({ ...prev, [divId]: "auto" }));
+    setSelected(null);
+  }
+
+  // --- manual placement editing ---
+  function applyMove(divId: string, teamId: string, dest: MoveDest) {
+    setPlacement((prev) => ({
+      ...prev,
+      [divId]: movePlacement(prev[divId], teamId, dest),
+    }));
+    setSelected(null);
+  }
+  function tapTarget(divId: string, dest: MoveDest) {
+    if (selected && selected.divId === divId)
+      applyMove(divId, selected.teamId, dest);
+  }
+  function addManualPool(divId: string) {
+    setPlacement((prev) => ({
+      ...prev,
+      [divId]: addPlacementPool(prev[divId]),
+    }));
+    setOverride((prev) => ({
+      ...prev,
+      [divId]: [...(prev[divId] ?? []), null],
+    }));
+  }
+  function removeManualPool(divId: string, i: number) {
+    setPlacement((prev) => ({
+      ...prev,
+      [divId]: removePlacementPool(prev[divId], i),
+    }));
+    setOverride((prev) => ({
+      ...prev,
+      [divId]: (prev[divId] ?? []).filter((_, j) => j !== i),
+    }));
+    setSelected(null);
+  }
+  function effShort(divId: string, i: number, size: number): boolean {
+    return override[divId]?.[i] ?? suggestedShort(size);
+  }
+  function toggleManualShort(divId: string, i: number, size: number) {
+    setOverride((prev) => {
+      const list = [...(prev[divId] ?? [])];
+      list[i] = !effShort(divId, i, size);
+      return { ...prev, [divId]: list };
+    });
+  }
+
+  /** A blocking reason for a division (null = ready), shown to the organizer. */
+  function divisionIssue(d: DivisionTeams): string | null {
+    if (d.teams.length === 0) return null;
+    if (mode[d.id] === "manual") {
+      const p = placement[d.id];
+      if (!p) return null;
+      if (p.unassigned.length > 0) {
+        return `${p.unassigned.length} team${p.unassigned.length > 1 ? "s" : ""} unassigned`;
       }
+      const v = validatePoolStructure(
+        p.pools.map((x) => x.length),
+        d.teams.length,
+      );
+      return v.ok ? null : v.errors[0];
+    }
+    const v = validatePoolStructure(sizes[d.id] ?? [], d.teams.length);
+    return v.ok ? null : v.errors[0];
+  }
+
+  const issues = divisions
+    .map((d) => ({ d, issue: divisionIssue(d) }))
+    .filter((x) => x.issue);
+  const blocked = issues.length > 0;
+
+  function generate() {
+    if (blocked) {
+      toast.error(`${issues[0].d.name}: ${issues[0].issue}`);
+      return;
     }
 
     const orderByDivision: Record<string, string[]> = {};
@@ -188,12 +290,24 @@ export function GeneratePoolsPanel({
     > = {};
     for (const d of divisions) {
       if (d.teams.length === 0) continue;
-      const orderIds = (orders[d.id] ?? []).map((t) => t.id);
-      orderByDivision[d.id] = orderIds;
-      const drafted = snakeDraftIntoSizes(orderIds, sizes[d.id] ?? []);
-      structureByDivision[d.id] = drafted.map((teamIds, i) => ({
+      orderByDivision[d.id] = (orders[d.id] ?? []).map((t) => t.id);
+      const pools =
+        mode[d.id] === "manual"
+          ? placement[d.id].pools
+          : snakeDraftIntoSizes(
+              (orders[d.id] ?? []).map((t) => t.id),
+              sizes[d.id] ?? [],
+            );
+      structureByDivision[d.id] = pools.map((teamIds, i) => ({
         teamIds,
-        matchFormat: short[d.id]?.[i] ? SHORT_POOL_FORMAT : null,
+        matchFormat:
+          mode[d.id] === "manual"
+            ? effShort(d.id, i, teamIds.length)
+              ? SHORT_POOL_FORMAT
+              : null
+            : short[d.id]?.[i]
+              ? SHORT_POOL_FORMAT
+              : null,
       }));
     }
 
@@ -227,14 +341,8 @@ export function GeneratePoolsPanel({
       {divisions.map((d) => {
         const list = orders[d.id] ?? [];
         if (list.length === 0) return null;
-        const nameById = new Map(list.map((t) => [t.id, t.name]));
-        const divSizes = sizes[d.id] ?? [];
-        const sum = divSizes.reduce((a, b) => a + b, 0);
-        const v = validatePoolStructure(divSizes, d.teams.length);
-        const preview = snakeDraftIntoSizes(
-          list.map((t) => t.id),
-          divSizes,
-        );
+        const nameById = new Map(d.teams.map((t) => [t.id, t.name]));
+        const isManual = mode[d.id] === "manual";
 
         return (
           <div key={d.id} className="space-y-4">
@@ -297,130 +405,50 @@ export function GeneratePoolsPanel({
 
             {/* Pool structure */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">
-                  Pool structure
-                  <span
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium">Pool structure</p>
+                <div className="border-border flex rounded-md border p-0.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => exitManual(d.id)}
                     className={cn(
-                      "ml-2 text-xs font-normal tabular-nums",
-                      sum === d.teams.length
-                        ? "text-muted-foreground"
-                        : "text-destructive",
+                      "rounded px-2 py-1",
+                      !isManual
+                        ? "bg-accent font-medium"
+                        : "text-muted-foreground",
                     )}
                   >
-                    {sum} of {d.teams.length} teams
-                  </span>
-                </p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => resetStructure(d.id)}
-                >
-                  <RotateCcw />
-                  Reset to suggested
-                </Button>
+                    Auto draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => enterManual(d.id)}
+                    className={cn(
+                      "rounded px-2 py-1",
+                      isManual
+                        ? "bg-accent font-medium"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    Manual
+                  </button>
+                </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {divSizes.map((size, i) => {
-                  const plan = poolPlan(size);
-                  return (
-                    <div
-                      key={i}
-                      className="border-border bg-surface rounded-lg border p-3"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-display text-sm font-semibold">
-                          Pool {poolName(i)}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => removePool(d.id, i)}
-                          aria-label="Remove pool"
-                          disabled={divSizes.length <= 1}
-                        >
-                          <Minus />
-                        </Button>
-                      </div>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => setSize(d.id, i, -1)}
-                          aria-label="Fewer teams"
-                        >
-                          <Minus />
-                        </Button>
-                        <span className="w-6 text-center text-sm tabular-nums">
-                          {size}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => setSize(d.id, i, 1)}
-                          aria-label="More teams"
-                        >
-                          <Plus />
-                        </Button>
-                        <span className="text-muted-foreground text-xs">
-                          {plan.roundsPerTeam === 2
-                            ? "double RR"
-                            : "round-robin"}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleShort(d.id, i)}
-                        className={cn(
-                          "mt-2 w-full rounded-md border px-2 py-1 text-xs transition-colors",
-                          short[d.id]?.[i]
-                            ? "border-primary bg-accent"
-                            : "border-border bg-surface hover:bg-muted",
-                        )}
-                      >
-                        {short[d.id]?.[i]
-                          ? "Format: sets to 15 / tiebreak 11"
-                          : "Format: competition standard"}
-                      </button>
-
-                      <ol className="mt-2 space-y-0.5">
-                        {(preview[i] ?? []).map((id) => (
-                          <li key={id} className="truncate text-xs">
-                            {nameById.get(id) ?? "—"}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  );
-                })}
-
-                <button
-                  type="button"
-                  onClick={() => addPool(d.id)}
-                  className="border-border text-muted-foreground hover:bg-muted flex min-h-20 items-center justify-center gap-1 rounded-lg border border-dashed text-sm"
-                >
-                  <Plus className="size-4" />
-                  Add pool
-                </button>
-              </div>
-
-              {v.warnings.length > 0 && (
-                <p className="flex items-center gap-1.5 text-xs text-amber-700">
-                  <TriangleAlert className="size-3.5" />
-                  {v.warnings[0]}
-                </p>
-              )}
+              {isManual && placement[d.id]
+                ? renderManual(d, nameById)
+                : renderAuto(d, nameById)}
             </div>
           </div>
         );
       })}
+
+      {blocked && (
+        <p className="text-destructive flex items-center gap-1.5 text-sm">
+          <TriangleAlert className="size-4" />
+          Can&apos;t draw yet — {issues[0].d.name}: {issues[0].issue}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1.5">
@@ -437,7 +465,7 @@ export function GeneratePoolsPanel({
         {hasPools ? (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" disabled={blocked}>
                 <Sparkles />
                 Regenerate pools
               </Button>
@@ -468,7 +496,7 @@ export function GeneratePoolsPanel({
             </DialogContent>
           </Dialog>
         ) : (
-          <Button onClick={generate} disabled={pending}>
+          <Button onClick={generate} disabled={pending || blocked}>
             <Sparkles />
             {pending ? "Generating…" : "Generate pools"}
           </Button>
@@ -476,4 +504,287 @@ export function GeneratePoolsPanel({
       </div>
     </div>
   );
+
+  // --- renderers (closures over state/handlers) ---
+
+  function renderAuto(d: DivisionTeams, nameById: Map<string, string>) {
+    const divSizes = sizes[d.id] ?? [];
+    const sum = divSizes.reduce((a, b) => a + b, 0);
+    const v = validatePoolStructure(divSizes, d.teams.length);
+    const preview = snakeDraftIntoSizes(
+      (orders[d.id] ?? []).map((t) => t.id),
+      divSizes,
+    );
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span
+            className={cn(
+              "text-xs tabular-nums",
+              sum === d.teams.length
+                ? "text-muted-foreground"
+                : "text-destructive",
+            )}
+          >
+            {sum} of {d.teams.length} teams
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => resetStructure(d.id)}
+          >
+            <RotateCcw />
+            Reset to suggested
+          </Button>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {divSizes.map((size, i) => {
+            const plan = poolPlan(size);
+            return (
+              <div
+                key={i}
+                className="border-border bg-surface rounded-lg border p-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-sm font-semibold">
+                    Pool {poolName(i)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removePool(d.id, i)}
+                    aria-label="Remove pool"
+                    disabled={divSizes.length <= 1}
+                  >
+                    <Minus />
+                  </Button>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setSize(d.id, i, -1)}
+                    aria-label="Fewer teams"
+                  >
+                    <Minus />
+                  </Button>
+                  <span className="w-6 text-center text-sm tabular-nums">
+                    {size}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    onClick={() => setSize(d.id, i, 1)}
+                    aria-label="More teams"
+                  >
+                    <Plus />
+                  </Button>
+                  <span className="text-muted-foreground text-xs">
+                    {plan.roundsPerTeam === 2 ? "double RR" : "round-robin"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleShort(d.id, i)}
+                  className={cn(
+                    "mt-2 w-full rounded-md border px-2 py-1 text-xs transition-colors",
+                    short[d.id]?.[i]
+                      ? "border-primary bg-accent"
+                      : "border-border bg-surface hover:bg-muted",
+                  )}
+                >
+                  {short[d.id]?.[i]
+                    ? "Format: sets to 15 / tiebreak 11"
+                    : "Format: competition standard"}
+                </button>
+                <ol className="mt-2 space-y-0.5">
+                  {(preview[i] ?? []).map((id) => (
+                    <li key={id} className="truncate text-xs">
+                      {nameById.get(id) ?? "—"}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => addPool(d.id)}
+            className="border-border text-muted-foreground hover:bg-muted flex min-h-20 items-center justify-center gap-1 rounded-lg border border-dashed text-sm"
+          >
+            <Plus className="size-4" />
+            Add pool
+          </button>
+        </div>
+
+        {v.warnings.length > 0 && (
+          <p className="flex items-center gap-1.5 text-xs text-amber-700">
+            <TriangleAlert className="size-3.5" />
+            {v.warnings[0]}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  function renderManual(d: DivisionTeams, nameById: Map<string, string>) {
+    const p = placement[d.id];
+    const v = validatePoolStructure(
+      p.pools.map((x) => x.length),
+      d.teams.length,
+    );
+    const sel = selected?.divId === d.id ? selected.teamId : null;
+
+    const chip = (teamId: string) => (
+      <button
+        key={teamId}
+        type="button"
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", teamId);
+          setSelected({ divId: d.id, teamId });
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelected(sel === teamId ? null : { divId: d.id, teamId });
+        }}
+        className={cn(
+          "flex min-h-11 w-full items-center rounded-md border px-2 text-left text-xs transition-colors sm:min-h-9",
+          sel === teamId
+            ? "border-primary bg-accent ring-primary ring-2"
+            : "border-border bg-surface hover:bg-muted",
+        )}
+      >
+        {nameById.get(teamId) ?? "—"}
+      </button>
+    );
+
+    const dropProps = (dest: MoveDest) => ({
+      onDragOver: (e: DragEvent) => e.preventDefault(),
+      onDrop: (e: DragEvent) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData("text/plain");
+        if (id) applyMove(d.id, id, dest);
+      },
+      onClick: () => tapTarget(d.id, dest),
+    });
+
+    return (
+      <div className="space-y-2">
+        <p className="text-muted-foreground text-xs">
+          {sel
+            ? `Moving ${nameById.get(sel)} — tap a pool or the bin to drop it.`
+            : "Tap a team, then tap a pool to move it (or drag on desktop)."}
+        </p>
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {p.pools.map((teamIds, i) => (
+            <div
+              key={i}
+              {...dropProps(i)}
+              className={cn(
+                "rounded-lg border p-3 transition-colors",
+                sel
+                  ? "border-primary/60 bg-accent/40 cursor-pointer"
+                  : "border-border bg-surface",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-display text-sm font-semibold">
+                  Pool {poolName(i)}
+                  <span className="text-muted-foreground ml-1 text-xs font-normal tabular-nums">
+                    ({teamIds.length})
+                  </span>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeManualPool(d.id, i);
+                  }}
+                  aria-label="Remove pool"
+                  disabled={p.pools.length <= 1}
+                >
+                  <Minus />
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleManualShort(d.id, i, teamIds.length);
+                }}
+                className={cn(
+                  "mt-2 w-full rounded-md border px-2 py-1 text-xs transition-colors",
+                  effShort(d.id, i, teamIds.length)
+                    ? "border-primary bg-accent"
+                    : "border-border bg-surface hover:bg-muted",
+                )}
+              >
+                {effShort(d.id, i, teamIds.length)
+                  ? "Format: sets to 15 / tiebreak 11"
+                  : "Format: competition standard"}
+              </button>
+              <div className="mt-2 space-y-1">
+                {teamIds.length === 0 ? (
+                  <p className="text-muted-foreground py-2 text-center text-xs">
+                    Empty — drop a team here
+                  </p>
+                ) : (
+                  teamIds.map((id) => chip(id))
+                )}
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => addManualPool(d.id)}
+            className="border-border text-muted-foreground hover:bg-muted flex min-h-20 items-center justify-center gap-1 rounded-lg border border-dashed text-sm"
+          >
+            <Plus className="size-4" />
+            Add pool
+          </button>
+        </div>
+
+        {/* Unassigned bin */}
+        <div
+          {...dropProps("unassigned")}
+          className={cn(
+            "rounded-lg border border-dashed p-3 transition-colors",
+            sel
+              ? "border-primary/60 bg-accent/40 cursor-pointer"
+              : "border-border",
+            p.unassigned.length > 0 && "border-destructive/50",
+          )}
+        >
+          <p className="text-xs font-medium">
+            Unassigned
+            <span className="text-muted-foreground ml-1 font-normal tabular-nums">
+              ({p.unassigned.length})
+            </span>
+          </p>
+          {p.unassigned.length > 0 && (
+            <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {p.unassigned.map((id) => chip(id))}
+            </div>
+          )}
+        </div>
+
+        {v.warnings.length > 0 && p.unassigned.length === 0 && (
+          <p className="flex items-center gap-1.5 text-xs text-amber-700">
+            <TriangleAlert className="size-3.5" />
+            {v.warnings[0]}
+          </p>
+        )}
+      </div>
+    );
+  }
 }
