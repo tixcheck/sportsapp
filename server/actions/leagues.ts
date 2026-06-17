@@ -251,3 +251,40 @@ export async function generateLeagueScheduleAction(
   revalidatePath(`/orgs`);
   return { matchCount: rows.length };
 }
+
+/** Publish: draft → open + public, making the /l/[slug] page live. */
+export async function publishLeagueAction(
+  competitionId: string,
+): Promise<ActionError | { status: "open" }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("competitions")
+    .update({ status: "open", visibility: "public" })
+    .eq("id", competitionId)
+    .select("slug")
+    .single();
+  if (error || !data) return { error: error?.message ?? "Could not publish." };
+
+  revalidatePath(`/l/${data.slug}`);
+  revalidatePath(`/orgs`);
+  return { status: "open" };
+}
+
+/** Unpublish: back to draft + private, taking the public page offline. */
+export async function unpublishLeagueAction(
+  competitionId: string,
+): Promise<ActionError | { status: "draft" }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("competitions")
+    .update({ status: "draft", visibility: "private" })
+    .eq("id", competitionId)
+    .select("slug")
+    .single();
+  if (error || !data)
+    return { error: error?.message ?? "Could not unpublish." };
+
+  revalidatePath(`/l/${data.slug}`);
+  revalidatePath(`/orgs`);
+  return { status: "draft" };
+}

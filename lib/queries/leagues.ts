@@ -34,8 +34,34 @@ export interface LeagueDetail {
   startDate: string | null;
   endDate: string | null;
   venue: string | null;
+  timezone: string;
   teams: LeagueTeam[];
   matchCount: number;
+}
+
+export interface ScheduleMatch {
+  id: string;
+  round: number | null;
+  scheduledAt: string | null;
+  court: string | null;
+  status: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  homeTeamName: string;
+  awayTeamName: string;
+}
+
+export interface PublicLeague {
+  id: string;
+  name: string;
+  slug: string;
+  sport: Sport;
+  venue: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  timezone: string;
+  teams: { id: string; name: string }[];
+  schedule: ScheduleMatch[];
 }
 
 /** The org if the current user can see it (RLS), else null. */
@@ -68,7 +94,7 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone",
     )
     .eq("id", leagueId)
     .eq("type", "league")
@@ -116,6 +142,7 @@ export async function getLeagueDetail(
     startDate: league.start_date,
     endDate: league.end_date,
     venue: league.venue,
+    timezone: league.timezone,
     teams: (teams ?? []).map((t) => ({
       id: t.id,
       name: t.name,
@@ -123,5 +150,85 @@ export async function getLeagueDetail(
       invite: inviteByTeam.get(t.id) ?? null,
     })),
     matchCount: count ?? 0,
+  };
+}
+
+async function loadSchedule(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  leagueId: string,
+): Promise<ScheduleMatch[]> {
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name")
+    .eq("competition_id", leagueId);
+  const nameById = new Map(
+    (teams ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+
+  const { data: matches } = await supabase
+    .from("matches")
+    .select(
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id",
+    )
+    .eq("competition_id", leagueId)
+    .order("scheduled_at", { ascending: true })
+    .order("round", { ascending: true });
+
+  return (matches ?? []).map((m) => ({
+    id: m.id,
+    round: m.round,
+    scheduledAt: m.scheduled_at,
+    court: m.court,
+    status: m.status,
+    homeTeamId: m.home_team_id,
+    awayTeamId: m.away_team_id,
+    homeTeamName: m.home_team_id
+      ? (nameById.get(m.home_team_id) ?? "TBD")
+      : "TBD",
+    awayTeamName: m.away_team_id
+      ? (nameById.get(m.away_team_id) ?? "TBD")
+      : "TBD",
+  }));
+}
+
+export async function getLeagueSchedule(
+  leagueId: string,
+): Promise<ScheduleMatch[]> {
+  const supabase = await createClient();
+  return loadSchedule(supabase, leagueId);
+}
+
+/** Public (RLS-gated) league view by slug. Returns null unless published. */
+export async function getPublicLeague(
+  slug: string,
+): Promise<PublicLeague | null> {
+  const supabase = await createClient();
+  const { data: league } = await supabase
+    .from("competitions")
+    .select("id, name, slug, sport, venue, start_date, end_date, timezone")
+    .eq("slug", slug)
+    .eq("type", "league")
+    .single();
+  if (!league) return null; // not found, or private (RLS hides drafts)
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name")
+    .eq("competition_id", league.id)
+    .order("name", { ascending: true });
+
+  const schedule = await loadSchedule(supabase, league.id);
+
+  return {
+    id: league.id,
+    name: league.name,
+    slug: league.slug,
+    sport: league.sport as Sport,
+    venue: league.venue,
+    startDate: league.start_date,
+    endDate: league.end_date,
+    timezone: league.timezone,
+    teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
+    schedule,
   };
 }

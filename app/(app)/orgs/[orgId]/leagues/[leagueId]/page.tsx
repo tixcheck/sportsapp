@@ -2,13 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
 
-import { getLeagueDetail } from "@/lib/queries/leagues";
+import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
 import { cn } from "@/lib/utils";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { CopyButton } from "@/components/league/copy-button";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
+import { PublishToggle } from "@/components/league/publish-toggle";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   Card,
   CardContent,
@@ -25,7 +27,10 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const origin = await getOrigin();
+  const [origin, schedule] = await Promise.all([
+    getOrigin(),
+    getLeagueSchedule(leagueId),
+  ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
 
@@ -38,13 +43,20 @@ export default async function LeaguePage({
         >
           ← Back to leagues
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
-            {league.name}
-          </h1>
-          <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
-            {league.status}
-          </span>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
+              {league.name}
+            </h1>
+            <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
+              {league.status}
+            </span>
+          </div>
+          <PublishToggle
+            competitionId={league.id}
+            status={league.status}
+            slug={league.slug}
+          />
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <span>{sportLabel}</span>
@@ -79,13 +91,21 @@ export default async function LeaguePage({
             hasSchedule={league.matchCount > 0}
           />
         </CardHeader>
-        {league.teams.length < 2 && (
+        {league.teams.length < 2 ? (
           <CardContent>
             <p className="text-muted-foreground text-sm">
               Add at least 2 teams to generate a round-robin schedule.
             </p>
           </CardContent>
-        )}
+        ) : schedule.length > 0 ? (
+          <CardContent>
+            <ScheduleView
+              matches={schedule}
+              timezone={league.timezone}
+              editable
+            />
+          </CardContent>
+        ) : null}
       </Card>
 
       {/* Teams */}
