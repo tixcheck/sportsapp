@@ -83,8 +83,21 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
   ],
 };
 
+/** Players on court per sport — the expected roster-email count at registration. */
+export const ROSTER_SIZE: Record<Sport, number> = {
+  indoor6: 6,
+  beach2: 2,
+  coed4: 4,
+};
+
 export function defaultPreset(sport: Sport): FormatPreset {
   return FORMAT_PRESETS[sport][0];
+}
+
+/** Tournament pool default — the pool variant where one exists, else the default. */
+export function defaultPoolPreset(sport: Sport): FormatPreset {
+  const presets = FORMAT_PRESETS[sport];
+  return presets.find((p) => p.id.includes("pool")) ?? presets[0];
 }
 
 export function findPreset(sport: Sport, id: string): FormatPreset {

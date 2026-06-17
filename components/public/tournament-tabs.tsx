@@ -1,0 +1,91 @@
+"use client";
+
+import type { PublicTournament } from "@/lib/queries/tournaments";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function Placeholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
+      {children}
+    </div>
+  );
+}
+
+export function TournamentTabs({
+  tournament,
+}: {
+  tournament: PublicTournament;
+}) {
+  const divisions = tournament.divisions.length
+    ? tournament.divisions
+    : [{ id: "__none", name: "Teams", tierOrder: 0 }];
+
+  return (
+    <Tabs defaultValue="teams">
+      <TabsList>
+        <TabsTrigger value="pools">Pools</TabsTrigger>
+        <TabsTrigger value="schedule">Schedule</TabsTrigger>
+        <TabsTrigger value="brackets">Brackets</TabsTrigger>
+        <TabsTrigger value="teams">Teams</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="pools" className="mt-6">
+        <Placeholder>
+          Pools will appear here once the organizer draws them.
+        </Placeholder>
+      </TabsContent>
+
+      <TabsContent value="schedule" className="mt-6">
+        <Placeholder>
+          The pool schedule will appear once pools are drawn.
+        </Placeholder>
+      </TabsContent>
+
+      <TabsContent value="brackets" className="mt-6">
+        <Placeholder>
+          The single-elimination bracket appears after pool play.
+        </Placeholder>
+      </TabsContent>
+
+      <TabsContent value="teams" className="mt-6 space-y-6">
+        {tournament.teams.length === 0 ? (
+          <Placeholder>No teams registered yet. Be the first!</Placeholder>
+        ) : (
+          divisions.map((d) => {
+            const teams = tournament.teams.filter((t) =>
+              d.id === "__none" ? true : t.divisionId === d.id,
+            );
+            if (teams.length === 0) return null;
+            return (
+              <section key={d.id} className="space-y-3">
+                {tournament.divisions.length > 1 && (
+                  <h3 className="font-display font-semibold">{d.name}</h3>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {teams.map((t) => (
+                    <div
+                      key={t.id}
+                      className="border-border bg-surface flex items-center gap-3 rounded-lg border p-4"
+                    >
+                      <span className="bg-accent text-accent-foreground grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold">
+                        {initials(t.name)}
+                      </span>
+                      <span className="truncate font-medium">{t.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })
+        )}
+      </TabsContent>
+    </Tabs>
+  );
+}

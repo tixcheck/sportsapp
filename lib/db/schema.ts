@@ -461,3 +461,28 @@ export const teamInvites = pgTable(
   },
   (t) => [index("team_invites_team_id_idx").on(t.teamId)],
 );
+
+// ---------------------------------------------------------------------------
+// Team registrations (Phase 5) — captured when a team self-registers for a
+// tournament. Holds contact details + the roster emails. Admin-only over RLS
+// so player emails are never exposed by the public teams read.
+// ---------------------------------------------------------------------------
+
+export const teamRegistrations = pgTable(
+  "team_registrations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    contactEmail: text("contact_email").notNull(),
+    playerEmails: jsonb("player_emails").$type<string[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("team_registrations_competition_id_idx").on(t.competitionId)],
+);

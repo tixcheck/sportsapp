@@ -2,7 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plus } from "lucide-react";
 
-import { getOrg, getOrgLeagues } from "@/lib/queries/leagues";
+import {
+  getOrg,
+  getOrgLeagues,
+  type LeagueSummary,
+} from "@/lib/queries/leagues";
+import {
+  getOrgTournaments,
+  type TournamentSummary,
+} from "@/lib/queries/tournaments";
 import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,48 +28,81 @@ export default async function OrgPage({
   const { orgId } = await params;
   const org = await getOrg(orgId);
   if (!org) notFound();
-  const leagues = await getOrgLeagues(orgId);
+  const [leagues, tournaments] = await Promise.all([
+    getOrgLeagues(orgId),
+    getOrgTournaments(orgId),
+  ]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
+      <div>
+        <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
+          {org.name}
+        </h1>
+      </div>
+
+      <Section
+        title="Leagues"
+        newHref={`/orgs/${orgId}/leagues/new`}
+        newLabel="New league"
+        emptyText="No leagues yet. Create one to add teams and generate a schedule."
+        items={leagues}
+        hrefFor={(c) => `/orgs/${orgId}/leagues/${c.id}`}
+      />
+
+      <Section
+        title="Tournaments"
+        newHref={`/orgs/${orgId}/tournaments/new`}
+        newLabel="New tournament"
+        emptyText="No tournaments yet. Create one and open registration."
+        items={tournaments}
+        hrefFor={(c) => `/orgs/${orgId}/tournaments/${c.id}`}
+      />
+    </div>
+  );
+}
+
+function Section({
+  title,
+  newHref,
+  newLabel,
+  emptyText,
+  items,
+  hrefFor,
+}: {
+  title: string;
+  newHref: string;
+  newLabel: string;
+  emptyText: string;
+  items: (LeagueSummary | TournamentSummary)[];
+  hrefFor: (c: LeagueSummary | TournamentSummary) => string;
+}) {
+  return (
+    <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
-            {org.name}
-          </h1>
-          <p className="text-muted-foreground text-sm">Leagues</p>
-        </div>
-        <Button asChild>
-          <Link href={`/orgs/${orgId}/leagues/new`}>
+        <h2 className="font-display text-lg font-semibold">{title}</h2>
+        <Button asChild variant="outline" size="sm">
+          <Link href={newHref}>
             <Plus />
-            New league
+            {newLabel}
           </Link>
         </Button>
       </div>
 
-      {leagues.length === 0 ? (
-        <div className="border-border bg-surface rounded-lg border p-10 text-center">
-          <p className="text-muted-foreground">
-            No leagues yet. Create your first one to add teams and generate a
-            schedule.
-          </p>
-          <Button asChild className="mt-4">
-            <Link href={`/orgs/${orgId}/leagues/new`}>
-              <Plus />
-              New league
-            </Link>
-          </Button>
+      {items.length === 0 ? (
+        <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
+          {emptyText}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {leagues.map((l) => (
-            <Link key={l.id} href={`/orgs/${orgId}/leagues/${l.id}`}>
+          {items.map((c) => (
+            <Link key={c.id} href={hrefFor(c)}>
               <Card className="hover:border-primary/40 h-full transition-colors">
                 <CardHeader>
-                  <CardTitle className="truncate">{l.name}</CardTitle>
+                  <CardTitle className="truncate">{c.name}</CardTitle>
                   <CardDescription>
-                    {SPORTS.find((s) => s.value === l.sport)?.label} ·{" "}
-                    <span className="capitalize">{l.status}</span>
+                    {SPORTS.find((s) => s.value === c.sport)?.label} ·{" "}
+                    <span className="capitalize">{c.status}</span>
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -69,6 +110,6 @@ export default async function OrgPage({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
