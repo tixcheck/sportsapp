@@ -67,6 +67,8 @@ export const orgMemberRole = pgEnum("org_member_role", [
 
 export const teamMemberRole = pgEnum("team_member_role", ["captain", "player"]);
 
+export const teamStatus = pgEnum("team_status", ["active", "withdrawn"]);
+
 export const competitionType = pgEnum("competition_type", [
   "league",
   "tournament",
@@ -178,6 +180,17 @@ export const competitions = pgTable(
     visibility: competitionVisibility("visibility")
       .notNull()
       .default("private"),
+    // Scoring authority (Phase 6) — who may enter a score; organizers/admins
+    // can always enter regardless of these flags. require_confirmation gates
+    // whether a submitted score needs a second party before it's final.
+    allowCaptainEntry: boolean("allow_captain_entry").notNull().default(false),
+    allowRefEntry: boolean("allow_ref_entry").notNull().default(false),
+    allowOrganizerEntry: boolean("allow_organizer_entry")
+      .notNull()
+      .default(true),
+    requireConfirmation: boolean("require_confirmation")
+      .notNull()
+      .default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -240,6 +253,9 @@ export const pools = pgTable(
     }),
     name: text("name").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
+    // Per-pool format override (e.g. a short pool runs to 15/11); null = use the
+    // competition's standard match_format. Resolved via resolveMatchFormat().
+    matchFormat: jsonb("match_format").$type<MatchFormat>(),
   },
   (t) => [index("pools_competition_id_idx").on(t.competitionId)],
 );
@@ -259,6 +275,9 @@ export const teams = pgTable(
     }),
     name: text("name").notNull(),
     seed: integer("seed"),
+    // 'withdrawn' teams stay visible (history/standings stay coherent); the
+    // organizer handles their matches manually via normal score entry.
+    status: teamStatus("status").notNull().default("active"),
     // Null until a captain claims the team via invite (flow F1).
     captainUserId: uuid("captain_user_id").references(() => users.id, {
       onDelete: "set null",

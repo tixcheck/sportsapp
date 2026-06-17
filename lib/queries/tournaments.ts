@@ -23,6 +23,7 @@ export interface TournamentTeam {
   name: string;
   divisionId: string | null;
   seed: number | null;
+  status: "active" | "withdrawn";
   captainUserId: string | null;
   invite: { token: string; email: string } | null;
 }
@@ -40,6 +41,12 @@ export interface TournamentDetail {
   timezone: string;
   poolSize: number;
   registrationDeadline: string | null;
+  scoring: {
+    allowCaptainEntry: boolean;
+    allowRefEntry: boolean;
+    allowOrganizerEntry: boolean;
+    requireConfirmation: boolean;
+  };
   divisions: Division[];
   teams: TournamentTeam[];
 }
@@ -96,7 +103,7 @@ export async function getTournamentDetail(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", tournamentId)
     .eq("type", "tournament")
@@ -113,7 +120,7 @@ export async function getTournamentDetail(
 
   const { data: teams } = await supabase
     .from("teams")
-    .select("id, name, division_id, seed, captain_user_id")
+    .select("id, name, division_id, seed, status, captain_user_id")
     .eq("competition_id", tournamentId)
     .order("created_at", { ascending: true });
 
@@ -145,12 +152,19 @@ export async function getTournamentDetail(
     timezone: t.timezone,
     poolSize: settings?.pool_size ?? 4,
     registrationDeadline: settings?.registration_deadline ?? null,
+    scoring: {
+      allowCaptainEntry: t.allow_captain_entry,
+      allowRefEntry: t.allow_ref_entry,
+      allowOrganizerEntry: t.allow_organizer_entry,
+      requireConfirmation: t.require_confirmation,
+    },
     divisions,
     teams: (teams ?? []).map((tm) => ({
       id: tm.id,
       name: tm.name,
       divisionId: tm.division_id,
       seed: tm.seed,
+      status: tm.status as "active" | "withdrawn",
       captainUserId: tm.captain_user_id,
       invite: inviteByTeam.get(tm.id) ?? null,
     })),

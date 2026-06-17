@@ -6,13 +6,13 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
-import { cn } from "@/lib/utils";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
-import { CopyButton } from "@/components/league/copy-button";
+import { TeamManagementList } from "@/components/team/team-management-list";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import {
   Card,
   CardContent,
@@ -99,8 +99,8 @@ export default async function TournamentPage({
         <CardHeader>
           <CardTitle>Pools</CardTitle>
           <CardDescription>
-            Seed teams, then draw pools ({t.poolSize} teams per pool, snake
-            draft by seed).
+            Seed teams, choose the pool structure, then draw — auto snake-drafts
+            by seed (short pools play a double round-robin).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -155,49 +155,33 @@ export default async function TournamentPage({
         <CardContent className="space-y-4">
           <AddTournamentTeamForm competitionId={t.id} divisions={t.divisions} />
 
-          {t.teams.length > 0 && (
-            <ul className="divide-border divide-y">
-              {t.teams.map((team) => {
-                const claimUrl = team.invite
-                  ? `${origin}/claim/${team.invite.token}`
-                  : null;
-                return (
-                  <li
-                    key={team.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3"
-                  >
-                    <div>
-                      <span className="font-medium">{team.name}</span>
-                      {team.divisionId && t.divisions.length > 1 && (
-                        <span className="text-muted-foreground ml-2 text-xs">
-                          {divisionName.get(team.divisionId)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                          team.captainUserId
-                            ? "bg-accent text-accent-foreground"
-                            : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {team.captainUserId
-                          ? "Captain joined"
-                          : team.invite
-                            ? `Invite pending · ${team.invite.email}`
-                            : "No captain"}
-                      </span>
-                      {claimUrl && (
-                        <CopyButton value={claimUrl} label="Copy invite link" />
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <TeamManagementList
+            origin={origin}
+            teams={t.teams.map((team) => ({
+              id: team.id,
+              name: team.name,
+              divisionName:
+                team.divisionId && t.divisions.length > 1
+                  ? (divisionName.get(team.divisionId) ?? null)
+                  : null,
+              status: team.status,
+              claimed: !!team.captainUserId,
+              invite: team.invite,
+            }))}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Scoring */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Scoring</CardTitle>
+          <CardDescription>
+            Who can enter scores, and whether they need confirming.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScoringSettingsCard competitionId={t.id} initial={t.scoring} />
         </CardContent>
       </Card>
     </div>

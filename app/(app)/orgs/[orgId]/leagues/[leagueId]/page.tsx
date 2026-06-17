@@ -5,12 +5,12 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
-import { cn } from "@/lib/utils";
 import { AddTeamForm } from "@/components/league/add-team-form";
-import { CopyButton } from "@/components/league/copy-button";
+import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import {
   Card,
   CardContent,
@@ -120,63 +120,36 @@ export default async function LeaguePage({
         <CardContent className="space-y-4">
           <AddTeamForm competitionId={league.id} />
 
-          {league.teams.length > 0 && (
-            <ul className="divide-border divide-y">
-              {league.teams.map((t) => {
-                const claimUrl = t.invite
-                  ? `${origin}/claim/${t.invite.token}`
-                  : null;
-                return (
-                  <li
-                    key={t.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3"
-                  >
-                    <span className="font-medium">{t.name}</span>
-                    <div className="flex items-center gap-3">
-                      <StatusTag
-                        claimed={!!t.captain_user_id}
-                        pending={!!t.invite}
-                        email={t.invite?.email}
-                      />
-                      {claimUrl && (
-                        <CopyButton value={claimUrl} label="Copy invite link" />
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <TeamManagementList
+            origin={origin}
+            teams={league.teams.map((t) => ({
+              id: t.id,
+              name: t.name,
+              status: t.status,
+              claimed: !!t.captain_user_id,
+              invite: t.invite
+                ? { token: t.invite.token, email: t.invite.email }
+                : null,
+            }))}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Scoring */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Scoring</CardTitle>
+          <CardDescription>
+            Who can enter scores, and whether they need confirming.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScoringSettingsCard
+            competitionId={league.id}
+            initial={league.scoring}
+          />
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function StatusTag({
-  claimed,
-  pending,
-  email,
-}: {
-  claimed: boolean;
-  pending: boolean;
-  email?: string;
-}) {
-  const text = claimed
-    ? "Captain joined"
-    : pending
-      ? `Invite pending · ${email}`
-      : "No captain";
-  return (
-    <span
-      className={cn(
-        "rounded-full px-2.5 py-0.5 text-xs font-medium",
-        claimed
-          ? "bg-accent text-accent-foreground"
-          : "bg-muted text-muted-foreground",
-      )}
-    >
-      {text}
-    </span>
   );
 }

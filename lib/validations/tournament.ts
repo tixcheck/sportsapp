@@ -21,6 +21,10 @@ export const createTournamentSchema = z
         z.object({ name: z.string().trim().min(1, "Name required.").max(40) }),
       )
       .min(1, "Add at least one division."),
+    allowCaptainEntry: z.boolean(),
+    allowRefEntry: z.boolean(),
+    allowOrganizerEntry: z.boolean(),
+    requireConfirmation: z.boolean(),
   })
   .refine((v) => v.endDate >= v.startDate, {
     message: "End date must be on or after the start date.",

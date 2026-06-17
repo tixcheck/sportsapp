@@ -7,6 +7,7 @@ const PROTECTED_PREFIXES = [
   "/orgs",
   "/profile",
   "/my-matches",
+  "/matches",
   "/claim",
 ];
 

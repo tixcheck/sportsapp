@@ -21,15 +21,17 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScoringFields } from "@/components/scoring/scoring-fields";
 
 const STEP_FIELDS: (keyof CreateLeagueInput)[][] = [
   ["sport"],
   ["name", "startDate", "endDate", "venue", "courts", "roundsPerTeam"],
   ["slotDayOfWeek", "slotStartTime"],
   ["formatId"],
+  [],
 ];
 
-const STEP_TITLES = ["Sport", "Details", "Schedule", "Format"];
+const STEP_TITLES = ["Sport", "Details", "Schedule", "Format", "Scoring"];
 
 export function LeagueWizard({ orgId }: { orgId: string }) {
   const [step, setStep] = useState(0);
@@ -50,6 +52,10 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
       slotStartTime: "19:00",
       formatId: defaultPreset("indoor6").id,
       blackoutDates: [],
+      allowCaptainEntry: false,
+      allowRefEntry: false,
+      allowOrganizerEntry: true,
+      requireConfirmation: false,
     },
   });
   const { register, watch, setValue, trigger, handleSubmit, formState } = form;
@@ -249,6 +255,29 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
               })}
             </div>
             <Review form={watch()} />
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="grid gap-3">
+            <p className="text-muted-foreground text-sm">
+              Choose who can enter match scores and whether a second party must
+              confirm. You can change this later.
+            </p>
+            <ScoringFields
+              value={{
+                allowCaptainEntry: watch("allowCaptainEntry"),
+                allowRefEntry: watch("allowRefEntry"),
+                allowOrganizerEntry: watch("allowOrganizerEntry"),
+                requireConfirmation: watch("requireConfirmation"),
+              }}
+              onChange={(v) => {
+                setValue("allowCaptainEntry", v.allowCaptainEntry);
+                setValue("allowRefEntry", v.allowRefEntry);
+                setValue("allowOrganizerEntry", v.allowOrganizerEntry);
+                setValue("requireConfirmation", v.requireConfirmation);
+              }}
+            />
           </div>
         )}
 

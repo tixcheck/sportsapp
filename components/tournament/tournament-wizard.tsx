@@ -20,14 +20,16 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ScoringFields } from "@/components/scoring/scoring-fields";
 
 const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
   ["sport"],
   ["name", "startDate", "endDate", "venue", "courts", "poolSize"],
   ["divisions"],
   ["formatId", "registrationDeadline"],
+  [],
 ];
-const STEP_TITLES = ["Sport", "Details", "Divisions", "Format"];
+const STEP_TITLES = ["Sport", "Details", "Divisions", "Format", "Scoring"];
 
 export function TournamentWizard({ orgId }: { orgId: string }) {
   const [step, setStep] = useState(0);
@@ -47,6 +49,10 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       formatId: defaultPoolPreset("beach2").id,
       registrationDeadline: "",
       divisions: [{ name: "Open" }],
+      allowCaptainEntry: false,
+      allowRefEntry: false,
+      allowOrganizerEntry: true,
+      requireConfirmation: false,
     },
   });
   const {
@@ -253,6 +259,30 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                 {...register("registrationDeadline")}
               />
             </Field>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="grid gap-3">
+            <p className="text-muted-foreground text-sm">
+              Choose who can enter match scores and whether a second party must
+              confirm. Pool play often uses the reffing team. You can change
+              this later.
+            </p>
+            <ScoringFields
+              value={{
+                allowCaptainEntry: watch("allowCaptainEntry"),
+                allowRefEntry: watch("allowRefEntry"),
+                allowOrganizerEntry: watch("allowOrganizerEntry"),
+                requireConfirmation: watch("requireConfirmation"),
+              }}
+              onChange={(v) => {
+                setValue("allowCaptainEntry", v.allowCaptainEntry);
+                setValue("allowRefEntry", v.allowRefEntry);
+                setValue("allowOrganizerEntry", v.allowOrganizerEntry);
+                setValue("requireConfirmation", v.requireConfirmation);
+              }}
+            />
           </div>
         )}
 

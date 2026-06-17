@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { ClipboardList, LogOut, User as UserIcon } from "lucide-react";
 
 import { signOutAction } from "@/server/actions/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,6 +55,12 @@ export function UserMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/my-matches">
+            <ClipboardList className="size-4" />
+            My matches
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/profile">
             <UserIcon className="size-4" />

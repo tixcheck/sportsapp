@@ -26,6 +26,10 @@ export const createLeagueSchema = z
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
     formatId: z.string().min(1),
     blackoutDates: z.array(z.string().regex(DATE_RE)),
+    allowCaptainEntry: z.boolean(),
+    allowRefEntry: z.boolean(),
+    allowOrganizerEntry: z.boolean(),
+    requireConfirmation: z.boolean(),
   })
   .refine((v) => v.endDate >= v.startDate, {
     message: "End date must be on or after the start date.",

@@ -6,14 +6,31 @@ import { DateTime } from "luxon";
 import { createClient } from "@/lib/supabase/server";
 import {
   detectCourtTimeCollisions,
-  generatePools,
   layoutPoolSchedule,
+  poolName,
+  poolPlan,
   resolveSeedOrder,
+  validatePoolStructure,
   type LayoutPool,
 } from "@/lib/scheduler/pools";
+import { generatePairings } from "@/lib/scheduler/round-robin";
 import type { MatchFormat } from "@/lib/db/schema";
 
 type ActionError = { error: string };
+
+/** One pool's composition as chosen by the organizer (auto-fill or manual). */
+export interface PoolComposition {
+  teamIds: string[];
+  /** Per-pool format override; null = competition standard. */
+  matchFormat: MatchFormat | null;
+}
+
+export interface GeneratePoolsInput {
+  /** Seed order (best first) per division — persisted as teams.seed. */
+  orderByDivision: Record<string, string[]>;
+  /** The chosen pools per division (teams + per-pool format). */
+  structureByDivision: Record<string, PoolComposition[]>;
+}
 
 type MatchInsert = {
   competition_id: string;
@@ -28,17 +45,18 @@ type MatchInsert = {
 };
 
 /**
- * Draw pools for each division and lay out the pool-play schedule.
- * `orderByDivision` is the adjusted seed order (best first) per division;
- * seeds are persisted, then pools.ts snake-drafts each division into pools,
- * which become pool rows + team assignments + scheduled matches. Regenerating
- * first discards the existing pools and their matches.
+ * Draw pools for each division from the organizer's chosen structure and lay
+ * out the pool-play schedule. Seeds are persisted from `orderByDivision`; the
+ * structure (which teams in which pool + per-pool format) comes from the
+ * organizer — auto snake-drafted by seed or hand-placed. 3-team pools play a
+ * double round-robin. Regenerating first discards the existing pools + matches.
  */
 export async function generatePoolsAction(
   competitionId: string,
   startTime: string,
-  orderByDivision: Record<string, string[]>,
+  input: GeneratePoolsInput,
 ): Promise<ActionError | { poolCount: number; matchCount: number }> {
+  const { orderByDivision, structureByDivision } = input;
   const supabase = await createClient();
 
   const { data: comp, error: cErr } = await supabase
@@ -51,10 +69,9 @@ export async function generatePoolsAction(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("pool_size, courts, pool_format")
+    .select("courts, pool_format")
     .eq("competition_id", competitionId)
     .single();
-  const poolSize = settings?.pool_size ?? 4;
   const courts = settings?.courts ?? 4;
   const fmt = (settings?.pool_format ??
     comp.match_format) as MatchFormat | null;
@@ -102,9 +119,14 @@ export async function generatePoolsAction(
     .eq("competition_id", competitionId);
   if (delPools) return { error: delPools.message };
 
-  // Build the ordered pools across divisions (and persist seed order).
-  const orderedPools: { divisionId: string; name: string; pool: LayoutPool }[] =
-    [];
+  // Validate the chosen structure against each division and build pools (and
+  // persist the seed order).
+  const orderedPools: {
+    divisionId: string;
+    name: string;
+    matchFormat: MatchFormat | null;
+    pool: LayoutPool;
+  }[] = [];
   for (const [divisionId, teamIds] of Object.entries(ordered)) {
     for (let i = 0; i < teamIds.length; i++) {
       await supabase
@@ -113,20 +135,49 @@ export async function generatePoolsAction(
         .eq("id", teamIds[i]);
     }
     if (teamIds.length < 1) continue;
-    for (const pool of generatePools({ seededTeamIds: teamIds, poolSize })
-      .pools) {
+
+    const struct = structureByDivision[divisionId];
+    if (!struct || struct.length === 0) {
+      return { error: "Choose a pool structure for every division." };
+    }
+    const placed = struct.flatMap((p) => p.teamIds);
+    const structure = validatePoolStructure(
+      struct.map((p) => p.teamIds.length),
+      teamIds.length,
+    );
+    if (!structure.ok) return { error: structure.errors[0] };
+    const placedSet = new Set(placed);
+    if (placed.length !== placedSet.size) {
+      return { error: "A team was placed in more than one pool." };
+    }
+    const divSet = new Set(teamIds);
+    if (
+      placedSet.size !== divSet.size ||
+      teamIds.some((id) => !placedSet.has(id))
+    ) {
+      return { error: "Pools must contain exactly the division's teams." };
+    }
+
+    struct.forEach((p, i) => {
       orderedPools.push({
         divisionId,
-        name: pool.name,
-        pool: { teamIds: pool.teamIds, rounds: pool.rounds },
+        name: `Pool ${poolName(i)}`,
+        matchFormat: p.matchFormat,
+        pool: {
+          teamIds: p.teamIds,
+          rounds: generatePairings(
+            p.teamIds,
+            poolPlan(p.teamIds.length).roundsPerTeam,
+          ),
+        },
       });
-    }
+    });
   }
 
   // Insert pool rows (index-aligned with orderedPools) and assign teams.
   const poolIds: string[] = [];
   for (let i = 0; i < orderedPools.length; i++) {
-    const { divisionId, name, pool } = orderedPools[i];
+    const { divisionId, name, matchFormat, pool } = orderedPools[i];
     const { data: poolRow, error: pErr } = await supabase
       .from("pools")
       .insert({
@@ -134,6 +185,7 @@ export async function generatePoolsAction(
         division_id: divisionId,
         name,
         sort_order: i,
+        match_format: matchFormat,
       })
       .select("id")
       .single();

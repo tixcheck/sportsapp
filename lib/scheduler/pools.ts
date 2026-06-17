@@ -10,6 +10,7 @@ import {
   type PairingRound,
   type TeamId,
 } from "./round-robin";
+import type { MatchFormat } from "@/lib/db/schema";
 
 export interface PoolsInput {
   /** Team ids ordered by seed (best first = seed 1). */
@@ -30,7 +31,7 @@ export interface PoolsResult {
   pools: Pool[];
 }
 
-function poolName(index: number): string {
+export function poolName(index: number): string {
   // A, B, …, Z, then AA, AB, … (more pools than 26 is unrealistic, but safe).
   let n = index;
   let name = "";
@@ -221,4 +222,129 @@ export function detectCourtTimeCollisions(
     else seen.add(key);
   }
   return collisions;
+}
+
+// --- organizer-controlled pool structure (Slice A) -------------------------
+
+/** The suggested reduced format for non-standard pools: sets to 15, tiebreak 11. */
+export const SHORT_POOL_FORMAT: MatchFormat = {
+  bestOf: 3,
+  setsToPoints: [15, 15, 11],
+  winBy: 2,
+  tiebreakerSetTo: 11,
+};
+
+/**
+ * Suggest a default pool structure for `n` teams: maximize pools of 4, push the
+ * remainder into 3s or a 5 — never a 2-team pool (except when n itself is < 3,
+ * where a single small pool is unavoidable). Returns pool sizes, largest blocks
+ * first. Examples: 8→[4,4], 9→[4,5], 10→[4,3,3], 11→[4,4,3], 12→[4,4,4].
+ */
+export function suggestPoolStructure(n: number): number[] {
+  if (n <= 0) return [];
+  if (n < 3) return [n]; // 1 or 2 teams: one (weak) pool, nothing to split.
+  const k = Math.floor(n / 4);
+  const rem = n % 4;
+  if (rem === 0) return Array<number>(k).fill(4);
+  if (rem === 1) return [...Array<number>(k - 1).fill(4), 5];
+  if (rem === 2) return [...Array<number>(k - 1).fill(4), 3, 3];
+  return [...Array<number>(k).fill(4), 3]; // rem === 3
+}
+
+export interface StructureValidation {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Validate an organizer's pool structure against the team count. The only hard
+ * error is sizes not summing to the team count (or a non-positive pool); weak
+ * pools (≤ 2 teams) are a non-blocking warning.
+ */
+export function validatePoolStructure(
+  sizes: number[],
+  teamCount: number,
+): StructureValidation {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const sum = sizes.reduce((a, b) => a + b, 0);
+
+  if (sizes.some((s) => !Number.isInteger(s) || s <= 0)) {
+    errors.push("Every pool needs at least one team.");
+  }
+  if (sum !== teamCount) {
+    errors.push(
+      `Pools must use all ${teamCount} teams — they currently total ${sum}.`,
+    );
+  }
+  const weak = sizes.filter((s) => s > 0 && s <= 2).length;
+  if (weak > 0) {
+    warnings.push(
+      `${weak} pool${weak > 1 ? "s" : ""} of 2 or fewer teams — most teams will play very few games.`,
+    );
+  }
+  return { ok: errors.length === 0, errors, warnings };
+}
+
+/**
+ * Auto-fill: snake/serpentine-draft seeded teams into pools of the given sizes,
+ * skipping pools that are already full. Keeps pools balanced by strength even
+ * when sizes differ. Assumes sizes sum to seededTeamIds.length (validate first);
+ * any overflow teams are dropped, any shortfall leaves pools partially filled.
+ */
+export function snakeDraftIntoSizes(
+  seededTeamIds: TeamId[],
+  sizes: number[],
+): TeamId[][] {
+  const poolCount = sizes.length;
+  const pools: TeamId[][] = Array.from({ length: poolCount }, () => []);
+  if (poolCount === 0) return pools;
+
+  let idx = 0;
+  let row = 0;
+  while (idx < seededTeamIds.length) {
+    const order =
+      row % 2 === 0
+        ? [...Array(poolCount).keys()]
+        : [...Array(poolCount).keys()].reverse();
+    let placed = false;
+    for (const p of order) {
+      if (idx >= seededTeamIds.length) break;
+      if (pools[p].length < sizes[p]) {
+        pools[p].push(seededTeamIds[idx++]);
+        placed = true;
+      }
+    }
+    if (!placed) break; // every pool full but teams remain — sizes too small
+    row++;
+  }
+  return pools;
+}
+
+export interface PoolPlan {
+  /** Round-robin repetitions: 3-team pools play a double round-robin. */
+  roundsPerTeam: number;
+  /** Suggested per-pool format override (null = use competition standard). */
+  suggestedFormat: MatchFormat | null;
+}
+
+/**
+ * Round-robin repetitions + suggested format for a pool of `size` teams:
+ * 3 → double round-robin + 15/11; 5+ → single + 15/11; 4 (and tiny weak pools)
+ * → single + standard format. Suggestions only; the organizer can override.
+ */
+export function poolPlan(size: number): PoolPlan {
+  return {
+    roundsPerTeam: size === 3 ? 2 : 1,
+    suggestedFormat: size === 3 || size >= 5 ? SHORT_POOL_FORMAT : null,
+  };
+}
+
+/** The format a match is actually played under: pool override, else competition. */
+export function resolveMatchFormat(
+  poolFormat: MatchFormat | null | undefined,
+  competitionFormat: MatchFormat,
+): MatchFormat {
+  return poolFormat ?? competitionFormat;
 }

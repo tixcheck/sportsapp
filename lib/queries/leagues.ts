@@ -20,6 +20,7 @@ export interface LeagueSummary {
 export interface LeagueTeam {
   id: string;
   name: string;
+  status: "active" | "withdrawn";
   captain_user_id: string | null;
   invite: { token: string; email: string; status: string } | null;
 }
@@ -35,6 +36,12 @@ export interface LeagueDetail {
   endDate: string | null;
   venue: string | null;
   timezone: string;
+  scoring: {
+    allowCaptainEntry: boolean;
+    allowRefEntry: boolean;
+    allowOrganizerEntry: boolean;
+    requireConfirmation: boolean;
+  };
   teams: LeagueTeam[];
   matchCount: number;
 }
@@ -96,7 +103,7 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", leagueId)
     .eq("type", "league")
@@ -105,7 +112,7 @@ export async function getLeagueDetail(
 
   const { data: teams } = await supabase
     .from("teams")
-    .select("id, name, captain_user_id")
+    .select("id, name, status, captain_user_id")
     .eq("competition_id", leagueId)
     .order("created_at", { ascending: true });
 
@@ -145,9 +152,16 @@ export async function getLeagueDetail(
     endDate: league.end_date,
     venue: league.venue,
     timezone: league.timezone,
+    scoring: {
+      allowCaptainEntry: league.allow_captain_entry,
+      allowRefEntry: league.allow_ref_entry,
+      allowOrganizerEntry: league.allow_organizer_entry,
+      requireConfirmation: league.require_confirmation,
+    },
     teams: (teams ?? []).map((t) => ({
       id: t.id,
       name: t.name,
+      status: t.status as "active" | "withdrawn",
       captain_user_id: t.captain_user_id,
       invite: inviteByTeam.get(t.id) ?? null,
     })),

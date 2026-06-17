@@ -4,6 +4,10 @@ import {
   CaptainInviteEmail,
   type CaptainInviteEmailProps,
 } from "./templates/captain-invite";
+import {
+  ConfirmScoreEmail,
+  type ConfirmScoreEmailProps,
+} from "./templates/confirm-score";
 
 /**
  * Email is best-effort in v0: if RESEND_API_KEY isn't configured (or sending
@@ -33,6 +37,30 @@ export async function sendCaptainInvite(
       replyTo,
       subject: `Claim ${props.teamName} in ${props.leagueName}`,
       react: CaptainInviteEmail(props),
+    });
+    if (error) return { sent: false, reason: error.message };
+    return { sent: true, id: data?.id ?? null };
+  } catch (err) {
+    return {
+      sent: false,
+      reason: err instanceof Error ? err.message : "send failed",
+    };
+  }
+}
+
+export async function sendConfirmScore(
+  to: string,
+  props: ConfirmScoreEmailProps,
+): Promise<SendResult> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { sent: false, reason: "RESEND_API_KEY not set" };
+  try {
+    const resend = new Resend(key);
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: `Confirm a score in ${props.competitionName}`,
+      react: ConfirmScoreEmail(props),
     });
     if (error) return { sent: false, reason: error.message };
     return { sent: true, id: data?.id ?? null };

@@ -74,6 +74,10 @@ export async function createLeagueAction(
       timezone: DEFAULT_TIMEZONE,
       match_format: preset.format,
       visibility: "private",
+      allow_captain_entry: v.allowCaptainEntry,
+      allow_ref_entry: v.allowRefEntry,
+      allow_organizer_entry: v.allowOrganizerEntry,
+      require_confirmation: v.requireConfirmation,
     })
     .select("id")
     .single();
