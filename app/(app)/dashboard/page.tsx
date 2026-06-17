@@ -53,14 +53,16 @@ export default async function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {orgs.map((org) => (
-          <Card key={org.id}>
-            <CardHeader>
-              <CardTitle className="truncate">{org.name}</CardTitle>
-              <CardDescription>
-                /{org.slug} · {org.role}
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          <Link key={org.id} href={`/orgs/${org.id}`}>
+            <Card className="hover:border-primary/40 h-full transition-colors">
+              <CardHeader>
+                <CardTitle className="truncate">{org.name}</CardTitle>
+                <CardDescription>
+                  /{org.slug} · {org.role}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

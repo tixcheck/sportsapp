@@ -427,3 +427,37 @@ export const standingsCache = pgTable(
     index("standings_cache_competition_id_idx").on(t.competitionId),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Team invites (Phase 4) — a captain claims their team via a signed link.
+// ---------------------------------------------------------------------------
+
+export const inviteStatus = pgEnum("invite_status", [
+  "pending",
+  "accepted",
+  "revoked",
+]);
+
+export const teamInvites = pgTable(
+  "team_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    token: text("token").notNull().unique(),
+    status: inviteStatus("status").notNull().default("pending"),
+    invitedByUserId: uuid("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("team_invites_team_id_idx").on(t.teamId)],
+);

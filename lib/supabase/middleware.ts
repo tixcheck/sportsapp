@@ -2,7 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /** Route prefixes that require an authenticated user. */
-const PROTECTED_PREFIXES = ["/dashboard", "/orgs", "/profile", "/my-matches"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/orgs",
+  "/profile",
+  "/my-matches",
+  "/claim",
+];
 
 /**
  * Refreshes the Supabase session on every request (so Server Components always
