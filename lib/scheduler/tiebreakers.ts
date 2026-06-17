@@ -55,6 +55,13 @@ export interface StandingRow extends TeamStats {
   tiebreakerStep: TiebreakerStep;
   /** The numeric value used at the resolving step (mw, h2h ratio, etc.). */
   tiebreakerValue: number;
+  /**
+   * The teams this row was tied with entering its resolving step — i.e. all
+   * teams equal on every earlier criterion (includes this team). Just `[teamId]`
+   * when the team was never tied (resolved outright at match wins). Powers the
+   * OVA-style tiebreaker modal: list these teams' values at the resolving step.
+   */
+  tiedWith: TeamId[];
   /** Human-facing summary of the resolving comparison. */
   explanation: string;
 }
@@ -197,7 +204,12 @@ function compareDesc(a: number, b: number): number {
   return a > b ? -1 : 1;
 }
 
-type Ranked = { teamId: TeamId; step: TiebreakerStep; value: number };
+type Ranked = {
+  teamId: TeamId;
+  step: TiebreakerStep;
+  value: number;
+  tiedWith: TeamId[];
+};
 
 function valuerFor(
   step: TiebreakerStep,
@@ -227,7 +239,7 @@ function resolveGroup(
 ): Ranked[] {
   if (group.length === 1) {
     const value = valuerFor(fromStep, group, stats, matches)(group[0]);
-    return [{ teamId: group[0], step: fromStep, value }];
+    return [{ teamId: group[0], step: fromStep, value, tiedWith: [group[0]] }];
   }
 
   for (let s = fromStep; s <= 4; s++) {
@@ -249,7 +261,15 @@ function resolveGroup(
       const out: Ranked[] = [];
       for (const b of buckets) {
         if (b.teams.length === 1) {
-          out.push({ teamId: b.teams[0], step, value: b.value });
+          // `step > 1` means the group was tied on every earlier criterion, so
+          // this team genuinely tied with the rest of `group`; at step 1 a
+          // unique match-win count is an outright rank, not a tie.
+          out.push({
+            teamId: b.teams[0],
+            step,
+            value: b.value,
+            tiedWith: step > 1 ? [...group] : [b.teams[0]],
+          });
         } else {
           out.push(
             ...resolveGroup(b.teams, (s + 1) as TiebreakerStep, stats, matches),
@@ -260,11 +280,12 @@ function resolveGroup(
     }
   }
 
-  // Nothing separated the group through point ratio → unresolved.
+  // Nothing separated the group through point ratio → unresolved (all tied).
   return group.map((id) => ({
     teamId: id,
     step: 5 as TiebreakerStep,
     value: NaN,
+    tiedWith: [...group],
   }));
 }
 
@@ -306,7 +327,34 @@ export function rankStandings(
       position: i + 1,
       tiebreakerStep: r.step,
       tiebreakerValue: r.value,
+      tiedWith: r.tiedWith,
       explanation: explain(r.step, r.value, s),
     };
   });
+}
+
+/**
+ * Seed order across pools for a single-elimination bracket (Phase 8 consumes
+ * this; built + tested here to prove the ratio normalization). Takes each pool's
+ * already-ranked standings and interleaves by finishing position — all pool
+ * winners first, then all runners-up, and so on — ranking teams within a tier by
+ * set ratio then point ratio. Because those are *ratios*, a pool that ran to 15
+ * and one that ran to 25 compare on equal footing; raw point totals never leak
+ * in. Ties beyond point ratio keep the input pool order for stability.
+ */
+export function crossPoolSeedOrder(pools: StandingRow[][]): TeamId[] {
+  const depth = pools.reduce((max, p) => Math.max(max, p.length), 0);
+  const order: TeamId[] = [];
+  for (let pos = 0; pos < depth; pos++) {
+    const tier = pools
+      .map((p) => p[pos])
+      .filter((r): r is StandingRow => r !== undefined)
+      .sort(
+        (a, b) =>
+          compareDesc(a.setRatio, b.setRatio) ||
+          compareDesc(a.pointRatio, b.pointRatio),
+      );
+    for (const r of tier) order.push(r.teamId);
+  }
+  return order;
 }

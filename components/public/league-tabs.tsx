@@ -1,7 +1,9 @@
 "use client";
 
 import type { PublicLeague } from "@/lib/queries/leagues";
+import type { StandingsGroup } from "@/lib/standings/compute";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { StandingsTable } from "@/components/standings/standings-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function initials(name: string): string {
@@ -11,7 +13,13 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function LeagueTabs({ league }: { league: PublicLeague }) {
+export function LeagueTabs({
+  league,
+  standings,
+}: {
+  league: PublicLeague;
+  standings: StandingsGroup[];
+}) {
   return (
     <Tabs defaultValue="schedule">
       <TabsList>
@@ -47,10 +55,7 @@ export function LeagueTabs({ league }: { league: PublicLeague }) {
       </TabsContent>
 
       <TabsContent value="standings" className="mt-6">
-        <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
-          Standings with full tiebreakers arrive in a later update. Check the
-          schedule for now.
-        </div>
+        <StandingsTable rows={standings[0]?.rows ?? []} />
       </TabsContent>
     </Tabs>
   );

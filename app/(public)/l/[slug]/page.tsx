@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
 
 import { getPublicLeague } from "@/lib/queries/leagues";
+import { getStandings } from "@/lib/standings/compute";
 import { SPORTS } from "@/lib/formats";
 import { LeagueTabs } from "@/components/public/league-tabs";
 
@@ -27,6 +28,7 @@ export default async function PublicLeaguePage({
   const { slug } = await params;
   const league = await getPublicLeague(slug);
   if (!league) notFound();
+  const standings = await getStandings(league.id);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
 
@@ -67,7 +69,7 @@ export default async function PublicLeaguePage({
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8">
-        <LeagueTabs league={league} />
+        <LeagueTabs league={league} standings={standings} />
       </main>
     </div>
   );

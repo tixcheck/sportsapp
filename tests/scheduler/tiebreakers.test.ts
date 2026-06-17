@@ -289,6 +289,55 @@ describe("rankStandings — forfeits", () => {
   });
 });
 
+describe("rankStandings — tiedWith (powers the explainer modal)", () => {
+  it("is just the team itself when resolved outright on match wins", () => {
+    const rows = rankStandings(
+      ["A", "B", "C"],
+      [m("A", "B", SWEEP), m("A", "C", SWEEP), m("B", "C", SWEEP)],
+    );
+    // All distinct match-win counts → no real tie for anyone.
+    expect(rows.every((r) => r.tiedWith.length === 1)).toBe(true);
+    expect(rows[0].tiedWith).toEqual(["A"]);
+  });
+
+  it("captures the full tied group at the resolving step", () => {
+    // A,B tied at 2 wins, split by head-to-head; C,D unique.
+    const rows = rankStandings(
+      ["A", "B", "C", "D"],
+      [
+        m("A", "B", SWEEP),
+        m("A", "C", SWEEP),
+        m("D", "A", SWEEP),
+        m("B", "C", SWEEP),
+        m("B", "D", SWEEP),
+      ],
+    );
+    const byId = new Map(rows.map((r) => [r.teamId, r]));
+    // A and B were the tied subset resolved at head-to-head.
+    expect([...byId.get("A")!.tiedWith].sort()).toEqual(["A", "B"]);
+    expect([...byId.get("B")!.tiedWith].sort()).toEqual(["A", "B"]);
+    // D resolved outright (unique win count) → only itself.
+    expect(byId.get("D")!.tiedWith).toEqual(["D"]);
+  });
+
+  it("a fully-equal field is all mutually tied (step 5)", () => {
+    const rows = rankStandings(
+      ["A", "B"],
+      [
+        m("A", "B", [
+          [25, 20],
+          [25, 20],
+        ]),
+        m("B", "A", [
+          [25, 20],
+          [25, 20],
+        ]),
+      ],
+    );
+    expect([...rows[0].tiedWith].sort()).toEqual(["A", "B"]);
+  });
+});
+
 describe("headToHeadTable — known-good OVA fixture", () => {
   it("reproduces the OVA modal numbers for a 4-team pool", () => {
     const teams = ["T1", "T2", "T3", "T4"];

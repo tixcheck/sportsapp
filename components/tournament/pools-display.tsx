@@ -44,9 +44,6 @@ export function PoolsDisplay({
                       </li>
                     ))}
                   </ol>
-                  <p className="text-muted-foreground border-border mt-3 border-t pt-2 text-xs">
-                    Live standings arrive in a later update.
-                  </p>
                 </div>
               ))}
             </div>

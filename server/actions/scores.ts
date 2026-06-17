@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
 import { validateScore, type SetScoreInput } from "@/lib/scoring/validation";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
+import { recomputeStandings } from "@/lib/standings/compute";
 import { sendConfirmScore } from "@/lib/email/send";
 import type { MatchFormat } from "@/lib/db/schema";
 
@@ -113,6 +114,10 @@ export async function submitScoreAction(
 
   if (requiresConfirmation) {
     await notifyOpponents(supabase, match, comp, user.id);
+  } else {
+    // Score is final — refresh the standings cache (best-effort; display
+    // derives live regardless).
+    await recomputeStandings(supabase, match.competition_id);
   }
 
   revalidatePath("/my-matches");
@@ -144,10 +149,17 @@ export async function confirmScoreAction(
     action: "confirmed",
   });
   if (error) return { error: error.message };
-  await supabase
+  const { data: updated } = await supabase
     .from("matches")
     .update({ status: "completed" })
-    .eq("id", matchId);
+    .eq("id", matchId)
+    .select("competition_id")
+    .single();
+
+  // Now final → refresh the standings cache.
+  if (updated?.competition_id) {
+    await recomputeStandings(supabase, updated.competition_id);
+  }
 
   revalidatePath("/my-matches");
   return { success: true };

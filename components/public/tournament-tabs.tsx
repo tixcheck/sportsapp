@@ -1,8 +1,10 @@
 "use client";
 
 import type { PoolsView, PublicTournament } from "@/lib/queries/tournaments";
+import type { StandingsGroup } from "@/lib/standings/compute";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { StandingsGroups } from "@/components/standings/standings-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function initials(name: string): string {
@@ -23,9 +25,11 @@ function Placeholder({ children }: { children: React.ReactNode }) {
 export function TournamentTabs({
   tournament,
   poolsView,
+  standings,
 }: {
   tournament: PublicTournament;
   poolsView: PoolsView | null;
+  standings: StandingsGroup[];
 }) {
   const multiDivision = tournament.divisions.length > 1;
   const hasPools = !!poolsView?.hasPools;
@@ -44,12 +48,24 @@ export function TournamentTabs({
         <TabsTrigger value="teams">Teams</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="pools" className="mt-6">
+      <TabsContent value="pools" className="mt-6 space-y-8">
         {hasPools ? (
-          <PoolsDisplay
-            divisions={poolsView!.divisions}
-            showDivisionHeadings={multiDivision}
-          />
+          <>
+            <section className="space-y-3">
+              <h3 className="font-display text-lg font-semibold">Pool draw</h3>
+              <PoolsDisplay
+                divisions={poolsView!.divisions}
+                showDivisionHeadings={multiDivision}
+              />
+            </section>
+            <section className="space-y-3">
+              <h3 className="font-display text-lg font-semibold">Standings</h3>
+              <StandingsGroups
+                groups={standings}
+                showDivision={multiDivision}
+              />
+            </section>
+          </>
         ) : (
           <Placeholder>
             Pools will appear here once the organizer draws them.
