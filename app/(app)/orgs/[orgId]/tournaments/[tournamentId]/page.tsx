@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
 import { CalendarDays, MapPin } from "lucide-react";
 
-import { getTournamentDetail } from "@/lib/queries/tournaments";
+import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
 import { cn } from "@/lib/utils";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
+import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
+import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { CopyButton } from "@/components/league/copy-button";
 import { PublishToggle } from "@/components/league/publish-toggle";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   Card,
   CardContent,
@@ -26,7 +29,18 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const origin = await getOrigin();
+  const [origin, poolsView] = await Promise.all([
+    getOrigin(),
+    getPoolsView(tournamentId),
+  ]);
+
+  const divisionsWithTeams = t.divisions.map((d) => ({
+    id: d.id,
+    name: d.name,
+    teams: t.teams
+      .filter((tm) => tm.divisionId === d.id)
+      .map((tm) => ({ id: tm.id, name: tm.name, seed: tm.seed })),
+  }));
 
   const sportLabel = SPORTS.find((s) => s.value === t.sport)?.label;
   const deadlineText = t.registrationDeadline
@@ -80,16 +94,54 @@ export default async function TournamentPage({
         </p>
       </div>
 
-      {/* Pools (Phase 5b) */}
+      {/* Pools */}
       <Card>
         <CardHeader>
           <CardTitle>Pools</CardTitle>
           <CardDescription>
-            Seed teams and draw pools — coming in the next update. ({t.poolSize}{" "}
-            teams per pool)
+            Seed teams, then draw pools ({t.poolSize} teams per pool, snake
+            draft by seed).
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <GeneratePoolsPanel
+            competitionId={t.id}
+            divisions={divisionsWithTeams}
+            hasPools={poolsView?.hasPools ?? false}
+          />
+        </CardContent>
       </Card>
+
+      {poolsView?.hasPools && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Pool draw</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PoolsDisplay
+                divisions={poolsView.divisions}
+                showDivisionHeadings={t.divisions.length > 1}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Pool schedule</CardTitle>
+              <CardDescription>
+                Edit a match to change its time or court.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScheduleView
+                matches={poolsView.schedule}
+                timezone={t.timezone}
+                editable
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Teams */}
       <Card>

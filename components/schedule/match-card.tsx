@@ -30,7 +30,10 @@ export function MatchCard({
         </div>
       </div>
       <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
-        <span>{match.court ?? "Court TBD"}</span>
+        <span className="truncate">
+          {match.court ?? "Court TBD"}
+          {match.refTeamName ? ` · Ref: ${match.refTeamName}` : ""}
+        </span>
         {trailing}
       </div>
     </div>

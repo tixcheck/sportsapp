@@ -76,6 +76,7 @@ export async function createTournamentAction(
     .insert({
       competition_id: tournament.id,
       pool_size: v.poolSize,
+      courts: v.courts,
       pool_format: preset.format,
       bracket_type: "single_elim",
       registration_deadline: deadlineIso,

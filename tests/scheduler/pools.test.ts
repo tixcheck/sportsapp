@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { assignPools, generatePools } from "@/lib/scheduler/pools";
+import {
+  assignPools,
+  detectCourtTimeCollisions,
+  generatePools,
+  layoutPoolSchedule,
+  resolveSeedOrder,
+  type SeedTeam,
+} from "@/lib/scheduler/pools";
 
 function seeded(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `T${i + 1}`);
@@ -91,5 +98,146 @@ describe("generatePools — pools + within-pool round robin", () => {
 
   it("returns no pools for an empty field", () => {
     expect(generatePools({ seededTeamIds: [] }).pools).toEqual([]);
+  });
+});
+
+describe("resolveSeedOrder — pool team selection", () => {
+  // Claim/invite status is not an input, so unclaimed teams are always included.
+  it("includes every team with an empty hint (all-unclaimed, stale client)", () => {
+    const teams: SeedTeam[] = [
+      { id: "a", divisionId: "D", seed: null },
+      { id: "b", divisionId: "D", seed: null },
+      { id: "c", divisionId: "D", seed: null },
+    ];
+    expect(resolveSeedOrder(teams, {})).toEqual({ D: ["a", "b", "c"] });
+  });
+
+  it("orders by seed when there is no hint", () => {
+    const teams: SeedTeam[] = [
+      { id: "a", divisionId: "D", seed: 3 },
+      { id: "b", divisionId: "D", seed: 1 },
+      { id: "c", divisionId: "D", seed: 2 },
+    ];
+    expect(resolveSeedOrder(teams, {})).toEqual({ D: ["b", "c", "a"] });
+  });
+
+  it("honors the hint order and appends teams missing from the hint", () => {
+    const teams: SeedTeam[] = [
+      { id: "a", divisionId: "D", seed: 1 },
+      { id: "b", divisionId: "D", seed: 2 },
+      { id: "c", divisionId: "D", seed: 3 },
+      { id: "d", divisionId: "D", seed: 4 },
+    ];
+    // Organizer ordered b,a; c and d weren't in the (stale) hint → still included.
+    expect(resolveSeedOrder(teams, { D: ["b", "a"] })).toEqual({
+      D: ["b", "a", "c", "d"],
+    });
+  });
+
+  it("ignores hint ids not in the division and dedupes", () => {
+    const teams: SeedTeam[] = [
+      { id: "a", divisionId: "D", seed: 1 },
+      { id: "b", divisionId: "D", seed: 2 },
+    ];
+    expect(resolveSeedOrder(teams, { D: ["a", "a", "zzz", "b"] })).toEqual({
+      D: ["a", "b"],
+    });
+  });
+
+  it("groups by division", () => {
+    const teams: SeedTeam[] = [
+      { id: "a", divisionId: "D1", seed: 2 },
+      { id: "b", divisionId: "D2", seed: 1 },
+      { id: "c", divisionId: "D1", seed: 1 },
+    ];
+    expect(resolveSeedOrder(teams, {})).toEqual({ D1: ["c", "a"], D2: ["b"] });
+  });
+
+  it("groups teams without a division under the empty key", () => {
+    expect(
+      resolveSeedOrder([{ id: "a", divisionId: null, seed: 1 }], {}),
+    ).toEqual({ "": ["a"] });
+  });
+});
+
+describe("layoutPoolSchedule — court/time assignment", () => {
+  function buildPools(n: number, poolSize = 4) {
+    return generatePools({ seededTeamIds: seeded(n), poolSize }).pools.map(
+      (p) => ({ teamIds: p.teamIds, rounds: p.rounds }),
+    );
+  }
+
+  it("lays one pool's matches sequentially on a single court", () => {
+    const matches = layoutPoolSchedule(buildPools(4, 4), 3);
+    expect(matches).toHaveLength(6); // 4-team RR
+    expect(matches.every((m) => m.court === 1)).toBe(true);
+    expect(matches.map((m) => m.slot).sort((a, b) => a - b)).toEqual([
+      0, 1, 2, 3, 4, 5,
+    ]);
+  });
+
+  it("runs different pools on different courts in parallel", () => {
+    const matches = layoutPoolSchedule(buildPools(8, 4), 2);
+    const p0 = matches.filter((m) => m.poolIndex === 0);
+    const p1 = matches.filter((m) => m.poolIndex === 1);
+    expect(p0.every((m) => m.court === 1)).toBe(true);
+    expect(p1.every((m) => m.court === 2)).toBe(true);
+    // Both pools start at slot 0 (simultaneous first matches).
+    expect(Math.min(...p0.map((m) => m.slot))).toBe(0);
+    expect(Math.min(...p1.map((m) => m.slot))).toBe(0);
+  });
+
+  it("queues pools into later waves when they outnumber courts", () => {
+    const matches = layoutPoolSchedule(buildPools(12, 4), 2); // 3 pools, 2 courts
+    const p2 = matches.filter((m) => m.poolIndex === 2);
+    // Pool C shares Court 1 with Pool A → starts after A's 6 matches (slot 6).
+    expect(p2.every((m) => m.court === 1)).toBe(true);
+    expect(Math.min(...p2.map((m) => m.slot))).toBe(6);
+  });
+
+  it("has zero court/time collisions (multi-pool, multi-court)", () => {
+    expect(
+      detectCourtTimeCollisions(layoutPoolSchedule(buildPools(12, 4), 3)),
+    ).toEqual([]);
+    expect(
+      detectCourtTimeCollisions(layoutPoolSchedule(buildPools(12, 4), 2)),
+    ).toEqual([]);
+    expect(
+      detectCourtTimeCollisions(layoutPoolSchedule(buildPools(16, 4), 3)),
+    ).toEqual([]);
+  });
+
+  it("assigns every match a ref in the pool and not playing", () => {
+    const pools = buildPools(12, 4);
+    const matches = layoutPoolSchedule(pools, 3);
+    for (const m of matches) {
+      const pool = pools[m.poolIndex];
+      expect(m.refTeamId).not.toBeNull();
+      expect(pool.teamIds).toContain(m.refTeamId);
+      expect(m.refTeamId).not.toBe(m.homeTeamId);
+      expect(m.refTeamId).not.toBe(m.awayTeamId);
+    }
+  });
+});
+
+describe("detectCourtTimeCollisions", () => {
+  it("flags a court+slot used twice", () => {
+    expect(
+      detectCourtTimeCollisions([
+        { court: 1, slot: 0 },
+        { court: 2, slot: 0 },
+        { court: 1, slot: 0 },
+      ]),
+    ).toEqual([{ court: 1, slot: 0 }]);
+  });
+
+  it("returns nothing when all court+slot pairs are unique", () => {
+    expect(
+      detectCourtTimeCollisions([
+        { court: 1, slot: 0 },
+        { court: 1, slot: 1 },
+        { court: 2, slot: 0 },
+      ]),
+    ).toEqual([]);
   });
 });

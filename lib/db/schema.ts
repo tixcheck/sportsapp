@@ -202,6 +202,7 @@ export const tournamentSettings = pgTable("tournament_settings", {
     .primaryKey()
     .references(() => competitions.id, { onDelete: "cascade" }),
   poolSize: integer("pool_size").notNull().default(4),
+  courts: integer("courts").notNull().default(4),
   poolFormat: jsonb("pool_format").$type<MatchFormat>(),
   bracketType: bracketType("bracket_type").notNull().default("single_elim"),
   registrationDeadline: timestamp("registration_deadline", {
@@ -314,6 +315,11 @@ export const matches = pgTable(
       onDelete: "set null",
     }),
     awayTeamId: uuid("away_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    // Pool play: the team reffing this match (in the pool, not playing). Null
+    // for league/bracket matches.
+    refTeamId: uuid("ref_team_id").references(() => teams.id, {
       onDelete: "set null",
     }),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),

@@ -1,0 +1,1 @@
+ALTER TABLE "tournament_settings" ADD COLUMN "courts" integer DEFAULT 4 NOT NULL;

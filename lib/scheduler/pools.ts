@@ -74,3 +74,151 @@ export function generatePools(input: PoolsInput): PoolsResult {
 
   return { pools };
 }
+
+export interface SeedTeam {
+  id: TeamId;
+  divisionId: string | null;
+  seed: number | null;
+}
+
+/**
+ * Resolve the seed order per division for pool generation. Pooling depends only
+ * on a team being attached to the tournament — invite/claim status is not an
+ * input here, so unclaimed teams are always included. `hint` is the organizer's
+ * manual order; any team missing from the hint (e.g. a stale client) is still
+ * included, appended by seed. Teams with no division group under "" (the caller
+ * decides whether to pool them).
+ */
+export function resolveSeedOrder(
+  teams: SeedTeam[],
+  hint: Record<string, TeamId[]> = {},
+): Record<string, TeamId[]> {
+  const byDivision = new Map<string, SeedTeam[]>();
+  for (const t of teams) {
+    const key = t.divisionId ?? "";
+    const list = byDivision.get(key) ?? [];
+    list.push(t);
+    byDivision.set(key, list);
+  }
+
+  const result: Record<string, TeamId[]> = {};
+  for (const [division, list] of byDivision) {
+    const present = new Set(list.map((t) => t.id));
+    const seen = new Set<TeamId>();
+    const order: TeamId[] = [];
+    for (const id of hint[division] ?? []) {
+      if (present.has(id) && !seen.has(id)) {
+        order.push(id);
+        seen.add(id);
+      }
+    }
+    const remaining = list
+      .filter((t) => !seen.has(t.id))
+      .sort(
+        (a, b) =>
+          (a.seed ?? Number.MAX_SAFE_INTEGER) -
+          (b.seed ?? Number.MAX_SAFE_INTEGER),
+      );
+    for (const t of remaining) order.push(t.id);
+    result[division] = order;
+  }
+  return result;
+}
+
+// --- pool-play court/time layout (Phase 5b) --------------------------------
+
+export interface ScheduledPoolMatch {
+  /** Index into the ordered pools array passed to layoutPoolSchedule. */
+  poolIndex: number;
+  /** 1-based court number. */
+  court: number;
+  /** 0-based time-slot on that court. */
+  slot: number;
+  /** Pairing round (metadata for grouping/standings). */
+  round: number;
+  homeTeamId: TeamId;
+  awayTeamId: TeamId;
+  /**
+   * The pool team reffing this match — a team in the pool not playing it,
+   * preferring whoever plays the next match (reffing crossover). Null only when
+   * the pool has no non-playing team (e.g. a 2-team pool).
+   */
+  refTeamId: TeamId | null;
+}
+
+export interface LayoutPool {
+  teamIds: TeamId[];
+  rounds: PairingRound[];
+}
+
+/**
+ * Lay out pool-play matches: each pool's matches run sequentially in
+ * non-overlapping slots on a single court (reffing crossover — one match plays
+ * while other pool teams ref/rest). Pools are assigned to courts round-robin;
+ * when pools outnumber courts, later pools queue into later waves on the same
+ * court. No court hosts two matches in the same slot.
+ */
+export function layoutPoolSchedule(
+  pools: LayoutPool[],
+  courts: number,
+): ScheduledPoolMatch[] {
+  const courtCount = Math.max(1, courts);
+  const nextSlot = new Array<number>(courtCount).fill(0);
+  const out: ScheduledPoolMatch[] = [];
+
+  pools.forEach((pool, poolIndex) => {
+    const court = poolIndex % courtCount; // 0-based
+    const start = nextSlot[court];
+
+    // Flatten this pool's matches into play order.
+    const seq = pool.rounds.flatMap((r) =>
+      r.pairs.map((p) => ({
+        round: r.round,
+        home: p.homeTeamId,
+        away: p.awayTeamId,
+      })),
+    );
+
+    seq.forEach((m, k) => {
+      const playing = new Set<TeamId>([m.home, m.away]);
+      const candidates = pool.teamIds.filter((id) => !playing.has(id));
+      const next = seq[k + 1];
+      // Prefer the team that plays next; else any non-playing pool team
+      // (designated ref for the pool's final match).
+      const ref =
+        (next
+          ? candidates.find((id) => id === next.home || id === next.away)
+          : undefined) ??
+        candidates[0] ??
+        null;
+
+      out.push({
+        poolIndex,
+        court: court + 1,
+        slot: start + k,
+        round: m.round,
+        homeTeamId: m.home,
+        awayTeamId: m.away,
+        refTeamId: ref,
+      });
+    });
+
+    nextSlot[court] = start + seq.length; // next pool on this court starts after
+  });
+
+  return out;
+}
+
+/** Invariant check: returns any (court, slot) pairs used by more than one match. */
+export function detectCourtTimeCollisions(
+  matches: { court: number; slot: number }[],
+): { court: number; slot: number }[] {
+  const seen = new Set<string>();
+  const collisions: { court: number; slot: number }[] = [];
+  for (const m of matches) {
+    const key = `${m.court}@${m.slot}`;
+    if (seen.has(key)) collisions.push({ court: m.court, slot: m.slot });
+    else seen.add(key);
+  }
+  return collisions;
+}

@@ -1,6 +1,8 @@
 "use client";
 
-import type { PublicTournament } from "@/lib/queries/tournaments";
+import type { PoolsView, PublicTournament } from "@/lib/queries/tournaments";
+import { PoolsDisplay } from "@/components/tournament/pools-display";
+import { ScheduleView } from "@/components/schedule/schedule-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function initials(name: string): string {
@@ -20,15 +22,21 @@ function Placeholder({ children }: { children: React.ReactNode }) {
 
 export function TournamentTabs({
   tournament,
+  poolsView,
 }: {
   tournament: PublicTournament;
+  poolsView: PoolsView | null;
 }) {
+  const multiDivision = tournament.divisions.length > 1;
+  const hasPools = !!poolsView?.hasPools;
+  const hasSchedule = (poolsView?.schedule.length ?? 0) > 0;
+
   const divisions = tournament.divisions.length
     ? tournament.divisions
     : [{ id: "__none", name: "Teams", tierOrder: 0 }];
 
   return (
-    <Tabs defaultValue="teams">
+    <Tabs defaultValue={hasPools ? "pools" : "teams"}>
       <TabsList>
         <TabsTrigger value="pools">Pools</TabsTrigger>
         <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -37,15 +45,29 @@ export function TournamentTabs({
       </TabsList>
 
       <TabsContent value="pools" className="mt-6">
-        <Placeholder>
-          Pools will appear here once the organizer draws them.
-        </Placeholder>
+        {hasPools ? (
+          <PoolsDisplay
+            divisions={poolsView!.divisions}
+            showDivisionHeadings={multiDivision}
+          />
+        ) : (
+          <Placeholder>
+            Pools will appear here once the organizer draws them.
+          </Placeholder>
+        )}
       </TabsContent>
 
       <TabsContent value="schedule" className="mt-6">
-        <Placeholder>
-          The pool schedule will appear once pools are drawn.
-        </Placeholder>
+        {hasSchedule ? (
+          <ScheduleView
+            matches={poolsView!.schedule}
+            timezone={poolsView!.timezone}
+          />
+        ) : (
+          <Placeholder>
+            The pool schedule will appear once pools are drawn.
+          </Placeholder>
+        )}
       </TabsContent>
 
       <TabsContent value="brackets" className="mt-6">
@@ -65,7 +87,7 @@ export function TournamentTabs({
             if (teams.length === 0) return null;
             return (
               <section key={d.id} className="space-y-3">
-                {tournament.divisions.length > 1 && (
+                {multiDivision && (
                   <h3 className="font-display font-semibold">{d.name}</h3>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

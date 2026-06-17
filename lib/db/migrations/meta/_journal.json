@@ -50,6 +50,20 @@
       "when": 1781672593574,
       "tag": "0006_register_team_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781701386653,
+      "tag": "0007_harsh_gladiator",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781708757734,
+      "tag": "0008_cheerful_wonder_man",
+      "breakpoints": true
     }
   ]
 }

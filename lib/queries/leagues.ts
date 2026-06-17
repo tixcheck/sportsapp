@@ -49,6 +49,8 @@ export interface ScheduleMatch {
   awayTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
+  refTeamId: string | null;
+  refTeamName: string | null;
 }
 
 export interface PublicLeague {
@@ -168,7 +170,7 @@ async function loadSchedule(
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, round, scheduled_at, court, status, home_team_id, away_team_id",
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id",
     )
     .eq("competition_id", leagueId)
     .order("scheduled_at", { ascending: true })
@@ -188,6 +190,8 @@ async function loadSchedule(
     awayTeamName: m.away_team_id
       ? (nameById.get(m.away_team_id) ?? "TBD")
       : "TBD",
+    refTeamId: m.ref_team_id,
+    refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
   }));
 }
 

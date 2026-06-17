@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/formats";
+import type { ScheduleMatch } from "@/lib/queries/leagues";
 
 export interface TournamentSummary {
   id: string;
@@ -206,5 +207,139 @@ export async function getPublicTournament(
       name: tm.name,
       divisionId: tm.division_id,
     })),
+  };
+}
+
+// --- pools view (admin + public) -------------------------------------------
+
+export interface PoolWithTeams {
+  id: string;
+  name: string;
+  court: string | null;
+  teams: { id: string; name: string; seed: number | null }[];
+  matches: ScheduleMatch[];
+}
+
+export interface DivisionPools {
+  division: Division;
+  pools: PoolWithTeams[];
+}
+
+export interface PoolsView {
+  timezone: string;
+  hasPools: boolean;
+  divisions: DivisionPools[];
+  schedule: ScheduleMatch[];
+}
+
+/** Pools + pool-play schedule grouped by division (RLS-aware). */
+export async function getPoolsView(
+  competitionId: string,
+): Promise<PoolsView | null> {
+  const supabase = await createClient();
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("timezone")
+    .eq("id", competitionId)
+    .single();
+  if (!comp) return null;
+
+  const divisions = await loadDivisions(supabase, competitionId);
+
+  const { data: pools } = await supabase
+    .from("pools")
+    .select("id, name, division_id, sort_order")
+    .eq("competition_id", competitionId)
+    .order("sort_order", { ascending: true });
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, seed, pool_id")
+    .eq("competition_id", competitionId);
+  const nameById = new Map(
+    (teams ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+
+  const { data: matches } = await supabase
+    .from("matches")
+    .select(
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, pool_id",
+    )
+    .eq("competition_id", competitionId)
+    .order("scheduled_at", { ascending: true })
+    .order("round", { ascending: true });
+
+  const toScheduleMatch = (m: {
+    id: string;
+    round: number | null;
+    scheduled_at: string | null;
+    court: string | null;
+    status: string;
+    home_team_id: string | null;
+    away_team_id: string | null;
+    ref_team_id: string | null;
+  }): ScheduleMatch => ({
+    id: m.id,
+    round: m.round,
+    scheduledAt: m.scheduled_at,
+    court: m.court,
+    status: m.status,
+    homeTeamId: m.home_team_id,
+    awayTeamId: m.away_team_id,
+    homeTeamName: m.home_team_id
+      ? (nameById.get(m.home_team_id) ?? "TBD")
+      : "TBD",
+    awayTeamName: m.away_team_id
+      ? (nameById.get(m.away_team_id) ?? "TBD")
+      : "TBD",
+    refTeamId: m.ref_team_id,
+    refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
+  });
+
+  const matchesByPool = new Map<string, ScheduleMatch[]>();
+  const schedule: ScheduleMatch[] = [];
+  for (const m of matches ?? []) {
+    const sm = toScheduleMatch(m);
+    schedule.push(sm);
+    if (m.pool_id) {
+      const list = matchesByPool.get(m.pool_id) ?? [];
+      list.push(sm);
+      matchesByPool.set(m.pool_id, list);
+    }
+  }
+
+  const teamsByPool = new Map<
+    string,
+    { id: string; name: string; seed: number | null }[]
+  >();
+  for (const t of teams ?? []) {
+    if (!t.pool_id) continue;
+    const list = teamsByPool.get(t.pool_id) ?? [];
+    list.push({ id: t.id, name: t.name, seed: t.seed });
+    teamsByPool.set(t.pool_id, list);
+  }
+  for (const list of teamsByPool.values()) {
+    list.sort((a, b) => (a.seed ?? 999) - (b.seed ?? 999));
+  }
+
+  const divisionPools: DivisionPools[] = divisions.map((d) => ({
+    division: d,
+    pools: (pools ?? [])
+      .filter((p) => p.division_id === d.id)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        court: (matchesByPool.get(p.id) ?? [])[0]?.court ?? null,
+        teams: teamsByPool.get(p.id) ?? [],
+        matches: matchesByPool.get(p.id) ?? [],
+      })),
+  }));
+
+  return {
+    timezone: comp.timezone,
+    hasPools: (pools?.length ?? 0) > 0,
+    divisions: divisionPools,
+    schedule,
   };
 }
