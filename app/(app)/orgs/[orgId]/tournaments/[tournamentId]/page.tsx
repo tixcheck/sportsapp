@@ -4,10 +4,14 @@ import { DateTime } from "luxon";
 import { CalendarDays, MapPin } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
+import { getStandings } from "@/lib/standings/compute";
+import { getBracket } from "@/lib/queries/bracket";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
+import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
+import { BracketTree } from "@/components/bracket/bracket-tree";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { PublishToggle } from "@/components/league/publish-toggle";
@@ -29,10 +33,16 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const [origin, poolsView] = await Promise.all([
+  const [origin, poolsView, standings, bracket] = await Promise.all([
     getOrigin(),
     getPoolsView(tournamentId),
+    getStandings(tournamentId),
+    getBracket(tournamentId),
   ]);
+  const poolMatches = poolsView?.schedule ?? [];
+  const poolPlayComplete =
+    poolMatches.length > 0 &&
+    poolMatches.every((m) => m.status === "completed");
 
   const divisionsWithTeams = t.divisions.map((d) => ({
     id: d.id,
@@ -141,6 +151,27 @@ export default async function TournamentPage({
             </CardContent>
           </Card>
         </>
+      )}
+
+      {/* Bracket */}
+      {poolsView?.hasPools && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Bracket</CardTitle>
+            <CardDescription>
+              Seed teams out of pools into a single-elimination bracket.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <GenerateBracketPanel
+              competitionId={t.id}
+              pools={standings}
+              hasBracket={!!bracket}
+              poolPlayComplete={poolPlayComplete}
+            />
+            {bracket && <BracketTree bracket={bracket} />}
+          </CardContent>
+        </Card>
       )}
 
       {/* Teams */}

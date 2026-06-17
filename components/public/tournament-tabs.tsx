@@ -2,9 +2,11 @@
 
 import type { PoolsView, PublicTournament } from "@/lib/queries/tournaments";
 import type { StandingsGroup } from "@/lib/standings/compute";
+import type { BracketView } from "@/lib/queries/bracket";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsGroups } from "@/components/standings/standings-table";
+import { BracketTree } from "@/components/bracket/bracket-tree";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function initials(name: string): string {
@@ -26,10 +28,12 @@ export function TournamentTabs({
   tournament,
   poolsView,
   standings,
+  bracket,
 }: {
   tournament: PublicTournament;
   poolsView: PoolsView | null;
   standings: StandingsGroup[];
+  bracket: BracketView | null;
 }) {
   const multiDivision = tournament.divisions.length > 1;
   const hasPools = !!poolsView?.hasPools;
@@ -87,9 +91,13 @@ export function TournamentTabs({
       </TabsContent>
 
       <TabsContent value="brackets" className="mt-6">
-        <Placeholder>
-          The single-elimination bracket appears after pool play.
-        </Placeholder>
+        {bracket ? (
+          <BracketTree bracket={bracket} />
+        ) : (
+          <Placeholder>
+            The single-elimination bracket appears after pool play.
+          </Placeholder>
+        )}
       </TabsContent>
 
       <TabsContent value="teams" className="mt-6 space-y-6">

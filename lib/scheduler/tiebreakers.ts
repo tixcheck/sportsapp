@@ -358,3 +358,65 @@ export function crossPoolSeedOrder(pools: StandingRow[][]): TeamId[] {
   }
   return order;
 }
+
+export type AdvancementMode = "perPool" | "overall";
+
+/**
+ * The teams that advance to the bracket, in seed order. "perPool" takes the top
+ * `n` from each pool; "overall" takes the best `n` across all pools. Both seed
+ * via crossPoolSeedOrder, so seeding stays consistent (and format-normalized).
+ */
+export function selectAdvancers(
+  pools: StandingRow[][],
+  mode: AdvancementMode,
+  n: number,
+): TeamId[] {
+  if (mode === "perPool") {
+    return crossPoolSeedOrder(pools.map((p) => p.slice(0, n)));
+  }
+  return crossPoolSeedOrder(pools).slice(0, n);
+}
+
+/**
+ * Detect tied teams straddling the advancement cutoff — the only case where
+ * seeding is genuinely ambiguous (an unresolved step-5 tie within a pool, or a
+ * cross-pool dead heat on both ratios). Returns the groups of team ids to name
+ * in a warning; the organizer can then reorder the seed preview (coin flip)
+ * before generating. Empty when the cutoff is clean.
+ */
+export function advancementCutoffTies(
+  pools: StandingRow[][],
+  mode: AdvancementMode,
+  n: number,
+): TeamId[][] {
+  const groups: TeamId[][] = [];
+  if (mode === "perPool") {
+    for (const rows of pools) {
+      const last = rows[n - 1];
+      const first = rows[n];
+      if (
+        last &&
+        first &&
+        last.tiebreakerStep === 5 &&
+        first.tiebreakerStep === 5 &&
+        last.tiedWith.includes(first.teamId)
+      ) {
+        groups.push([...new Set([...last.tiedWith, ...first.tiedWith])]);
+      }
+    }
+  } else {
+    const order = crossPoolSeedOrder(pools);
+    const byId = new Map(pools.flat().map((r) => [r.teamId, r]));
+    const a = byId.get(order[n - 1]);
+    const b = byId.get(order[n]);
+    if (
+      a &&
+      b &&
+      approxEqual(a.setRatio, b.setRatio) &&
+      approxEqual(a.pointRatio, b.pointRatio)
+    ) {
+      groups.push([a.teamId, b.teamId]);
+    }
+  }
+  return groups;
+}

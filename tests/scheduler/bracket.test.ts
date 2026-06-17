@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bracketParent,
   generateBracket,
   nextPowerOfTwo,
+  seededBracketMatches,
   seedOrder,
 } from "@/lib/scheduler/bracket";
 
@@ -136,5 +138,76 @@ describe("generateBracket — degenerate fields", () => {
   it("0 or 1 team yields no rounds", () => {
     expect(generateBracket([]).rounds).toEqual([]);
     expect(generateBracket(seeded(1)).rounds).toEqual([]);
+  });
+});
+
+describe("bracketParent", () => {
+  it("maps child slots to the parent round / position / side", () => {
+    expect(bracketParent(1, 1)).toEqual({
+      round: 2,
+      position: 1,
+      slot: "home",
+    });
+    expect(bracketParent(1, 2)).toEqual({
+      round: 2,
+      position: 1,
+      slot: "away",
+    });
+    expect(bracketParent(1, 3)).toEqual({
+      round: 2,
+      position: 2,
+      slot: "home",
+    });
+    expect(bracketParent(1, 4)).toEqual({
+      round: 2,
+      position: 2,
+      slot: "away",
+    });
+    expect(bracketParent(2, 1)).toEqual({
+      round: 3,
+      position: 1,
+      slot: "home",
+    });
+  });
+});
+
+describe("seededBracketMatches", () => {
+  it("8 teams: 4 R1 + 2 R2 + 1 final, no byes", () => {
+    const ms = seededBracketMatches(seeded(8));
+    const r1 = ms.filter((m) => m.round === 1);
+    expect(r1).toHaveLength(4);
+    expect(r1.every((m) => m.homeTeamId && m.awayTeamId)).toBe(true);
+    expect(ms.filter((m) => m.round === 2)).toHaveLength(2);
+    const final = ms.filter((m) => m.round === 3);
+    expect(final).toHaveLength(1);
+    expect(final[0]).toMatchObject({ homeTeamId: null, awayTeamId: null });
+  });
+
+  it("5 teams: byes advance top seeds into round 2 (R1 phantom omitted)", () => {
+    const ms = seededBracketMatches(["S1", "S2", "S3", "S4", "S5"]);
+    const at = (r: number, p: number) =>
+      ms.find((m) => m.round === r && m.position === p)!;
+    // Only one real round-1 match: seed 4 (S4) vs seed 5 (S5).
+    const r1 = ms.filter((m) => m.round === 1);
+    expect(r1).toHaveLength(1);
+    expect(r1[0]).toMatchObject({ homeTeamId: "S4", awayTeamId: "S5" });
+    // R2-1: top seed S1 awaits the S4/S5 winner.
+    expect(at(2, 1)).toMatchObject({ homeTeamId: "S1", awayTeamId: null });
+    // R2-2: two adjacent byes (S2, S3) -> playable immediately.
+    expect(at(2, 2)).toMatchObject({ homeTeamId: "S2", awayTeamId: "S3" });
+    // Final is a placeholder.
+    expect(at(3, 1)).toMatchObject({ homeTeamId: null, awayTeamId: null });
+  });
+
+  it("2 teams: a single final match", () => {
+    const ms = seededBracketMatches(["S1", "S2"]);
+    expect(ms).toHaveLength(1);
+    expect(ms[0]).toMatchObject({ round: 1, position: 1, homeTeamId: "S1" });
+  });
+
+  it("every persisted slot is unique by (round, position)", () => {
+    const ms = seededBracketMatches(seeded(13));
+    const keys = ms.map((m) => `${m.round}:${m.position}`);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

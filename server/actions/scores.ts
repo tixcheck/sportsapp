@@ -7,7 +7,25 @@ import { getOrigin } from "@/lib/utils/url";
 import { validateScore, type SetScoreInput } from "@/lib/scoring/validation";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
+import { advanceBracketWinner } from "@/lib/bracket/advance";
 import { sendConfirmScore } from "@/lib/email/send";
+
+/**
+ * Post-completion side effects: advance the bracket if this is a bracket match,
+ * otherwise refresh the pool/league standings cache. Best-effort.
+ */
+async function onMatchCompleted(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matchId: string,
+  competitionId: string,
+  bracketPosition: number | null,
+): Promise<void> {
+  if (bracketPosition !== null) {
+    await advanceBracketWinner(supabase, matchId);
+  } else {
+    await recomputeStandings(supabase, competitionId);
+  }
+}
 import type { MatchFormat } from "@/lib/db/schema";
 
 type ActionError = { error: string };
@@ -54,7 +72,9 @@ export async function submitScoreAction(
 
   const { data: match } = await supabase
     .from("matches")
-    .select("competition_id, status, home_team_id, away_team_id, pool_id")
+    .select(
+      "competition_id, status, home_team_id, away_team_id, pool_id, bracket_position",
+    )
     .eq("id", matchId)
     .single();
   if (!match) return { error: "Match not found." };
@@ -115,9 +135,14 @@ export async function submitScoreAction(
   if (requiresConfirmation) {
     await notifyOpponents(supabase, match, comp, user.id);
   } else {
-    // Score is final — refresh the standings cache (best-effort; display
-    // derives live regardless).
-    await recomputeStandings(supabase, match.competition_id);
+    // Score is final — advance the bracket or refresh standings (best-effort;
+    // standings display derives live regardless).
+    await onMatchCompleted(
+      supabase,
+      matchId,
+      match.competition_id,
+      match.bracket_position,
+    );
   }
 
   revalidatePath("/my-matches");
@@ -153,12 +178,17 @@ export async function confirmScoreAction(
     .from("matches")
     .update({ status: "completed" })
     .eq("id", matchId)
-    .select("competition_id")
+    .select("competition_id, bracket_position")
     .single();
 
-  // Now final → refresh the standings cache.
+  // Now final → advance the bracket or refresh standings.
   if (updated?.competition_id) {
-    await recomputeStandings(supabase, updated.competition_id);
+    await onMatchCompleted(
+      supabase,
+      matchId,
+      updated.competition_id,
+      updated.bracket_position,
+    );
   }
 
   revalidatePath("/my-matches");

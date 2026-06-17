@@ -99,3 +99,81 @@ export function generateBracket(seededTeamIds: TeamId[]): BracketResult {
 
   return { teamCount, size, rounds };
 }
+
+// --- persistence + advancement (Phase 8) -----------------------------------
+
+export interface PersistBracketMatch {
+  round: number;
+  /** 1-based slot within the round (matches.bracket_position). */
+  position: number;
+  homeTeamId: TeamId | null;
+  awayTeamId: TeamId | null;
+}
+
+/**
+ * The parent (next-round) match a winner advances into. Pairing (2k-1, 2k) feed
+ * parent k; the odd slot takes the home side, the even slot the away side. The
+ * final has no parent (its parent coordinates simply match no row).
+ */
+export function bracketParent(
+  round: number,
+  position: number,
+): { round: number; position: number; slot: "home" | "away" } {
+  return {
+    round: round + 1,
+    position: Math.ceil(position / 2),
+    slot: position % 2 === 1 ? "home" : "away",
+  };
+}
+
+/**
+ * Flatten a seeded bracket into the matches to persist. Byes are resolved at
+ * generation: a bye team is placed straight into its round-2 slot and the
+ * round-1 "vs BYE" match is omitted (the top seed skips round 1). Round-1
+ * positions keep their original numbering (gaps where byes were) so
+ * bracketParent() math stays valid. Later rounds are persisted as placeholders,
+ * pre-filled where a bye (or two adjacent byes) already determines a team.
+ */
+export function seededBracketMatches(
+  seededTeamIds: TeamId[],
+): PersistBracketMatch[] {
+  const { rounds, size } = generateBracket(seededTeamIds);
+  if (size < 2) return [];
+
+  const slots = new Map<string, PersistBracketMatch>();
+  for (let r = 1; r < rounds.length; r++) {
+    for (const m of rounds[r]) {
+      slots.set(`${m.round}:${m.matchNumber}`, {
+        round: m.round,
+        position: m.matchNumber,
+        homeTeamId: null,
+        awayTeamId: null,
+      });
+    }
+  }
+
+  const out: PersistBracketMatch[] = [];
+  for (const m of rounds[0]) {
+    if (m.isBye) {
+      const present = m.home.teamId ?? m.away.teamId;
+      if (!present) continue;
+      const parent = bracketParent(m.round, m.matchNumber);
+      const slot = slots.get(`${parent.round}:${parent.position}`);
+      if (slot) {
+        if (parent.slot === "home") slot.homeTeamId = present;
+        else slot.awayTeamId = present;
+      }
+    } else {
+      out.push({
+        round: m.round,
+        position: m.matchNumber,
+        homeTeamId: m.home.teamId,
+        awayTeamId: m.away.teamId,
+      });
+    }
+  }
+  for (const s of slots.values()) out.push(s);
+
+  out.sort((a, b) => a.round - b.round || a.position - b.position);
+  return out;
+}
