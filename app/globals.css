@@ -5,19 +5,26 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Sunset Sand design system (DESIGN.md). The named palette lives in :root as
- * raw custom properties (§2); shadcn's semantic tokens map onto them (§10);
- * this @theme block exposes everything to Tailwind utilities.
+ * "Ink & Paper" design system (DESIGN.md). Warm paper + warm near-black ink,
+ * one spot color (claret), one narrow semantic (pine). The named palette lives
+ * in :root as raw custom properties (§2); shadcn's semantic tokens map onto them
+ * (§10); this @theme block exposes everything to Tailwind utilities.
+ *
+ * Chunk 0 (foundation): the legacy Sunset-Sand utility names (coral-*, surface,
+ * text-*, win/loss, …) are kept but ALIASED onto the new tokens, so every screen
+ * adopts the new skin via the semantic tokens it already uses. Chunks 1–5 then
+ * replace those class names with the canonical ink/claret/paper utilities and
+ * apply the editorial structure (almanac table, match report).
  */
 @theme inline {
-  /* Fonts (§3) — Outfit for display/headings/scores, Inter for body. */
+  /* Fonts (§3) — Newsreader for display/headings/scoreline, Libre Franklin for body + data. */
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
-  /* Radius (§4) — 10px is the heartbeat. */
-  --radius-sm: 6px;
-  --radius-md: 8px;
+  /* Radius (§4) — 6px default, crisp but not the cold zero-radius broadsheet. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
   --radius-lg: 10px;
   --radius-xl: 14px;
 
@@ -41,103 +48,128 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  /* Named palette → utilities (bg-coral-500, text-coral-700, text-win, …) */
-  --color-coral-50: var(--coral-50);
-  --color-coral-100: var(--coral-100);
-  --color-coral-200: var(--coral-200);
-  --color-coral-400: var(--coral-400);
-  --color-coral-500: var(--coral-500);
-  --color-coral-600: var(--coral-600);
-  --color-coral-700: var(--coral-700);
-  --color-coral-900: var(--coral-900);
-  --color-apricot-300: var(--apricot-300);
-  --color-apricot-500: var(--apricot-500);
-  --color-gold-300: var(--gold-300);
-  --color-gold-500: var(--gold-500);
-  --color-accent-warm: var(--accent-warm);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-text: var(--text);
-  --color-text-2: var(--text-2);
-  --color-text-3: var(--text-3);
-  --color-win: var(--win);
-  --color-loss: var(--loss);
-  --color-warn: var(--warn);
-  --color-info: var(--info);
-  --color-live: var(--live);
+  /* --- Ink & Paper named palette → utilities (the canonical names) --- */
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-rule: var(--rule);
+  --color-claret: var(--claret);
+  --color-claret-deep: var(--claret-deep);
+  --color-claret-tint: var(--claret-tint);
+  --color-pine: var(--pine);
+
+  /* --- Legacy Sunset-Sand utility names, aliased onto Ink & Paper (§ chunk 0) ---
+     Kept so existing components reskin without class renames; removed as chunks
+     1–5 migrate each component to the canonical names above. */
+  --color-coral-50: var(--claret-tint);
+  --color-coral-100: var(--claret-tint);
+  --color-coral-200: var(--rule);
+  --color-coral-400: var(--claret);
+  --color-coral-500: var(--claret);
+  --color-coral-600: var(--claret);
+  --color-coral-700: var(--claret);
+  --color-coral-900: var(--claret-deep);
+  --color-apricot-300: var(--paper-sunken);
+  --color-apricot-500: var(--claret);
+  --color-gold-300: var(--claret-tint);
+  --color-gold-500: var(--claret);
+  --color-accent-warm: var(--claret);
+  --color-surface: var(--paper-raised);
+  --color-surface-2: var(--paper-sunken);
+  --color-text: var(--ink);
+  --color-text-2: var(--ink-2);
+  --color-text-3: var(--ink-3);
+  --color-win: var(--pine);
+  --color-loss: var(--ink-3);
+  --color-warn: var(--claret);
+  --color-info: var(--claret);
+  --color-live: var(--claret);
 }
 
-/* Warm-tinted soft shadows (§4) — emitted as vars + shadow-* utilities. */
+/* Shadows (§4) — near-flat, ink-tinted; the report is the one piece that lifts. */
 @theme {
-  --shadow-sm: 0 1px 2px rgba(122, 59, 46, 0.05);
-  --shadow: 0 2px 10px rgba(122, 59, 46, 0.07);
-  --shadow-lg: 0 8px 24px rgba(122, 59, 46, 0.1);
+  --shadow-sm: 0 1px 0 rgba(28, 23, 20, 0.04);
+  --shadow: 0 1px 2px rgba(28, 23, 20, 0.05);
+  --shadow-lg: 0 2px 18px rgba(28, 23, 20, 0.07);
+  --shadow-report: 0 2px 18px rgba(28, 23, 20, 0.07);
 }
 
 :root {
   /* --- §2 Color palette (raw tokens) --- */
 
-  /* Brand — Coral */
-  --coral-50: #fce5d4;
-  --coral-100: #f8d0b4;
-  --coral-200: #f5b896;
-  --coral-400: #f2814f;
-  --coral-500: #e8643c;
-  --coral-600: #d2522c;
-  --coral-700: #c2410c;
-  --coral-900: #9a3d24;
+  /* Paper + ink (the page) */
+  --paper: #f1e9d9;
+  --paper-raised: #faf5ea;
+  --paper-sunken: #e7dcc6;
+  --ink: #1c1714;
+  --ink-2: #6a5f52;
+  --ink-3: #9b9082;
+  --rule: #d8ccb4;
 
-  /* Apricot + Gold */
-  --apricot-300: #f9c29a;
-  --apricot-500: #f59e5b;
-  --gold-300: #f4c77b;
-  --gold-500: #e9a93c;
+  /* Claret — the one spot color (used with restraint) */
+  --claret: #8e2c3b;
+  --claret-deep: #6c1f2c;
+  --claret-tint: #f0dcd9;
 
-  /* Neutrals — warm cream + espresso */
-  --bg: #fbf3e7;
-  --surface: #fffdf9;
-  --surface-2: #f5ead9;
-  --border: #eadcc6;
-  --text: #3d2419;
-  --text-2: #a88b6a;
-  --text-3: #c0ad92;
+  /* Pine — one semantic only: "advances to playoffs" */
+  --pine: #2f6b43;
 
-  /* Semantic */
-  --win: #5b8c3e;
-  --loss: #c44536;
-  --warn: #e9a93c;
-  --info: #e8643c;
-  --live: #e8643c;
+  --radius: 6px;
 
-  /* Dedicated gold accent for tournament UI (use sparingly). */
-  --accent-warm: var(--gold-500);
-
-  --radius: 10px;
+  /* --- Legacy raw token aliases (kept for chunk 0; see note above) --- */
+  --bg: var(--paper);
+  --surface: var(--paper-raised);
+  --surface-2: var(--paper-sunken);
+  --border: var(--rule);
+  --text: var(--ink);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
+  --win: var(--pine);
+  --loss: var(--ink-3);
+  --warn: var(--claret);
+  --info: var(--claret);
+  --live: var(--claret);
+  --coral-50: var(--claret-tint);
+  --coral-100: var(--claret-tint);
+  --coral-200: var(--rule);
+  --coral-400: var(--claret);
+  --coral-500: var(--claret);
+  --coral-600: var(--claret);
+  --coral-700: var(--claret);
+  --coral-900: var(--claret-deep);
+  --apricot-300: var(--paper-sunken);
+  --apricot-500: var(--claret);
+  --gold-300: var(--claret-tint);
+  --gold-500: var(--claret);
+  --accent-warm: var(--claret);
 
   /* --- §10 shadcn semantic mapping --- */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface);
-  --popover-foreground: var(--text);
-  --primary: var(--coral-500);
-  --primary-foreground: #ffffff;
-  --secondary: var(--surface-2);
-  --secondary-foreground: var(--text);
-  --muted: var(--surface-2);
-  --muted-foreground: var(--text-2);
-  --accent: var(--coral-50);
-  --accent-foreground: var(--coral-900);
-  --destructive: var(--loss);
-  --input: var(--border);
-  --ring: var(--coral-400);
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--paper-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--paper-raised);
+  --popover-foreground: var(--ink);
+  --primary: var(--claret);
+  --primary-foreground: var(--paper-raised);
+  --secondary: var(--paper-sunken);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-sunken);
+  --muted-foreground: var(--ink-2);
+  --accent: var(--claret-tint);
+  --accent-foreground: var(--claret-deep);
+  --destructive: var(--claret);
+  --input: var(--rule);
+  --ring: var(--claret);
 }
 
 /*
- * Dark mode is deferred to post-v0 (DESIGN §9). The token structure above lets
- * a warm dark theme be added later by overriding the palette under `.dark`
- * with no component changes.
+ * Dark mode is deferred to post-v0 (DESIGN §9). The token structure above lets a
+ * warm dark theme (deep ink-brown bg, paper text, claret accent) be added later
+ * by overriding the palette under `.dark` with no component changes.
  */
 
 @layer base {
@@ -153,8 +185,8 @@
 }
 
 @layer utilities {
-  /* Tabular figures for scores/standings so numeric columns align (§3). */
+  /* Tabular lining figures for scores/standings so numeric columns align (§3). */
   .tabular-nums {
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
   }
 }

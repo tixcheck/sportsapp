@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Libre_Franklin, Newsreader } from "next/font/google";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
 
-// Body / UI workhorse (DESIGN §3). Exposed as --font-sans (Tailwind font-sans).
-const inter = Inter({
+// Body / UI + data workhorse (DESIGN §3) — a Franklin Gothic revival, the classic
+// newspaper deck/caption sans. Exposed as --font-sans (Tailwind font-sans).
+const libreFranklin = Libre_Franklin({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-// Display face for headings + signature score numerals (DESIGN §3).
+// Display face (DESIGN §3) — a newspaper serif with characterful italics; used for
+// headings, team names in the report, and the signature scoreline numerals.
 // Exposed as --font-display (Tailwind font-display).
-const outfit = Outfit({
+const newsreader = Newsreader({
   variable: "--font-display",
   subsets: ["latin"],
   display: "swap",
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -31,7 +34,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
+    <html
+      lang="en"
+      className={`${libreFranklin.variable} ${newsreader.variable}`}
+    >
       <body className="antialiased">
         {children}
         <Toaster richColors position="top-center" />

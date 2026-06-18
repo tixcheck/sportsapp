@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ink &amp; Paper — hero (public tournament)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Display: Newsreader (newspaper serif, with italic). Body/data: Libre Franklin (Franklin Gothic sans). -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Libre+Franklin:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ============================================================
+         INK & PAPER — token system (prototype)
+         ============================================================ */
+      :root {
+        /* Paper + ink — warm, deeper than the cream cliché */
+        --paper: #f1e9d9; /* app background — warm paper */
+        --paper-raised: #faf5ea; /* cards, sheets, the match report */
+        --paper-sunken: #e7dcc6; /* zebra rows, fills, your-team row */
+        --ink: #1c1714; /* primary text + data (warm near-black) */
+        --ink-2: #6a5f52; /* secondary text */
+        --ink-3: #9b9082; /* tertiary, captions, LOSS (muted, no red) */
+        --rule: #d8ccb4; /* hairline rules / borders */
+
+        /* The one spot color — claret (leather record-book), used with restraint */
+        --claret: #8e2c3b;
+        --claret-deep: #6c1f2c; /* hover / pressed / deep emphasis */
+        --claret-tint: #f0dcd9; /* faint claret wash — leader marker bg */
+
+        /* One semantic only: advances to playoffs / the W glyph */
+        --pine: #2f6b43;
+
+        --radius-sm: 4px;
+        --radius: 6px;
+        --radius-lg: 10px;
+
+        --shadow-report: 0 2px 18px rgba(28, 23, 20, 0.07);
+
+        --maxw: 60rem;
+        --serif: "Newsreader", Georgia, "Times New Roman", serif;
+        --sans: "Libre Franklin", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.5;
+        font-feature-settings: "kern" 1;
+        -webkit-font-smoothing: antialiased;
+      }
+      .tnum {
+        font-variant-numeric: tabular-nums lining-nums;
+      }
+
+      /* ---- Masthead ------------------------------------------------ */
+      .masthead {
+        border-bottom: 1px solid var(--rule);
+        background: var(--paper-raised);
+      }
+      .wrap {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 1.25rem;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-top: 1.5rem;
+        color: var(--ink-2);
+        text-decoration: none;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .brand .glyph {
+        width: 1.4rem;
+        height: 1.4rem;
+        display: grid;
+        place-items: center;
+        background: var(--claret);
+        color: #fff;
+        border-radius: var(--radius-sm);
+        font-family: var(--serif);
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .eyebrow {
+        margin: 1.5rem 0 0;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--claret);
+      }
+      .masthead h1 {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: clamp(2rem, 6vw, 2.9rem);
+        line-height: 1.04;
+        letter-spacing: -0.01em;
+        margin: 0.35rem 0 0;
+      }
+      .masthead .meta {
+        margin: 0.6rem 0 1.6rem;
+        color: var(--ink-2);
+        font-size: 0.9rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 1.25rem;
+      }
+      .masthead .meta b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      /* ---- Tabs (static — Pools active) ---------------------------- */
+      .tabs {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: color-mix(in srgb, var(--paper) 88%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--rule);
+      }
+      .tabs .row {
+        display: flex;
+        gap: 1.5rem;
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 1.25rem;
+      }
+      .tab {
+        appearance: none;
+        background: none;
+        border: 0;
+        padding: 0.85rem 0;
+        font-family: var(--sans);
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+      }
+      .tab[aria-selected="true"] {
+        color: var(--ink);
+        border-bottom-color: var(--claret);
+      }
+
+      main {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 2.5rem 1.25rem 4rem;
+      }
+      section + section {
+        margin-top: 3rem;
+      }
+
+      /* Section header: serif title + a short claret rule */
+      .sec-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--ink);
+        padding-bottom: 0.5rem;
+      }
+      .sec-head h2 {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: 1.5rem;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      .sec-head .note {
+        font-family: var(--serif);
+        font-style: italic;
+        color: var(--ink-2);
+        font-size: 0.95rem;
+      }
+
+      /* ---- Pool draw ---------------------------------------------- */
+      .pools {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+        margin-top: 1.25rem;
+      }
+      .pool {
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-lg);
+        background: var(--paper-raised);
+        padding: 1.1rem 1.2rem 1.25rem;
+      }
+      .pool-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 0.5rem;
+      }
+      .pool-top h3 {
+        font-family: var(--serif);
+        font-weight: 600;
+        font-size: 1.15rem;
+        margin: 0;
+      }
+      .pool-top .court {
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+      }
+      .pool ol {
+        list-style: none;
+        margin: 0.6rem 0 0;
+        padding: 0;
+      }
+      .pool li {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.32rem 0;
+      }
+      .pool li .seed {
+        font-family: var(--serif);
+        color: var(--ink-3);
+        width: 1.1rem;
+        text-align: right;
+        font-size: 0.95rem;
+      }
+      .pool li .name {
+        font-size: 0.95rem;
+      }
+      .tag-you {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--claret);
+        border: 1px solid var(--claret);
+        border-radius: var(--radius-sm);
+        padding: 0.05rem 0.3rem;
+      }
+
+      /* ---- Standings: the almanac league table -------------------- */
+      .table-meta {
+        margin: 1.1rem 0 0.4rem;
+        font-family: var(--serif);
+        font-style: italic;
+        color: var(--ink-2);
+        font-size: 0.92rem;
+      }
+      table.almanac {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+      table.almanac thead th {
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+        padding: 0 0.5rem 0.5rem;
+        border-bottom: 1.5px solid var(--ink);
+        text-align: center;
+      }
+      table.almanac thead th.t-rank {
+        width: 2.2rem;
+        text-align: center;
+      }
+      table.almanac thead th.t-team {
+        text-align: left;
+      }
+      table.almanac thead th.t-ratio {
+        text-align: right;
+      }
+      table.almanac td {
+        padding: 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      /* row content sits in a flex/grid line, 44px tall */
+      table.almanac tbody tr {
+        height: 2.85rem;
+      }
+      .cell {
+        text-align: center;
+        color: var(--ink);
+      }
+      .cell-rank {
+        font-family: var(--serif);
+        font-size: 1.15rem;
+        color: var(--ink-2);
+        text-align: center;
+      }
+      .cell-team {
+        text-align: left;
+        padding-left: 0.25rem !important;
+      }
+      .cell-team .nm {
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .cell-mw {
+        font-weight: 700;
+      }
+      .cell-loss {
+        color: var(--ink-3);
+      }
+      .cell-ratio {
+        text-align: right;
+        font-weight: 600;
+        padding-right: 0.25rem !important;
+      }
+
+      /* Advancing rows: claret left tick + claret serif rank */
+      tr.adv .cell-rank {
+        color: var(--claret);
+        font-weight: 600;
+      }
+      tr.adv td:first-child {
+        box-shadow: inset 3px 0 0 var(--claret);
+      }
+      /* The qualification cut — a heavier rule with a label */
+      tr.cut td {
+        border-bottom: 0;
+        padding: 0;
+      }
+      .cut-rule {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.45rem 0;
+        color: var(--claret);
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .cut-rule::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--claret);
+        opacity: 0.45;
+      }
+      /* Your team row */
+      tr.you td {
+        background: var(--paper-sunken);
+      }
+      /* The tappable rank → tiebreaker (signature affordance) */
+      .rank-btn {
+        appearance: none;
+        border: 0;
+        background: none;
+        font: inherit;
+        font-family: var(--serif);
+        color: inherit;
+        cursor: pointer;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+      }
+      .rank-btn:hover {
+        background: var(--claret-tint);
+        color: var(--claret-deep);
+      }
+
+      /* ---- The match report --------------------------------------- */
+      .report {
+        margin-top: 1.25rem;
+        background: var(--paper-raised);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-report);
+        padding: 1.3rem 1.4rem 1.4rem;
+      }
+      .report-top {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .pill-final {
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--claret);
+        border: 1px solid var(--claret);
+        border-radius: 999px;
+        padding: 0.12rem 0.55rem;
+      }
+      .dateline {
+        font-family: var(--serif);
+        font-style: italic;
+        color: var(--ink-2);
+        font-size: 0.92rem;
+      }
+      .tape {
+        margin-top: 0.9rem;
+      }
+      .tape-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.35rem 0;
+      }
+      .tape-row .team {
+        font-family: var(--serif);
+        font-size: 1.5rem;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+      }
+      .tape-row .sets {
+        font-family: var(--serif);
+        font-size: 2.4rem;
+        line-height: 1;
+        font-weight: 600;
+      }
+      .winner .team,
+      .winner .sets {
+        color: var(--claret);
+      }
+      .loser .team,
+      .loser .sets {
+        color: var(--ink-3);
+      }
+      .tape-rule {
+        height: 1px;
+        background: var(--rule);
+        margin: 0.15rem 0;
+      }
+      .scorecard {
+        margin-top: 0.95rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid var(--rule);
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .scorecard .lbl {
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+      }
+      .scorecard .line {
+        font-size: 1.1rem;
+        letter-spacing: 0.02em;
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .scorecard .line .lost {
+        color: var(--ink-3);
+        font-weight: 500;
+      }
+      .scorecard .line .dot {
+        color: var(--ink-3);
+        padding: 0 0.35rem;
+      }
+      .verdict {
+        margin: 0.85rem 0 0;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 1.05rem;
+        color: var(--ink);
+      }
+      .verdict b {
+        font-style: normal;
+        font-weight: 600;
+      }
+
+      .legend {
+        margin-top: 1rem;
+        color: var(--ink-2);
+        font-size: 0.8rem;
+        display: flex;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+      }
+      .legend .k {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .swatch {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 2px;
+        display: inline-block;
+      }
+
+      @media (max-width: 520px) {
+        .tape-row .team {
+          font-size: 1.2rem;
+        }
+        .tape-row .sets {
+          font-size: 2rem;
+        }
+        table.almanac {
+          font-size: 0.84rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===================== MASTHEAD ===================== -->
+    <header class="masthead">
+      <div class="wrap">
+        <a class="brand" href="#"><span class="glyph">V</span> Volleyball</a>
+        <p class="eyebrow">Beach 2s · Coed · Tournament</p>
+        <h1>Woodbine Beach Open</h1>
+        <p class="meta">
+          <span><b>Sat, Jul 18, 2026</b></span>
+          <span>Woodbine Beach, Toronto</span>
+          <span>16 teams · 4 pools · top 2 advance</span>
+        </p>
+      </div>
+    </header>
+
+    <!-- ===================== TABS ===================== -->
+    <nav class="tabs">
+      <div class="row">
+        <button class="tab" aria-selected="true">Pools</button>
+        <button class="tab">Schedule</button>
+        <button class="tab">Brackets</button>
+        <button class="tab">Teams</button>
+      </div>
+    </nav>
+
+    <main>
+      <!-- ===================== POOL DRAW ===================== -->
+      <section>
+        <div class="sec-head">
+          <h2>Pool draw</h2>
+          <span class="note">snake-drafted by seed</span>
+        </div>
+        <div class="pools">
+          <div class="pool">
+            <div class="pool-top">
+              <h3>Pool A</h3>
+              <span class="court">Court 3</span>
+            </div>
+            <ol>
+              <li>
+                <span class="seed">1</span
+                ><span class="name">Nguyen / Park</span>
+              </li>
+              <li>
+                <span class="seed">2</span
+                ><span class="name">Côté / Walsh</span>
+              </li>
+              <li>
+                <span class="seed">3</span><span class="name">Mensah / Pak</span
+                ><span class="tag-you">Your team</span>
+              </li>
+              <li>
+                <span class="seed">4</span><span class="name">Reid / Tran</span>
+              </li>
+            </ol>
+          </div>
+          <div class="pool">
+            <div class="pool-top">
+              <h3>Pool B</h3>
+              <span class="court">Court 4</span>
+            </div>
+            <ol>
+              <li>
+                <span class="seed">1</span
+                ><span class="name">Okafor / Bauer</span>
+              </li>
+              <li>
+                <span class="seed">2</span
+                ><span class="name">Salib / Romano</span>
+              </li>
+              <li>
+                <span class="seed">3</span
+                ><span class="name">Friesen / Dubé</span>
+              </li>
+              <li>
+                <span class="seed">4</span><span class="name">Iqbal / Yu</span>
+              </li>
+            </ol>
+          </div>
+          <div class="pool">
+            <div class="pool-top">
+              <h3>Pool C</h3>
+              <span class="court">Court 5</span>
+            </div>
+            <ol>
+              <li>
+                <span class="seed">1</span
+                ><span class="name">Lindqvist / Abara</span>
+              </li>
+              <li>
+                <span class="seed">2</span
+                ><span class="name">Moreau / Singh</span>
+              </li>
+              <li>
+                <span class="seed">3</span
+                ><span class="name">Klein / Osei</span>
+              </li>
+              <li>
+                <span class="seed">4</span><span class="name">Day / Hori</span>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== STANDINGS (ALMANAC) ===================== -->
+      <section>
+        <div class="sec-head">
+          <h2>Standings</h2>
+          <span class="note">Pool A · after 4 of 6 matches</span>
+        </div>
+        <p class="table-meta">Tap a rank to see how a tie was broken.</p>
+        <table class="almanac tnum">
+          <thead>
+            <tr>
+              <th class="t-rank">#</th>
+              <th class="t-team">Team</th>
+              <th>MW</th>
+              <th>ML</th>
+              <th>SW</th>
+              <th>SL</th>
+              <th>PF</th>
+              <th>PA</th>
+              <th class="t-ratio">Ratio</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="adv">
+              <td class="cell-rank"><button class="rank-btn">1</button></td>
+              <td class="cell cell-team">
+                <span class="nm">Nguyen / Park</span>
+              </td>
+              <td class="cell cell-mw">3</td>
+              <td class="cell cell-loss">0</td>
+              <td class="cell">6</td>
+              <td class="cell cell-loss">1</td>
+              <td class="cell">130</td>
+              <td class="cell">98</td>
+              <td class="cell cell-ratio">6.000</td>
+            </tr>
+            <tr class="adv you">
+              <td class="cell-rank"><button class="rank-btn">2</button></td>
+              <td class="cell cell-team">
+                <span class="nm"
+                  >Mensah / Pak <span class="tag-you">Your team</span></span
+                >
+              </td>
+              <td class="cell cell-mw">2</td>
+              <td class="cell cell-loss">1</td>
+              <td class="cell">5</td>
+              <td class="cell cell-loss">3</td>
+              <td class="cell">142</td>
+              <td class="cell">131</td>
+              <td class="cell cell-ratio">1.667</td>
+            </tr>
+            <tr class="cut">
+              <td colspan="9">
+                <div class="cut-rule">Top 2 advance to playoffs</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="cell-rank"><button class="rank-btn">3</button></td>
+              <td class="cell cell-team">
+                <span class="nm">Côté / Walsh</span>
+              </td>
+              <td class="cell cell-mw">1</td>
+              <td class="cell cell-loss">2</td>
+              <td class="cell">3</td>
+              <td class="cell cell-loss">5</td>
+              <td class="cell">128</td>
+              <td class="cell">134</td>
+              <td class="cell cell-ratio">0.600</td>
+            </tr>
+            <tr>
+              <td class="cell-rank"><button class="rank-btn">4</button></td>
+              <td class="cell cell-team">
+                <span class="nm">Reid / Tran</span>
+              </td>
+              <td class="cell cell-mw">0</td>
+              <td class="cell cell-loss">3</td>
+              <td class="cell">1</td>
+              <td class="cell cell-loss">6</td>
+              <td class="cell">109</td>
+              <td class="cell">146</td>
+              <td class="cell cell-ratio">0.167</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ===================== MATCH REPORT ===================== -->
+      <section>
+        <div class="sec-head">
+          <h2>Match report</h2>
+          <span class="note">Pool A</span>
+        </div>
+        <article class="report">
+          <div class="report-top">
+            <span class="pill-final">Final</span>
+            <span class="dateline">Court 3 · Saturday, 11:20 a.m.</span>
+          </div>
+          <div class="tape">
+            <div class="tape-row winner">
+              <span class="team">Nguyen / Park</span>
+              <span class="sets">2</span>
+            </div>
+            <div class="tape-rule"></div>
+            <div class="tape-row loser">
+              <span class="team">Côté / Walsh</span>
+              <span class="sets">1</span>
+            </div>
+          </div>
+          <div class="scorecard tnum">
+            <span class="lbl">Sets</span>
+            <span class="line">
+              21–18 <span class="dot">·</span> <span class="lost">17–21</span>
+              <span class="dot">·</span>
+              15–12
+            </span>
+          </div>
+          <p class="verdict">
+            <b>Nguyen / Park</b> def. Côté / Walsh in three — taking the decider
+            15–12.
+          </p>
+        </article>
+
+        <div class="legend">
+          <span class="k"
+            ><span class="swatch" style="background: var(--claret)"></span>
+            Claret — leader, links, the live mark (used sparingly)</span
+          >
+          <span class="k"
+            ><span class="swatch" style="background: var(--pine)"></span> Pine —
+            “advances” only</span
+          >
+          <span class="k"
+            ><span class="swatch" style="background: var(--ink-3)"></span> Muted
+            ink — a loss (no red)</span
+          >
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

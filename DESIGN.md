@@ -1,122 +1,113 @@
 # Design System — Volleyball Platform
 
-> Brief: **Warm & welcoming — "Sunset Sand."** Golden-hour energy on a beach court: coral-orange leading, apricot and gold supporting, on a warm cream background with espresso-brown text. Friendly and lively, never corporate, never a cold dashboard. Scores stay razor-sharp; the warmth lives in the chrome. This file is the source of truth for visual identity. Every screen from Phase 4 on derives its colors, type, and spacing from these tokens.
+> Brief: **"Ink & Paper" — premium editorial, grounded in volleyball, warm but refined.** A warm paper base and near-black ink, set like a leather-bound sports almanac: spacious, hairline-ruled, confident. An evolution of the old warm palette — not a cold pivot — but more editorial and disciplined than Sunset Sand. The numbers are the beautiful thing: standings read as a newspaper league table, scorelines as a published match report. This file is the source of truth for visual identity. Every screen derives its color, type, and spacing from these tokens.
 
 ---
 
 ## 1. Design thesis
 
-The app should feel like **a sand court at golden hour** — warm light, the sun still up, the energy of a game in full swing. Welcoming and human, not a SaaS dashboard and not a dark data terminal. The numbers (scores, standings) stay crisp and legible; the warm chrome around them makes the app feel inviting and alive.
+The app should feel like **a sports almanac or the results page of a good newspaper** — warm paper, dark ink, generous margins, hairline rules, and data set with care. Refined and trustworthy, not a SaaS dashboard and not a cold broadsheet. The chrome is quiet so the **data carries the personality**: a league table you could frame, a match report you'd read aloud.
 
-**Spend boldness in one place:** the *score and standings typography* — big, confident, tabular numerals in burnt orange — is the signature. Everything else stays warm but quiet so the scores feel like a real scoreboard at sunset.
+**Spend boldness in one place:** the **data itself** — the almanac standings table and the published-scoreline match report. The set tally renders in large serif numerals like a printed result; everything around it stays ink-on-paper quiet. A beach organizer must read it on a phone in direct sunlight, so glanceability is never sacrificed for editorial mood.
+
+**The one risk we take, deliberately:** a loss is rendered in **muted ink, not red.** Almanacs bold the wins and let the losses recede. This frees red entirely for the brand's single spot color (claret), and it's why we don't use a stoplight palette.
 
 ---
 
 ## 2. Color palette
 
-Named tokens. These map to CSS variables (Section 6). Built on a coral/apricot core with espresso-brown text on warm cream surfaces.
+Warm paper + warm near-black ink + **one** spot color (claret) + **one** narrow semantic (pine). Named tokens map to CSS variables (§10).
 
-### Brand — Coral (the protagonist)
+### Paper + ink (the page)
 | Token | Hex | Use |
 |---|---|---|
-| `--coral-50` | `#FCE5D4` | Faintest tint — hover backgrounds, selected rows |
-| `--coral-100` | `#F8D0B4` | Light fills, badges, position pills |
-| `--coral-200` | `#F5B896` | Borders on coral surfaces |
-| `--coral-400` | `#F2814F` | Bright accent, highlights |
-| `--coral-500` | `#E8643C` | **Primary** — buttons, links, active states |
-| `--coral-600` | `#D2522C` | Primary hover / pressed |
-| `--coral-700` | `#C2410C` | Primary text on light, signature score numerals |
-| `--coral-900` | `#9A3D24` | Deep text on coral fills |
+| `--paper` | `#F1E9D9` | App background — warm paper (deeper/warmer than the cream cliché) |
+| `--paper-raised` | `#FAF5EA` | Cards, sheets, tables, the match report |
+| `--paper-sunken` | `#E7DCC6` | Zebra rows, fills, the "your team" row, sunken controls |
+| `--ink` | `#1C1714` | Primary text **and data** — warm near-black |
+| `--ink-2` | `#6A5F52` | Secondary text, datelines, table headers |
+| `--ink-3` | `#9B9082` | Tertiary, captions, placeholders, **and a loss** (muted — no red) |
+| `--rule` | `#D8CCB4` | Hairline rules and borders (the structural workhorse) |
 
-### Apricot + Gold (warm supports — energy, secondary accents)
+### Claret — the one spot color (used with restraint)
 | Token | Hex | Use |
 |---|---|---|
-| `--apricot-300` | `#F9C29A` | Soft warm fills |
-| `--apricot-500` | `#F59E5B` | Secondary accent, warm highlights |
-| `--gold-300` | `#F4C77B` | Tertiary warm accent, badges |
-| `--gold-500` | `#E9A93C` | Tournament accent, "energy" CTAs (use sparingly) |
+| `--claret` | `#8E2C3B` | Accent: active tab, links, pool leader, "Final"/live mark, winner's scoreline, destructive actions |
+| `--claret-deep` | `#6C1F2C` | Hover / pressed / deep emphasis |
+| `--claret-tint` | `#F0DCD9` | Faint claret wash — selected/hover row, the tiebreaker pill hover, "my team" affordances |
 
-### Neutrals (warm cream + espresso — the cozy chrome)
+### Pine — one semantic only
 | Token | Hex | Use |
 |---|---|---|
-| `--bg` | `#FBF3E7` | App background — warm cream |
-| `--surface` | `#FFFDF9` | Cards, sheets, tables — soft warm white |
-| `--surface-2` | `#F5EAD9` | Subtle raised/sunken surfaces |
-| `--border` | `#EADCC6` | Hairline borders (warm) |
-| `--text` | `#3D2419` | Primary text — deep espresso brown (not pure black; warmer) |
-| `--text-2` | `#A88B6A` | Secondary text — muted warm tan |
-| `--text-3` | `#C0AD92` | Tertiary — captions, placeholders |
+| `--pine` | `#2F6B43` | **Only** "advances to playoffs / qualified." Never decorative. |
 
-### Semantic (kept warm-compatible)
-| Token | Hex | Use |
-|---|---|---|
-| `--win` | `#5B8C3E` | Wins, success, confirmed scores (warm-leaning green) |
-| `--loss` | `#C44536` | Losses, errors, disputes (brick red, harmonizes with coral) |
-| `--warn` | `#E9A93C` | Pending confirmation, warnings (shares gold-500) |
-| `--info` | `#E8643C` | Info (shares coral-500) |
-| `--live` | `#E8643C` | Live match pulse (coral-500) |
-
-**Discipline rule:** coral is the protagonist; apricot and gold are guests. Gold is reserved mainly for tournament context and the occasional high-energy CTA. Never put coral and gold at equal weight on the same screen — coral leads, the others accent.
+**Discipline rules.**
+- **Claret is a guest, not a wallpaper.** Aim for ≤4 claret elements per screen (e.g. active tab underline, leader rank, qualification cut, "Final"). If claret is everywhere, the design is broken.
+- **Pine means exactly one thing:** a team advancing out of pool play. It is never a generic "good"/"win" color.
+- **Loss = `--ink-3`.** No red for losses anywhere. Wins are shown by **weight** (bold ink) and, where relevant, the claret scoreline — not by a green/red pair.
+- **Never color-code meaning alone** (§8): wins/losses also use W/L text and weight; "advances" also uses a label; status pills also use words.
 
 ---
 
 ## 3. Typography
 
-Three roles. Warm & welcoming with energy means a confident, friendly display face for impact, a clean neutral body, and tabular numerics for data.
+A genuine newspaper pairing — **not** Fraunces + Inter. Three roles, two families.
 
-### Display / headings — **Outfit** (or Space Grotesk as alt)
-Geometric, modern, friendly. Used for page titles, team names, score numerals, section headers. Loaded via `next/font`.
-- Weights: 500, 600, 700
-- Tight letter-spacing on large sizes (`-0.02em`)
+### Display — **Newsreader** (serif)
+A face built for news, with real character in its italics and terminals; optical sizing. Used with restraint for: page titles, section headers, team names in the match report, and the **large scoreline numerals**. Italic carries the editorial "voice": datelines and section notes.
+- Weights: 400, 500, 600 (+ italic 400/500)
+- Tight tracking on large sizes (`-0.01em`)
+- Loaded via `next/font/google`, exposed as `--font-display`.
 
-### Body / UI — **Inter**
-The workhorse. All body copy, form labels, buttons, navigation.
-- Weights: 400, 500, 600
+### Body / UI — **Libre Franklin** (sans)
+A Franklin Gothic revival — the classic newspaper deck/caption sans. The workhorse: body copy, labels, buttons, tabs, navigation.
+- Weights: 400, 500, 600, 700
+- Exposed as `--font-sans`.
 
-### Numeric / data — **Inter** with `font-variant-numeric: tabular-nums`
-For standings tables, scores, stats. Tabular figures so columns align. The big score display uses **Outfit** for that signature confident look.
+### Data — **Libre Franklin + tabular-lining figures**
+**Data stays sans — this is a rule, not an omission.** The standings table, stat columns, and set-by-set scores use Libre Franklin with `font-variant-numeric: tabular-nums lining-nums`. A sans stays instantly glanceable on a phone in sunlight where a serif table would not, and Franklin Gothic is the historic results-table lineage. Columns must align; figures must be tabular everywhere numbers stack.
+
+### The one serif-numeral exception — the scoreline
+The **match set-tally** (e.g. `2`–`1`) renders in **Newsreader** at large size — serif figures read as a *published result*, the memorable moment. The set-by-set detail beneath it stays sans-tabular. This is the only place numerals leave the sans.
 
 ### Type scale (rem, 16px base)
 | Token | Size | Line height | Use |
 |---|---|---|---|
-| `text-display` | 2.5rem / 40px | 1.1 | Hero, big scores |
-| `text-h1` | 2rem / 32px | 1.15 | Page titles |
-| `text-h2` | 1.5rem / 24px | 1.2 | Section headers |
-| `text-h3` | 1.25rem / 20px | 1.3 | Card titles |
-| `text-base` | 1rem / 16px | 1.5 | Body |
-| `text-sm` | 0.875rem / 14px | 1.45 | Secondary, table cells |
-| `text-xs` | 0.75rem / 12px | 1.4 | Captions, labels, eyebrows |
-
-**Signature numerals:** match scores render in Outfit 600–700 at `text-display` or larger, with the winning side's score in `--coral-700` and a subtle weight bump; the losing side in `--text-3`/muted tan. This is the one place the design raises its voice — like a scoreboard at sunset.
+| `text-score` | 2.4rem / ~38px | 1.0 | Match-report set tally (serif) |
+| `text-h1` | clamp(2rem → 2.9rem) | 1.04 | Tournament/page title (serif) |
+| `text-h2` | 1.5rem / 24px | 1.1 | Section headers — "Standings", "Pool draw" (serif) |
+| `text-h3` | 1.0625–1.15rem | 1.25 | Pool name, team in report (serif) |
+| `text-base` | 1rem / 16px | 1.5 | Body (sans) |
+| `text-sm` | 0.875rem / 14px | 1.45 | Table cells, secondary (sans) |
+| `text-xs` | 0.72rem / ~11.5px | 1.4 | Eyebrows, labels, datelines (sans uppercase, or serif italic for the report dateline) |
 
 ---
 
 ## 4. Spacing, radius, shadow
 
-### Spacing
-Tailwind's default scale (4px base). Generous but not loose — warmth and "welcoming" come from breathing room around cards and rows.
-- Card padding: `p-5` (20px) mobile, `p-6` (24px) desktop
-- Section gaps: `gap-6` / `gap-8`
-- Table row height: comfortable — `h-12` (48px) so taps land easily on mobile
+Editorial means space and rules, not boxes and drop-shadows.
 
-### Radius (balanced rounding — the "slightly rounded" choice)
+### Spacing
+- Measure: `max-width: 60rem` for reading/data columns.
+- Section rhythm: `3rem` between major sections; `1.25rem` from a section header to its content.
+- Card padding: `1.1–1.4rem`.
+- **Table row height: 44px** (`h-11`/`2.85rem`) — comfortable taps in sunlight; tabular figures vertically centered.
+
+### Radius (crisp, not the cold zero-radius broadsheet)
 | Token | Value | Use |
 |---|---|---|
-| `--radius-sm` | 6px | Inputs, badges, small controls |
-| `--radius` | 10px | **Default** — buttons, cards |
-| `--radius-lg` | 14px | Sheets, modals, large cards |
-| `--radius-full` | 9999px | Pills, avatars, status dots |
+| `--radius-sm` | 4px | Inputs, tags, small controls |
+| `--radius` | 6px | **Default** — buttons, pills-that-aren't-round |
+| `--radius-lg` | 10px | Cards, the match report, sheets |
+| `--radius-full` | 9999px | Avatars, status dots, the tiebreaker rank button |
 
-10px is the heartbeat — soft and friendly, still crisp. Not pill-shaped, not boxy.
-
-### Shadow (soft, low, warm-tinted — never heavy)
+### Shadow (almost none — rules do the work)
 | Token | Value |
 |---|---|
-| `--shadow-sm` | `0 1px 2px rgba(122, 59, 46, 0.05)` |
-| `--shadow` | `0 2px 10px rgba(122, 59, 46, 0.07)` |
-| `--shadow-lg` | `0 8px 24px rgba(122, 59, 46, 0.10)` |
+| `--shadow-sm` | `0 1px 0 rgba(28,23,20,0.04)` |
+| `--shadow-report` | `0 2px 18px rgba(28,23,20,0.07)` |
 
-Shadows are tinted with a warm brown (`#7A3B2E`) hue, not neutral gray, so they harmonize with the sunset palette. Elevation is soft shadow + warm hairline border, never heavy dark drops.
+Elevation is a hairline `--rule` border, not a shadow. The **match report is the one card that lifts** (`--shadow-report`) because it's the "published" piece. Everything else is flat with rules.
 
 ---
 
@@ -124,74 +115,88 @@ Shadows are tinted with a warm brown (`#7A3B2E`) hue, not neutral gray, so they 
 
 Built on shadcn/ui — these are the customizations over the primitives.
 
-- **Buttons.** Primary = `--coral-500` fill, white text, `--radius`. Hover → `--coral-600`. Secondary = warm-white fill, `--border` border, `--text` label. Gold CTA (rare) = `--gold-500` fill. Min height 44px on mobile for thumbs.
-- **Cards.** Warm-white surface (`--surface`), `--border` hairline, `--shadow`, `--radius`. No heavy borders.
-- **Standings table.** The centerpiece. Tabular numerals always. Header row in `--text-2` uppercase `text-xs` tracking-wide. Row hover → `--coral-50`. The position number (`Pos`) is a clickable pill button that opens the tiebreaker modal — style as a small `--coral-100` pill with `--coral-900` text that brightens on hover, signaling it's interactive (serves the OVA-style tiebreaker explainer). Non-qualifying positions use a neutral `--surface-2` pill with `--text-2`.
-- **Status pills.** Scheduled = `--surface-2` / `--text-2`. Live = `--coral-50` fill, `--coral-900` text, with a soft pulsing `--coral-500` dot. Final = `--text-2`. Disputed = `--loss` tint. Pending confirmation = `--gold` tint.
-- **Score display.** Big Outfit numerals. Winner's score emphasized (heavier weight + `--coral-700`); loser muted tan. Set-by-set scores in a clean row beneath in `--text-2`.
-- **Match card.** Team names left (color-dot or initials avatar), score right in signature numerals, status pill top-left, venue/court/time as `text-sm` `--text-2`.
-- **Forms.** shadcn inputs, `--radius-sm`, `--border`, focus ring in `--coral-400`. Inline zod errors in `--loss` `text-sm`. Labels `text-sm` `--text` `font-medium`.
-- **Empty states.** Centered, a quiet warm icon in `--text-3`, a one-line explanation, single primary action. Never an empty box. (e.g., "No matches scheduled yet. Generate a schedule to get started." + button.)
-- **Bottom nav (mobile).** Home, Schedule, Standings, Profile. Active tab in `--coral-500`, inactive `--text-3`. Warm-white surface, top hairline border, upward `--shadow`.
+- **Buttons.** Primary = `--claret` fill, near-white (`--paper-raised`) label, `--radius`; hover → `--claret-deep`. Secondary = `--paper-raised` fill, `--rule` border, `--ink` label. Ghost = `--ink-2` text, no border. Min height 44px on mobile.
+- **Cards.** `--paper-raised` surface, `--rule` hairline border, `--radius-lg`, **no shadow** (flat). The match report is the exception (`--shadow-report`).
+- **Standings table (the centerpiece).** See §6. Hairline-ruled rows, no card box, serif rank in the margin, sans-tabular stats, claret leader + qualification cut.
+- **Status pills.** Scheduled = `--paper-sunken` / `--ink-2`. Live = claret outline + a soft pulsing `--claret` dot. Final = `--ink-2` (quiet). Disputed = `--claret-tint` / `--claret-deep`. Pending confirmation = `--paper-sunken` border + `--claret` text. All carry a word, never color alone.
+- **Match report / score display.** See §6. Serif team names, serif set-tally (winner `--claret`, loser `--ink-3`), sans-tabular set-by-set with the dropped set muted, an italic one-line verdict.
+- **Match card (schedule, compact).** Dateline eyebrow (court · time), team names, the result inline once final: serif set-tally on the right (winner `--claret`), set-by-set sans-tabular beneath; status pill. Scheduled cards show the time in tabular figures instead of a score.
+- **Forms.** Inputs `--radius-sm`, `--rule` border, focus ring `--claret`. Validation errors in `--claret` `text-sm` **with an icon** (so error red is distinguishable from claret links by context + icon, not hue). Labels `text-sm` `--ink` `font-medium`.
+- **Links.** `--claret`, underline on hover; never claret body paragraphs (reserve for true links/actions).
+- **Empty states.** Centered, a quiet `--ink-3` icon, one line of plain copy, a single `--claret` primary action. Never an empty box.
+- **Tabs.** Uppercase Libre Franklin, tracked. Active = `--ink` text + a 2px `--claret` bottom rule; inactive = `--ink-3`.
+- **"My team" affordance.** A small claret-outline tag reading **"Your team"** (`--claret` text + border, `--radius-sm`). Distinct from pine (advances) and from bold-ink (a win) — it's an identity marker, not a result.
+- **Bottom nav (mobile, Phase 10).** Active tab `--claret`, inactive `--ink-3`. `--paper-raised` surface, top hairline `--rule`.
 
 ---
 
-## 6. The signature element
+## 6. The signature elements
 
-**The "sunset scoreboard" — score numerals + the live standings row.**
+Two treatments carry the whole identity. Everything else stays quiet so these land.
 
-Every app shows standings in a table. Ours does two things nobody else does well:
+### 6.1 The almanac league table
+Every app shows standings in a boxed table. Ours is set like a newspaper/almanac results table:
+- **No card box** — the table sits on the page, rows separated by hairline `--rule`.
+- **Rank in the margin** as a **Newsreader serif figure** (not a sans cell). The leader's rank is `--claret`.
+- **The rank is the tappable tiebreaker affordance** (unchanged logic): a round button that washes `--claret-tint` on hover and opens the OVA-style explanation of how a tie was broken, with the exact ratios. This is the detail organizers will mention.
+- **Stats** (`MW ML SW SL PF PA`, ratio) in Libre Franklin tabular-lining figures; `MW` bold ink; losses (`ML`, `SL`) in `--ink-3`.
+- **The qualification cut** is drawn explicitly: advancing rows get a 2px `--claret` left tick and a claret rank; a labelled claret rule ("Top N advance to playoffs") separates them from the rest. The cut is information, not decoration.
+- **"Your team" row** gets a `--paper-sunken` background + the claret "Your team" tag.
 
-1. **Tiebreaker pill** — the position number is a tappable coral pill. Tapping it opens the OVA-style explanation ("Sorting teams by matches won / played between tied teams…") with the actual ratios. This turns the most confusing part of volleyball standings into the app's most trustworthy, delightful detail. The thing organizers will mention.
-2. **Signature score numerals** — Outfit, large, confident, winner in burnt coral. Scores are the emotional payload of the app; they should look like a real tournament scoreboard catching the last of the sun, not a spreadsheet cell.
-
-Everything else stays warm and quiet so these two moments carry the identity.
+### 6.2 The match report
+A finished match is presented like a published report, not a score cell:
+- **Dateline:** a Newsreader-italic line ("Court 3 · Saturday, 11:20 a.m.") beside a `--claret`-outline **"Final"** pill.
+- **Tale of the tape:** two rows — serif team name left, **large serif set-tally** right. Winner in `--claret`; loser in `--ink-3`. A hairline `--rule` between them.
+- **Scorecard:** the set-by-set line in sans-tabular ("21–18 · 17–21 · 15–12"), with the set the loser took shown in `--ink-3`.
+- **Verdict:** one Newsreader-italic sentence — "**Nguyen / Park** def. Côté / Walsh in three." Active voice, plain language, the winner bolded.
 
 ---
 
 ## 7. Motion
 
-Restrained and purposeful. Energetic but never bouncy-cute.
+Restrained and purposeful — editorial calm, never bouncy.
 
-- Transitions: 150–200ms, ease-out. Tailwind defaults are fine.
-- **Live match pulse:** the "Live" status dot gently pulses (`--coral-500`), 2s loop. The one ambient animation.
-- **Score commit:** when a confirmed score lands, the affected standings row briefly flashes `--coral-50` and the changed numbers tick up. Optimistic, satisfying, fast.
+- Transitions: 150–200ms ease-out. Tailwind defaults are fine.
+- **Live match pulse:** the "Live" status dot gently pulses (`--claret`), 2s loop. The one ambient animation.
+- **Score commit:** when a confirmed score lands, the affected standings row briefly washes `--claret-tint` and the changed figures tick up. Fast and satisfying.
 - **Page transitions:** none heavy — instant navigation with skeletons, not spinners.
-- Respect `prefers-reduced-motion`: disable the pulse and tick animations.
+- Respect `prefers-reduced-motion`: disable the pulse and tick.
 
 ---
 
 ## 8. Accessibility floor (non-negotiable)
 
-- Contrast: all text meets WCAG AA on its background. `--text` (espresso) on `--bg` (cream) and `--surface` is well above 4.5:1.
-- **Warm-palette risk:** never use coral/apricot/gold as small body text on light backgrounds — they fail contrast. Orange/gold are for fills, large score numerals, and accents only. Body text is always espresso `--text`. Verify `--text-2` meets AA for its sizes; use `--text` where in doubt.
-- Coral-500 on white passes AA for large text and UI components; for small text on coral fills use white or `--coral-900`.
-- Visible keyboard focus rings (`--coral-400`) on every interactive element.
-- Tap targets ≥44px on mobile.
-- Don't encode meaning in color alone — wins/losses also use W/L text, status pills also use labels.
+- Contrast: `--ink` on `--paper`/`--paper-raised` is far above AA. `--claret` on paper passes AA for normal text (it's a dark red); white/`--paper-raised` on `--claret` passes. `--pine` on paper passes. Verify `--ink-2` meets AA at its sizes; use `--ink` where in doubt.
+- `--ink-3` is for tertiary text and the *loss* treatment only — never essential standalone information, and a loss is always also conveyed by weight + W/L text.
+- **Don't encode meaning in color alone:** wins use weight + text; "advances" uses a label + the cut rule; status pills use words; the "your team" tag uses text.
+- Visible keyboard focus rings (`--claret`) on every interactive element.
+- Tap targets ≥44px on mobile (table rows included).
+- The match-report and table must stay legible in bright sunlight — that's why data is high-contrast sans-tabular, not low-contrast serif.
 
 ---
 
 ## 9. Dark mode
 
-Not in v0. The token structure (CSS variables) is built so a warm dark theme (deep espresso bg, cream text, coral accents) can be added later by swapping variable values under a `.dark` selector — no component rewrites. Deferred to post-v0 per PRD.
+Not in v0. The token structure (CSS variables) is built so a warm dark theme — deep ink-brown background, paper-colored text, claret accent — can be added later by overriding the palette under a `.dark` selector with no component rewrites. Deferred to post-v0 per PRD.
 
 ---
 
 ## 10. Implementation note for Claude Code
 
-Apply these tokens in `app/globals.css` as CSS custom properties under `@theme` (Tailwind v4 style), wired so shadcn's semantic tokens map onto the palette:
+Apply tokens in `app/globals.css` as CSS custom properties under `:root`, exposed to Tailwind v4 via `@theme inline`, with shadcn's semantic tokens remapped onto the palette:
 
-- `--primary` → `--coral-500`, `--primary-foreground` → white
-- `--background` → `--bg`, `--foreground` → `--text`
-- `--card` → `--surface`, `--card-foreground` → `--text`
-- `--muted` → `--surface-2`, `--muted-foreground` → `--text-2`
-- `--accent` → `--coral-50`, `--accent-foreground` → `--coral-900`
-- keep `--secondary` neutral (warm-white/`--surface-2`); introduce gold as a dedicated `--accent-warm` token used explicitly for tournament UI
-- `--destructive` → `--loss`
-- `--ring` → `--coral-400`
-- `--radius` → 10px
+- `--background` → `--paper`, `--foreground` → `--ink`
+- `--card` / `--popover` → `--paper-raised`, foreground → `--ink`
+- `--primary` → `--claret`, `--primary-foreground` → `--paper-raised`
+- `--secondary` / `--muted` → `--paper-sunken`, `--secondary-foreground` → `--ink`, `--muted-foreground` → `--ink-2`
+- `--accent` → `--claret-tint`, `--accent-foreground` → `--claret-deep`
+- `--destructive` → `--claret` (the single spot color carries destructive UI; pair with an icon — sport "loss" stays `--ink-3`)
+- `--border` / `--input` → `--rule`
+- `--ring` → `--claret`
+- `--radius` → 6px (with `--radius-lg` 10px, `--radius-sm` 4px)
+- Expose the named palette as utilities: `--color-paper*`, `--color-ink*`, `--color-rule`, `--color-claret*`, `--color-pine`, plus `--color-win`/`--color-loss` aliased to the above for any code that references them (`--win` → `--pine`, `--loss` → `--ink-3`).
+- Shadows: emit `--shadow-sm` and `--shadow-report` only.
 
-Load **Outfit** (display) and **Inter** (body) via `next/font/google` in the root layout. Expose Outfit as `--font-display` and use it for headings + score numerals.
+Fonts: load **Newsreader** (display, with italic + optical sizing) and **Libre Franklin** (body/data) via `next/font/google` in the root layout. Expose Newsreader as `--font-display` (headings, section titles, team names in the report, the scoreline) and Libre Franklin as `--font-sans` (everything else, with `tabular-nums lining-nums` for data).
 
-After wiring, the existing Phase 2 auth pages should automatically pick up the new warm palette — verify they look right in the new skin.
+The reference for the intended result is `design/ink-and-paper-hero.html` (the approved hero prototype).
