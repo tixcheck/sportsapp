@@ -104,15 +104,18 @@ export default async function DashboardPage() {
                       </p>
                     )}
                   </CardHeader>
-                  {c.memberRole === "captain" &&
-                    c.teamStatus !== "withdrawn" && (
-                      <CardContent className="mt-auto pt-0">
+                  <CardContent className="mt-auto flex flex-wrap items-center gap-2 pt-0">
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/teams/${c.teamId}`}>My team</Link>
+                    </Button>
+                    {c.memberRole === "captain" &&
+                      c.teamStatus !== "withdrawn" && (
                         <InviteTeammateDialog
                           teamId={c.teamId}
                           teamName={c.teamName}
                         />
-                      </CardContent>
-                    )}
+                      )}
+                  </CardContent>
                 </Card>
               );
             })}

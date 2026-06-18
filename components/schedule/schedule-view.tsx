@@ -72,6 +72,8 @@ export function ScheduleView({
   myTeamIds?: string[];
 }) {
   const [view, setView] = useState<"list" | "agenda">("list");
+  const [mineOnly, setMineOnly] = useState(false);
+  const canFilterMine = myTeamIds.length > 0;
 
   if (matches.length === 0) {
     return (
@@ -81,26 +83,59 @@ export function ScheduleView({
     );
   }
 
+  const shown =
+    mineOnly && canFilterMine
+      ? matches.filter((m) =>
+          [m.homeTeamId, m.awayTeamId, m.refTeamId].some(
+            (id) => id && myTeamIds.includes(id),
+          ),
+        )
+      : matches;
+
   const groups =
     view === "list"
-      ? groupByRound(matches, timezone)
-      : groupByDate(matches, timezone);
+      ? groupByRound(shown, timezone)
+      : groupByDate(shown, timezone);
 
   return (
     <div className="space-y-5">
-      <div className="bg-muted inline-flex rounded-lg p-0.5">
-        <ToggleButton active={view === "list"} onClick={() => setView("list")}>
-          <List className="size-4" />
-          By round
-        </ToggleButton>
-        <ToggleButton
-          active={view === "agenda"}
-          onClick={() => setView("agenda")}
-        >
-          <CalendarDays className="size-4" />
-          By date
-        </ToggleButton>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="bg-muted inline-flex rounded-lg p-0.5">
+          <ToggleButton
+            active={view === "list"}
+            onClick={() => setView("list")}
+          >
+            <List className="size-4" />
+            By round
+          </ToggleButton>
+          <ToggleButton
+            active={view === "agenda"}
+            onClick={() => setView("agenda")}
+          >
+            <CalendarDays className="size-4" />
+            By date
+          </ToggleButton>
+        </div>
+        {canFilterMine && (
+          <button
+            type="button"
+            onClick={() => setMineOnly((v) => !v)}
+            className={cn(
+              "rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors",
+              mineOnly
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            My team
+          </button>
+        )}
       </div>
+      {shown.length === 0 ? (
+        <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
+          No matches for your team yet.
+        </div>
+      ) : null}
 
       {groups.map((g) => (
         <section key={g.key} className="space-y-3">
