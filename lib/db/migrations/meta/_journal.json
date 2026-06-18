@@ -99,6 +99,13 @@
       "when": 1781734279588,
       "tag": "0013_bracket_advance",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781743281468,
+      "tag": "0014_dashboard_rpcs",
+      "breakpoints": true
     }
   ]
 }
