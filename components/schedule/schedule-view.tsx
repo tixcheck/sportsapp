@@ -64,10 +64,12 @@ export function ScheduleView({
   matches,
   timezone,
   editable = false,
+  myTeamIds = [],
 }: {
   matches: ScheduleMatch[];
   timezone: string;
   editable?: boolean;
+  myTeamIds?: string[];
 }) {
   const [view, setView] = useState<"list" | "agenda">("list");
 
@@ -115,6 +117,7 @@ export function ScheduleView({
                 match={m}
                 timezone={timezone}
                 showAbnormal={editable}
+                myTeamIds={myTeamIds}
                 trailing={
                   editable ? (
                     <span className="flex items-center gap-3">

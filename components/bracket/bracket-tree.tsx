@@ -2,6 +2,7 @@ import { Trophy } from "lucide-react";
 
 import type { BracketEntryView, BracketView } from "@/lib/queries/bracket";
 import { cn } from "@/lib/utils";
+import { MyTeamBadge } from "@/components/team/my-team-badge";
 
 function roundLabel(round: number, totalRounds: number): string {
   const fromEnd = totalRounds - round;
@@ -15,10 +16,12 @@ function TeamRow({
   entry,
   score,
   isWinner,
+  myTeamIds,
 }: {
   entry: BracketEntryView | null;
   score: number | null;
   isWinner: boolean;
+  myTeamIds: string[];
 }) {
   return (
     <div
@@ -40,6 +43,7 @@ function TeamRow({
       >
         {entry ? entry.name : "TBD"}
       </span>
+      {entry && myTeamIds.includes(entry.teamId) && <MyTeamBadge />}
       <span
         className={cn(
           "w-5 text-right tabular-nums",
@@ -52,7 +56,13 @@ function TeamRow({
   );
 }
 
-export function BracketTree({ bracket }: { bracket: BracketView }) {
+export function BracketTree({
+  bracket,
+  myTeamIds = [],
+}: {
+  bracket: BracketView;
+  myTeamIds?: string[];
+}) {
   const total = bracket.rounds.length;
   if (total === 0) return null;
 
@@ -89,6 +99,7 @@ export function BracketTree({ bracket }: { bracket: BracketView }) {
                     isWinner={
                       !!mt.winnerTeamId && mt.winnerTeamId === mt.home?.teamId
                     }
+                    myTeamIds={myTeamIds}
                   />
                   <TeamRow
                     entry={mt.away}
@@ -96,6 +107,7 @@ export function BracketTree({ bracket }: { bracket: BracketView }) {
                     isWinner={
                       !!mt.winnerTeamId && mt.winnerTeamId === mt.away?.teamId
                     }
+                    myTeamIds={myTeamIds}
                   />
                 </div>
               ))}

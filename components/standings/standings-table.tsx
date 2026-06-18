@@ -1,5 +1,6 @@
 import type { StandingsGroup, StandingsRowView } from "@/lib/standings/compute";
 import { cn } from "@/lib/utils";
+import { MyTeamBadge } from "@/components/team/my-team-badge";
 
 import { PositionPill } from "./position-pill";
 
@@ -20,7 +21,13 @@ const STAT_COLS: {
   { key: "pa", label: "PA", hint: "Points against" },
 ];
 
-export function StandingsTable({ rows }: { rows: StandingsRowView[] }) {
+export function StandingsTable({
+  rows,
+  myTeamIds = [],
+}: {
+  rows: StandingsRowView[];
+  myTeamIds?: string[];
+}) {
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground py-6 text-center text-sm">
@@ -82,6 +89,9 @@ export function StandingsTable({ rows }: { rows: StandingsRowView[] }) {
                     Withdrawn
                   </span>
                 )}
+                {myTeamIds.includes(r.teamId) && (
+                  <MyTeamBadge className="ml-2" />
+                )}
               </td>
               {STAT_COLS.map((c) => (
                 <td
@@ -112,9 +122,11 @@ export function StandingsTable({ rows }: { rows: StandingsRowView[] }) {
 export function StandingsGroups({
   groups,
   showDivision,
+  myTeamIds = [],
 }: {
   groups: StandingsGroup[];
   showDivision: boolean;
+  myTeamIds?: string[];
 }) {
   if (groups.length === 0) {
     return (
@@ -135,7 +147,7 @@ export function StandingsGroups({
               </span>
             )}
           </h4>
-          <StandingsTable rows={g.rows} />
+          <StandingsTable rows={g.rows} myTeamIds={myTeamIds} />
         </section>
       ))}
     </div>

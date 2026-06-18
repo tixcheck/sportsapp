@@ -4,6 +4,7 @@ import type { PublicLeague } from "@/lib/queries/leagues";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsTable } from "@/components/standings/standings-table";
+import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function initials(name: string): string {
@@ -16,20 +17,31 @@ function initials(name: string): string {
 export function LeagueTabs({
   league,
   standings,
+  myTeamIds = [],
 }: {
   league: PublicLeague;
   standings: StandingsGroup[];
+  myTeamIds?: string[];
 }) {
   return (
     <Tabs defaultValue="schedule">
-      <TabsList>
-        <TabsTrigger value="schedule">Schedule</TabsTrigger>
-        <TabsTrigger value="teams">Teams</TabsTrigger>
-        <TabsTrigger value="standings">Standings</TabsTrigger>
-      </TabsList>
+      <div className="bg-background/90 sticky top-0 z-30 -mx-4 space-y-2 border-b px-4 py-2 backdrop-blur">
+        <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
+          {league.name}
+        </p>
+        <TabsList>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
+          <TabsTrigger value="standings">Standings</TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="schedule" className="mt-6">
-        <ScheduleView matches={league.schedule} timezone={league.timezone} />
+        <ScheduleView
+          matches={league.schedule}
+          timezone={league.timezone}
+          myTeamIds={myTeamIds}
+        />
       </TabsContent>
 
       <TabsContent value="teams" className="mt-6">
@@ -48,6 +60,7 @@ export function LeagueTabs({
                   {initials(t.name)}
                 </span>
                 <span className="truncate font-medium">{t.name}</span>
+                {myTeamIds.includes(t.id) && <MyTeamBadge />}
               </div>
             ))}
           </div>
@@ -55,7 +68,7 @@ export function LeagueTabs({
       </TabsContent>
 
       <TabsContent value="standings" className="mt-6">
-        <StandingsTable rows={standings[0]?.rows ?? []} />
+        <StandingsTable rows={standings[0]?.rows ?? []} myTeamIds={myTeamIds} />
       </TabsContent>
     </Tabs>
   );

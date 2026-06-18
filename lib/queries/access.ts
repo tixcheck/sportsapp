@@ -68,6 +68,32 @@ export async function getPendingOrganizerRequests(): Promise<
   });
 }
 
+/**
+ * The signed-in user's team id(s) in a competition (for the "My team" badge).
+ * Empty for anonymous viewers and non-members.
+ */
+export async function getMyTeamIds(competitionId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("competition_id", competitionId);
+  const teamIds = (teams ?? []).map((t) => t.id);
+  if (teamIds.length === 0) return [];
+
+  const { data: mems } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id)
+    .in("team_id", teamIds);
+  return [...new Set((mems ?? []).map((m) => m.team_id as string))];
+}
+
 /** Count of pending requests visible to the caller (platform admin → all). */
 export async function getPendingOrganizerRequestCount(): Promise<number> {
   const supabase = await createClient();

@@ -1,11 +1,14 @@
 import type { DivisionPools } from "@/lib/queries/tournaments";
+import { MyTeamBadge } from "@/components/team/my-team-badge";
 
 export function PoolsDisplay({
   divisions,
   showDivisionHeadings,
+  myTeamIds = [],
 }: {
   divisions: DivisionPools[];
   showDivisionHeadings: boolean;
+  myTeamIds?: string[];
 }) {
   return (
     <div className="space-y-8">
@@ -41,6 +44,7 @@ export function PoolsDisplay({
                           {i + 1}
                         </span>
                         <span className="truncate">{t.name}</span>
+                        {myTeamIds.includes(t.id) && <MyTeamBadge />}
                       </li>
                     ))}
                   </ol>

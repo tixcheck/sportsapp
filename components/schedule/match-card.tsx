@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
+import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { StatusPill } from "./status-pill";
 
 export function MatchCard({
@@ -8,12 +9,14 @@ export function MatchCard({
   timezone,
   trailing,
   showAbnormal = false,
+  myTeamIds = [],
 }: {
   match: ScheduleMatch;
   timezone: string;
   trailing?: React.ReactNode;
   /** Show the organizer-only "Abnormal result" marker (admin views). */
   showAbnormal?: boolean;
+  myTeamIds?: string[];
 }) {
   const time = match.scheduledAt
     ? DateTime.fromISO(match.scheduledAt, { zone: timezone }).toFormat("h:mm a")
@@ -23,9 +26,19 @@ export function MatchCard({
     <div className="border-border bg-surface rounded-lg border p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate font-medium">{match.homeTeamName}</p>
+          <p className="truncate font-medium">
+            {match.homeTeamName}
+            {match.homeTeamId && myTeamIds.includes(match.homeTeamId) && (
+              <MyTeamBadge className="ml-2" />
+            )}
+          </p>
           <p className="text-muted-foreground text-xs">vs</p>
-          <p className="truncate font-medium">{match.awayTeamName}</p>
+          <p className="truncate font-medium">
+            {match.awayTeamName}
+            {match.awayTeamId && myTeamIds.includes(match.awayTeamId) && (
+              <MyTeamBadge className="ml-2" />
+            )}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <StatusPill status={match.status} />

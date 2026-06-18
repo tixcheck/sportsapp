@@ -7,6 +7,7 @@ import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsGroups } from "@/components/standings/standings-table";
 import { BracketTree } from "@/components/bracket/bracket-tree";
+import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function initials(name: string): string {
@@ -29,11 +30,13 @@ export function TournamentTabs({
   poolsView,
   standings,
   bracket,
+  myTeamIds = [],
 }: {
   tournament: PublicTournament;
   poolsView: PoolsView | null;
   standings: StandingsGroup[];
   bracket: BracketView | null;
+  myTeamIds?: string[];
 }) {
   const multiDivision = tournament.divisions.length > 1;
   const hasPools = !!poolsView?.hasPools;
@@ -45,12 +48,17 @@ export function TournamentTabs({
 
   return (
     <Tabs defaultValue={hasPools ? "pools" : "teams"}>
-      <TabsList>
-        <TabsTrigger value="pools">Pools</TabsTrigger>
-        <TabsTrigger value="schedule">Schedule</TabsTrigger>
-        <TabsTrigger value="brackets">Brackets</TabsTrigger>
-        <TabsTrigger value="teams">Teams</TabsTrigger>
-      </TabsList>
+      <div className="bg-background/90 sticky top-0 z-30 -mx-4 space-y-2 border-b px-4 py-2 backdrop-blur">
+        <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
+          {tournament.name}
+        </p>
+        <TabsList>
+          <TabsTrigger value="pools">Pools</TabsTrigger>
+          <TabsTrigger value="schedule">Schedule</TabsTrigger>
+          <TabsTrigger value="brackets">Brackets</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="pools" className="mt-6 space-y-8">
         {hasPools ? (
@@ -60,6 +68,7 @@ export function TournamentTabs({
               <PoolsDisplay
                 divisions={poolsView!.divisions}
                 showDivisionHeadings={multiDivision}
+                myTeamIds={myTeamIds}
               />
             </section>
             <section className="space-y-3">
@@ -67,6 +76,7 @@ export function TournamentTabs({
               <StandingsGroups
                 groups={standings}
                 showDivision={multiDivision}
+                myTeamIds={myTeamIds}
               />
             </section>
           </>
@@ -82,6 +92,7 @@ export function TournamentTabs({
           <ScheduleView
             matches={poolsView!.schedule}
             timezone={poolsView!.timezone}
+            myTeamIds={myTeamIds}
           />
         ) : (
           <Placeholder>
@@ -92,7 +103,7 @@ export function TournamentTabs({
 
       <TabsContent value="brackets" className="mt-6">
         {bracket ? (
-          <BracketTree bracket={bracket} />
+          <BracketTree bracket={bracket} myTeamIds={myTeamIds} />
         ) : (
           <Placeholder>
             The single-elimination bracket appears after pool play.
@@ -124,6 +135,7 @@ export function TournamentTabs({
                         {initials(t.name)}
                       </span>
                       <span className="truncate font-medium">{t.name}</span>
+                      {myTeamIds.includes(t.id) && <MyTeamBadge />}
                     </div>
                   ))}
                 </div>
