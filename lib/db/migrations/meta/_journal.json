@@ -120,6 +120,20 @@
       "when": 1781750485840,
       "tag": "0016_teammate_claim",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1781754298374,
+      "tag": "0017_lame_proemial_gods",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1781754314564,
+      "tag": "0018_notifications_rls",
+      "breakpoints": true
     }
   ]
 }

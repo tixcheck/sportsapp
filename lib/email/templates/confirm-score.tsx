@@ -1,75 +1,34 @@
-import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Heading,
-  Html,
-  Preview,
-  Section,
-  Text,
-} from "@react-email/components";
+import { Text } from "@react-email/components";
+
+import { EmailButton, EmailLayout, emailText } from "./layout";
 
 export interface ConfirmScoreEmailProps {
   competitionName: string;
+  /** Optional "Home 2 – 1 Away" summary — team names + score only. */
+  matchSummary?: string;
   url: string;
 }
 
 export function ConfirmScoreEmail({
   competitionName,
+  matchSummary,
   url,
 }: ConfirmScoreEmailProps) {
   return (
-    <Html>
-      <Head />
-      <Preview>A score needs your confirmation</Preview>
-      <Body
-        style={{
-          backgroundColor: "#fbf3e7",
-          fontFamily: "Inter, Arial, sans-serif",
-          color: "#3d2419",
-          margin: 0,
-          padding: "24px",
-        }}
-      >
-        <Container
-          style={{
-            backgroundColor: "#fffdf9",
-            border: "1px solid #eadcc6",
-            borderRadius: "14px",
-            maxWidth: "480px",
-            margin: "0 auto",
-            padding: "32px",
-          }}
-        >
-          <Heading style={{ fontSize: "22px", margin: "0 0 8px" }}>
-            Confirm a score
-          </Heading>
-          <Text style={{ fontSize: "15px", lineHeight: "1.5" }}>
-            A score was submitted for one of your matches in{" "}
-            <strong>{competitionName}</strong>. Review it and confirm — or
-            dispute it if it&apos;s wrong.
-          </Text>
-          <Section style={{ textAlign: "center", margin: "28px 0" }}>
-            <Button
-              href={url}
-              style={{
-                backgroundColor: "#e8643c",
-                color: "#ffffff",
-                fontSize: "15px",
-                fontWeight: 600,
-                borderRadius: "10px",
-                padding: "12px 24px",
-                textDecoration: "none",
-              }}
-            >
-              Review &amp; confirm
-            </Button>
-          </Section>
-          <Text style={{ fontSize: "13px", color: "#a88b6a" }}>{url}</Text>
-        </Container>
-      </Body>
-    </Html>
+    <EmailLayout
+      preview={`Confirm a score in ${competitionName}`}
+      heading="A score needs your confirmation"
+    >
+      <Text style={emailText}>
+        A score was submitted for one of your matches in{" "}
+        <strong>{competitionName}</strong>. Review it and confirm — or dispute
+        it if it&apos;s wrong.
+      </Text>
+      {matchSummary && (
+        <Text style={{ ...emailText, fontWeight: 600 }}>{matchSummary}</Text>
+      )}
+      <EmailButton href={url}>Review &amp; confirm</EmailButton>
+    </EmailLayout>
   );
 }
 

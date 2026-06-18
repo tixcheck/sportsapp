@@ -8,6 +8,9 @@ export type Profile = {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  notify_results: boolean;
+  notify_schedule_changes: boolean;
+  notify_weekly: boolean;
 };
 
 export type UserOrg = {
@@ -43,7 +46,9 @@ export async function getProfile(): Promise<Profile | null> {
 
   const { data } = await supabase
     .from("users")
-    .select("id, email, display_name, avatar_url")
+    .select(
+      "id, email, display_name, avatar_url, notify_results, notify_schedule_changes, notify_weekly",
+    )
     .eq("id", user.id)
     .single();
 

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
-import { sendCaptainInvite } from "@/lib/email/send";
+import { sendCaptainInvite, sendTeammateInvite } from "@/lib/email/send";
 
 type ActionError = { error: string };
 type ClaimResult = { error: string } | { success: true };
@@ -239,12 +239,12 @@ export async function inviteTeammateAction(
       .single(),
   ]);
 
-  const result = await sendCaptainInvite(
+  const result = await sendTeammateInvite(
     parsed.data,
     {
       teamName: team.name,
-      leagueName: comp?.name ?? "the competition",
-      organizerName: profile?.display_name ?? "Your team",
+      competitionName: comp?.name ?? "the competition",
+      inviterName: profile?.display_name ?? "Your team",
       claimUrl,
     },
     profile?.email ?? undefined,

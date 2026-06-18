@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { detectConflicts, type SlotMatch } from "@/lib/scheduler/conflicts";
+import { notifyScheduleChanged } from "@/lib/notifications/notify";
 
 export type Conflict = {
   type: "court" | "team";
@@ -86,6 +87,9 @@ export async function rescheduleMatchAction(
     .update({ scheduled_at: scheduledAt, court })
     .eq("id", matchId);
   if (updErr) return { error: updErr.message };
+
+  // Best-effort alert to both teams (opt-out: notify_schedule_changes).
+  await notifyScheduleChanged(supabase, matchId, scheduledAt, court);
 
   revalidatePath("/orgs");
   return { success: true };

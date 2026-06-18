@@ -8,6 +8,7 @@ import { validateScore, type SetScoreInput } from "@/lib/scoring/validation";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
 import { advanceBracketWinner } from "@/lib/bracket/advance";
+import { notifyResult } from "@/lib/notifications/notify";
 import { sendConfirmScore } from "@/lib/email/send";
 
 /**
@@ -25,6 +26,8 @@ async function onMatchCompleted(
   } else {
     await recomputeStandings(supabase, competitionId);
   }
+  // Best-effort result notification to both teams (opt-out: notify_results).
+  await notifyResult(supabase, matchId);
 }
 import type { MatchFormat } from "@/lib/db/schema";
 

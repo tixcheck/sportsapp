@@ -118,6 +118,17 @@ export const users = pgTable("users", {
   displayName: text("display_name"),
   avatarUrl: text("avatar_url"),
   phone: text("phone"),
+  // Notification prefs (opt-out-able sends; invites + confirm are always sent).
+  notifyResults: boolean("notify_results").notNull().default(true),
+  notifyScheduleChanges: boolean("notify_schedule_changes")
+    .notNull()
+    .default(true),
+  notifyWeekly: boolean("notify_weekly").notNull().default(true),
+  // Unguessable token for one-click unsubscribe links in the weekly digest.
+  unsubscribeToken: uuid("unsubscribe_token")
+    .notNull()
+    .defaultRandom()
+    .unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -513,4 +524,31 @@ export const teamRegistrations = pgTable(
       .defaultNow(),
   },
   (t) => [index("team_registrations_competition_id_idx").on(t.competitionId)],
+);
+
+// ---------------------------------------------------------------------------
+// Notification log (Phase 9) — idempotency for the weekly digest. One row per
+// (recipient, kind, period) so a cron retry within the same period is a no-op.
+// Written only by the trusted cron job (secret key); locked down over RLS.
+// ---------------------------------------------------------------------------
+
+export const notificationLog = pgTable(
+  "notification_log",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    /** e.g. an ISO week like "2026-W24" — the idempotency window. */
+    periodKey: text("period_key").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("notification_log_user_kind_period_unique").on(
+      t.userId,
+      t.kind,
+      t.periodKey,
+    ),
+  ],
 );
