@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { DateTime } from "luxon";
-import { CalendarDays, List } from "lucide-react";
+import { CalendarDays, List, SquarePen } from "lucide-react";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
@@ -115,11 +116,24 @@ export function ScheduleView({
                 timezone={timezone}
                 trailing={
                   editable ? (
-                    <RescheduleDialog
-                      match={m}
-                      allMatches={matches}
-                      timezone={timezone}
-                    />
+                    <span className="flex items-center gap-3">
+                      {m.homeTeamId && m.awayTeamId && (
+                        <Link
+                          href={`/matches/${m.id}`}
+                          className="text-coral-700 inline-flex items-center gap-1 font-medium hover:underline"
+                        >
+                          <SquarePen className="size-3.5" />
+                          {m.status === "completed"
+                            ? "Edit score"
+                            : "Enter score"}
+                        </Link>
+                      )}
+                      <RescheduleDialog
+                        match={m}
+                        allMatches={matches}
+                        timezone={timezone}
+                      />
+                    </span>
                   ) : undefined
                 }
               />

@@ -78,7 +78,14 @@ export async function submitScoreAction(
     .eq("id", matchId)
     .single();
   if (!match) return { error: "Match not found." };
-  if (match.status === "completed") {
+
+  const { data: isAdminData } = await supabase.rpc("is_competition_admin", {
+    _competition_id: match.competition_id,
+  });
+  const isAdmin = isAdminData === true;
+
+  // A final score is locked for captains/refs, but an organizer can edit it.
+  if (match.status === "completed" && !isAdmin) {
     return { error: "This score is final — ask the organizer to edit it." };
   }
 
@@ -126,7 +133,9 @@ export async function submitScoreAction(
     action: "submitted",
   });
 
-  const requiresConfirmation = comp.require_confirmation === true;
+  // An organizer's entry is authoritative — it completes immediately, with no
+  // separate confirmation step, even when the competition requires confirmation.
+  const requiresConfirmation = comp.require_confirmation === true && !isAdmin;
   await supabase
     .from("matches")
     .update({ status: requiresConfirmation ? "in_progress" : "completed" })

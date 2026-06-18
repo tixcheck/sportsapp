@@ -21,8 +21,11 @@ export default async function MatchEntryPage({
   const match = await getMatchForEntry(matchId);
   if (!match) notFound();
 
+  // Admins can always enter/edit (organizer override). Captains/refs see the
+  // form only before the score is final and when they're not the confirmer.
   const showEntry =
-    match.canEnter && match.state !== "final" && !match.canConfirm;
+    match.canEnter &&
+    (match.isAdmin || (match.state !== "final" && !match.canConfirm));
 
   return (
     <div className="mx-auto max-w-md">

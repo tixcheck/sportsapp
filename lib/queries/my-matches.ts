@@ -215,6 +215,8 @@ export interface MatchEntryData {
   requireConfirmation: boolean;
   canEnter: boolean;
   canConfirm: boolean;
+  /** The viewer administers this competition — may enter/edit any match. */
+  isAdmin: boolean;
 }
 
 /** Single match for the score-entry page (null if not found / not viewable). */
@@ -239,6 +241,7 @@ export async function getMatchForEntry(
   const [
     { data: comp },
     { data: canEnterData },
+    { data: isAdminData },
     { data: teams },
     { data: sets },
     { data: confs },
@@ -249,6 +252,7 @@ export async function getMatchForEntry(
       .eq("id", m.competition_id)
       .single(),
     supabase.rpc("can_enter_score", { _match_id: matchId }),
+    supabase.rpc("is_competition_admin", { _competition_id: m.competition_id }),
     supabase
       .from("teams")
       .select("id, name")
@@ -294,8 +298,12 @@ export async function getMatchForEntry(
     .reverse()
     .find((c) => c.action === "submitted")?.captain_user_id;
   const canEnter = canEnterData === true;
+  const isAdmin = isAdminData === true;
+  // An organizer's entry is authoritative — no confirmation step, and they can
+  // edit a final score. Captains still go through require_confirmation.
+  const requireConfirmation = comp.require_confirmation === true && !isAdmin;
   const canConfirm =
-    comp.require_confirmation === true &&
+    requireConfirmation &&
     state === "pending" &&
     lastSubmitter !== user.id &&
     canEnter;
@@ -318,8 +326,9 @@ export async function getMatchForEntry(
     sets: (sets ?? []).map((s) => ({ home: s.home_score, away: s.away_score })),
     status: m.status,
     state,
-    requireConfirmation: comp.require_confirmation === true,
+    requireConfirmation,
     canEnter,
     canConfirm,
+    isAdmin,
   };
 }
