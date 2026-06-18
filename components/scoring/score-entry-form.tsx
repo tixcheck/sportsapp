@@ -173,7 +173,7 @@ export function ScoreEntryForm({
             ? "Result submitted — waiting for confirmation."
             : "Result recorded.",
       );
-      router.push("/my-matches");
+      router.push(result.redirectTo);
       router.refresh();
     });
   }

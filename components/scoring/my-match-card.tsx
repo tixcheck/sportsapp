@@ -48,7 +48,12 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
     : null;
   const pill = STATE_PILL[match.state];
 
-  function act(fn: typeof confirmScoreAction, label: string) {
+  function act(
+    fn: (
+      id: string,
+    ) => Promise<{ error: string } | { success: true; redirectTo?: string }>,
+    label: string,
+  ) {
     startTransition(async () => {
       const result = await fn(match.id);
       if ("error" in result) {

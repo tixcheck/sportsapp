@@ -47,6 +47,27 @@ async function canEnter(
   return data === true;
 }
 
+/**
+ * Where to send the user after scoring. Organizers land back on the
+ * competition's admin page (where they enter the next match); captains/refs/
+ * players go to their "my matches" list.
+ */
+async function redirectAfterScore(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+  isAdmin: boolean,
+): Promise<string> {
+  if (!isAdmin) return "/my-matches";
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("org_id, type")
+    .eq("id", competitionId)
+    .single();
+  if (!comp) return "/my-matches";
+  const seg = comp.type === "tournament" ? "tournaments" : "leagues";
+  return `/orgs/${comp.org_id}/${seg}/${competitionId}`;
+}
+
 /** The user id of the most recent score submitter for a match, if any. */
 async function latestSubmitterId(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -67,7 +88,10 @@ export async function submitScoreAction(
   matchId: string,
   sets: SetScoreInput[],
   override = false,
-): Promise<ActionError | { success: true; requiresConfirmation: boolean }> {
+): Promise<
+  | ActionError
+  | { success: true; requiresConfirmation: boolean; redirectTo: string }
+> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -176,7 +200,12 @@ export async function submitScoreAction(
   revalidatePath("/my-matches");
   revalidatePath(`/t/${comp.slug}`);
   revalidatePath(`/l/${comp.slug}`);
-  return { success: true, requiresConfirmation };
+  const redirectTo = await redirectAfterScore(
+    supabase,
+    match.competition_id,
+    isAdmin,
+  );
+  return { success: true, requiresConfirmation, redirectTo };
 }
 
 /**
@@ -218,7 +247,7 @@ export async function saveDraftSetsAction(
 
 export async function confirmScoreAction(
   matchId: string,
-): Promise<ActionError | { success: true }> {
+): Promise<ActionError | { success: true; redirectTo: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -257,7 +286,19 @@ export async function confirmScoreAction(
   }
 
   revalidatePath("/my-matches");
-  return { success: true };
+  const { data: isAdminData } = updated?.competition_id
+    ? await supabase.rpc("is_competition_admin", {
+        _competition_id: updated.competition_id,
+      })
+    : { data: false };
+  const redirectTo = updated?.competition_id
+    ? await redirectAfterScore(
+        supabase,
+        updated.competition_id,
+        isAdminData === true,
+      )
+    : "/my-matches";
+  return { success: true, redirectTo };
 }
 
 export async function disputeScoreAction(

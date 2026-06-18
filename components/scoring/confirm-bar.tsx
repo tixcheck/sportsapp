@@ -15,9 +15,10 @@ export function ConfirmBar({ matchId }: { matchId: string }) {
   const [pending, startTransition] = useTransition();
 
   function run(
-    fn: typeof confirmScoreAction,
+    fn: (
+      id: string,
+    ) => Promise<{ error: string } | { success: true; redirectTo?: string }>,
     label: string,
-    redirect: boolean,
   ) {
     startTransition(async () => {
       const result = await fn(matchId);
@@ -26,7 +27,13 @@ export function ConfirmBar({ matchId }: { matchId: string }) {
         return;
       }
       toast.success(label);
-      if (redirect) router.push("/my-matches");
+      // Confirm returns a role-aware target (organizer → admin page); dispute
+      // has none → back to my matches.
+      const to =
+        "redirectTo" in result && result.redirectTo
+          ? result.redirectTo
+          : "/my-matches";
+      router.push(to);
       router.refresh();
     });
   }
@@ -37,14 +44,14 @@ export function ConfirmBar({ matchId }: { matchId: string }) {
         variant="outline"
         className="h-12 flex-1"
         disabled={pending}
-        onClick={() => run(disputeScoreAction, "Score disputed.", true)}
+        onClick={() => run(disputeScoreAction, "Score disputed.")}
       >
         Dispute
       </Button>
       <Button
         className="h-12 flex-1"
         disabled={pending}
-        onClick={() => run(confirmScoreAction, "Score confirmed.", true)}
+        onClick={() => run(confirmScoreAction, "Score confirmed.")}
       >
         Confirm
       </Button>
