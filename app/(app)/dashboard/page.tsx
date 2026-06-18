@@ -8,10 +8,12 @@ import {
   getMyPendingInvites,
   type MyCompetition,
 } from "@/lib/queries/dashboard";
+import { getAccessState } from "@/lib/queries/access";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PendingInviteCard } from "@/components/dashboard/pending-invite-card";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
+import { BecomeOrganizer } from "@/components/dashboard/become-organizer";
 import {
   Card,
   CardContent,
@@ -32,31 +34,13 @@ function nextMatchLine(c: MyCompetition): string | null {
 }
 
 export default async function DashboardPage() {
-  const [orgs, comps, invites] = await Promise.all([
+  const [orgs, comps, invites, access] = await Promise.all([
     getUserOrgs(),
     getMyCompetitions(),
     getMyPendingInvites(),
+    getAccessState(),
   ]);
-
-  if (orgs.length === 0 && comps.length === 0 && invites.length === 0) {
-    return (
-      <div className="mx-auto max-w-md py-16 text-center">
-        <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
-          Welcome 👋
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Create an organization to run leagues and tournaments — or ask your
-          organizer to add you to a team.
-        </p>
-        <Button asChild className="mt-6">
-          <Link href="/orgs/new">
-            <Plus />
-            Create organization
-          </Link>
-        </Button>
-      </div>
-    );
-  }
+  const canCreateOrg = access.organizerStatus === "approved";
 
   return (
     <div className="space-y-10">
@@ -136,45 +120,60 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-display text-lg font-semibold">
-              Your organizations
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Leagues and tournaments live inside an organization.
-            </p>
-          </div>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/orgs/new">
-              <Plus />
-              New
-            </Link>
-          </Button>
-        </div>
-
-        {orgs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            You don&apos;t run any organizations yet.
-          </p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {orgs.map((org) => (
-              <Link key={org.id} href={`/orgs/${org.id}`}>
-                <Card className="hover:border-primary/40 h-full transition-colors">
-                  <CardHeader>
-                    <CardTitle className="truncate">{org.name}</CardTitle>
-                    <CardDescription>
-                      /{org.slug} · {org.role}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
+      {canCreateOrg ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-display text-lg font-semibold">
+                Your organizations
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Leagues and tournaments live inside an organization.
+              </p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/orgs/new">
+                <Plus />
+                New
               </Link>
-            ))}
+            </Button>
           </div>
-        )}
-      </section>
+
+          {orgs.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Create your first organization to run a league or tournament.
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {orgs.map((org) => (
+                <Link key={org.id} href={`/orgs/${org.id}`}>
+                  <Card className="hover:border-primary/40 h-full transition-colors">
+                    <CardHeader>
+                      <CardTitle className="truncate">{org.name}</CardTitle>
+                      <CardDescription>
+                        /{org.slug} · {org.role}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold">
+            Organizer access
+          </h2>
+          <BecomeOrganizer status={access.organizerStatus} />
+          {invites.length === 0 && comps.length === 0 && (
+            <p className="text-muted-foreground text-sm">
+              Or ask your organizer to add you to a team — you&apos;ll see your
+              competitions here.
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

@@ -69,6 +69,19 @@ export const teamMemberRole = pgEnum("team_member_role", ["captain", "player"]);
 
 export const teamStatus = pgEnum("team_status", ["active", "withdrawn"]);
 
+/** Platform-level organizer approval state (distinct from per-org roles). */
+export const organizerStatus = pgEnum("organizer_status", [
+  "none",
+  "pending",
+  "approved",
+]);
+
+export const organizerRequestStatus = pgEnum("organizer_request_status", [
+  "pending",
+  "approved",
+  "denied",
+]);
+
 export const competitionType = pgEnum("competition_type", [
   "league",
   "tournament",
@@ -129,6 +142,14 @@ export const users = pgTable("users", {
     .notNull()
     .defaultRandom()
     .unique(),
+  // Platform-level access (Phase: organizer gating). These two columns are NOT
+  // user-writable — a column-level GRANT excludes them from the self-update, so
+  // they change only via the gated SECURITY DEFINER rpcs / the seed. A user can
+  // never escalate themselves to approved organizer or platform admin.
+  organizerStatus: organizerStatus("organizer_status")
+    .notNull()
+    .default("none"),
+  isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -551,4 +572,30 @@ export const notificationLog = pgTable(
       t.periodKey,
     ),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Organizer requests — a general user asks to become an organizer; the single
+// platform admin approves/denies. Lifecycle rows; the user's live access state
+// lives on users.organizer_status.
+// ---------------------------------------------------------------------------
+
+export const organizerRequests = pgTable(
+  "organizer_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: organizerRequestStatus("status").notNull().default("pending"),
+    note: text("note"),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedBy: uuid("decided_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [index("organizer_requests_user_id_idx").on(t.userId)],
 );

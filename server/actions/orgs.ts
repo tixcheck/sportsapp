@@ -23,6 +23,16 @@ export async function createOrganizationAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "You must be signed in." };
 
+  // Organizer gating: only approved organizers may create an org. The rpc + RLS
+  // enforce this at the data layer; this is a friendly early check.
+  const { data: approved } = await supabase.rpc("is_approved_organizer");
+  if (approved !== true) {
+    return {
+      error:
+        "You need organizer approval to create an organization. Request it from your dashboard.",
+    };
+  }
+
   const base = slugify(parsed.data.name);
 
   // Find taken slugs that could collide, then pick the first free variant.
