@@ -16,6 +16,7 @@ export interface MyMatch {
   scheduledAt: string | null;
   homeTeamId: string | null;
   awayTeamId: string | null;
+  refTeamId: string | null;
   homeTeamName: string;
   awayTeamName: string;
   refTeamName: string | null;
@@ -177,6 +178,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       scheduledAt: m.scheduled_at,
       homeTeamId: m.home_team_id,
       awayTeamId: m.away_team_id,
+      refTeamId: m.ref_team_id,
       homeTeamName: m.home_team_id
         ? (teamName.get(m.home_team_id) ?? "TBD")
         : "TBD",

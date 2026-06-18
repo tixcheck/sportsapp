@@ -79,7 +79,10 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
   if (isMember) {
     const all = await getMyMatches();
     myMatches = all.filter(
-      (m) => m.homeTeamId === teamId || m.awayTeamId === teamId,
+      (m) =>
+        m.homeTeamId === teamId ||
+        m.awayTeamId === teamId ||
+        m.refTeamId === teamId,
     );
   } else {
     const sched =
