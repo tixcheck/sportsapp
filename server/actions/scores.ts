@@ -163,6 +163,43 @@ export async function submitScoreAction(
   return { success: true, requiresConfirmation };
 }
 
+/**
+ * Persist a match's set scores incrementally as the user types — WITHOUT
+ * completing the match. No status change, no confirmation, no standings
+ * recompute, no bracket advance: a half-entered match stays unplayed and
+ * invisible to standings until "Record result" calls submitScoreAction. Gated
+ * by can_enter_score like every other write; no validation (a transient deuce
+ * like 21–21 is fine to save mid-entry).
+ */
+export async function saveDraftSetsAction(
+  matchId: string,
+  sets: SetScoreInput[],
+): Promise<ActionError | { success: true }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+  if (!(await canEnter(supabase, matchId))) {
+    return { error: "You're not allowed to enter the score for this match." };
+  }
+
+  await supabase.from("sets").delete().eq("match_id", matchId);
+  const rows = sets
+    .filter((s) => Number.isInteger(s.home) && Number.isInteger(s.away))
+    .map((s, i) => ({
+      match_id: matchId,
+      set_number: i + 1,
+      home_score: s.home,
+      away_score: s.away,
+    }));
+  if (rows.length) {
+    const { error } = await supabase.from("sets").insert(rows);
+    if (error) return { error: error.message };
+  }
+  return { success: true };
+}
+
 export async function confirmScoreAction(
   matchId: string,
 ): Promise<ActionError | { success: true }> {

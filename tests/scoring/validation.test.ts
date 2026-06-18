@@ -112,3 +112,57 @@ describe("validateScore — warns but allows (capped / unusual)", () => {
     expect(r.warnings.some((w) => /best-of-3/.test(w))).toBe(true);
   });
 });
+
+describe("validateScore — win-by-2, no ceiling (normal volleyball)", () => {
+  const T21: MatchFormat = { bestOf: 3, setsToPoints: [21, 21, 15], winBy: 2 };
+  const T15: MatchFormat = { bestOf: 3, setsToPoints: [15, 15, 11], winBy: 2 };
+
+  it("21–19 and 22–20 are clean completed sets (no warning)", () => {
+    const r = validateScore(T21, [
+      { home: 21, away: 19 },
+      { home: 22, away: 20 },
+    ]);
+    expect(r.ok).toBe(true);
+    expect(r.warnings).toEqual([]);
+    expect(r.winner).toBe("home");
+  });
+
+  it("30–28 (deuce past target, margin 2) is clean — no upper cap", () => {
+    const r = validateScore(T21, [
+      { home: 30, away: 28 },
+      { home: 21, away: 19 },
+    ]);
+    expect(r.ok).toBe(true);
+    expect(r.warnings).toEqual([]);
+  });
+
+  it("21–20 (target reached, margin <2) warns but isn't blocked", () => {
+    const r = validateScore(T21, [
+      { home: 21, away: 20 },
+      { home: 21, away: 19 },
+    ]);
+    expect(r.ok).toBe(true);
+    expect(r.warnings.some((w) => /win-by-2/.test(w))).toBe(true);
+  });
+
+  it("scales to a to-15 pool: 15–13 clean, 15–14 warns, 17–15 deuce clean", () => {
+    expect(
+      validateScore(T15, [
+        { home: 15, away: 13 },
+        { home: 15, away: 11 },
+      ]).warnings,
+    ).toEqual([]);
+    expect(
+      validateScore(T15, [
+        { home: 17, away: 15 },
+        { home: 15, away: 11 },
+      ]).warnings,
+    ).toEqual([]);
+    const warned = validateScore(T15, [
+      { home: 15, away: 14 },
+      { home: 15, away: 11 },
+    ]);
+    expect(warned.ok).toBe(true);
+    expect(warned.warnings.some((w) => /win-by-2/.test(w))).toBe(true);
+  });
+});
