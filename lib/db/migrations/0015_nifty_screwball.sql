@@ -1,0 +1,1 @@
+ALTER TABLE "team_invites" ADD COLUMN "role" "team_member_role" DEFAULT 'captain' NOT NULL;

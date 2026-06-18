@@ -11,8 +11,10 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PendingInviteCard } from "@/components/dashboard/pending-invite-card";
+import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -68,7 +70,7 @@ export default async function DashboardPage() {
               <PendingInviteCard
                 key={inv.inviteId}
                 invite={inv}
-                role="captain"
+                role={inv.role}
               />
             ))}
           </div>
@@ -84,36 +86,50 @@ export default async function DashboardPage() {
             {comps.map((c) => {
               const next = nextMatchLine(c);
               return (
-                <Link
+                <Card
                   key={`${c.competitionId}:${c.teamId}`}
-                  href={competitionPath(c.type, c.slug)}
+                  className="flex h-full flex-col"
                 >
-                  <Card className="hover:border-primary/40 h-full transition-colors">
-                    <CardHeader>
-                      <CardTitle className="truncate">{c.name}</CardTitle>
-                      <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="truncate">{c.teamName}</span>
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-xs font-medium",
-                            c.teamStatus === "withdrawn"
-                              ? "bg-gold-300/40 text-coral-900"
-                              : "bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {c.teamStatus === "withdrawn"
-                            ? "Withdrawn"
-                            : c.memberRole}
-                        </span>
-                      </CardDescription>
-                      {next && (
-                        <p className="text-muted-foreground mt-1 truncate text-sm">
-                          Next: {next}
-                        </p>
-                      )}
-                    </CardHeader>
-                  </Card>
-                </Link>
+                  <CardHeader>
+                    <CardTitle className="truncate">
+                      <Link
+                        href={competitionPath(c.type, c.slug)}
+                        className="hover:underline"
+                      >
+                        {c.name}
+                      </Link>
+                    </CardTitle>
+                    <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="truncate">{c.teamName}</span>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-xs font-medium",
+                          c.teamStatus === "withdrawn"
+                            ? "bg-gold-300/40 text-coral-900"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {c.teamStatus === "withdrawn"
+                          ? "Withdrawn"
+                          : c.memberRole}
+                      </span>
+                    </CardDescription>
+                    {next && (
+                      <p className="text-muted-foreground mt-1 truncate text-sm">
+                        Next: {next}
+                      </p>
+                    )}
+                  </CardHeader>
+                  {c.memberRole === "captain" &&
+                    c.teamStatus !== "withdrawn" && (
+                      <CardContent className="mt-auto pt-0">
+                        <InviteTeammateDialog
+                          teamId={c.teamId}
+                          teamName={c.teamName}
+                        />
+                      </CardContent>
+                    )}
+                </Card>
               );
             })}
           </div>

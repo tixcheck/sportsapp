@@ -172,6 +172,90 @@ export async function editTeamInviteAction(
 }
 
 /**
+ * Invite a teammate (non-captain player) to a team. Authorized for the team's
+ * captain OR a competition admin. Creates a role='player' invite; claiming it
+ * adds the user to the roster as a player (never a scorer). Best-effort email +
+ * copyable claim link.
+ */
+export async function inviteTeammateAction(
+  teamId: string,
+  email: string,
+): Promise<ActionError | { claimUrl: string; emailSent: boolean }> {
+  const parsed = emailSchema.safeParse(email);
+  if (!parsed.success) return { error: "Enter a valid email address." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+
+  const { data: team } = await supabase
+    .from("teams")
+    .select("id, competition_id, captain_user_id, name")
+    .eq("id", teamId)
+    .single();
+  if (!team) return { error: "Team not found." };
+
+  const isCaptain = team.captain_user_id === user.id;
+  let allowed = isCaptain;
+  if (!allowed) {
+    const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+      _competition_id: team.competition_id,
+    });
+    allowed = isAdmin === true;
+  }
+  if (!allowed) {
+    return { error: "Only the captain or organizer can add teammates." };
+  }
+
+  const token = generateToken();
+  const expiresAt = new Date(
+    Date.now() + INVITE_TTL_DAYS * 86_400_000,
+  ).toISOString();
+  const { error } = await supabase.from("team_invites").insert({
+    team_id: teamId,
+    email: parsed.data,
+    token,
+    role: "player",
+    invited_by_user_id: user.id,
+    expires_at: expiresAt,
+  });
+  if (error) return { error: error.message };
+
+  const origin = await getOrigin();
+  const claimUrl = `${origin}/claim/${token}`;
+
+  const [{ data: comp }, { data: profile }] = await Promise.all([
+    supabase
+      .from("competitions")
+      .select("name")
+      .eq("id", team.competition_id)
+      .single(),
+    supabase
+      .from("users")
+      .select("display_name, email")
+      .eq("id", user.id)
+      .single(),
+  ]);
+
+  const result = await sendCaptainInvite(
+    parsed.data,
+    {
+      teamName: team.name,
+      leagueName: comp?.name ?? "the competition",
+      organizerName: profile?.display_name ?? "Your team",
+      claimUrl,
+    },
+    profile?.email ?? undefined,
+  );
+
+  revalidatePath("/orgs");
+  revalidatePath("/dashboard");
+  return { claimUrl, emailSent: result.sent };
+}
+
+/**
  * Remove a team before any play. Allowed only when no match in the competition
  * is completed. With no schedule it's a clean delete; if a schedule exists it's
  * discarded (the organizer redraws via the structure picker) and `needsRedraw`

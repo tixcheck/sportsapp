@@ -28,6 +28,7 @@ export interface PendingInvite {
   token: string;
   teamId: string;
   teamName: string;
+  role: "captain" | "player";
   competitionId: string;
   competitionName: string;
   competitionSlug: string;
@@ -74,6 +75,7 @@ export async function getMyPendingInvites(): Promise<PendingInvite[]> {
       token: r.token as string,
       teamId: r.team_id as string,
       teamName: r.team_name as string,
+      role: r.role as "captain" | "player",
       competitionId: r.competition_id as string,
       competitionName: r.competition_name as string,
       competitionSlug: r.competition_slug as string,

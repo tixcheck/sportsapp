@@ -6,6 +6,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
 import { getBracket } from "@/lib/queries/bracket";
+import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
@@ -33,11 +34,12 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const [origin, poolsView, standings, bracket] = await Promise.all([
+  const [origin, poolsView, standings, bracket, rosters] = await Promise.all([
     getOrigin(),
     getPoolsView(tournamentId),
     getStandings(tournamentId),
     getBracket(tournamentId),
+    getTeamRosters(tournamentId),
   ]);
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
@@ -198,6 +200,7 @@ export default async function TournamentPage({
               status: team.status,
               claimed: !!team.captainUserId,
               invite: team.invite,
+              members: rosters[team.id] ?? [],
             }))}
           />
         </CardContent>

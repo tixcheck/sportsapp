@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/league/copy-button";
+import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
 import {
   Dialog,
   DialogClose,
@@ -32,6 +33,7 @@ export interface ManagedTeam {
   status: "active" | "withdrawn";
   claimed: boolean;
   invite: { token: string; email: string } | null;
+  members?: { name: string; role: "captain" | "player" }[];
 }
 
 function EditInviteDialog({
@@ -243,59 +245,73 @@ export function TeamManagementList({
       {teams.map((team) => {
         const withdrawn = team.status === "withdrawn";
         return (
-          <li
-            key={team.id}
-            className="flex flex-wrap items-center justify-between gap-3 py-3"
-          >
-            <div className="min-w-0">
-              <span
-                className={cn(
-                  "font-medium",
-                  withdrawn && "text-muted-foreground line-through",
-                )}
-              >
-                {team.name}
-              </span>
-              {team.divisionName && (
-                <span className="text-muted-foreground ml-2 text-xs">
-                  {team.divisionName}
+          <li key={team.id} className="space-y-2 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span
+                  className={cn(
+                    "font-medium",
+                    withdrawn && "text-muted-foreground line-through",
+                  )}
+                >
+                  {team.name}
                 </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  withdrawn
-                    ? "bg-gold-300/40 text-coral-900"
-                    : team.claimed
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-muted text-muted-foreground",
+                {team.divisionName && (
+                  <span className="text-muted-foreground ml-2 text-xs">
+                    {team.divisionName}
+                  </span>
                 )}
-              >
-                {withdrawn
-                  ? "Withdrawn"
-                  : team.claimed
-                    ? "Captain joined"
-                    : team.invite
-                      ? `Invite pending · ${team.invite.email}`
-                      : "No captain"}
-              </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    withdrawn
+                      ? "bg-gold-300/40 text-coral-900"
+                      : team.claimed
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {withdrawn
+                    ? "Withdrawn"
+                    : team.claimed
+                      ? "Captain joined"
+                      : team.invite
+                        ? `Invite pending · ${team.invite.email}`
+                        : "No captain"}
+                </span>
 
-              {!withdrawn && !team.claimed && (
-                <EditInviteDialog
-                  team={team}
-                  origin={origin}
-                  onDone={refresh}
-                />
-              )}
-              {!withdrawn && (
-                <>
-                  <RemoveDialog team={team} onDone={refresh} />
-                  <WithdrawDialog team={team} onDone={refresh} />
-                </>
-              )}
+                {!withdrawn && !team.claimed && (
+                  <EditInviteDialog
+                    team={team}
+                    origin={origin}
+                    onDone={refresh}
+                  />
+                )}
+                {!withdrawn && (
+                  <>
+                    <InviteTeammateDialog
+                      teamId={team.id}
+                      teamName={team.name}
+                      variant="ghost"
+                    />
+                    <RemoveDialog team={team} onDone={refresh} />
+                    <WithdrawDialog team={team} onDone={refresh} />
+                  </>
+                )}
+              </div>
             </div>
+            {team.members && team.members.length > 0 && (
+              <p className="text-muted-foreground text-xs">
+                Roster:{" "}
+                {team.members
+                  .map((m) =>
+                    m.role === "captain" ? `${m.name} (captain)` : m.name,
+                  )
+                  .join(", ")}
+              </p>
+            )}
           </li>
         );
       })}

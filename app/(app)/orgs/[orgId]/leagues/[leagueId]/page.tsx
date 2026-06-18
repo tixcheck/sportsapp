@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
 
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
+import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
@@ -27,9 +28,10 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [origin, schedule] = await Promise.all([
+  const [origin, schedule, rosters] = await Promise.all([
     getOrigin(),
     getLeagueSchedule(leagueId),
+    getTeamRosters(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -130,6 +132,7 @@ export default async function LeaguePage({
               invite: t.invite
                 ? { token: t.invite.token, email: t.invite.email }
                 : null,
+              members: rosters[t.id] ?? [],
             }))}
           />
         </CardContent>

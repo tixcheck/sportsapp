@@ -473,6 +473,9 @@ export const teamInvites = pgTable(
     email: text("email").notNull(),
     token: text("token").notNull().unique(),
     status: inviteStatus("status").notNull().default("pending"),
+    // What claiming this invite grants: 'captain' links + sets the team captain;
+    // 'player' adds the user as a roster member only (claim_team branches on it).
+    role: teamMemberRole("role").notNull().default("captain"),
     invitedByUserId: uuid("invited_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
