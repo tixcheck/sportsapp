@@ -376,6 +376,10 @@ export const matches = pgTable(
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     court: varchar("court", { length: 64 }),
     status: matchStatus("status").notNull().default("scheduled"),
+    // Set true only when an organizer used the override to record a result that
+    // failed the normal completion checks (abandoned/injury). Audit/display
+    // marker ONLY — standings ignore it and read the real sets.
+    isAbnormal: boolean("is_abnormal").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

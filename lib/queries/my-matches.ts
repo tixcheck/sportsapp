@@ -217,6 +217,8 @@ export interface MatchEntryData {
   canConfirm: boolean;
   /** The viewer administers this competition — may enter/edit any match. */
   isAdmin: boolean;
+  /** Recorded via the organizer override (abandoned/injury). */
+  isAbnormal: boolean;
 }
 
 /** Single match for the score-entry page (null if not found / not viewable). */
@@ -232,7 +234,7 @@ export async function getMatchForEntry(
   const { data: m } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, status, home_team_id, away_team_id, ref_team_id, pool_id",
+      "id, competition_id, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal",
     )
     .eq("id", matchId)
     .single();
@@ -330,5 +332,6 @@ export async function getMatchForEntry(
     canEnter,
     canConfirm,
     isAdmin,
+    isAbnormal: m.is_abnormal === true,
   };
 }

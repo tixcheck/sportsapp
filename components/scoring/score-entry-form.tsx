@@ -14,6 +14,16 @@ import type { SetScoreInput } from "@/lib/scoring/validation";
 import type { MatchFormat } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /** A set's two cells as raw input strings ("" = not yet entered, vs "0"). */
 type Cell = { home: string; away: string };
@@ -23,7 +33,6 @@ function parse(v: string): number {
   return Number.isNaN(n) ? 0 : n;
 }
 
-/** Entered sets (either cell filled), in order, parsed to numbers. */
 function playedSets(cells: Cell[]): SetScoreInput[] {
   return cells
     .filter((c) => c.home !== "" || c.away !== "")
@@ -67,6 +76,7 @@ export function ScoreEntryForm({
   matchFormat,
   initialSets,
   requireConfirmation,
+  isAdmin,
 }: {
   matchId: string;
   homeTeamName: string;
@@ -74,6 +84,7 @@ export function ScoreEntryForm({
   matchFormat: MatchFormat;
   initialSets: { home: number; away: number }[];
   requireConfirmation: boolean;
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -91,9 +102,12 @@ export function ScoreEntryForm({
     () => validateScore(matchFormat, played),
     [matchFormat, played],
   );
+  const reason = validation.errors[0] ?? validation.blocks[0] ?? null;
+  const decided = validation.ok && validation.winner !== null;
+  const canOverride =
+    isAdmin && validation.errors.length === 0 && validation.blocks.length > 0;
 
-  // Incremental save: persist what's entered when a field loses focus, without
-  // completing the match. Skip redundant saves.
+  // Per-set incremental save on blur — persists a draft, never completes.
   const lastSaved = useRef(JSON.stringify(playedSets(sets)));
   function commit() {
     const current = playedSets(sets);
@@ -109,25 +123,23 @@ export function ScoreEntryForm({
     setSets((prev) => prev.map((s, j) => (j === i ? { ...s, [side]: v } : s)));
   }
 
-  function record() {
+  function record(override: boolean) {
     if (played.length === 0) {
       toast.error("Enter a score for at least one set.");
       return;
     }
-    if (!validation.ok) {
-      toast.error(validation.errors[0]);
-      return;
-    }
     startTransition(async () => {
-      const result = await submitScoreAction(matchId, played);
+      const result = await submitScoreAction(matchId, played, override);
       if ("error" in result) {
         toast.error(result.error);
         return;
       }
       toast.success(
-        result.requiresConfirmation
-          ? "Result submitted — waiting for confirmation."
-          : "Result recorded.",
+        override
+          ? "Abnormal result recorded."
+          : result.requiresConfirmation
+            ? "Result submitted — waiting for confirmation."
+            : "Result recorded.",
       );
       router.push("/my-matches");
       router.refresh();
@@ -141,8 +153,7 @@ export function ScoreEntryForm({
           const target = setTarget(matchFormat, i);
           const h = parse(s.home);
           const a = parse(s.away);
-          const homeWins = (s.home !== "" || s.away !== "") && h > a;
-          const awayWins = (s.home !== "" || s.away !== "") && a > h;
+          const entered = s.home !== "" || s.away !== "";
           return (
             <div
               key={i}
@@ -159,7 +170,7 @@ export function ScoreEntryForm({
                   value={s.home}
                   onChange={(v) => update(i, "home", v)}
                   onCommit={commit}
-                  emphasize={homeWins}
+                  emphasize={entered && h > a}
                   label={`${homeTeamName} score, set ${i + 1}`}
                 />
               </div>
@@ -171,7 +182,7 @@ export function ScoreEntryForm({
                   value={s.away}
                   onChange={(v) => update(i, "away", v)}
                   onCommit={commit}
-                  emphasize={awayWins}
+                  emphasize={entered && a > h}
                   label={`${awayTeamName} score, set ${i + 1}`}
                 />
               </div>
@@ -180,8 +191,34 @@ export function ScoreEntryForm({
         })}
       </div>
 
+      {decided && (
+        <div className="border-border bg-surface rounded-lg border p-3 text-center text-sm">
+          <span
+            className={cn(
+              validation.winner === "home"
+                ? "text-win font-semibold"
+                : "text-loss",
+            )}
+          >
+            {homeTeamName}
+          </span>{" "}
+          <span className="tabular-nums">
+            {validation.homeSetsWon}–{validation.awaySetsWon}
+          </span>{" "}
+          <span
+            className={cn(
+              validation.winner === "away"
+                ? "text-win font-semibold"
+                : "text-loss",
+            )}
+          >
+            {awayTeamName}
+          </span>
+        </div>
+      )}
+
       {validation.errors.length > 0 && (
-        <div className="border-destructive/30 bg-destructive/10 text-destructive rounded-md border p-3 text-sm">
+        <div className="border-loss/30 bg-loss/10 text-loss rounded-md border p-3 text-sm">
           {validation.errors.map((e, i) => (
             <p key={i}>{e}</p>
           ))}
@@ -201,21 +238,66 @@ export function ScoreEntryForm({
         </div>
       )}
 
-      <p className="text-muted-foreground text-xs">
-        Scores save as you type. Record the result when the match is done.
-      </p>
-      <Button
-        onClick={record}
-        disabled={pending}
-        size="lg"
-        className="h-12 w-full"
-      >
-        {pending
-          ? "Saving…"
-          : requireConfirmation
-            ? "Submit for confirmation"
-            : "Record result"}
-      </Button>
+      <div className="space-y-2">
+        <Button
+          onClick={() => record(false)}
+          disabled={pending || !validation.ok}
+          size="lg"
+          className="h-12 w-full"
+        >
+          {pending
+            ? "Saving…"
+            : requireConfirmation
+              ? "Submit for confirmation"
+              : "Submit score"}
+        </Button>
+        {!validation.ok && reason && (
+          <p className="text-muted-foreground text-center text-xs">{reason}</p>
+        )}
+        <p className="text-muted-foreground text-center text-xs">
+          Scores save as you type.
+        </p>
+
+        {canOverride && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-loss/40 text-loss w-full"
+              >
+                Record abnormal result (e.g. abandoned/injury)
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Record an abnormal result?</DialogTitle>
+                <DialogDescription>
+                  This isn&apos;t a normal complete match
+                  {reason ? ` — ${reason}` : ""}. As the organizer you can
+                  record what actually happened (e.g. abandoned or injury).
+                  It&apos;ll be flagged as abnormal but counts in standings as
+                  entered.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="ghost" disabled={pending}>
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={() => record(true)}
+                  disabled={pending}
+                >
+                  {pending ? "Recording…" : "Record abnormal result"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
     </div>
   );
 }

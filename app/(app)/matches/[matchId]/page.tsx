@@ -46,6 +46,11 @@ export default async function MatchEntryPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {match.isAdmin && match.isAbnormal && (
+            <span className="bg-loss/10 text-loss inline-block rounded-full px-2.5 py-0.5 text-xs font-medium">
+              Abnormal result
+            </span>
+          )}
           {showEntry ? (
             <ScoreEntryForm
               matchId={match.id}
@@ -54,6 +59,7 @@ export default async function MatchEntryPage({
               matchFormat={match.matchFormat}
               initialSets={match.sets}
               requireConfirmation={match.requireConfirmation}
+              isAdmin={match.isAdmin}
             />
           ) : (
             <>

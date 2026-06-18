@@ -114,6 +114,7 @@ export function ScheduleView({
                 key={m.id}
                 match={m}
                 timezone={timezone}
+                showAbnormal={editable}
                 trailing={
                   editable ? (
                     <span className="flex items-center gap-3">

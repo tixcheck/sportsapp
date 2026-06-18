@@ -37,6 +37,10 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
   const homeWon = match.sets.filter((s) => s.home > s.away).length;
   const awayWon = match.sets.filter((s) => s.away > s.home).length;
   const hasScore = match.sets.length > 0;
+  // Win/loss coloring only once the match is final and actually decided.
+  const decided = match.state === "final" && hasScore && homeWon !== awayWon;
+  const homeResult = decided ? (homeWon > awayWon ? "win" : "loss") : null;
+  const awayResult = decided ? (awayWon > homeWon ? "win" : "loss") : null;
   const time = match.scheduledAt
     ? DateTime.fromISO(match.scheduledAt, { zone: match.timezone }).toFormat(
         "h:mm a",
@@ -77,12 +81,14 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
             won={homeWon}
             top={homeWon >= awayWon}
             show={hasScore}
+            result={homeResult}
           />
           <Row
             name={match.awayTeamName}
             won={awayWon}
             top={awayWon >= homeWon}
             show={hasScore}
+            result={awayResult}
           />
         </div>
         {hasScore ? (
@@ -149,20 +155,36 @@ function Row({
   won,
   top,
   show,
+  result,
 }: {
   name: string;
   won: number;
   top: boolean;
   show: boolean;
+  result: "win" | "loss" | null;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="truncate font-medium">{name}</span>
+      <span
+        className={cn(
+          "truncate font-medium",
+          result === "win" && "text-win",
+          result === "loss" && "text-loss",
+        )}
+      >
+        {name}
+      </span>
       {show && (
         <span
           className={cn(
             "font-display text-lg tabular-nums",
-            top ? "text-coral-700" : "text-text-3",
+            result === "win"
+              ? "text-win"
+              : result === "loss"
+                ? "text-loss"
+                : top
+                  ? "text-coral-700"
+                  : "text-text-3",
           )}
         >
           {won}

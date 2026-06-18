@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
-import { validateScore, type SetScoreInput } from "@/lib/scoring/validation";
+import {
+  canFinalize,
+  validateScore,
+  type SetScoreInput,
+} from "@/lib/scoring/validation";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
 import { advanceBracketWinner } from "@/lib/bracket/advance";
@@ -62,6 +66,7 @@ async function latestSubmitterId(
 export async function submitScoreAction(
   matchId: string,
   sets: SetScoreInput[],
+  override = false,
 ): Promise<ActionError | { success: true; requiresConfirmation: boolean }> {
   const supabase = await createClient();
   const {
@@ -115,7 +120,15 @@ export async function submitScoreAction(
   );
 
   const result = validateScore(format, sets);
-  if (!result.ok) return { error: result.errors[0] };
+  if (result.errors.length > 0) return { error: result.errors[0] };
+  // Blocks (illegal set / incomplete match) finalize only via an admin override.
+  // `override` is honored only because `isAdmin` is the server's own check.
+  if (!canFinalize(result, { isAdmin, override })) {
+    return { error: result.blocks[0] };
+  }
+  // Reaching here with any blocks means an organizer overrode them — mark the
+  // match abnormal (audit/display only; standings still read the real sets).
+  const isAbnormal = result.blocks.length > 0;
 
   // Replace any existing sets, then record this submission.
   await supabase.from("sets").delete().eq("match_id", matchId);
@@ -141,7 +154,10 @@ export async function submitScoreAction(
   const requiresConfirmation = comp.require_confirmation === true && !isAdmin;
   await supabase
     .from("matches")
-    .update({ status: requiresConfirmation ? "in_progress" : "completed" })
+    .update({
+      status: requiresConfirmation ? "in_progress" : "completed",
+      is_abnormal: isAbnormal,
+    })
     .eq("id", matchId);
 
   if (requiresConfirmation) {

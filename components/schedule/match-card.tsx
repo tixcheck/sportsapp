@@ -7,10 +7,13 @@ export function MatchCard({
   match,
   timezone,
   trailing,
+  showAbnormal = false,
 }: {
   match: ScheduleMatch;
   timezone: string;
   trailing?: React.ReactNode;
+  /** Show the organizer-only "Abnormal result" marker (admin views). */
+  showAbnormal?: boolean;
 }) {
   const time = match.scheduledAt
     ? DateTime.fromISO(match.scheduledAt, { zone: timezone }).toFormat("h:mm a")
@@ -26,6 +29,11 @@ export function MatchCard({
         </div>
         <div className="shrink-0 text-right">
           <StatusPill status={match.status} />
+          {showAbnormal && match.isAbnormal && (
+            <span className="bg-loss/10 text-loss mt-1 block rounded-full px-2 py-0.5 text-[10px] font-medium">
+              Abnormal
+            </span>
+          )}
           <p className="font-display mt-1 text-lg tabular-nums">{time}</p>
         </div>
       </div>
