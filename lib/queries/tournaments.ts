@@ -284,6 +284,27 @@ export async function getPoolsView(
     .order("scheduled_at", { ascending: true })
     .order("round", { ascending: true });
 
+  const matchIds = (matches ?? []).map((m) => m.id);
+  const { data: setRows } = matchIds.length
+    ? await supabase
+        .from("sets")
+        .select("match_id, home_score, away_score")
+        .in("match_id", matchIds)
+        .order("set_number", { ascending: true })
+    : {
+        data: [] as {
+          match_id: string;
+          home_score: number;
+          away_score: number;
+        }[],
+      };
+  const setsByMatch = new Map<string, { home: number; away: number }[]>();
+  for (const s of setRows ?? []) {
+    const list = setsByMatch.get(s.match_id) ?? [];
+    list.push({ home: s.home_score, away: s.away_score });
+    setsByMatch.set(s.match_id, list);
+  }
+
   const toScheduleMatch = (m: {
     id: string;
     round: number | null;
@@ -311,6 +332,7 @@ export async function getPoolsView(
     refTeamId: m.ref_team_id,
     refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
     isAbnormal: m.is_abnormal === true,
+    sets: setsByMatch.get(m.id) ?? [],
   });
 
   const matchesByPool = new Map<string, ScheduleMatch[]>();

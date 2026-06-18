@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
 
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
+import { getStandings } from "@/lib/standings/compute";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
@@ -11,6 +12,7 @@ import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { StandingsTable } from "@/components/standings/standings-table";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import {
   Card,
@@ -28,9 +30,10 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [origin, schedule, rosters] = await Promise.all([
+  const [origin, schedule, standings, rosters] = await Promise.all([
     getOrigin(),
     getLeagueSchedule(leagueId),
+    getStandings(leagueId),
     getTeamRosters(leagueId),
   ]);
 
@@ -108,6 +111,19 @@ export default async function LeaguePage({
             />
           </CardContent>
         ) : null}
+      </Card>
+
+      {/* Standings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Standings</CardTitle>
+          <CardDescription>
+            Live from confirmed scores — the OVA tiebreaker order.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StandingsTable rows={standings[0]?.rows ?? []} />
+        </CardContent>
       </Card>
 
       {/* Teams */}

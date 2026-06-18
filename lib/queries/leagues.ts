@@ -59,6 +59,8 @@ export interface ScheduleMatch {
   refTeamId: string | null;
   refTeamName: string | null;
   isAbnormal: boolean;
+  /** Set scores in order, present once any have been recorded. */
+  sets: { home: number; away: number }[];
 }
 
 export interface PublicLeague {
@@ -191,6 +193,27 @@ async function loadSchedule(
     .order("scheduled_at", { ascending: true })
     .order("round", { ascending: true });
 
+  const matchIds = (matches ?? []).map((m) => m.id);
+  const { data: sets } = matchIds.length
+    ? await supabase
+        .from("sets")
+        .select("match_id, home_score, away_score")
+        .in("match_id", matchIds)
+        .order("set_number", { ascending: true })
+    : {
+        data: [] as {
+          match_id: string;
+          home_score: number;
+          away_score: number;
+        }[],
+      };
+  const setsByMatch = new Map<string, { home: number; away: number }[]>();
+  for (const s of sets ?? []) {
+    const list = setsByMatch.get(s.match_id) ?? [];
+    list.push({ home: s.home_score, away: s.away_score });
+    setsByMatch.set(s.match_id, list);
+  }
+
   return (matches ?? []).map((m) => ({
     id: m.id,
     round: m.round,
@@ -208,6 +231,7 @@ async function loadSchedule(
     refTeamId: m.ref_team_id,
     refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
     isAbnormal: m.is_abnormal === true,
+    sets: setsByMatch.get(m.id) ?? [],
   }));
 }
 

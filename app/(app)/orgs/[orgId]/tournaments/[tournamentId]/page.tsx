@@ -14,6 +14,7 @@ import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
 import { BracketTree } from "@/components/bracket/bracket-tree";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
+import { StandingsGroups } from "@/components/standings/standings-table";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
@@ -149,6 +150,20 @@ export default async function TournamentPage({
                 matches={poolsView.schedule}
                 timezone={t.timezone}
                 editable
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Standings</CardTitle>
+              <CardDescription>
+                Live from confirmed scores — the OVA tiebreaker order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StandingsGroups
+                groups={standings}
+                showDivision={t.divisions.length > 1}
               />
             </CardContent>
           </Card>
