@@ -128,3 +128,77 @@ export function canFinalize(
   if (v.errors.length > 0) return false;
   return v.blocks.length === 0 || (opts.isAdmin && opts.override);
 }
+
+export interface SetValidation {
+  status: "ok" | "warn" | "reject";
+  message?: string;
+}
+
+/**
+ * Validate a single set for the per-set "Record" action — same tiers as
+ * validateScore: reject impossible data or a target reached without the win-by
+ * margin (21–20); warn (but accept) a below-target capped set or an overshoot.
+ */
+export function validateSet(
+  format: MatchFormat,
+  i: number,
+  s: SetScoreInput,
+): SetValidation {
+  const target = setTarget(format, i);
+  if (
+    !Number.isInteger(s.home) ||
+    !Number.isInteger(s.away) ||
+    s.home < 0 ||
+    s.away < 0
+  ) {
+    return {
+      status: "reject",
+      message: "Scores must be whole numbers of 0 or more.",
+    };
+  }
+  if (s.home === s.away) {
+    return { status: "reject", message: "A set can't end tied." };
+  }
+  const win = Math.max(s.home, s.away);
+  const lose = Math.min(s.home, s.away);
+  const margin = win - lose;
+  if (win < target) {
+    return { status: "warn", message: `Below the target of ${target}.` };
+  }
+  if (margin < format.winBy) {
+    return {
+      status: "reject",
+      message: `Set must be won by ${format.winBy} points.`,
+    };
+  }
+  if (win > target && margin > format.winBy) {
+    return {
+      status: "warn",
+      message: `${win}–${lose} runs past the ${target} target.`,
+    };
+  }
+  return { status: "ok" };
+}
+
+/**
+ * Match decision from the currently-recorded sets — pure, so the form's submit
+ * gate and grey-out both derive from live state (no latch). `decided` is true
+ * once a team has the majority for the format's bestOf.
+ */
+export function recordedDecision(
+  recorded: SetScoreInput[],
+  bestOf: number,
+): { decided: boolean; homeSetsWon: number; awaySetsWon: number } {
+  let homeSetsWon = 0;
+  let awaySetsWon = 0;
+  for (const s of recorded) {
+    if (s.home > s.away) homeSetsWon += 1;
+    else if (s.away > s.home) awaySetsWon += 1;
+  }
+  const needed = Math.ceil(bestOf / 2);
+  return {
+    decided: Math.max(homeSetsWon, awaySetsWon) >= needed,
+    homeSetsWon,
+    awaySetsWon,
+  };
+}

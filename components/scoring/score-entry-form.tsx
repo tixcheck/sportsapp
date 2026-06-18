@@ -1,15 +1,20 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
+import { Check, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   saveDraftSetsAction,
   submitScoreAction,
 } from "@/server/actions/scores";
-import { setTarget, validateScore } from "@/lib/scoring/validation";
+import {
+  recordedDecision,
+  setTarget,
+  validateScore,
+  validateSet,
+} from "@/lib/scoring/validation";
 import type { SetScoreInput } from "@/lib/scoring/validation";
 import type { MatchFormat } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -25,31 +30,31 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-/** A set's two cells as raw input strings ("" = not yet entered, vs "0"). */
-type Cell = { home: string; away: string };
+type Note = { type: "reject" | "warn"; message: string };
+type SetRow = {
+  home: string;
+  away: string;
+  /** The last value the user explicitly Recorded; null once edited. */
+  recorded: SetScoreInput | null;
+  note: Note | null;
+};
 
 function parse(v: string): number {
   const n = parseInt(v, 10);
   return Number.isNaN(n) ? 0 : n;
 }
 
-function playedSets(cells: Cell[]): SetScoreInput[] {
-  return cells
-    .filter((c) => c.home !== "" || c.away !== "")
-    .map((c) => ({ home: parse(c.home), away: parse(c.away) }));
-}
-
 function ScoreInput({
   value,
   onChange,
-  onCommit,
   emphasize,
+  disabled,
   label,
 }: {
   value: string;
   onChange: (v: string) => void;
-  onCommit: () => void;
   emphasize: boolean;
+  disabled: boolean;
   label: string;
 }) {
   return (
@@ -59,11 +64,11 @@ function ScoreInput({
       aria-label={label}
       value={value}
       placeholder="0"
+      disabled={disabled}
       onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 3))}
-      onBlur={onCommit}
       className={cn(
-        "border-border bg-surface focus-visible:ring-ring h-12 w-16 rounded-lg border text-center text-2xl tabular-nums focus-visible:ring-2 focus-visible:outline-none",
-        emphasize ? "text-coral-700 font-semibold" : "text-foreground",
+        "border-border bg-surface focus-visible:ring-ring h-12 w-16 rounded-lg border text-center text-2xl tabular-nums focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50",
+        emphasize ? "text-win font-semibold" : "text-foreground",
       )}
     />
   );
@@ -88,48 +93,75 @@ export function ScoreEntryForm({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [sets, setSets] = useState<Cell[]>(() =>
+  const [sets, setSets] = useState<SetRow[]>(() =>
     Array.from({ length: matchFormat.bestOf }, (_, i) => {
       const s = initialSets[i];
-      return s
-        ? { home: String(s.home), away: String(s.away) }
-        : { home: "", away: "" };
+      return {
+        home: s ? String(s.home) : "",
+        away: s ? String(s.away) : "",
+        recorded: s ? { home: s.home, away: s.away } : null,
+        note: null,
+      };
     }),
   );
 
-  const played = useMemo(() => playedSets(sets), [sets]);
-  const validation = useMemo(
-    () => validateScore(matchFormat, played),
-    [matchFormat, played],
+  const recorded = useMemo(
+    () => sets.filter((s) => s.recorded).map((s) => s.recorded!),
+    [sets],
   );
-  const reason = validation.errors[0] ?? validation.blocks[0] ?? null;
-  const decided = validation.ok && validation.winner !== null;
+  const decision = recordedDecision(recorded, matchFormat.bestOf);
+  const submitV = validateScore(matchFormat, recorded);
+  const submitReason = submitV.errors[0] ?? submitV.blocks[0] ?? null;
   const canOverride =
-    isAdmin && validation.errors.length === 0 && validation.blocks.length > 0;
-
-  // Per-set incremental save on blur — persists a draft, never completes.
-  const lastSaved = useRef(JSON.stringify(playedSets(sets)));
-  function commit() {
-    const current = playedSets(sets);
-    const key = JSON.stringify(current);
-    if (key === lastSaved.current) return;
-    lastSaved.current = key;
-    void saveDraftSetsAction(matchId, current).then((res) => {
-      if (res && "error" in res) toast.error(res.error);
-    });
-  }
+    isAdmin && submitV.errors.length === 0 && submitV.blocks.length > 0;
 
   function update(i: number, side: "home" | "away", v: string) {
-    setSets((prev) => prev.map((s, j) => (j === i ? { ...s, [side]: v } : s)));
+    setSets((prev) =>
+      prev.map((s, j) =>
+        j === i ? { ...s, [side]: v, recorded: null, note: null } : s,
+      ),
+    );
   }
 
-  function record(override: boolean) {
-    if (played.length === 0) {
-      toast.error("Enter a score for at least one set.");
+  function record(i: number) {
+    const cell = sets[i];
+    const parsed = { home: parse(cell.home), away: parse(cell.away) };
+    const v = validateSet(matchFormat, i, parsed);
+    setSets((prev) =>
+      prev.map((s, j) =>
+        j === i
+          ? {
+              ...s,
+              note:
+                v.status === "ok"
+                  ? null
+                  : {
+                      type: v.status === "reject" ? "reject" : "warn",
+                      message: v.message!,
+                    },
+              recorded: v.status === "reject" ? s.recorded : parsed,
+            }
+          : s,
+      ),
+    );
+    if (v.status !== "reject") {
+      const next = sets.map((s, j) =>
+        j === i ? { ...s, recorded: parsed } : s,
+      );
+      const toSave = next.filter((s) => s.recorded).map((s) => s.recorded!);
+      void saveDraftSetsAction(matchId, toSave).then((res) => {
+        if (res && "error" in res) toast.error(res.error);
+      });
+    }
+  }
+
+  function submit(override: boolean) {
+    if (recorded.length === 0) {
+      toast.error("Record at least one set.");
       return;
     }
     startTransition(async () => {
-      const result = await submitScoreAction(matchId, played, override);
+      const result = await submitScoreAction(matchId, recorded, override);
       if ("error" in result) {
         toast.error(result.error);
         return;
@@ -151,17 +183,32 @@ export function ScoreEntryForm({
       <div className="space-y-4">
         {sets.map((s, i) => {
           const target = setTarget(matchFormat, i);
+          const isRecorded = s.recorded !== null;
+          // Once the match is decided by other recorded sets, this unrecorded
+          // row isn't needed — grey it out (reactive, recomputed each render).
+          const greyed = decision.decided && !isRecorded;
           const h = parse(s.home);
           const a = parse(s.away);
           const entered = s.home !== "" || s.away !== "";
           return (
             <div
               key={i}
-              className="border-border bg-surface rounded-lg border p-3"
+              className={cn(
+                "border-border bg-surface rounded-lg border p-3 transition-opacity",
+                greyed && "opacity-50",
+              )}
             >
-              <p className="text-muted-foreground mb-2 text-xs">
-                Set {i + 1} · to {target}
-              </p>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-muted-foreground text-xs">
+                  Set {i + 1} · to {target}
+                </p>
+                {isRecorded && (
+                  <span className="text-win inline-flex items-center gap-1 text-xs font-medium">
+                    <Check className="size-3.5" />
+                    Recorded
+                  </span>
+                )}
+              </div>
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {homeTeamName}
@@ -169,8 +216,8 @@ export function ScoreEntryForm({
                 <ScoreInput
                   value={s.home}
                   onChange={(v) => update(i, "home", v)}
-                  onCommit={commit}
-                  emphasize={entered && h > a}
+                  emphasize={isRecorded && h > a}
+                  disabled={greyed}
                   label={`${homeTeamName} score, set ${i + 1}`}
                 />
               </div>
@@ -181,21 +228,43 @@ export function ScoreEntryForm({
                 <ScoreInput
                   value={s.away}
                   onChange={(v) => update(i, "away", v)}
-                  onCommit={commit}
-                  emphasize={entered && a > h}
+                  emphasize={isRecorded && a > h}
+                  disabled={greyed}
                   label={`${awayTeamName} score, set ${i + 1}`}
                 />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-xs">
+                  {s.note?.type === "reject" && (
+                    <span className="text-loss">{s.note.message}</span>
+                  )}
+                  {s.note?.type === "warn" && (
+                    <span className="flex items-center gap-1 text-amber-700">
+                      <TriangleAlert className="size-3.5" />
+                      {s.note.message}
+                    </span>
+                  )}
+                </span>
+                <Button
+                  type="button"
+                  variant={isRecorded ? "outline" : "default"}
+                  size="sm"
+                  disabled={greyed || !entered}
+                  onClick={() => record(i)}
+                >
+                  {isRecorded ? "Re-record" : "Record"}
+                </Button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {decided && (
+      {decision.decided && (
         <div className="border-border bg-surface rounded-lg border p-3 text-center text-sm">
           <span
             className={cn(
-              validation.winner === "home"
+              decision.homeSetsWon > decision.awaySetsWon
                 ? "text-win font-semibold"
                 : "text-loss",
             )}
@@ -203,11 +272,11 @@ export function ScoreEntryForm({
             {homeTeamName}
           </span>{" "}
           <span className="tabular-nums">
-            {validation.homeSetsWon}–{validation.awaySetsWon}
+            {decision.homeSetsWon}–{decision.awaySetsWon}
           </span>{" "}
           <span
             className={cn(
-              validation.winner === "away"
+              decision.awaySetsWon > decision.homeSetsWon
                 ? "text-win font-semibold"
                 : "text-loss",
             )}
@@ -217,31 +286,10 @@ export function ScoreEntryForm({
         </div>
       )}
 
-      {validation.errors.length > 0 && (
-        <div className="border-loss/30 bg-loss/10 text-loss rounded-md border p-3 text-sm">
-          {validation.errors.map((e, i) => (
-            <p key={i}>{e}</p>
-          ))}
-        </div>
-      )}
-      {validation.errors.length === 0 && validation.warnings.length > 0 && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-          <p className="flex items-center gap-1.5 font-medium">
-            <TriangleAlert className="size-4" />
-            Unusual, but allowed
-          </p>
-          <ul className="mt-1 list-disc space-y-0.5 pl-5">
-            {validation.warnings.map((w, i) => (
-              <li key={i}>{w}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       <div className="space-y-2">
         <Button
-          onClick={() => record(false)}
-          disabled={pending || !validation.ok}
+          onClick={() => submit(false)}
+          disabled={pending || !submitV.ok}
           size="lg"
           className="h-12 w-full"
         >
@@ -251,12 +299,11 @@ export function ScoreEntryForm({
               ? "Submit for confirmation"
               : "Submit score"}
         </Button>
-        {!validation.ok && reason && (
-          <p className="text-muted-foreground text-center text-xs">{reason}</p>
+        {!submitV.ok && submitReason && (
+          <p className="text-muted-foreground text-center text-xs">
+            {submitReason}
+          </p>
         )}
-        <p className="text-muted-foreground text-center text-xs">
-          Scores save as you type.
-        </p>
 
         {canOverride && (
           <Dialog>
@@ -273,10 +320,10 @@ export function ScoreEntryForm({
               <DialogHeader>
                 <DialogTitle>Record an abnormal result?</DialogTitle>
                 <DialogDescription>
-                  This isn&apos;t a normal complete match
-                  {reason ? ` — ${reason}` : ""}. As the organizer you can
-                  record what actually happened (e.g. abandoned or injury).
-                  It&apos;ll be flagged as abnormal but counts in standings as
+                  This match isn&apos;t a normal complete result
+                  {submitReason ? ` — ${submitReason}` : ""}. As the organizer
+                  you can record what actually happened (e.g. abandoned or
+                  injury). It&apos;s flagged abnormal but counts in standings as
                   entered.
                 </DialogDescription>
               </DialogHeader>
@@ -288,7 +335,7 @@ export function ScoreEntryForm({
                 </DialogClose>
                 <Button
                   variant="destructive"
-                  onClick={() => record(true)}
+                  onClick={() => submit(true)}
                   disabled={pending}
                 >
                   {pending ? "Recording…" : "Record abnormal result"}

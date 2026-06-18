@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   canFinalize,
+  recordedDecision,
   setTarget,
   validateScore,
+  validateSet,
 } from "@/lib/scoring/validation";
 import type { MatchFormat } from "@/lib/db/schema";
 
@@ -204,5 +206,68 @@ describe("canFinalize — admin override gating", () => {
   });
   it("a clean result finalizes for anyone without override", () => {
     expect(canFinalize(clean, { isAdmin: false, override: false })).toBe(true);
+  });
+});
+
+describe("validateSet — per-set Record", () => {
+  it("rejects a target-without-2-point set (21–20) and accepts 21–19 / 22–20", () => {
+    expect(validateSet(T21, 0, { home: 21, away: 20 }).status).toBe("reject");
+    expect(validateSet(T21, 0, { home: 21, away: 19 }).status).toBe("ok");
+    expect(validateSet(T21, 0, { home: 22, away: 20 }).status).toBe("ok");
+    expect(validateSet(T21, 0, { home: 30, away: 28 }).status).toBe("ok");
+  });
+  it("rejects tied / negative", () => {
+    expect(validateSet(T21, 0, { home: 21, away: 21 }).status).toBe("reject");
+    expect(validateSet(T21, 0, { home: -1, away: 21 }).status).toBe("reject");
+  });
+  it("warns (accepts) a below-target capped set (18–16)", () => {
+    const v = validateSet(POOL, 1, { home: 18, away: 16 });
+    expect(v.status).toBe("warn");
+  });
+  it("scales to a to-15 pool: 15–14 reject, 15–13 / 17–15 ok", () => {
+    expect(validateSet(T15, 0, { home: 15, away: 14 }).status).toBe("reject");
+    expect(validateSet(T15, 0, { home: 15, away: 13 }).status).toBe("ok");
+    expect(validateSet(T15, 0, { home: 17, away: 15 }).status).toBe("ok");
+  });
+});
+
+describe("recordedDecision — reactive submit/grey-out source", () => {
+  it("undecided until a majority of recorded sets", () => {
+    expect(recordedDecision([{ home: 21, away: 10 }], 3).decided).toBe(false);
+  });
+  it("2–0 in a best-of-3 is decided", () => {
+    const d = recordedDecision(
+      [
+        { home: 21, away: 10 },
+        { home: 21, away: 12 },
+      ],
+      3,
+    );
+    expect(d.decided).toBe(true);
+    expect(d.homeSetsWon).toBe(2);
+  });
+  it("re-deriving after an edit to 1–1 is no longer decided (no latch)", () => {
+    // set 1 edited from a home win to a loss → 1–1
+    const d = recordedDecision(
+      [
+        { home: 10, away: 21 },
+        { home: 21, away: 12 },
+      ],
+      3,
+    );
+    expect(d.decided).toBe(false);
+  });
+  it("3 of 5 decides a best-of-5", () => {
+    expect(
+      recordedDecision(
+        [
+          { home: 25, away: 10 },
+          { home: 10, away: 25 },
+          { home: 25, away: 10 },
+          { home: 25, away: 10 },
+        ],
+        5,
+      ).decided,
+    ).toBe(true);
   });
 });
