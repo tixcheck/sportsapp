@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
+import { formatDateRange } from "@/lib/utils/dates";
 import { findPreset, toTwoSetFormat, type Sport } from "@/lib/formats";
 import { sendCaptainInvite } from "@/lib/email/send";
 import { addTeamSchema, type AddTeamInput } from "@/lib/validations/league";
@@ -131,9 +132,7 @@ export async function addTournamentTeamAction(
   competitionId: string,
   divisionId: string,
   values: AddTeamInput,
-): Promise<
-  ActionError | { claimUrl: string; emailSent: boolean; emailDebug?: string }
-> {
+): Promise<ActionError | { claimUrl: string; emailSent: boolean }> {
   const parsed = addTeamSchema.safeParse(values);
   if (!parsed.success) return { error: "Please check the form." };
   const { name, captainEmail } = parsed.data;
@@ -173,7 +172,7 @@ export async function addTournamentTeamAction(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("name")
+    .select("name, venue, start_date, end_date")
     .eq("id", competitionId)
     .single();
   const { data: profile } = await supabase
@@ -189,20 +188,14 @@ export async function addTournamentTeamAction(
       leagueName: comp?.name ?? "the tournament",
       organizerName: profile?.display_name ?? "Your organizer",
       claimUrl,
+      venue: comp?.venue ?? null,
+      dates: formatDateRange(comp?.start_date, comp?.end_date),
     },
     profile?.email ?? undefined,
   );
 
-  // TEMP DIAGNOSTIC (remove after): surface env state + the send outcome on
-  // screen, since the Vercel function logs are hard to find.
-  const emailDebug =
-    `env: RESEND_API_KEY ${process.env.RESEND_API_KEY ? "present" : "MISSING"}, ` +
-    `EMAIL_FROM ${process.env.EMAIL_FROM ?? "UNDEFINED (using resend.dev default)"} | ` +
-    `to ${captainEmail} → ` +
-    (result.sent ? `SENT id=${result.id ?? "?"}` : `FAILED — ${result.reason}`);
-
   revalidatePath(`/orgs`);
-  return { claimUrl, emailSent: result.sent, emailDebug };
+  return { claimUrl, emailSent: result.sent };
 }
 
 export async function publishTournamentAction(

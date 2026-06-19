@@ -37,10 +37,6 @@ async function dispatch(opts: {
   replyTo?: string;
 }): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
-  // TEMP DIAGNOSTIC (remove after): never logs the key value itself.
-  console.log(
-    `[email] ${key ? "KEY PRESENT" : "KEY MISSING"} from="${FROM}" to=${opts.to}`,
-  );
   if (!key) return { sent: false, reason: "RESEND_API_KEY not set" };
   try {
     // Render to HTML/text ourselves: resend treats @react-email/render as an
@@ -58,17 +54,9 @@ async function dispatch(opts: {
       html,
       text,
     });
-    if (error) {
-      console.error("[email] resend returned error:", JSON.stringify(error));
-      return {
-        sent: false,
-        reason: `${error.name ?? "error"}: ${error.message}`,
-      };
-    }
-    console.log("[email] resend ok, id:", data?.id ?? null);
+    if (error) return { sent: false, reason: error.message };
     return { sent: true, id: data?.id ?? null };
   } catch (err) {
-    console.error("[email] resend threw:", err);
     return {
       sent: false,
       reason: err instanceof Error ? err.message : "send failed",
@@ -83,6 +71,8 @@ export interface CaptainInviteEmailProps {
   leagueName: string;
   organizerName: string;
   claimUrl: string;
+  venue?: string | null;
+  dates?: string | null;
 }
 
 export function sendCaptainInvite(
@@ -93,13 +83,15 @@ export function sendCaptainInvite(
   return dispatch({
     to,
     replyTo,
-    subject: `Claim ${props.teamName} in ${props.leagueName}`,
+    subject: `You're registered for ${props.leagueName}`,
     react: InviteEmail({
       role: "captain",
       teamName: props.teamName,
       competitionName: props.leagueName,
       inviterName: props.organizerName,
       claimUrl: props.claimUrl,
+      venue: props.venue,
+      dates: props.dates,
     }),
   });
 }

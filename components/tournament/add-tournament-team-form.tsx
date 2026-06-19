@@ -42,10 +42,6 @@ export function AddTournamentTeamForm({
         result.emailSent
           ? "Team added — invite emailed to the captain."
           : "Team added — copy the invite link to send it.",
-        // TEMP DIAGNOSTIC (remove after): show the email send result on screen.
-        result.emailDebug
-          ? { description: result.emailDebug, duration: 30000 }
-          : undefined,
       );
       reset();
       router.refresh();

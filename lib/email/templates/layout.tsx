@@ -120,6 +120,39 @@ export function EmailButton({
   );
 }
 
+export function EmailDetails({
+  rows,
+}: {
+  rows: { label: string; value: string }[];
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <Section
+      style={{
+        backgroundColor: C.bg,
+        border: `1px solid ${C.border}`,
+        borderRadius: "10px",
+        padding: "12px 16px",
+        margin: "0 0 16px",
+      }}
+    >
+      {rows.map((r, i) => (
+        <Text
+          key={i}
+          style={{
+            fontSize: "14px",
+            color: C.text,
+            margin: i === 0 ? "0" : "6px 0 0",
+          }}
+        >
+          <span style={{ color: C.muted }}>{r.label}: </span>
+          {r.value}
+        </Text>
+      ))}
+    </Section>
+  );
+}
+
 export function MutedLink({ url }: { url: string }) {
   return (
     <Text style={{ fontSize: "13px", color: C.muted, lineHeight: "1.5" }}>

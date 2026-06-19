@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
+import { formatDateRange } from "@/lib/utils/dates";
 import { findPreset, toTwoSetFormat, type Sport } from "@/lib/formats";
 import { sendCaptainInvite } from "@/lib/email/send";
 import { generateRoundRobin } from "@/lib/scheduler/round-robin";
@@ -153,7 +154,7 @@ export async function addTeamAction(
   // Context for the email (best-effort).
   const { data: league } = await supabase
     .from("competitions")
-    .select("name")
+    .select("name, venue, start_date, end_date")
     .eq("id", competitionId)
     .single();
   const { data: profile } = await supabase
@@ -169,6 +170,8 @@ export async function addTeamAction(
       leagueName: league?.name ?? "your league",
       organizerName: profile?.display_name ?? "Your organizer",
       claimUrl,
+      venue: league?.venue ?? null,
+      dates: formatDateRange(league?.start_date, league?.end_date),
     },
     profile?.email ?? undefined,
   );
