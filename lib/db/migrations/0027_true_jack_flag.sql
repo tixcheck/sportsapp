@@ -1,0 +1,2 @@
+CREATE TYPE "public"."format_template" AS ENUM('single', 'champ_consolation', 'custom');--> statement-breakpoint
+ALTER TABLE "tournament_settings" ADD COLUMN "format_template" "format_template" DEFAULT 'single' NOT NULL;
