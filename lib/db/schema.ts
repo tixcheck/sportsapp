@@ -372,6 +372,34 @@ export const teamMembers = pgTable(
   (t) => [primaryKey({ columns: [t.teamId, t.userId] })],
 );
 
+/**
+ * Per-competition co-organizer grants (v1 co-organizers). A user with a row here
+ * is a full admin of that ONE competition (is_competition_admin) without any org
+ * membership. Granted/revoked only by the competition's org owner/admin
+ * (is_competition_org_admin) — never by co-organizers themselves (RLS).
+ */
+export const competitionAdmins = pgTable(
+  "competition_admins",
+  {
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    grantedByUserId: uuid("granted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.competitionId, t.userId] }),
+    index("competition_admins_user_id_idx").on(t.userId),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // Matches, sets, confirmations, audit
 // ---------------------------------------------------------------------------
