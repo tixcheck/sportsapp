@@ -291,12 +291,15 @@ export async function getPoolsView(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
   );
 
+  // Pool-play schedule only — bracket matches (no pool_id) are scored from the
+  // bracket, not this schedule, and must not count toward pool-play completion.
   const { data: matches } = await supabase
     .from("matches")
     .select(
       "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal",
     )
     .eq("competition_id", competitionId)
+    .not("pool_id", "is", null)
     .order("scheduled_at", { ascending: true })
     .order("round", { ascending: true });
 

@@ -1,4 +1,5 @@
-import { Trophy } from "lucide-react";
+import Link from "next/link";
+import { SquarePen, Trophy } from "lucide-react";
 
 import type { BracketEntryView, BracketView } from "@/lib/queries/bracket";
 import { cn } from "@/lib/utils";
@@ -59,9 +60,12 @@ function TeamRow({
 export function BracketTree({
   bracket,
   myTeamIds = [],
+  editable = false,
 }: {
   bracket: BracketView;
   myTeamIds?: string[];
+  /** Admin view: show an Enter/Edit-score link on each playable matchup. */
+  editable?: boolean;
 }) {
   const total = bracket.rounds.length;
   if (total === 0) return null;
@@ -109,6 +113,15 @@ export function BracketTree({
                     }
                     myTeamIds={myTeamIds}
                   />
+                  {editable && mt.home && mt.away && (
+                    <Link
+                      href={`/matches/${mt.id}`}
+                      className="text-claret flex items-center justify-center gap-1 py-1.5 text-xs font-medium hover:underline"
+                    >
+                      <SquarePen className="size-3.5" />
+                      {mt.status === "completed" ? "Edit score" : "Enter score"}
+                    </Link>
+                  )}
                 </div>
               ))}
             </div>

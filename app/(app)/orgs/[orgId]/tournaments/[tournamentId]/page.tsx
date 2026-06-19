@@ -263,7 +263,7 @@ export default async function TournamentPage({
                     {b.label}
                   </h4>
                 )}
-                <BracketTree bracket={b.view} />
+                <BracketTree bracket={b.view} editable />
               </div>
             ))}
           </CardContent>
