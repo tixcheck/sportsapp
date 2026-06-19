@@ -7,6 +7,11 @@ import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getDropState } from "@/lib/queries/drops";
+import { getCompetitionAdmins } from "@/lib/queries/organizers";
+import {
+  addCompetitionAdminAction,
+  removeCompetitionAdminAction,
+} from "@/server/actions/organizers";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
@@ -21,6 +26,7 @@ import { TeamManagementList } from "@/components/team/team-management-list";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
+import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
   Card,
   CardContent,
@@ -37,7 +43,7 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const [origin, poolsView, standings, brackets, dropState, rosters] =
+  const [origin, poolsView, standings, brackets, dropState, rosters, coOrgs] =
     await Promise.all([
       getOrigin(),
       getPoolsView(tournamentId),
@@ -45,6 +51,7 @@ export default async function TournamentPage({
       getBrackets(tournamentId),
       getDropState(tournamentId),
       getTeamRosters(tournamentId),
+      getCompetitionAdmins(tournamentId),
     ]);
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
@@ -265,6 +272,26 @@ export default async function TournamentPage({
           <ScoringSettingsCard competitionId={t.id} initial={t.scoring} />
         </CardContent>
       </Card>
+
+      {coOrgs.canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organizers</CardTitle>
+            <CardDescription>
+              Add a helper to co-run this tournament only — full access here, no
+              access to the rest of the organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrganizerManager
+              rows={coOrgs.admins}
+              addAction={addCompetitionAdminAction.bind(null, t.id)}
+              removeAction={removeCompetitionAdminAction.bind(null, t.id)}
+              emptyText="No competition organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

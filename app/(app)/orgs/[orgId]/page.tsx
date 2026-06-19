@@ -11,10 +11,18 @@ import {
   getOrgTournaments,
   type TournamentSummary,
 } from "@/lib/queries/tournaments";
+import { getUserOrgs } from "@/lib/auth/user";
+import { getOrgOrganizers } from "@/lib/queries/organizers";
+import {
+  addOrgOrganizerAction,
+  removeOrgOrganizerAction,
+} from "@/server/actions/organizers";
 import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
+import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -28,10 +36,14 @@ export default async function OrgPage({
   const { orgId } = await params;
   const org = await getOrg(orgId);
   if (!org) notFound();
-  const [leagues, tournaments] = await Promise.all([
+  const [leagues, tournaments, orgs] = await Promise.all([
     getOrgLeagues(orgId),
     getOrgTournaments(orgId),
+    getUserOrgs(),
   ]);
+  const myRole = orgs.find((o) => o.id === orgId)?.role;
+  const isOrgAdmin = myRole === "owner" || myRole === "admin";
+  const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
 
   return (
     <div className="space-y-10">
@@ -58,6 +70,27 @@ export default async function OrgPage({
         items={tournaments}
         hrefFor={(c) => `/orgs/${orgId}/tournaments/${c.id}`}
       />
+
+      {isOrgAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organizers</CardTitle>
+            <CardDescription>
+              Co-organizers help run all of this organization&apos;s
+              competitions — they can&apos;t delete the org or manage
+              organizers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrganizerManager
+              rows={organizers}
+              addAction={addOrgOrganizerAction.bind(null, orgId)}
+              removeAction={removeOrgOrganizerAction.bind(null, orgId)}
+              emptyText="No co-organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

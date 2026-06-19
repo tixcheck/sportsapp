@@ -9,6 +9,7 @@ import {
   type MyCompetition,
 } from "@/lib/queries/dashboard";
 import { getAccessState } from "@/lib/queries/access";
+import { getHelperCompetitions } from "@/lib/queries/organizers";
 import { Button } from "@/components/ui/button";
 import { PendingInviteCard } from "@/components/dashboard/pending-invite-card";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
@@ -33,11 +34,12 @@ function nextMatchLine(c: MyCompetition): string | null {
 }
 
 export default async function DashboardPage() {
-  const [orgs, comps, invites, access] = await Promise.all([
+  const [orgs, comps, invites, access, helperComps] = await Promise.all([
     getUserOrgs(),
     getMyCompetitions(),
     getMyPendingInvites(),
     getAccessState(),
+    getHelperCompetitions(),
   ]);
   const canCreateOrg = access.organizerStatus === "approved";
 
@@ -111,6 +113,36 @@ export default async function DashboardPage() {
                 </Card>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {helperComps.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold">
+            Competitions you help run
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {helperComps.map((c) => (
+              <Card key={c.competitionId} className="flex h-full flex-col">
+                <CardHeader>
+                  <CardTitle className="truncate">
+                    <Link
+                      href={`/orgs/${c.orgId}/${c.type === "tournament" ? "tournaments" : "leagues"}/${c.competitionId}`}
+                      className="hover:underline"
+                    >
+                      {c.name}
+                    </Link>
+                  </CardTitle>
+                  <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="truncate">{c.orgName}</span>
+                    <span className="bg-paper-sunken text-ink-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+                      {c.via === "org" ? "Organizer" : "Helper"}
+                    </span>
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
           </div>
         </section>
       )}

@@ -5,6 +5,11 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
 import { getTeamRosters } from "@/lib/queries/roster";
+import { getCompetitionAdmins } from "@/lib/queries/organizers";
+import {
+  addCompetitionAdminAction,
+  removeCompetitionAdminAction,
+} from "@/server/actions/organizers";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
@@ -14,6 +19,7 @@ import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsTable } from "@/components/standings/standings-table";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
+import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
   Card,
   CardContent,
@@ -30,11 +36,12 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [origin, schedule, standings, rosters] = await Promise.all([
+  const [origin, schedule, standings, rosters, coOrgs] = await Promise.all([
     getOrigin(),
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
     getTeamRosters(leagueId),
+    getCompetitionAdmins(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -169,6 +176,26 @@ export default async function LeaguePage({
           />
         </CardContent>
       </Card>
+
+      {coOrgs.canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organizers</CardTitle>
+            <CardDescription>
+              Add a helper to co-run this league only — full access here, no
+              access to the rest of the organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrganizerManager
+              rows={coOrgs.admins}
+              addAction={addCompetitionAdminAction.bind(null, league.id)}
+              removeAction={removeCompetitionAdminAction.bind(null, league.id)}
+              emptyText="No competition organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
