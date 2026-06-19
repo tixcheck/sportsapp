@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { dualBracketMatches } from "@/lib/scheduler/bracket";
+import {
+  bracketMatchCourt,
+  dualBracketMatches,
+  nextPowerOfTwo,
+} from "@/lib/scheduler/bracket";
 import { teamsMissingDrops } from "@/lib/standings/drops";
 
 type ActionError = { error: string };
@@ -12,6 +16,23 @@ type ActionError = { error: string };
 export interface BracketSeeds {
   championship: string[];
   consolation?: string[];
+}
+
+/** The [lowerCourt, higherCourt] pair each track is laid out across. */
+export interface BracketCourts {
+  championship: [number, number];
+  consolation: [number, number];
+}
+
+const DEFAULT_COURTS: BracketCourts = {
+  championship: [1, 2],
+  consolation: [3, 4],
+};
+
+function validPair(p: [number, number] | undefined): boolean {
+  return (
+    !!p && p.every((n) => Number.isInteger(n) && n >= 1 && n <= 99) // sane range
+  );
 }
 
 /**
@@ -26,6 +47,7 @@ export interface BracketSeeds {
 export async function generateBracketAction(
   competitionId: string,
   seeds: BracketSeeds,
+  courts: BracketCourts = DEFAULT_COURTS,
 ): Promise<ActionError | { matchCount: number }> {
   const supabase = await createClient();
   const {
@@ -70,6 +92,10 @@ export async function generateBracketAction(
     }
   }
 
+  if (!validPair(courts.championship) || !validPair(courts.consolation)) {
+    return { error: "Enter valid court numbers for the bracket." };
+  }
+
   const championship = seeds.championship ?? [];
   const consolation = seeds.consolation ?? [];
   if (championship.length < 2) {
@@ -105,15 +131,30 @@ export async function generateBracketAction(
     .not("bracket_position", "is", null);
   if (del) return { error: del.message };
 
-  const rows = matches.map((m) => ({
-    competition_id: competitionId,
-    round: m.round,
-    bracket_position: m.position,
-    bracket_track: m.track,
-    home_team_id: m.homeTeamId,
-    away_team_id: m.awayTeamId,
-    status: "scheduled" as const,
-  }));
+  // Stamp each match's court by the top/bottom-half rule, per track. A single
+  // bracket (track null) uses the championship pair. The final returns null and
+  // is left for the organizer to set.
+  const champSize = nextPowerOfTwo(championship.length);
+  const consoSize = nextPowerOfTwo(consolation.length);
+  const rows = matches.map((m) => {
+    const conso = m.track === "consolation";
+    const courtNo = bracketMatchCourt(
+      m.round,
+      m.position,
+      conso ? consoSize : champSize,
+      conso ? courts.consolation : courts.championship,
+    );
+    return {
+      competition_id: competitionId,
+      round: m.round,
+      bracket_position: m.position,
+      bracket_track: m.track,
+      home_team_id: m.homeTeamId,
+      away_team_id: m.awayTeamId,
+      status: "scheduled" as const,
+      court: courtNo == null ? null : `Court ${courtNo}`,
+    };
+  });
   const { error: ins } = await supabase.from("matches").insert(rows);
   if (ins) return { error: ins.message };
 

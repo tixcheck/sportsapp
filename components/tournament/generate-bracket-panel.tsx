@@ -19,6 +19,7 @@ import {
   type FormatTemplate,
 } from "@/lib/tournament-formats";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogClose,
@@ -128,6 +129,50 @@ function SizeStepper({
   );
 }
 
+/** A [lowerCourt, higherCourt] pair input for a bracket track. */
+function CourtPairInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: [number, number];
+  onChange: (v: [number, number]) => void;
+}) {
+  const set = (i: 0 | 1, raw: string) => {
+    const n = Math.min(99, Math.max(1, parseInt(raw, 10) || 1));
+    const next: [number, number] = [value[0], value[1]];
+    next[i] = n;
+    onChange(next);
+  };
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">{label}</p>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          max={99}
+          value={value[0]}
+          onChange={(e) => set(0, e.target.value)}
+          className="w-16"
+          aria-label={`${label}: top-half court`}
+        />
+        <span className="text-muted-foreground text-sm">&amp;</span>
+        <Input
+          type="number"
+          min={1}
+          max={99}
+          value={value[1]}
+          onChange={(e) => set(1, e.target.value)}
+          className="w-16"
+          aria-label={`${label}: bottom-half court`}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function GenerateBracketPanel({
   competitionId,
   pools,
@@ -179,6 +224,11 @@ export function GenerateBracketPanel({
   const [consoSize, setConsoSize] = useState(defaultSplit.consolation);
   const [champOrder, setChampOrder] = useState<string[]>([]);
   const [consoOrder, setConsoOrder] = useState<string[]>([]);
+
+  // Court pair per track — top half of the bracket plays the lower court, the
+  // bottom half the higher; the final is left blank for the organizer.
+  const [champCourts, setChampCourts] = useState<[number, number]>([1, 2]);
+  const [consoCourts, setConsoCourts] = useState<[number, number]>([3, 4]);
   useEffect(() => {
     if (!isDual) return;
     const fullOrder = crossPoolSeedOrder(poolRows);
@@ -209,7 +259,10 @@ export function GenerateBracketPanel({
       return;
     }
     startTransition(async () => {
-      const res = await generateBracketAction(competitionId, payload);
+      const res = await generateBracketAction(competitionId, payload, {
+        championship: champCourts,
+        consolation: consoCourts,
+      });
       if ("error" in res) {
         toast.error(res.error);
         return;
@@ -367,6 +420,27 @@ export function GenerateBracketPanel({
           </div>
         </>
       )}
+
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-end gap-4">
+          <CourtPairInput
+            label={isDual ? "Championship courts" : "Bracket courts"}
+            value={champCourts}
+            onChange={setChampCourts}
+          />
+          {isDual && consoOrder.length > 0 && (
+            <CourtPairInput
+              label="Consolation courts"
+              value={consoCourts}
+              onChange={setConsoCourts}
+            />
+          )}
+        </div>
+        <p className="text-muted-foreground text-xs">
+          Top half of the bracket plays the first court, the bottom half the
+          second; the final is left for you to set.
+        </p>
+      </div>
 
       {hasBracket ? (
         <Dialog open={open} onOpenChange={setOpen}>

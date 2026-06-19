@@ -231,3 +231,28 @@ export function seededBracketMatches(
   out.sort((a, b) => a.round - b.round || a.position - b.position);
   return out;
 }
+
+/**
+ * The court a bracket match plays on, by the top/bottom-half rule: the top half
+ * of the seeding plays the lower court of the track's pair, the bottom half the
+ * higher court, and each later-round match inherits its half's court (the semi
+ * fed by the lower court's matches stays on the lower court). The FINAL — the
+ * last round's single match, where the two halves meet — returns null so the
+ * organizer sets it.
+ *
+ * `size` is the bracket size (nextPowerOfTwo of the track's team count) and
+ * `pair` is [lowerCourt, higherCourt]. Round-1 positions keep their canonical
+ * tree numbering even where byes removed a match, so the top half is always the
+ * lower-numbered half of each round's positions.
+ */
+export function bracketMatchCourt(
+  round: number,
+  position: number,
+  size: number,
+  pair: [number, number],
+): number | null {
+  const totalRounds = Math.log2(size);
+  if (round >= totalRounds) return null; // the final — organizer sets it
+  const positionsInRound = size / 2 ** round; // r1: size/2, r2: size/4, …
+  return position <= positionsInRound / 2 ? pair[0] : pair[1];
+}

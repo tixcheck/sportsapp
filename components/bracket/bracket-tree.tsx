@@ -1,9 +1,37 @@
 import Link from "next/link";
 import { SquarePen, Trophy } from "lucide-react";
 
-import type { BracketEntryView, BracketView } from "@/lib/queries/bracket";
+import type {
+  BracketEntryView,
+  BracketMatchView,
+  BracketView,
+} from "@/lib/queries/bracket";
+import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
+import { RescheduleDialog } from "@/components/schedule/reschedule-dialog";
+
+/**
+ * Adapt a bracket match to the ScheduleMatch shape the RescheduleDialog +
+ * conflict check consume (bracket matches have no ref/sets context).
+ */
+export function toBracketScheduleMatch(m: BracketMatchView): ScheduleMatch {
+  return {
+    id: m.id,
+    round: m.round,
+    scheduledAt: m.scheduledAt,
+    court: m.court,
+    status: m.status,
+    homeTeamId: m.home?.teamId ?? null,
+    awayTeamId: m.away?.teamId ?? null,
+    homeTeamName: m.home?.name ?? "TBD",
+    awayTeamName: m.away?.name ?? "TBD",
+    refTeamId: null,
+    refTeamName: null,
+    isAbnormal: false,
+    sets: [],
+  };
+}
 
 function roundLabel(round: number, totalRounds: number): string {
   const fromEnd = totalRounds - round;
@@ -61,11 +89,17 @@ export function BracketTree({
   bracket,
   myTeamIds = [],
   editable = false,
+  timezone,
+  allMatches,
 }: {
   bracket: BracketView;
   myTeamIds?: string[];
-  /** Admin view: show an Enter/Edit-score link on each playable matchup. */
+  /** Admin view: show Enter/Edit-score + reschedule (court/time) on each match. */
   editable?: boolean;
+  /** Required with `editable` for the reschedule dialog. */
+  timezone?: string;
+  /** All schedulable matches, for the reschedule conflict check. */
+  allMatches?: ScheduleMatch[];
 }) {
   const total = bracket.rounds.length;
   if (total === 0) return null;
@@ -113,14 +147,32 @@ export function BracketTree({
                     }
                     myTeamIds={myTeamIds}
                   />
-                  {editable && mt.home && mt.away && (
-                    <Link
-                      href={`/matches/${mt.id}`}
-                      className="text-claret flex items-center justify-center gap-1 py-1.5 text-xs font-medium hover:underline"
-                    >
-                      <SquarePen className="size-3.5" />
-                      {mt.status === "completed" ? "Edit score" : "Enter score"}
-                    </Link>
+                  {(mt.court || editable) && (
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                      <span className="text-muted-foreground text-xs tabular-nums">
+                        {mt.court ?? "Court —"}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {editable && mt.home && mt.away && (
+                          <Link
+                            href={`/matches/${mt.id}`}
+                            className="text-claret inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                          >
+                            <SquarePen className="size-3.5" />
+                            {mt.status === "completed"
+                              ? "Edit score"
+                              : "Enter score"}
+                          </Link>
+                        )}
+                        {editable && timezone && allMatches && (
+                          <RescheduleDialog
+                            match={toBracketScheduleMatch(mt)}
+                            allMatches={allMatches}
+                            timezone={timezone}
+                          />
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
               ))}

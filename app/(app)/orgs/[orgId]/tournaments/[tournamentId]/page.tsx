@@ -19,7 +19,10 @@ import { tournamentFormat } from "@/lib/tournament-formats";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
-import { BracketTree } from "@/components/bracket/bracket-tree";
+import {
+  BracketTree,
+  toBracketScheduleMatch,
+} from "@/components/bracket/bracket-tree";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { DropSelectionCard } from "@/components/tournament/drop-selection-card";
 import { StandingsGroups } from "@/components/standings/standings-table";
@@ -58,6 +61,13 @@ export default async function TournamentPage({
   const poolPlayComplete =
     poolMatches.length > 0 &&
     poolMatches.every((m) => m.status === "completed");
+  // Pool + bracket matches, for the bracket reschedule dialog's conflict check.
+  const allScheduleMatches = [
+    ...poolMatches,
+    ...brackets
+      .flatMap((b) => b.view.rounds.flat())
+      .map(toBracketScheduleMatch),
+  ];
 
   const divisionsWithTeams = t.divisions.map((d) => ({
     id: d.id,
@@ -263,7 +273,12 @@ export default async function TournamentPage({
                     {b.label}
                   </h4>
                 )}
-                <BracketTree bracket={b.view} editable />
+                <BracketTree
+                  bracket={b.view}
+                  editable
+                  timezone={t.timezone}
+                  allMatches={allScheduleMatches}
+                />
               </div>
             ))}
           </CardContent>

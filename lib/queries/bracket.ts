@@ -20,6 +20,9 @@ export interface BracketMatchView {
   awayScore: number | null;
   winnerTeamId: string | null;
   status: string;
+  /** Auto-assigned at generation ("Court N"); null on the final until set. */
+  court: string | null;
+  scheduledAt: string | null;
 }
 
 export interface BracketView {
@@ -47,6 +50,8 @@ type BracketMatchRow = {
   home_team_id: string | null;
   away_team_id: string | null;
   status: string;
+  court: string | null;
+  scheduled_at: string | null;
 };
 
 const TRACK_ORDER: BracketTrackKey[] = ["championship", "consolation", null];
@@ -68,7 +73,7 @@ export async function getBrackets(
   const { data: matchData } = await supabase
     .from("matches")
     .select(
-      "id, round, bracket_position, bracket_track, home_team_id, away_team_id, status",
+      "id, round, bracket_position, bracket_track, home_team_id, away_team_id, status, court, scheduled_at",
     )
     .eq("competition_id", competitionId)
     .not("bracket_position", "is", null)
@@ -153,6 +158,8 @@ export async function getBrackets(
         awayScore: tally ? tally.away : null,
         winnerTeamId: m.status === "completed" ? winner : null,
         status: m.status,
+        court: m.court,
+        scheduledAt: m.scheduled_at,
       };
     });
 
