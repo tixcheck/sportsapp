@@ -53,6 +53,12 @@ export async function createTournamentAction(
   // client — the one doing the insert? If null while getUser() has a uid, the
   // session JWT isn't reaching the DB connection.
   const { data: dbUid, error: whoamiErr } = await supabase.rpc("whoami");
+  // And does is_org_admin return true on that same connection? If true while the
+  // insert still fails, the rejection isn't the permissive INSERT with_check.
+  const { data: dbIsAdmin, error: adminErr } = await supabase.rpc(
+    "debug_is_org_admin",
+    { _org_id: orgId },
+  );
 
   const { data: tournament, error } = await supabase
     .from("competitions")
@@ -80,8 +86,10 @@ export async function createTournamentAction(
     // TEMP DIAGNOSTIC (remove after): compare the Node-side session uid against
     // the uid Postgres actually sees on the same client, surfaced on-screen.
     const dbSeen = dbUid ?? (whoamiErr ? `err:${whoamiErr.message}` : "NULL");
+    const adminSeen =
+      dbIsAdmin ?? (adminErr ? `err:${adminErr.message}` : "NULL");
     return {
-      error: `getUser uid=${user.id ?? "NULL"} / DB auth.uid()=${dbSeen} / org_id=${orgId} :: ${error?.message ?? "no row returned"}`,
+      error: `getUser uid=${user.id ?? "NULL"} / DB auth.uid()=${dbSeen} / is_org_admin=${adminSeen} / org_id=${orgId} :: ${error?.message ?? "no row returned"}`,
     };
   }
 
