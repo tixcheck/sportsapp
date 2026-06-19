@@ -9,7 +9,6 @@ import {
   type MyCompetition,
 } from "@/lib/queries/dashboard";
 import { getAccessState } from "@/lib/queries/access";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PendingInviteCard } from "@/components/dashboard/pending-invite-card";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
@@ -85,14 +84,7 @@ export default async function DashboardPage() {
                     </CardTitle>
                     <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="truncate">{c.teamName}</span>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-xs font-medium",
-                          c.teamStatus === "withdrawn"
-                            ? "bg-gold-300/40 text-coral-900"
-                            : "bg-muted text-muted-foreground",
-                        )}
-                      >
+                      <span className="bg-paper-sunken text-ink-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
                         {c.teamStatus === "withdrawn"
                           ? "Withdrawn"
                           : c.memberRole}
