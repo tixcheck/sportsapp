@@ -45,7 +45,14 @@ export default async function MyMatchesPage() {
   )[0];
   const rest = matches.filter((m) => m.id !== upNext?.id);
   // Each section is time-sorted within itself (no more pool/playoff interleaving).
-  const pool = rest.filter((m) => m.phase === "pool").sort(byTime);
+  // Labels are competition-type aware: tournaments use "Round robin" / "Playoff
+  // bracket"; a league's games get a neutral "Schedule".
+  const roundRobin = rest
+    .filter((m) => m.competitionType === "tournament" && m.phase === "pool")
+    .sort(byTime);
+  const leagueGames = rest
+    .filter((m) => m.competitionType === "league")
+    .sort(byTime);
   const bracket = rest.filter((m) => m.phase === "bracket").sort(byTime);
   const hasPlayoff = bracket.length > 0 || projections.length > 0;
 
@@ -68,9 +75,17 @@ export default async function MyMatchesPage() {
             </Section>
           )}
 
-          {pool.length > 0 && (
+          {roundRobin.length > 0 && (
             <Section title="Round robin">
-              {pool.map((m) => (
+              {roundRobin.map((m) => (
+                <MyMatchCard key={m.id} match={m} />
+              ))}
+            </Section>
+          )}
+
+          {leagueGames.length > 0 && (
+            <Section title="Schedule">
+              {leagueGames.map((m) => (
                 <MyMatchCard key={m.id} match={m} />
               ))}
             </Section>
