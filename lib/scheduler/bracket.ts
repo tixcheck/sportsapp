@@ -118,6 +118,25 @@ export interface TrackedBracketMatch extends PersistBracketMatch {
 }
 
 /**
+ * Split an overall-ranked seed order into Championship + Consolation lists for
+ * the dual-bracket format. Top `championship` seeds play the Championship; the
+ * next `consolation` play the Consolation. Sizes are clamped to the teams
+ * available (so 8/7 over a 13-team field yields 8 + 5, not 8 + 7 with phantoms).
+ */
+export function splitSeeds(
+  order: TeamId[],
+  championship: number,
+  consolation: number,
+): { championship: TeamId[]; consolation: TeamId[] } {
+  const champ = Math.max(0, Math.min(championship, order.length));
+  const conso = Math.max(0, Math.min(consolation, order.length - champ));
+  return {
+    championship: order.slice(0, champ),
+    consolation: order.slice(champ, champ + conso),
+  };
+}
+
+/**
  * Flatten one or two bracket tracks into the matches to persist. Each track
  * reuses seededBracketMatches() verbatim (independent round/position numbering),
  * tagged with its track. Omitting `consolation` ⇒ a single bracket, left

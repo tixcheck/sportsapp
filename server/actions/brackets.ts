@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { dualBracketMatches } from "@/lib/scheduler/bracket";
+import { teamsMissingDrops } from "@/lib/standings/drops";
 
 type ActionError = { error: string };
 
@@ -37,6 +38,36 @@ export async function generateBracketAction(
   });
   if (isAdmin !== true) {
     return { error: "Only the organizer can generate the bracket." };
+  }
+
+  // Hard drop-gate (defense in depth behind the UI block): a flagged pool must
+  // have every team's dropped game chosen before any bracket is generated.
+  const { data: dropPools } = await supabase
+    .from("pools")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .eq("needs_drop", true);
+  if (dropPools && dropPools.length) {
+    const { data: dropTeams } = await supabase
+      .from("teams")
+      .select("id, dropped_match_id")
+      .in(
+        "pool_id",
+        dropPools.map((p) => p.id),
+      );
+    const missing = teamsMissingDrops(
+      (dropTeams ?? []).map((t) => ({
+        teamId: t.id,
+        poolNeedsDrop: true,
+        droppedMatchId: t.dropped_match_id,
+      })),
+    );
+    if (missing.length) {
+      return {
+        error:
+          "Set every team's dropped game in the flagged pools before generating the bracket.",
+      };
+    }
   }
 
   const championship = seeds.championship ?? [];

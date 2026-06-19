@@ -1,14 +1,18 @@
 import type { DivisionPools } from "@/lib/queries/tournaments";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
+import { NeedsDropToggle } from "@/components/tournament/needs-drop-toggle";
 
 export function PoolsDisplay({
   divisions,
   showDivisionHeadings,
   myTeamIds = [],
+  editable = false,
 }: {
   divisions: DivisionPools[];
   showDivisionHeadings: boolean;
   myTeamIds?: string[];
+  /** Admin view: show the per-pool "drop a game" toggle. */
+  editable?: boolean;
 }) {
   return (
     <div className="space-y-8">
@@ -26,15 +30,23 @@ export function PoolsDisplay({
                   key={pool.id}
                   className="border-rule bg-paper-raised rounded-lg border p-4"
                 >
-                  <div className="border-rule flex items-baseline justify-between border-b pb-2">
+                  <div className="border-rule flex items-center justify-between gap-2 border-b pb-2">
                     <h4 className="font-display text-lg font-semibold">
                       {pool.name}
                     </h4>
-                    {pool.court && (
-                      <span className="text-ink-2 text-xs tracking-wide uppercase">
-                        {pool.court}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {pool.court && (
+                        <span className="text-ink-2 text-xs tracking-wide uppercase">
+                          {pool.court}
+                        </span>
+                      )}
+                      {editable && (
+                        <NeedsDropToggle
+                          poolId={pool.id}
+                          initial={pool.needsDrop}
+                        />
+                      )}
+                    </div>
                   </div>
                   <ol className="mt-2.5 space-y-1.5">
                     {pool.teams.map((t, i) => (

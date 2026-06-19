@@ -6,6 +6,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
+import { getDropState } from "@/lib/queries/drops";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
@@ -14,6 +15,7 @@ import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
 import { BracketTree } from "@/components/bracket/bracket-tree";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
+import { DropSelectionCard } from "@/components/tournament/drop-selection-card";
 import { StandingsGroups } from "@/components/standings/standings-table";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { PublishToggle } from "@/components/league/publish-toggle";
@@ -35,13 +37,15 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const [origin, poolsView, standings, brackets, rosters] = await Promise.all([
-    getOrigin(),
-    getPoolsView(tournamentId),
-    getStandings(tournamentId),
-    getBrackets(tournamentId),
-    getTeamRosters(tournamentId),
-  ]);
+  const [origin, poolsView, standings, brackets, dropState, rosters] =
+    await Promise.all([
+      getOrigin(),
+      getPoolsView(tournamentId),
+      getStandings(tournamentId),
+      getBrackets(tournamentId),
+      getDropState(tournamentId),
+      getTeamRosters(tournamentId),
+    ]);
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
     poolMatches.length > 0 &&
@@ -135,9 +139,24 @@ export default async function TournamentPage({
               <PoolsDisplay
                 divisions={poolsView.divisions}
                 showDivisionHeadings={t.divisions.length > 1}
+                editable
               />
             </CardContent>
           </Card>
+          {dropState.teams.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Drop a game</CardTitle>
+                <CardDescription>
+                  Each team in a flagged pool drops one game from its own
+                  standings. The result still counts for the opponent.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DropSelectionCard teams={dropState.teams} />
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Pool schedule</CardTitle>
@@ -176,12 +195,16 @@ export default async function TournamentPage({
           <CardHeader>
             <CardTitle>Bracket</CardTitle>
             <CardDescription>
-              Seed teams out of pools into a single-elimination bracket.
+              {t.formatTemplate === "champ_consolation"
+                ? "Seed teams into the Championship + Consolation brackets."
+                : "Seed teams out of pools into a single-elimination bracket."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <GenerateBracketPanel
               competitionId={t.id}
+              formatTemplate={t.formatTemplate}
+              dropsComplete={dropState.complete}
               pools={standings}
               hasBracket={brackets.length > 0}
               poolPlayComplete={poolPlayComplete}

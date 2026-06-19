@@ -114,6 +114,14 @@ export const bracketTrack = pgEnum("bracket_track", [
   "consolation",
 ]);
 
+// The organizer's chosen tournament structure (v1). Drives the seed step:
+// champ_consolation generates two tracks; single/custom generate one.
+export const formatTemplate = pgEnum("format_template", [
+  "single",
+  "champ_consolation",
+  "custom",
+]);
+
 export const matchStatus = pgEnum("match_status", [
   "scheduled",
   "in_progress",
@@ -258,6 +266,8 @@ export const tournamentSettings = pgTable("tournament_settings", {
   courts: integer("courts").notNull().default(4),
   poolFormat: jsonb("pool_format").$type<MatchFormat>(),
   bracketType: bracketType("bracket_type").notNull().default("single_elim"),
+  // The named structure the organizer picked at creation (v1).
+  formatTemplate: formatTemplate("format_template").notNull().default("single"),
   registrationDeadline: timestamp("registration_deadline", {
     withTimezone: true,
   }),

@@ -14,6 +14,7 @@ export const createTournamentSchema = z
     courts: z.number().int().min(1, "At least 1 court.").max(40),
     poolSize: z.number().int().min(2, "Pools need 2+ teams.").max(8),
     formatId: z.string().min(1),
+    formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
     // datetime-local string (interpreted in the tournament's timezone server-side)
     registrationDeadline: z.string().min(1, "Set a registration deadline."),
     divisions: z

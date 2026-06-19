@@ -16,6 +16,7 @@ import {
   defaultPoolPreset,
   type Sport,
 } from "@/lib/formats";
+import { TOURNAMENT_FORMATS } from "@/lib/tournament-formats";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,10 +27,18 @@ const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
   ["sport"],
   ["name", "startDate", "endDate", "venue", "courts", "poolSize"],
   ["divisions"],
+  ["formatTemplate"],
   ["formatId", "registrationDeadline"],
   [],
 ];
-const STEP_TITLES = ["Sport", "Details", "Divisions", "Format", "Scoring"];
+const STEP_TITLES = [
+  "Sport",
+  "Details",
+  "Divisions",
+  "Format",
+  "Match format",
+  "Scoring",
+];
 
 export function TournamentWizard({ orgId }: { orgId: string }) {
   const [step, setStep] = useState(0);
@@ -47,6 +56,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       courts: 4,
       poolSize: 4,
       formatId: defaultPoolPreset("beach2").id,
+      formatTemplate: "single",
       registrationDeadline: "",
       divisions: [{ name: "Open" }],
       allowCaptainEntry: false,
@@ -228,6 +238,39 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
         )}
 
         {step === 3 && (
+          <div className="grid gap-2">
+            <Label>Tournament format</Label>
+            <p className="text-muted-foreground -mt-1 text-sm">
+              How the bracket runs after pool play. You can still set pools and
+              the bracket up by hand later.
+            </p>
+            {TOURNAMENT_FORMATS.map((f) => {
+              const selected = watch("formatTemplate") === f.id;
+              return (
+                <button
+                  type="button"
+                  key={f.id}
+                  onClick={() => setValue("formatTemplate", f.id)}
+                  className={cn(
+                    "rounded-lg border p-3 text-left transition-colors",
+                    selected
+                      ? "border-primary bg-accent text-accent-foreground"
+                      : "border-border bg-surface hover:bg-muted",
+                  )}
+                >
+                  <span className="font-display block font-semibold">
+                    {f.label}
+                  </span>
+                  <span className="text-muted-foreground text-sm">
+                    {f.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 4 && (
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Match format</Label>
@@ -262,7 +305,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="grid gap-3">
             <p className="text-muted-foreground text-sm">
               Choose who can enter match scores and whether a second party must

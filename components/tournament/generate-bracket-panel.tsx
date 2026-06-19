@@ -9,9 +9,15 @@ import { generateBracketAction } from "@/server/actions/brackets";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import {
   advancementCutoffTies,
+  crossPoolSeedOrder,
   selectAdvancers,
   type AdvancementMode,
 } from "@/lib/scheduler/tiebreakers";
+import { splitSeeds } from "@/lib/scheduler/bracket";
+import {
+  tournamentFormat,
+  type FormatTemplate,
+} from "@/lib/tournament-formats";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,23 +30,123 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+function moveIn(list: string[], i: number, dir: -1 | 1): string[] {
+  const out = [...list];
+  const j = i + dir;
+  if (j < 0 || j >= out.length) return list;
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
+/** Reorderable seed list (coin-flip ties) — shared by single + dual previews. */
+function SeedList({
+  order,
+  nameById,
+  onMove,
+}: {
+  order: string[];
+  nameById: Map<string, string>;
+  onMove: (i: number, dir: -1 | 1) => void;
+}) {
+  return (
+    <ol className="divide-rule border-rule divide-y rounded-lg border">
+      {order.map((id, i) => (
+        <li key={id} className="flex items-center gap-3 px-3 py-2 text-sm">
+          <span className="font-display text-claret w-5 text-right text-base font-semibold tabular-nums">
+            {i + 1}
+          </span>
+          <span className="flex-1 truncate font-medium">
+            {nameById.get(id) ?? "—"}
+          </span>
+          <span className="flex gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={i === 0}
+              onClick={() => onMove(i, -1)}
+              aria-label="Move up"
+            >
+              <ArrowUp />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              disabled={i === order.length - 1}
+              onClick={() => onMove(i, 1)}
+              aria-label="Move down"
+            >
+              <ArrowDown />
+            </Button>
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function SizeStepper({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  min: number;
+  max: number;
+}) {
+  const shown = Math.min(value, max);
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">{label}</p>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={() => onChange(Math.max(min, shown - 1))}
+          aria-label={`Fewer ${label}`}
+        >
+          −
+        </Button>
+        <span className="w-6 text-center text-sm tabular-nums">{shown}</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={() => onChange(Math.min(max, shown + 1))}
+          aria-label={`More ${label}`}
+        >
+          +
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function GenerateBracketPanel({
   competitionId,
   pools,
   hasBracket,
   poolPlayComplete,
+  formatTemplate,
+  dropsComplete,
 }: {
   competitionId: string;
   pools: StandingsGroup[];
   hasBracket: boolean;
   poolPlayComplete: boolean;
+  formatTemplate: FormatTemplate;
+  /** Every team in a needs_drop pool has chosen its drop. */
+  dropsComplete: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<AdvancementMode>("perPool");
-  const [n, setN] = useState(2);
-  const [order, setOrder] = useState<string[]>([]);
 
   const poolRows = pools.map((g) => g.rows);
   const nameById = new Map(
@@ -48,45 +154,65 @@ export function GenerateBracketPanel({
   );
   const totalTeams = poolRows.reduce((s, p) => s + p.length, 0);
   const maxPerPool = poolRows.reduce((m, p) => Math.max(m, p.length), 0);
+
+  const isDual = formatTemplate === "champ_consolation";
+
+  // --- single bracket: top-N per pool / overall, one reorderable list --------
+  const [mode, setMode] = useState<AdvancementMode>("perPool");
+  const [n, setN] = useState(2);
+  const [order, setOrder] = useState<string[]>([]);
   const nMax = mode === "perPool" ? Math.max(1, maxPerPool) : totalTeams;
-
-  // Default seeding from the chosen mode/N; recomputed when those change. Manual
-  // reordering (for coin-flip ties) edits `order` without resetting it.
   useEffect(() => {
-    setOrder(selectAdvancers(poolRows, mode, Math.min(n, nMax)));
+    if (!isDual) setOrder(selectAdvancers(poolRows, mode, Math.min(n, nMax)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, n, totalTeams]);
+  }, [mode, n, totalTeams, isDual]);
 
-  const ties = advancementCutoffTies(poolRows, mode, Math.min(n, nMax));
+  // --- dual brackets: overall ranking split into Championship + Consolation --
+  const defaultSplit = tournamentFormat("champ_consolation").split!;
+  const [champSize, setChampSize] = useState(defaultSplit.championship);
+  const [consoSize, setConsoSize] = useState(defaultSplit.consolation);
+  const [champOrder, setChampOrder] = useState<string[]>([]);
+  const [consoOrder, setConsoOrder] = useState<string[]>([]);
+  useEffect(() => {
+    if (!isDual) return;
+    const fullOrder = crossPoolSeedOrder(poolRows);
+    const { championship, consolation } = splitSeeds(
+      fullOrder,
+      champSize,
+      consoSize,
+    );
+    setChampOrder(championship);
+    setConsoOrder(consolation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [champSize, consoSize, totalTeams, isDual]);
+
+  const ties = isDual
+    ? []
+    : advancementCutoffTies(poolRows, mode, Math.min(n, nMax));
   const tieNames = ties
     .flat()
     .map((id) => nameById.get(id) ?? "?")
     .join(", ");
 
-  function move(i: number, dir: -1 | 1) {
-    setOrder((prev) => {
-      const list = [...prev];
-      const j = i + dir;
-      if (j < 0 || j >= list.length) return prev;
-      [list[i], list[j]] = [list[j], list[i]];
-      return list;
-    });
-  }
-
   function generate() {
-    if (order.length < 2) {
+    const payload = isDual
+      ? { championship: champOrder, consolation: consoOrder }
+      : { championship: order };
+    if (payload.championship.length < 2) {
       toast.error("At least 2 teams must advance.");
       return;
     }
     startTransition(async () => {
-      const res = await generateBracketAction(competitionId, {
-        championship: order,
-      });
+      const res = await generateBracketAction(competitionId, payload);
       if ("error" in res) {
         toast.error(res.error);
         return;
       }
-      toast.success(`Bracket generated with ${order.length} teams.`);
+      toast.success(
+        isDual
+          ? "Championship + Consolation brackets generated."
+          : `Bracket generated with ${order.length} teams.`,
+      );
       setOpen(false);
       router.refresh();
     });
@@ -100,6 +226,8 @@ export function GenerateBracketPanel({
     );
   }
 
+  const blocked = !dropsComplete;
+
   return (
     <div className="space-y-4">
       {!poolPlayComplete && (
@@ -109,130 +237,144 @@ export function GenerateBracketPanel({
           come in.
         </p>
       )}
-
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="space-y-1.5">
-          <p className="text-sm font-medium">Who advances</p>
-          <div className="border-border flex rounded-md border p-0.5 text-xs">
-            <button
-              type="button"
-              onClick={() => setMode("perPool")}
-              className={
-                mode === "perPool"
-                  ? "bg-accent rounded px-2.5 py-1 font-medium"
-                  : "text-muted-foreground rounded px-2.5 py-1"
-              }
-            >
-              Top N per pool
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("overall")}
-              className={
-                mode === "overall"
-                  ? "bg-accent rounded px-2.5 py-1 font-medium"
-                  : "text-muted-foreground rounded px-2.5 py-1"
-              }
-            >
-              Top N overall
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <p className="text-sm font-medium">
-            {mode === "perPool" ? "Per pool" : "Overall"}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={() =>
-                setN((v) => Math.max(mode === "overall" ? 2 : 1, v - 1))
-              }
-              aria-label="Fewer"
-            >
-              −
-            </Button>
-            <span className="w-6 text-center text-sm tabular-nums">
-              {Math.min(n, nMax)}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={() => setN((v) => Math.min(nMax, v + 1))}
-              aria-label="More"
-            >
-              +
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {tieNames && (
-        <p className="text-ink-2 flex items-start gap-1.5 text-xs">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-          Tied at the cutoff: {tieNames}. Order is a fallback — drag with the
-          arrows to enter a coin-flip result before generating.
+      {blocked && (
+        <p className="text-claret flex items-center gap-1.5 text-xs">
+          <TriangleAlert className="size-3.5" />
+          Set every team&apos;s dropped game in the flagged pools before
+          generating.
         </p>
       )}
 
-      <div className="space-y-2">
-        <p className="text-sm font-medium">
-          Seed preview
-          <span className="text-muted-foreground ml-2 text-xs font-normal">
-            {order.length} teams
-          </span>
-        </p>
-        <ol className="divide-border border-border divide-y rounded-lg border">
-          {order.map((id, i) => (
-            <li key={id} className="flex items-center gap-3 px-3 py-2 text-sm">
-              <span className="font-display text-claret w-5 text-right text-base font-semibold tabular-nums">
-                {i + 1}
-              </span>
-              <span className="flex-1 truncate font-medium">
-                {nameById.get(id) ?? "—"}
-              </span>
-              <span className="flex gap-1">
-                <Button
+      {isDual ? (
+        <>
+          <div className="flex flex-wrap items-end gap-4">
+            <SizeStepper
+              label="Championship"
+              value={champSize}
+              onChange={setChampSize}
+              min={2}
+              max={totalTeams}
+            />
+            <SizeStepper
+              label="Consolation"
+              value={consoSize}
+              onChange={setConsoSize}
+              min={0}
+              max={Math.max(0, totalTeams - Math.min(champSize, totalTeams))}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                Championship
+                <span className="text-muted-foreground ml-2 text-xs font-normal">
+                  {champOrder.length} teams
+                </span>
+              </p>
+              <SeedList
+                order={champOrder}
+                nameById={nameById}
+                onMove={(i, dir) => setChampOrder((o) => moveIn(o, i, dir))}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                Consolation
+                <span className="text-muted-foreground ml-2 text-xs font-normal">
+                  {consoOrder.length} teams
+                </span>
+              </p>
+              {consoOrder.length ? (
+                <SeedList
+                  order={consoOrder}
+                  nameById={nameById}
+                  onMove={(i, dir) => setConsoOrder((o) => moveIn(o, i, dir))}
+                />
+              ) : (
+                <p className="text-ink-2 text-sm">
+                  No teams in the consolation bracket.
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Who advances</p>
+              <div className="border-border flex rounded-md border p-0.5 text-xs">
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={i === 0}
-                  onClick={() => move(i, -1)}
-                  aria-label="Move up"
+                  onClick={() => setMode("perPool")}
+                  className={
+                    mode === "perPool"
+                      ? "bg-accent rounded px-2.5 py-1 font-medium"
+                      : "text-muted-foreground rounded px-2.5 py-1"
+                  }
                 >
-                  <ArrowUp />
-                </Button>
-                <Button
+                  Top N per pool
+                </button>
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={i === order.length - 1}
-                  onClick={() => move(i, 1)}
-                  aria-label="Move down"
+                  onClick={() => setMode("overall")}
+                  className={
+                    mode === "overall"
+                      ? "bg-accent rounded px-2.5 py-1 font-medium"
+                      : "text-muted-foreground rounded px-2.5 py-1"
+                  }
                 >
-                  <ArrowDown />
-                </Button>
+                  Top N overall
+                </button>
+              </div>
+            </div>
+
+            <SizeStepper
+              label={mode === "perPool" ? "Per pool" : "Overall"}
+              value={n}
+              onChange={setN}
+              min={mode === "overall" ? 2 : 1}
+              max={nMax}
+            />
+          </div>
+
+          {tieNames && (
+            <p className="text-ink-2 flex items-start gap-1.5 text-xs">
+              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+              Tied at the cutoff: {tieNames}. Order is a fallback — drag with
+              the arrows to enter a coin-flip result before generating.
+            </p>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              Seed preview
+              <span className="text-muted-foreground ml-2 text-xs font-normal">
+                {order.length} teams
               </span>
-            </li>
-          ))}
-        </ol>
-      </div>
+            </p>
+            <SeedList
+              order={order}
+              nameById={nameById}
+              onMove={(i, dir) => setOrder((o) => moveIn(o, i, dir))}
+            />
+          </div>
+        </>
+      )}
 
       {hasBracket ? (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" disabled={blocked}>
               <Trophy />
-              Regenerate bracket
+              Regenerate {isDual ? "brackets" : "bracket"}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Regenerate bracket?</DialogTitle>
+              <DialogTitle>
+                Regenerate {isDual ? "brackets" : "bracket"}?
+              </DialogTitle>
               <DialogDescription>
                 This discards the current bracket and all its matches, then
                 reseeds from the order above.
@@ -247,7 +389,7 @@ export function GenerateBracketPanel({
               <Button
                 variant="destructive"
                 onClick={generate}
-                disabled={pending}
+                disabled={pending || blocked}
               >
                 {pending ? "Regenerating…" : "Discard & regenerate"}
               </Button>
@@ -255,9 +397,13 @@ export function GenerateBracketPanel({
           </DialogContent>
         </Dialog>
       ) : (
-        <Button onClick={generate} disabled={pending}>
+        <Button onClick={generate} disabled={pending || blocked}>
           <Trophy />
-          {pending ? "Generating…" : "Generate bracket"}
+          {pending
+            ? "Generating…"
+            : isDual
+              ? "Generate brackets"
+              : "Generate bracket"}
         </Button>
       )}
     </div>

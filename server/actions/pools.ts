@@ -230,3 +230,37 @@ export async function generatePoolsAction(
   revalidatePath("/orgs");
   return { poolCount: poolIds.length, matchCount: matchRows.length };
 }
+
+/**
+ * Flag/unflag a pool for the "drop a game" rule (v1). On a flagged pool each
+ * team drops one game from its own standings (organizer picks the games at seed
+ * time). Editable until the bracket is generated.
+ */
+export async function setPoolNeedsDropAction(
+  poolId: string,
+  needsDrop: boolean,
+): Promise<ActionError | { ok: true }> {
+  const supabase = await createClient();
+  const { data: pool } = await supabase
+    .from("pools")
+    .select("competition_id")
+    .eq("id", poolId)
+    .single();
+  if (!pool) return { error: "Pool not found." };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: pool.competition_id,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change this." };
+  }
+
+  const { error } = await supabase
+    .from("pools")
+    .update({ needs_drop: needsDrop })
+    .eq("id", poolId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  return { ok: true };
+}

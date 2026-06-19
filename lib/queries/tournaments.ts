@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/formats";
+import type { FormatTemplate } from "@/lib/tournament-formats";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 
 export interface TournamentSummary {
@@ -40,6 +41,7 @@ export interface TournamentDetail {
   venue: string | null;
   timezone: string;
   poolSize: number;
+  formatTemplate: FormatTemplate;
   registrationDeadline: string | null;
   scoring: {
     allowCaptainEntry: boolean;
@@ -112,7 +114,7 @@ export async function getTournamentDetail(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("pool_size, registration_deadline")
+    .select("pool_size, format_template, registration_deadline")
     .eq("competition_id", tournamentId)
     .single();
 
@@ -151,6 +153,7 @@ export async function getTournamentDetail(
     venue: t.venue,
     timezone: t.timezone,
     poolSize: settings?.pool_size ?? 4,
+    formatTemplate: (settings?.format_template ?? "single") as FormatTemplate,
     registrationDeadline: settings?.registration_deadline ?? null,
     scoring: {
       allowCaptainEntry: t.allow_captain_entry,
@@ -230,6 +233,8 @@ export interface PoolWithTeams {
   id: string;
   name: string;
   court: string | null;
+  /** v1 drop-a-game: each team drops one game from its own standings. */
+  needsDrop: boolean;
   teams: { id: string; name: string; seed: number | null }[];
   matches: ScheduleMatch[];
 }
@@ -263,7 +268,7 @@ export async function getPoolsView(
 
   const { data: pools } = await supabase
     .from("pools")
-    .select("id, name, division_id, sort_order")
+    .select("id, name, division_id, sort_order, needs_drop")
     .eq("competition_id", competitionId)
     .order("sort_order", { ascending: true });
 
@@ -369,6 +374,7 @@ export async function getPoolsView(
         id: p.id,
         name: p.name,
         court: (matchesByPool.get(p.id) ?? [])[0]?.court ?? null,
+        needsDrop: p.needs_drop === true,
         teams: teamsByPool.get(p.id) ?? [],
         matches: matchesByPool.get(p.id) ?? [],
       })),

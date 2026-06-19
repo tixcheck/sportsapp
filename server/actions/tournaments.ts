@@ -83,6 +83,7 @@ export async function createTournamentAction(
       courts: v.courts,
       pool_format: preset.format,
       bracket_type: "single_elim",
+      format_template: v.formatTemplate,
       registration_deadline: deadlineIso,
     });
   if (settingsError) return { error: settingsError.message };
