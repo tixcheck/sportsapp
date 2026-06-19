@@ -19,8 +19,22 @@ function initials(name: string): string {
 
 function Placeholder({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
+    <div className="border-rule bg-paper-raised text-ink-2 rounded-lg border p-8 text-center text-sm">
       {children}
+    </div>
+  );
+}
+
+/** Editorial section header: a serif title on an ink hairline, optional note. */
+function SectionHead({ title, note }: { title: string; note?: string }) {
+  return (
+    <div className="border-ink flex items-baseline justify-between gap-4 border-b pb-2">
+      <h3 className="font-display text-xl font-semibold tracking-tight">
+        {title}
+      </h3>
+      {note && (
+        <span className="text-ink-2 font-display text-sm italic">{note}</span>
+      )}
     </div>
   );
 }
@@ -63,16 +77,16 @@ export function TournamentTabs({
       <TabsContent value="pools" className="mt-6 space-y-8">
         {hasPools ? (
           <>
-            <section className="space-y-3">
-              <h3 className="font-display text-lg font-semibold">Pool draw</h3>
+            <section className="space-y-4">
+              <SectionHead title="Pool draw" note="snake-drafted by seed" />
               <PoolsDisplay
                 divisions={poolsView!.divisions}
                 showDivisionHeadings={multiDivision}
                 myTeamIds={myTeamIds}
               />
             </section>
-            <section className="space-y-3">
-              <h3 className="font-display text-lg font-semibold">Standings</h3>
+            <section className="space-y-4">
+              <SectionHead title="Standings" />
               <StandingsGroups
                 groups={standings}
                 showDivision={multiDivision}

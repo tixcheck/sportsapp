@@ -24,23 +24,25 @@ export function PoolsDisplay({
               {dp.pools.map((pool) => (
                 <div
                   key={pool.id}
-                  className="border-border bg-surface rounded-lg border p-4 shadow-sm"
+                  className="border-rule bg-paper-raised rounded-lg border p-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-display font-semibold">{pool.name}</h4>
+                  <div className="border-rule flex items-baseline justify-between border-b pb-2">
+                    <h4 className="font-display text-lg font-semibold">
+                      {pool.name}
+                    </h4>
                     {pool.court && (
-                      <span className="text-muted-foreground text-xs">
+                      <span className="text-ink-2 text-xs tracking-wide uppercase">
                         {pool.court}
                       </span>
                     )}
                   </div>
-                  <ol className="mt-3 space-y-1.5">
+                  <ol className="mt-2.5 space-y-1.5">
                     {pool.teams.map((t, i) => (
                       <li
                         key={t.id}
-                        className="flex items-center gap-2 text-sm"
+                        className="flex items-center gap-2.5 text-sm"
                       >
-                        <span className="text-muted-foreground w-4 text-right tabular-nums">
+                        <span className="font-display text-ink-3 w-4 text-right tabular-nums">
                           {i + 1}
                         </span>
                         <span className="truncate">{t.name}</span>

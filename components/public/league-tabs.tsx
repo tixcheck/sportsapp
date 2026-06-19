@@ -46,7 +46,7 @@ export function LeagueTabs({
 
       <TabsContent value="teams" className="mt-6">
         {league.teams.length === 0 ? (
-          <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
+          <div className="border-rule bg-paper-raised text-ink-2 rounded-lg border p-8 text-center text-sm">
             No teams yet.
           </div>
         ) : (
