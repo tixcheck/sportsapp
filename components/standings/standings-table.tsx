@@ -8,13 +8,15 @@ function fmt(value: number): string {
   return Number.isFinite(value) ? value.toFixed(3) : "∞";
 }
 
-const STAT_COLS: {
+type StatCol = {
   key: keyof StandingsRowView;
   label: string;
   hint: string;
   // Almanac emphasis (§6.1): wins bold ink, losses recede to muted ink.
   cell: string;
-}[] = [
+};
+
+const STAT_COLS: StatCol[] = [
   { key: "mw", label: "MW", hint: "Matches won", cell: "font-bold text-ink" },
   { key: "ml", label: "ML", hint: "Matches lost", cell: "text-ink-3" },
   { key: "sw", label: "SW", hint: "Sets won", cell: "" },
@@ -22,6 +24,13 @@ const STAT_COLS: {
   { key: "pf", label: "PF", hint: "Points for", cell: "" },
   { key: "pa", label: "PA", hint: "Points against", cell: "" },
 ];
+
+const TIE_COL: StatCol = {
+  key: "mt",
+  label: "T",
+  hint: "Matches tied",
+  cell: "",
+};
 
 export function StandingsTable({
   rows,
@@ -38,6 +47,12 @@ export function StandingsTable({
     );
   }
 
+  // Show the Tied column only for formats that can tie (2-set games); a
+  // best-of-3 pool/league has no ties, so its table is unchanged.
+  const cols = rows.some((r) => r.mt > 0)
+    ? [STAT_COLS[0], TIE_COL, ...STAT_COLS.slice(1)]
+    : STAT_COLS;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] text-sm tabular-nums">
@@ -45,7 +60,7 @@ export function StandingsTable({
           <tr className="text-ink-2 border-ink border-b-[1.5px] text-[0.66rem] tracking-[0.1em] uppercase">
             <th className="w-10 px-2 pb-2 text-center font-bold">#</th>
             <th className="px-3 pb-2 text-left font-bold">Team</th>
-            {STAT_COLS.map((c) => (
+            {cols.map((c) => (
               <th
                 key={c.key as string}
                 title={c.hint}
@@ -104,7 +119,7 @@ export function StandingsTable({
                   <MyTeamBadge className="ml-2" />
                 )}
               </td>
-              {STAT_COLS.map((c) => (
+              {cols.map((c) => (
                 <td
                   key={c.key as string}
                   className={cn("px-2 text-center", c.cell)}

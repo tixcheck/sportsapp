@@ -34,6 +34,7 @@ function row(
     teamId,
     mw: 0,
     ml: 0,
+    mt: 0,
     sw: 0,
     sl: 0,
     pf: 0,

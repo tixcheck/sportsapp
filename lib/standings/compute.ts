@@ -76,9 +76,10 @@ function buildExplainer(
           ordered.length > 1
             ? "Sorting tied teams by match wins."
             : "Ranked outright by match wins.",
-        entries: ordered.map((r) =>
-          entry(r, `${r.mw} ${r.mw === 1 ? "win" : "wins"}`),
-        ),
+        entries: ordered.map((r) => {
+          const w = r.mw + 0.5 * r.mt; // wins + half per tie
+          return entry(r, `${w} ${w === 1 ? "win" : "wins"}`);
+        }),
       };
     case 2: {
       const h2h = new Map(

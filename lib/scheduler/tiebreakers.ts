@@ -53,6 +53,8 @@ export interface TeamStats {
   /** Matches won / lost. */
   mw: number;
   ml: number;
+  /** Matches tied — a 2-set game ending 1–1. Counts as half a win in ranking. */
+  mt: number;
   /** Sets won / lost. */
   sw: number;
   sl: number;
@@ -140,6 +142,7 @@ export function computeStats(
       teamId: id,
       mw: 0,
       ml: 0,
+      mt: 0,
       sw: 0,
       sl: 0,
       pf: 0,
@@ -180,6 +183,10 @@ export function computeStats(
     } else if (winner === match.awayTeamId) {
       if (!awayOut) away.mw += 1;
       if (!homeOut) home.ml += 1;
+    } else if (homeSets === awaySets && homeSets > 0) {
+      // A played 2-set game ending 1–1 is a tie — half a win for each side.
+      if (!homeOut) home.mt += 1;
+      if (!awayOut) away.mt += 1;
     }
   }
 
@@ -215,8 +222,24 @@ export function headToHeadTable(
     if (!awayOut)
       played.set(match.awayTeamId, played.get(match.awayTeamId)! + 1);
     const winner = matchWinner(match);
-    if (winner && !isDropped(droppedByTeam, winner, match))
-      wins.set(winner, wins.get(winner)! + 1);
+    if (winner) {
+      if (!isDropped(droppedByTeam, winner, match))
+        wins.set(winner, wins.get(winner)! + 1);
+    } else {
+      // A head-to-head tie (2-set, 1–1) is half a win for each side.
+      let h = 0;
+      let a = 0;
+      for (const s of match.sets) {
+        if (s.home > s.away) h += 1;
+        else if (s.away > s.home) a += 1;
+      }
+      if (h > 0 && h === a) {
+        if (!homeOut)
+          wins.set(match.homeTeamId, wins.get(match.homeTeamId)! + 0.5);
+        if (!awayOut)
+          wins.set(match.awayTeamId, wins.get(match.awayTeamId)! + 0.5);
+      }
+    }
   }
 
   return teamIds.map((id) => {
@@ -265,7 +288,7 @@ function valuerFor(
   }
   return (id) => {
     const s = stats.get(id)!;
-    if (step === 1) return s.mw;
+    if (step === 1) return s.mw + 0.5 * s.mt; // wins + half per tie
     if (step === 3) return s.setRatio;
     return s.pointRatio; // step 4
   };
@@ -349,7 +372,7 @@ function formatRatio(value: number): string {
 function explain(step: TiebreakerStep, value: number, s: TeamStats): string {
   switch (step) {
     case 1:
-      return `Match wins: ${s.mw}`;
+      return `Match wins: ${s.mw + 0.5 * s.mt}`;
     case 2:
       return `Head-to-head among tied teams: ${formatRatio(value)}`;
     case 3:
