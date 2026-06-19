@@ -15,6 +15,9 @@ export const createTournamentSchema = z
     poolSize: z.number().int().min(2, "Pools need 2+ teams.").max(8),
     formatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
+    // Pool play: true = a fixed 2-set game (ties allowed); false = best-of-3.
+    // Bracket always uses the standard best-of-3 format.
+    twoSetRoundRobin: z.boolean(),
     // datetime-local string (interpreted in the tournament's timezone server-side)
     registrationDeadline: z.string().min(1, "Set a registration deadline."),
     divisions: z

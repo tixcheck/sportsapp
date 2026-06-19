@@ -93,15 +93,26 @@ export function validateScore(
         ? "away"
         : null;
 
-  const needed = Math.ceil(format.bestOf / 2);
+  // Even bestOf (2) = a fixed-set game: play exactly N sets, no majority needed,
+  // and a 1–1 tie is a valid complete result. Odd = best-of majority.
+  const fixedSets = format.bestOf % 2 === 0;
   if (errors.length === 0) {
-    if (Math.max(homeSetsWon, awaySetsWon) < needed) {
-      blocks.push(
-        `Enter enough sets to decide the match (best of ${format.bestOf}).`,
-      );
-    }
-    if (sets.length > format.bestOf) {
-      warnings.push(`More sets entered than a best-of-${format.bestOf}.`);
+    if (fixedSets) {
+      if (sets.length !== format.bestOf) {
+        blocks.push(
+          `A ${format.bestOf}-set game must have exactly ${format.bestOf} sets.`,
+        );
+      }
+    } else {
+      const needed = Math.ceil(format.bestOf / 2);
+      if (Math.max(homeSetsWon, awaySetsWon) < needed) {
+        blocks.push(
+          `Enter enough sets to decide the match (best of ${format.bestOf}).`,
+        );
+      }
+      if (sets.length > format.bestOf) {
+        warnings.push(`More sets entered than a best-of-${format.bestOf}.`);
+      }
     }
   }
 
@@ -195,10 +206,11 @@ export function recordedDecision(
     if (s.home > s.away) homeSetsWon += 1;
     else if (s.away > s.home) awaySetsWon += 1;
   }
-  const needed = Math.ceil(bestOf / 2);
-  return {
-    decided: Math.max(homeSetsWon, awaySetsWon) >= needed,
-    homeSetsWon,
-    awaySetsWon,
-  };
+  // Fixed-set (even bestOf): decided once all N sets are in (a 1–1 is decided).
+  // Best-of (odd): decided once a team has the majority.
+  const decided =
+    bestOf % 2 === 0
+      ? recorded.length >= bestOf
+      : Math.max(homeSetsWon, awaySetsWon) >= Math.ceil(bestOf / 2);
+  return { decided, homeSetsWon, awaySetsWon };
 }

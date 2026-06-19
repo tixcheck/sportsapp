@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
-import { findPreset, type Sport } from "@/lib/formats";
+import { findPreset, toTwoSetFormat, type Sport } from "@/lib/formats";
 import { sendCaptainInvite } from "@/lib/email/send";
 import { generateRoundRobin } from "@/lib/scheduler/round-robin";
 import {
@@ -72,7 +72,10 @@ export async function createLeagueAction(
       end_date: v.endDate,
       venue: v.venue || null,
       timezone: DEFAULT_TIMEZONE,
-      match_format: preset.format,
+      // League games are all round-robin — apply the chosen RR format.
+      match_format: v.twoSetRoundRobin
+        ? toTwoSetFormat(preset.format)
+        : preset.format,
       visibility: "private",
       allow_captain_entry: v.allowCaptainEntry,
       allow_ref_entry: v.allowRefEntry,

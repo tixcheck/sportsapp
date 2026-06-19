@@ -90,6 +90,22 @@ export const ROSTER_SIZE: Record<Sport, number> = {
   coed4: 4,
 };
 
+/**
+ * The 2-set variant of a base format for round-robin/pool play: play exactly two
+ * sets (no deciding set), so a game ends 2–0 or 1–1 (a tie). Reuses the base's
+ * per-set target + win-by; drops any tiebreaker/cap-deciding set.
+ */
+export function toTwoSetFormat(base: MatchFormat): MatchFormat {
+  const target = base.setsToPoints[0] ?? 21;
+  const second = base.setsToPoints[1] ?? target;
+  return {
+    bestOf: 2,
+    setsToPoints: [target, second],
+    winBy: base.winBy,
+    ...(base.capMinutes ? { capMinutes: base.capMinutes } : {}),
+  };
+}
+
 export function defaultPreset(sport: Sport): FormatPreset {
   return FORMAT_PRESETS[sport][0];
 }

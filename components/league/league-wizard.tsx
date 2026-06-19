@@ -51,6 +51,7 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
       slotDayOfWeek: 2,
       slotStartTime: "19:00",
       formatId: defaultPreset("indoor6").id,
+      twoSetRoundRobin: false,
       blackoutDates: [],
       allowCaptainEntry: false,
       allowRefEntry: false,
@@ -254,6 +255,18 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
                 );
               })}
             </div>
+            <label className="text-muted-foreground flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="accent-claret mt-0.5 size-4"
+                {...register("twoSetRoundRobin")}
+              />
+              <span>
+                Play each game as{" "}
+                <strong className="text-foreground">2 sets</strong> (can end
+                1–1, a tie) instead of best-of-3.
+              </span>
+            </label>
             <Review form={watch()} />
           </div>
         )}

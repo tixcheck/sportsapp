@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
-import { findPreset, type Sport } from "@/lib/formats";
+import { findPreset, toTwoSetFormat, type Sport } from "@/lib/formats";
 import { sendCaptainInvite } from "@/lib/email/send";
 import { addTeamSchema, type AddTeamInput } from "@/lib/validations/league";
 import {
@@ -81,7 +81,11 @@ export async function createTournamentAction(
       competition_id: tournament.id,
       pool_size: v.poolSize,
       courts: v.courts,
-      pool_format: preset.format,
+      // Pool play uses the chosen RR format; the bracket keeps the standard
+      // best-of-3 (competition match_format) regardless.
+      pool_format: v.twoSetRoundRobin
+        ? toTwoSetFormat(preset.format)
+        : preset.format,
       bracket_type: "single_elim",
       format_template: v.formatTemplate,
       registration_deadline: deadlineIso,

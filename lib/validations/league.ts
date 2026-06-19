@@ -25,6 +25,8 @@ export const createLeagueSchema = z
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
     formatId: z.string().min(1),
+    // true = round-robin games are a fixed 2-set game (ties allowed); false = bo3.
+    twoSetRoundRobin: z.boolean(),
     blackoutDates: z.array(z.string().regex(DATE_RE)),
     allowCaptainEntry: z.boolean(),
     allowRefEntry: z.boolean(),

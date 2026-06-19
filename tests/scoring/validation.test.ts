@@ -23,6 +23,8 @@ const POOL: MatchFormat = {
   winBy: 2,
   capMinutes: 45,
 };
+// A fixed 2-set round-robin game (ties allowed).
+const TWO_SET: MatchFormat = { bestOf: 2, setsToPoints: [21, 21], winBy: 2 };
 
 describe("setTarget", () => {
   it("returns the per-set target, deciding set included", () => {
@@ -30,6 +32,68 @@ describe("setTarget", () => {
     expect(setTarget(BO5, 4)).toBe(15);
     expect(setTarget(POOL, 2)).toBe(11);
     expect(setTarget(BO5, 9)).toBe(15);
+  });
+});
+
+describe("validateScore — 2-set games (ties allowed)", () => {
+  it("accepts a 2–0", () => {
+    const r = validateScore(TWO_SET, [
+      { home: 21, away: 15 },
+      { home: 21, away: 10 },
+    ]);
+    expect(r.ok).toBe(true);
+    expect(r.blocks).toEqual([]);
+    expect(r.winner).toBe("home");
+  });
+
+  it("accepts a 1–1 tie as a complete result (winner null)", () => {
+    const r = validateScore(TWO_SET, [
+      { home: 21, away: 15 },
+      { home: 18, away: 21 },
+    ]);
+    expect(r.ok).toBe(true);
+    expect(r.blocks).toEqual([]);
+    expect(r.winner).toBeNull();
+    expect(r.homeSetsWon).toBe(1);
+    expect(r.awaySetsWon).toBe(1);
+  });
+
+  it("blocks fewer than 2 sets", () => {
+    const r = validateScore(TWO_SET, [{ home: 21, away: 15 }]);
+    expect(r.ok).toBe(false);
+    expect(r.blocks.length).toBeGreaterThan(0);
+  });
+
+  it("blocks more than 2 sets", () => {
+    const r = validateScore(TWO_SET, [
+      { home: 21, away: 15 },
+      { home: 10, away: 21 },
+      { home: 15, away: 12 },
+    ]);
+    expect(r.ok).toBe(false);
+  });
+
+  it("still rejects an illegal set (target reached without a 2-point margin)", () => {
+    const r = validateScore(TWO_SET, [
+      { home: 21, away: 20 },
+      { home: 21, away: 10 },
+    ]);
+    expect(r.blocks.some((b) => /2 points/.test(b))).toBe(true);
+  });
+});
+
+describe("recordedDecision — 2-set games", () => {
+  it("is decided only once both sets are in (a 1–1 is decided)", () => {
+    expect(recordedDecision([{ home: 21, away: 15 }], 2).decided).toBe(false);
+    expect(
+      recordedDecision(
+        [
+          { home: 21, away: 15 },
+          { home: 10, away: 21 },
+        ],
+        2,
+      ).decided,
+    ).toBe(true);
   });
 });
 

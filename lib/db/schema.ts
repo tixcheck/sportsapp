@@ -35,7 +35,9 @@ import {
 
 /** A configurable volleyball match format (PRD §6). */
 export type MatchFormat = {
-  bestOf: 1 | 3 | 5;
+  // Odd = best-of (win the majority). 2 = a fixed 2-set game (play both sets;
+  // ends 2–0 or 1–1, a tie) used for round-robin/pool play.
+  bestOf: 1 | 2 | 3 | 5;
   /** Points needed per set, e.g. [25, 25, 15] for bo3 with a deciding set to 15. */
   setsToPoints: number[];
   /** Margin required to win a set (usually 2). */

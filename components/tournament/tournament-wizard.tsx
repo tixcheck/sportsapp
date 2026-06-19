@@ -57,6 +57,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       poolSize: 4,
       formatId: defaultPoolPreset("beach2").id,
       formatTemplate: "single",
+      twoSetRoundRobin: false,
       registrationDeadline: "",
       divisions: [{ name: "Open" }],
       allowCaptainEntry: false,
@@ -292,6 +293,22 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                   </button>
                 );
               })}
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Pool play</Label>
+              <label className="text-muted-foreground flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-claret mt-0.5 size-4"
+                  {...register("twoSetRoundRobin")}
+                />
+                <span>
+                  Pool games are{" "}
+                  <strong className="text-foreground">2 sets</strong> (can end
+                  1–1, a tie). Leave off for best-of-3. The bracket always plays
+                  best-of-3.
+                </span>
+              </label>
             </div>
             <Field
               label="Registration deadline"
