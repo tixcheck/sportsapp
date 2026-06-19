@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DateTime } from "luxon";
 import { SquarePen, Trophy } from "lucide-react";
 
 import type {
@@ -116,6 +117,12 @@ export function BracketTree({
         </div>
       )}
 
+      {bracket.rounds.flat().some((m) => m.scheduledAt) && (
+        <p className="text-ink-2 text-xs italic">
+          Match order is set; times are estimates.
+        </p>
+      )}
+
       <div className="overflow-x-auto pb-2">
         <div className="flex min-w-max gap-6">
           {bracket.rounds.map((round, i) => (
@@ -126,56 +133,68 @@ export function BracketTree({
               <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
                 {roundLabel(i + 1, total)}
               </p>
-              {round.map((mt) => (
-                <div
-                  key={mt.id}
-                  className="border-border bg-surface divide-border divide-y rounded-lg border shadow-sm"
-                >
-                  <TeamRow
-                    entry={mt.home}
-                    score={mt.homeScore}
-                    isWinner={
-                      !!mt.winnerTeamId && mt.winnerTeamId === mt.home?.teamId
-                    }
-                    myTeamIds={myTeamIds}
-                  />
-                  <TeamRow
-                    entry={mt.away}
-                    score={mt.awayScore}
-                    isWinner={
-                      !!mt.winnerTeamId && mt.winnerTeamId === mt.away?.teamId
-                    }
-                    myTeamIds={myTeamIds}
-                  />
-                  {(mt.court || editable) && (
-                    <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        {mt.court ?? "Court —"}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {editable && mt.home && mt.away && (
-                          <Link
-                            href={`/matches/${mt.id}`}
-                            className="text-claret inline-flex items-center gap-1 text-xs font-medium hover:underline"
-                          >
-                            <SquarePen className="size-3.5" />
-                            {mt.status === "completed"
-                              ? "Edit score"
-                              : "Enter score"}
-                          </Link>
-                        )}
-                        {editable && timezone && allMatches && (
-                          <RescheduleDialog
-                            match={toBracketScheduleMatch(mt)}
-                            allMatches={allMatches}
-                            timezone={timezone}
-                          />
-                        )}
+              {round.map((mt) => {
+                const timeText =
+                  mt.scheduledAt && timezone
+                    ? DateTime.fromISO(mt.scheduledAt, {
+                        zone: timezone,
+                      }).toFormat("h:mm a")
+                    : null;
+                // e.g. "2:30 PM · Court 1"; "Time TBD" only in the admin view.
+                const meta =
+                  [timeText, mt.court].filter(Boolean).join(" · ") ||
+                  (editable ? "Time TBD" : "");
+                return (
+                  <div
+                    key={mt.id}
+                    className="border-border bg-surface divide-border divide-y rounded-lg border shadow-sm"
+                  >
+                    <TeamRow
+                      entry={mt.home}
+                      score={mt.homeScore}
+                      isWinner={
+                        !!mt.winnerTeamId && mt.winnerTeamId === mt.home?.teamId
+                      }
+                      myTeamIds={myTeamIds}
+                    />
+                    <TeamRow
+                      entry={mt.away}
+                      score={mt.awayScore}
+                      isWinner={
+                        !!mt.winnerTeamId && mt.winnerTeamId === mt.away?.teamId
+                      }
+                      myTeamIds={myTeamIds}
+                    />
+                    {(meta || editable) && (
+                      <div className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {meta}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {editable && mt.home && mt.away && (
+                            <Link
+                              href={`/matches/${mt.id}`}
+                              className="text-claret inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                            >
+                              <SquarePen className="size-3.5" />
+                              {mt.status === "completed"
+                                ? "Edit score"
+                                : "Enter score"}
+                            </Link>
+                          )}
+                          {editable && timezone && allMatches && (
+                            <RescheduleDialog
+                              match={toBracketScheduleMatch(mt)}
+                              allMatches={allMatches}
+                              timezone={timezone}
+                            />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>

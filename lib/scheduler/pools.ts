@@ -12,6 +12,9 @@ import {
 } from "./round-robin";
 import type { MatchFormat } from "@/lib/db/schema";
 
+/** Default minutes per match slot, shared by pool + bracket scheduling. */
+export const DEFAULT_SLOT_MINUTES = 45;
+
 export interface PoolsInput {
   /** Team ids ordered by seed (best first = seed 1). */
   seededTeamIds: TeamId[];

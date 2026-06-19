@@ -2,13 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 
+import { DateTime } from "luxon";
+
 import { createClient } from "@/lib/supabase/server";
 import {
+  assignBracketTimes,
   bracketMatchCourt,
+  bracketSlotKey,
   dualBracketMatches,
   nextPowerOfTwo,
 } from "@/lib/scheduler/bracket";
+import { DEFAULT_SLOT_MINUTES } from "@/lib/scheduler/pools";
 import { teamsMissingDrops } from "@/lib/standings/drops";
+import type { MatchFormat } from "@/lib/db/schema";
 
 type ActionError = { error: string };
 
@@ -131,19 +137,81 @@ export async function generateBracketAction(
     .not("bracket_position", "is", null);
   if (del) return { error: del.message };
 
-  // Stamp each match's court by the top/bottom-half rule, per track. A single
-  // bracket (track null) uses the championship pair. The final returns null and
-  // is left for the organizer to set.
+  // Estimated start: bracket play chains off the last pool match's end, else the
+  // tournament start date at 09:00; null if neither is known (→ "Time TBD").
+  const [{ data: comp }, { data: settings }, { data: lastPool }] =
+    await Promise.all([
+      supabase
+        .from("competitions")
+        .select("start_date, timezone")
+        .eq("id", competitionId)
+        .single(),
+      supabase
+        .from("tournament_settings")
+        .select("pool_format")
+        .eq("competition_id", competitionId)
+        .maybeSingle(),
+      supabase
+        .from("matches")
+        .select("scheduled_at")
+        .eq("competition_id", competitionId)
+        .not("pool_id", "is", null)
+        .not("scheduled_at", "is", null)
+        .order("scheduled_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+  const tz = comp?.timezone ?? "America/Toronto";
+  const poolSlot =
+    (settings?.pool_format as MatchFormat | null)?.capMinutes ??
+    DEFAULT_SLOT_MINUTES;
+  let startDt: DateTime | null = null;
+  if (lastPool?.scheduled_at) {
+    startDt = DateTime.fromISO(lastPool.scheduled_at, { zone: tz }).plus({
+      minutes: poolSlot,
+    });
+  } else if (comp?.start_date) {
+    startDt = DateTime.fromISO(`${comp.start_date}T09:00`, { zone: tz });
+  }
+  // Round the start up to a clean 15-minute boundary.
+  const QUARTER = 15 * 60_000;
+  const startMs =
+    startDt && startDt.isValid
+      ? Math.ceil(startDt.toMillis() / QUARTER) * QUARTER
+      : null;
+
+  // Stamp each match's court by the top/bottom-half rule, per track (a single
+  // bracket uses the championship pair; the final's court is left blank), and an
+  // estimated time (sequential per court, respecting round dependencies).
   const champSize = nextPowerOfTwo(championship.length);
   const consoSize = nextPowerOfTwo(consolation.length);
-  const rows = matches.map((m) => {
+  const courtFor = (m: (typeof matches)[number]) => {
     const conso = m.track === "consolation";
-    const courtNo = bracketMatchCourt(
+    return bracketMatchCourt(
       m.round,
       m.position,
       conso ? consoSize : champSize,
       conso ? courts.consolation : courts.championship,
     );
+  };
+  const times =
+    startMs == null
+      ? null
+      : assignBracketTimes(
+          matches.map((m) => ({
+            round: m.round,
+            position: m.position,
+            track: m.track,
+            court: courtFor(m),
+          })),
+          startMs,
+          DEFAULT_SLOT_MINUTES * 60_000,
+        );
+
+  const rows = matches.map((m) => {
+    const courtNo = courtFor(m);
+    const slotMs = times?.get(bracketSlotKey(m.track, m.round, m.position));
     return {
       competition_id: competitionId,
       round: m.round,
@@ -153,6 +221,7 @@ export async function generateBracketAction(
       away_team_id: m.awayTeamId,
       status: "scheduled" as const,
       court: courtNo == null ? null : `Court ${courtNo}`,
+      scheduled_at: slotMs != null ? new Date(slotMs).toISOString() : null,
     };
   });
   const { error: ins } = await supabase.from("matches").insert(rows);

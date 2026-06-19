@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import {
+  DEFAULT_SLOT_MINUTES,
   detectCourtTimeCollisions,
   layoutPoolSchedule,
   poolName,
@@ -77,7 +78,7 @@ export async function generatePoolsAction(
   // The chosen pool-play format (2-set vs best-of-3); short pools derive a
   // reduced variant from it rather than a hardcoded format.
   const poolFmt = (settings?.pool_format ?? comp.match_format) as MatchFormat;
-  const slotMin = poolFmt.capMinutes ?? 45;
+  const slotMin = poolFmt.capMinutes ?? DEFAULT_SLOT_MINUTES;
   const tz = comp.timezone ?? "America/Toronto";
   const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)
     ? startTime

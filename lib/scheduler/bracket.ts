@@ -256,3 +256,70 @@ export function bracketMatchCourt(
   const positionsInRound = size / 2 ** round; // r1: size/2, r2: size/4, …
   return position <= positionsInRound / 2 ? pair[0] : pair[1];
 }
+
+/** Stable key for a bracket slot — shared by assignBracketTimes and callers. */
+export function bracketSlotKey(
+  track: BracketTrack | null,
+  round: number,
+  position: number,
+): string {
+  return `${track ?? "single"}:${round}:${position}`;
+}
+
+export interface TimedBracketInput {
+  round: number;
+  position: number;
+  track: BracketTrack | null;
+  /** From bracketMatchCourt; null = the final (no per-court constraint). */
+  court: number | null;
+}
+
+/**
+ * Estimated start time (ms) for every bracket match, sequential per court and
+ * respecting round dependencies:
+ *  - Both tracks/courts start at `startMs` (after pool play).
+ *  - Within a court, matches run back-to-back (`courtFree` is global by court
+ *    number, so overlapping track courts queue correctly).
+ *  - A match can't start until BOTH its feeders finish: the feeders of (r, p)
+ *    are round r-1 positions 2p-1 and 2p (the inverse of bracketParent). A
+ *    bye-omitted/pre-filled feeder has no recorded end, so it floors at startMs
+ *    (the bye team is ready immediately).
+ * Rounds are processed ascending so every feeder is timed before its parent.
+ * Returned map is keyed by bracketSlotKey.
+ */
+export function assignBracketTimes(
+  matches: TimedBracketInput[],
+  startMs: number,
+  slotMs: number,
+): Map<string, number> {
+  const trackRank = (t: BracketTrack | null) => (t === "consolation" ? 1 : 0);
+  const ordered = [...matches].sort(
+    (a, b) =>
+      a.round - b.round ||
+      trackRank(a.track) - trackRank(b.track) ||
+      a.position - b.position,
+  );
+
+  const start = new Map<string, number>();
+  const end = new Map<string, number>();
+  const courtFree = new Map<number, number>();
+
+  for (const m of ordered) {
+    let dep = startMs;
+    if (m.round > 1) {
+      for (const fp of [2 * m.position - 1, 2 * m.position]) {
+        const e = end.get(bracketSlotKey(m.track, m.round - 1, fp));
+        if (e != null) dep = Math.max(dep, e);
+      }
+    }
+    const courtReady =
+      m.court != null ? (courtFree.get(m.court) ?? startMs) : startMs;
+    const s = Math.max(dep, courtReady);
+    const key = bracketSlotKey(m.track, m.round, m.position);
+    start.set(key, s);
+    end.set(key, s + slotMs);
+    if (m.court != null) courtFree.set(m.court, s + slotMs);
+  }
+
+  return start;
+}

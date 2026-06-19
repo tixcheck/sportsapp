@@ -120,7 +120,11 @@ export function TournamentTabs({
           brackets.map((b) => (
             <section key={b.track ?? "single"} className="space-y-3">
               {b.label && <SectionHead title={b.label} />}
-              <BracketTree bracket={b.view} myTeamIds={myTeamIds} />
+              <BracketTree
+                bracket={b.view}
+                myTeamIds={myTeamIds}
+                timezone={tournament.timezone}
+              />
             </section>
           ))
         ) : (
