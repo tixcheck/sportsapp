@@ -49,6 +49,11 @@ export async function createTournamentAction(
     zone: DEFAULT_TIMEZONE,
   }).toISO();
 
+  // TEMP DIAGNOSTIC (remove after): what uid does Postgres see on THIS exact
+  // client — the one doing the insert? If null while getUser() has a uid, the
+  // session JWT isn't reaching the DB connection.
+  const { data: dbUid, error: whoamiErr } = await supabase.rpc("whoami");
+
   const { data: tournament, error } = await supabase
     .from("competitions")
     .insert({
@@ -72,11 +77,11 @@ export async function createTournamentAction(
     .select("id")
     .single();
   if (error || !tournament) {
-    // TEMP DIAGNOSTIC (remove after): surface the exact uid the action sees and
-    // the org_id it tried to insert straight into the on-screen error, since the
-    // Vercel function logs are hard to find.
+    // TEMP DIAGNOSTIC (remove after): compare the Node-side session uid against
+    // the uid Postgres actually sees on the same client, surfaced on-screen.
+    const dbSeen = dbUid ?? (whoamiErr ? `err:${whoamiErr.message}` : "NULL");
     return {
-      error: `RLS failed — uid=${user.id ?? "NULL"} org_id=${orgId} :: ${error?.message ?? "no row returned"}`,
+      error: `getUser uid=${user.id ?? "NULL"} / DB auth.uid()=${dbSeen} / org_id=${orgId} :: ${error?.message ?? "no row returned"}`,
     };
   }
 
