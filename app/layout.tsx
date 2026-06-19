@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Libre_Franklin, Newsreader } from "next/font/google";
 import "./globals.css";
 
@@ -26,6 +26,11 @@ export const metadata: Metadata = {
   title: "Volleyball — leagues & tournaments",
   description:
     "A volleyball management app for organizers and players in Toronto.",
+};
+
+// Browser chrome (and PWA) color — warm paper, matching the app background.
+export const viewport: Viewport = {
+  themeColor: "#F1E9D9",
 };
 
 export default function RootLayout({
