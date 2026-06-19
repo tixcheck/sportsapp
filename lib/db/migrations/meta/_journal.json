@@ -162,6 +162,13 @@
       "when": 1781786431166,
       "tag": "0022_slippery_tempest",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1781837297987,
+      "tag": "0023_charming_vargas",
+      "breakpoints": true
     }
   ]
 }

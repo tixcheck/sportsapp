@@ -2,7 +2,7 @@
 
 import type { PoolsView, PublicTournament } from "@/lib/queries/tournaments";
 import type { StandingsGroup } from "@/lib/standings/compute";
-import type { BracketView } from "@/lib/queries/bracket";
+import type { BracketTrackView } from "@/lib/queries/bracket";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsGroups } from "@/components/standings/standings-table";
@@ -43,13 +43,13 @@ export function TournamentTabs({
   tournament,
   poolsView,
   standings,
-  bracket,
+  brackets,
   myTeamIds = [],
 }: {
   tournament: PublicTournament;
   poolsView: PoolsView | null;
   standings: StandingsGroup[];
-  bracket: BracketView | null;
+  brackets: BracketTrackView[];
   myTeamIds?: string[];
 }) {
   const multiDivision = tournament.divisions.length > 1;
@@ -115,13 +115,16 @@ export function TournamentTabs({
         )}
       </TabsContent>
 
-      <TabsContent value="brackets" className="mt-6">
-        {bracket ? (
-          <BracketTree bracket={bracket} myTeamIds={myTeamIds} />
+      <TabsContent value="brackets" className="mt-6 space-y-8">
+        {brackets.length > 0 ? (
+          brackets.map((b) => (
+            <section key={b.track ?? "single"} className="space-y-3">
+              {b.label && <SectionHead title={b.label} />}
+              <BracketTree bracket={b.view} myTeamIds={myTeamIds} />
+            </section>
+          ))
         ) : (
-          <Placeholder>
-            The single-elimination bracket appears after pool play.
-          </Placeholder>
+          <Placeholder>The bracket appears after pool play.</Placeholder>
         )}
       </TabsContent>
 

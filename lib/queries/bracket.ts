@@ -29,20 +29,53 @@ export interface BracketView {
   championName: string | null;
 }
 
-/** The bracket for a tournament, shaped for the visual tree (null if none). */
-export async function getBracket(
+export type BracketTrackKey = "championship" | "consolation" | null;
+
+export interface BracketTrackView {
+  /** Null = a single-elim bracket; otherwise the dual-format track. */
+  track: BracketTrackKey;
+  /** Heading to show ("Championship"/"Consolation"); null for single-elim. */
+  label: string | null;
+  view: BracketView;
+}
+
+type BracketMatchRow = {
+  id: string;
+  round: number | null;
+  bracket_position: number | null;
+  bracket_track: BracketTrackKey;
+  home_team_id: string | null;
+  away_team_id: string | null;
+  status: string;
+};
+
+const TRACK_ORDER: BracketTrackKey[] = ["championship", "consolation", null];
+const TRACK_LABEL: Record<string, string> = {
+  championship: "Championship",
+  consolation: "Consolation",
+};
+
+/**
+ * The bracket(s) for a tournament, shaped for the visual tree — one entry for a
+ * single-elim bracket, two for the Championship + Consolation format. Empty when
+ * none exists. Each track is seeded and crowned independently.
+ */
+export async function getBrackets(
   competitionId: string,
-): Promise<BracketView | null> {
+): Promise<BracketTrackView[]> {
   const supabase = await createClient();
 
-  const { data: matches } = await supabase
+  const { data: matchData } = await supabase
     .from("matches")
-    .select("id, round, bracket_position, home_team_id, away_team_id, status")
+    .select(
+      "id, round, bracket_position, bracket_track, home_team_id, away_team_id, status",
+    )
     .eq("competition_id", competitionId)
     .not("bracket_position", "is", null)
     .order("round", { ascending: true })
     .order("bracket_position", { ascending: true });
-  if (!matches || matches.length === 0) return null;
+  const matches = (matchData ?? []) as BracketMatchRow[];
+  if (matches.length === 0) return [];
 
   const matchIds = matches.map((m) => m.id);
   const teamIds = [
@@ -62,80 +95,95 @@ export async function getBracket(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
   );
 
-  // Seeds: rank the bracket teams by the same cross-pool order used to seed.
+  // Cross-pool seed order over the whole field; each track numbers its own teams
+  // 1..N along this order (so seeds reflect where teams ranked out of pools).
   const groups = await loadStandings(supabase, competitionId);
   const fullOrder = crossPoolSeedOrder(groups.map((g) => g.rows));
-  const bracketTeams = new Set(teamIds);
-  const seedByTeam = new Map<string, number>();
-  let seedNo = 0;
-  for (const id of fullOrder) {
-    if (bracketTeams.has(id)) seedByTeam.set(id, ++seedNo);
-  }
 
-  // Set wins per match.
   const tallies = new Map<string, { home: number; away: number }>();
+  const setsByMatch = new Map<string, { home: number; away: number }[]>();
   for (const s of sets ?? []) {
     const t = tallies.get(s.match_id) ?? { home: 0, away: 0 };
     if (s.home_score > s.away_score) t.home += 1;
     else if (s.away_score > s.home_score) t.away += 1;
     tallies.set(s.match_id, t);
-  }
-  const setsByMatch = new Map<string, { home: number; away: number }[]>();
-  for (const s of sets ?? []) {
     const list = setsByMatch.get(s.match_id) ?? [];
     list.push({ home: s.home_score, away: s.away_score });
     setsByMatch.set(s.match_id, list);
   }
 
-  const entry = (id: string | null): BracketEntryView | null =>
-    id
-      ? {
-          teamId: id,
-          name: teamName.get(id) ?? "—",
-          seed: seedByTeam.get(id) ?? null,
-        }
-      : null;
+  const buildView = (trackMatches: BracketMatchRow[]): BracketView => {
+    const trackTeams = new Set(
+      trackMatches
+        .flatMap((m) => [m.home_team_id, m.away_team_id])
+        .filter(Boolean) as string[],
+    );
+    const seedByTeam = new Map<string, number>();
+    let seedNo = 0;
+    for (const id of fullOrder) {
+      if (trackTeams.has(id)) seedByTeam.set(id, ++seedNo);
+    }
 
-  const views: BracketMatchView[] = matches.map((m) => {
-    const tally = tallies.get(m.id);
-    const winner =
-      m.home_team_id && m.away_team_id
-        ? matchWinner({
-            homeTeamId: m.home_team_id,
-            awayTeamId: m.away_team_id,
-            sets: setsByMatch.get(m.id) ?? [],
-          })
+    const entry = (id: string | null): BracketEntryView | null =>
+      id
+        ? {
+            teamId: id,
+            name: teamName.get(id) ?? "—",
+            seed: seedByTeam.get(id) ?? null,
+          }
+        : null;
+
+    const views: BracketMatchView[] = trackMatches.map((m) => {
+      const tally = tallies.get(m.id);
+      const winner =
+        m.home_team_id && m.away_team_id
+          ? matchWinner({
+              homeTeamId: m.home_team_id,
+              awayTeamId: m.away_team_id,
+              sets: setsByMatch.get(m.id) ?? [],
+            })
+          : null;
+      return {
+        id: m.id,
+        round: m.round as number,
+        position: m.bracket_position as number,
+        home: entry(m.home_team_id),
+        away: entry(m.away_team_id),
+        homeScore: tally ? tally.home : null,
+        awayScore: tally ? tally.away : null,
+        winnerTeamId: m.status === "completed" ? winner : null,
+        status: m.status,
+      };
+    });
+
+    const maxRound = Math.max(...views.map((v) => v.round));
+    const rounds: BracketMatchView[][] = [];
+    for (let r = 1; r <= maxRound; r++) {
+      rounds.push(views.filter((v) => v.round === r));
+    }
+    const finalMatch = views.find((v) => v.round === maxRound);
+    const championTeamId =
+      finalMatch && finalMatch.status === "completed"
+        ? finalMatch.winnerTeamId
         : null;
     return {
-      id: m.id,
-      round: m.round as number,
-      position: m.bracket_position as number,
-      home: entry(m.home_team_id),
-      away: entry(m.away_team_id),
-      homeScore: tally ? tally.home : null,
-      awayScore: tally ? tally.away : null,
-      winnerTeamId: m.status === "completed" ? winner : null,
-      status: m.status,
+      rounds,
+      championTeamId,
+      championName: championTeamId
+        ? (teamName.get(championTeamId) ?? null)
+        : null,
     };
-  });
-
-  const maxRound = Math.max(...views.map((v) => v.round));
-  const rounds: BracketMatchView[][] = [];
-  for (let r = 1; r <= maxRound; r++) {
-    rounds.push(views.filter((v) => v.round === r));
-  }
-
-  const finalMatch = views.find((v) => v.round === maxRound);
-  const championTeamId =
-    finalMatch && finalMatch.status === "completed"
-      ? finalMatch.winnerTeamId
-      : null;
-
-  return {
-    rounds,
-    championTeamId,
-    championName: championTeamId
-      ? (teamName.get(championTeamId) ?? null)
-      : null,
   };
+
+  const out: BracketTrackView[] = [];
+  for (const track of TRACK_ORDER) {
+    const trackMatches = matches.filter((m) => m.bracket_track === track);
+    if (trackMatches.length === 0) continue;
+    out.push({
+      track,
+      label: track ? TRACK_LABEL[track] : null,
+      view: buildView(trackMatches),
+    });
+  }
+  return out;
 }

@@ -79,7 +79,9 @@ export function GenerateBracketPanel({
       return;
     }
     startTransition(async () => {
-      const res = await generateBracketAction(competitionId, order);
+      const res = await generateBracketAction(competitionId, {
+        championship: order,
+      });
       if ("error" in res) {
         toast.error(res.error);
         return;

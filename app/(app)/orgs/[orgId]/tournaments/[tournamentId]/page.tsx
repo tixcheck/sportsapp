@@ -5,7 +5,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
-import { getBracket } from "@/lib/queries/bracket";
+import { getBrackets } from "@/lib/queries/bracket";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
 import { SPORTS } from "@/lib/formats";
@@ -35,11 +35,11 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const [origin, poolsView, standings, bracket, rosters] = await Promise.all([
+  const [origin, poolsView, standings, brackets, rosters] = await Promise.all([
     getOrigin(),
     getPoolsView(tournamentId),
     getStandings(tournamentId),
-    getBracket(tournamentId),
+    getBrackets(tournamentId),
     getTeamRosters(tournamentId),
   ]);
   const poolMatches = poolsView?.schedule ?? [];
@@ -183,10 +183,19 @@ export default async function TournamentPage({
             <GenerateBracketPanel
               competitionId={t.id}
               pools={standings}
-              hasBracket={!!bracket}
+              hasBracket={brackets.length > 0}
               poolPlayComplete={poolPlayComplete}
             />
-            {bracket && <BracketTree bracket={bracket} />}
+            {brackets.map((b) => (
+              <div key={b.track ?? "single"} className="space-y-3">
+                {b.label && (
+                  <h4 className="font-display text-lg font-semibold">
+                    {b.label}
+                  </h4>
+                )}
+                <BracketTree bracket={b.view} />
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

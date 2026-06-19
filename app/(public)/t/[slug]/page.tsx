@@ -6,7 +6,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 
 import { getPoolsView, getPublicTournament } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
-import { getBracket } from "@/lib/queries/bracket";
+import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds } from "@/lib/queries/access";
 import { getUser } from "@/lib/auth/user";
 import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
@@ -41,10 +41,10 @@ export default async function PublicTournamentPage({
     getUser(),
   ]);
   if (!tournament) notFound();
-  const [poolsView, standings, bracket, myTeamIds] = await Promise.all([
+  const [poolsView, standings, brackets, myTeamIds] = await Promise.all([
     getPoolsView(tournament.id),
     getStandings(tournament.id),
-    getBracket(tournament.id),
+    getBrackets(tournament.id),
     getMyTeamIds(tournament.id),
   ]);
 
@@ -123,7 +123,7 @@ export default async function PublicTournamentPage({
           tournament={tournament}
           poolsView={poolsView}
           standings={standings}
-          bracket={bracket}
+          brackets={brackets}
           myTeamIds={myTeamIds}
         />
       </main>

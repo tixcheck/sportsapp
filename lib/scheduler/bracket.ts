@@ -110,6 +110,41 @@ export interface PersistBracketMatch {
   awayTeamId: TeamId | null;
 }
 
+/** A bracket tree. Null = single-elim (back-compat); the two-track formats tag. */
+export type BracketTrack = "championship" | "consolation";
+
+export interface TrackedBracketMatch extends PersistBracketMatch {
+  track: BracketTrack | null;
+}
+
+/**
+ * Flatten one or two bracket tracks into the matches to persist. Each track
+ * reuses seededBracketMatches() verbatim (independent round/position numbering),
+ * tagged with its track. Omitting `consolation` ⇒ a single bracket, left
+ * untagged (track = null) so existing single-elim behaviour is unchanged.
+ */
+export function dualBracketMatches(payload: {
+  championship: TeamId[];
+  consolation?: TeamId[];
+}): TrackedBracketMatch[] {
+  const hasConso = (payload.consolation?.length ?? 0) > 0;
+  const champTrack: BracketTrack | null = hasConso ? "championship" : null;
+
+  const out: TrackedBracketMatch[] = seededBracketMatches(
+    payload.championship,
+  ).map((m) => ({ ...m, track: champTrack }));
+
+  if (hasConso) {
+    out.push(
+      ...seededBracketMatches(payload.consolation!).map((m) => ({
+        ...m,
+        track: "consolation" as const,
+      })),
+    );
+  }
+  return out;
+}
+
 /**
  * The parent (next-round) match a winner advances into. Pairing (2k-1, 2k) feed
  * parent k; the odd slot takes the home side, the even slot the away side. The

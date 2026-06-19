@@ -107,6 +107,13 @@ export const competitionVisibility = pgEnum("competition_visibility", [
 
 export const bracketType = pgEnum("bracket_type", ["single_elim", "none"]);
 
+// Which tree a bracket match belongs to (v1 dual brackets). Null = a single-elim
+// bracket (the back-compat default); two-track tournaments tag each match.
+export const bracketTrack = pgEnum("bracket_track", [
+  "championship",
+  "consolation",
+]);
+
 export const matchStatus = pgEnum("match_status", [
   "scheduled",
   "in_progress",
@@ -371,8 +378,12 @@ export const matches = pgTable(
     }),
     // League-only: the round-robin round number.
     round: integer("round"),
-    // Tournament-only: slot in the single-elim bracket.
+    // Tournament-only: slot in the bracket. Identity within a bracket is
+    // (bracket_track, round, bracket_position).
     bracketPosition: integer("bracket_position"),
+    // Which tree this bracket match is in (v1). Null for pool/league matches and
+    // for a single-elim bracket; set for Championship/Consolation tracks.
+    bracketTrack: bracketTrack("bracket_track"),
     // Nullable so a bracket match can exist before its teams are decided
     // ("winner of match X"). set null keeps the slot if a team is removed.
     homeTeamId: uuid("home_team_id").references(() => teams.id, {

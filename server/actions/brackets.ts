@@ -3,21 +3,28 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { seededBracketMatches } from "@/lib/scheduler/bracket";
+import { dualBracketMatches } from "@/lib/scheduler/bracket";
 
 type ActionError = { error: string };
 
+/** Seed lists per track. Omitting `consolation` ⇒ a single (untagged) bracket. */
+export interface BracketSeeds {
+  championship: string[];
+  consolation?: string[];
+}
+
 /**
- * Generate (or regenerate) the single-elimination bracket from an explicit
- * seed order. The organizer's panel computes the default seeding via
- * selectAdvancers and may reorder it (coin-flip ties), so the final order is
- * passed in verbatim. Byes are resolved into round 2 by seededBracketMatches;
- * bracket matches carry no pool_id, so they use the competition's standard
- * format. Regenerating discards the existing bracket.
+ * Generate (or regenerate) the bracket(s) from explicit seed orders. The
+ * organizer's panel computes the default seeding via selectAdvancers and may
+ * reorder it (coin-flip ties), so each track's order is passed in verbatim.
+ * One list ⇒ a single-elim bracket (track null, unchanged behaviour); two lists
+ * ⇒ independent Championship + Consolation trees. Byes are resolved into round 2
+ * by seededBracketMatches; bracket matches carry no pool_id, so they use the
+ * competition's standard format. Regenerating discards every existing bracket.
  */
 export async function generateBracketAction(
   competitionId: string,
-  seededTeamIds: string[],
+  seeds: BracketSeeds,
 ): Promise<ActionError | { matchCount: number }> {
   const supabase = await createClient();
   const {
@@ -32,23 +39,32 @@ export async function generateBracketAction(
     return { error: "Only the organizer can generate the bracket." };
   }
 
-  if (!Array.isArray(seededTeamIds) || seededTeamIds.length < 2) {
+  const championship = seeds.championship ?? [];
+  const consolation = seeds.consolation ?? [];
+  if (championship.length < 2) {
     return { error: "At least 2 teams must advance to make a bracket." };
   }
-  if (new Set(seededTeamIds).size !== seededTeamIds.length) {
-    return { error: "A team can't advance more than once." };
+  if (consolation.length === 1) {
+    return { error: "A consolation bracket needs at least 2 teams." };
+  }
+  const all = [...championship, ...consolation];
+  if (new Set(all).size !== all.length) {
+    return { error: "A team can't appear in more than one bracket slot." };
   }
   const { data: teams } = await supabase
     .from("teams")
     .select("id")
     .eq("competition_id", competitionId)
-    .in("id", seededTeamIds);
+    .in("id", all);
   const valid = new Set((teams ?? []).map((t) => t.id));
-  if (seededTeamIds.some((id) => !valid.has(id))) {
+  if (all.some((id) => !valid.has(id))) {
     return { error: "Some advancing teams aren't in this competition." };
   }
 
-  const matches = seededBracketMatches(seededTeamIds);
+  const matches = dualBracketMatches({
+    championship,
+    consolation: consolation.length ? consolation : undefined,
+  });
   if (matches.length === 0) return { error: "Not enough teams for a bracket." };
 
   const { error: del } = await supabase
@@ -62,6 +78,7 @@ export async function generateBracketAction(
     competition_id: competitionId,
     round: m.round,
     bracket_position: m.position,
+    bracket_track: m.track,
     home_team_id: m.homeTeamId,
     away_team_id: m.awayTeamId,
     status: "scheduled" as const,
