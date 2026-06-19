@@ -6,7 +6,10 @@ import { competitionPath } from "@/lib/queries/dashboard";
 import { cn } from "@/lib/utils";
 import { MyMatchCard } from "@/components/scoring/my-match-card";
 import { ScheduleView } from "@/components/schedule/schedule-view";
-import { StandingsTable } from "@/components/standings/standings-table";
+import {
+  StandingsTable,
+  StandingsLegend,
+} from "@/components/standings/standings-table";
 import {
   Card,
   CardContent,
@@ -124,7 +127,13 @@ export default async function TeamPage({
         </CardHeader>
         <CardContent>
           {standingsGroup ? (
-            <StandingsTable rows={standingsGroup.rows} myTeamIds={[team.id]} />
+            <div className="space-y-3">
+              <StandingsTable
+                rows={standingsGroup.rows}
+                myTeamIds={[team.id]}
+              />
+              <StandingsLegend />
+            </div>
           ) : (
             <p className="text-muted-foreground text-sm">
               Standings appear once scores come in.

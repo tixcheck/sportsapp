@@ -3,7 +3,10 @@
 import type { PublicLeague } from "@/lib/queries/leagues";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import { ScheduleView } from "@/components/schedule/schedule-view";
-import { StandingsTable } from "@/components/standings/standings-table";
+import {
+  StandingsTable,
+  StandingsLegend,
+} from "@/components/standings/standings-table";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -67,8 +70,9 @@ export function LeagueTabs({
         )}
       </TabsContent>
 
-      <TabsContent value="standings" className="mt-6">
+      <TabsContent value="standings" className="mt-6 space-y-3">
         <StandingsTable rows={standings[0]?.rows ?? []} myTeamIds={myTeamIds} />
+        {(standings[0]?.rows.length ?? 0) > 0 && <StandingsLegend />}
       </TabsContent>
     </Tabs>
   );

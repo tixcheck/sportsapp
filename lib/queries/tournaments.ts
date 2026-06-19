@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { MatchFormat } from "@/lib/db/schema";
 import type { Sport } from "@/lib/formats";
 import type { FormatTemplate } from "@/lib/tournament-formats";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
@@ -41,7 +42,12 @@ export interface TournamentDetail {
   venue: string | null;
   timezone: string;
   poolSize: number;
+  courts: number;
   formatTemplate: FormatTemplate;
+  /** Pool-play match format (2-set round-robin when bestOf is even). */
+  poolFormat: MatchFormat;
+  /** Bracket / base match format. */
+  matchFormat: MatchFormat;
   registrationDeadline: string | null;
   scoring: {
     allowCaptainEntry: boolean;
@@ -105,7 +111,7 @@ export async function getTournamentDetail(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", tournamentId)
     .eq("type", "tournament")
@@ -114,7 +120,9 @@ export async function getTournamentDetail(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("pool_size, format_template, registration_deadline")
+    .select(
+      "pool_size, courts, pool_format, format_template, registration_deadline",
+    )
     .eq("competition_id", tournamentId)
     .single();
 
@@ -153,7 +161,10 @@ export async function getTournamentDetail(
     venue: t.venue,
     timezone: t.timezone,
     poolSize: settings?.pool_size ?? 4,
+    courts: settings?.courts ?? 1,
     formatTemplate: (settings?.format_template ?? "single") as FormatTemplate,
+    poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,
+    matchFormat: t.match_format as MatchFormat,
     registrationDeadline: settings?.registration_deadline ?? null,
     scoring: {
       allowCaptainEntry: t.allow_captain_entry,

@@ -14,7 +14,8 @@ import {
 } from "@/server/actions/organizers";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
-import { SPORTS } from "@/lib/formats";
+import { SPORTS, describeFormat } from "@/lib/formats";
+import { tournamentFormat } from "@/lib/tournament-formats";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
@@ -74,6 +75,25 @@ export default async function TournamentPage({
     : null;
   const divisionName = new Map(t.divisions.map((d) => [d.id, d.name]));
 
+  const structure = tournamentFormat(t.formatTemplate);
+  const twoSetRoundRobin = t.poolFormat.bestOf % 2 === 0;
+  const setupItems: { label: string; value: string }[] = [
+    { label: "Structure", value: structure.label },
+    {
+      label: "Pool play",
+      value: twoSetRoundRobin
+        ? `${describeFormat(t.poolFormat)} — 2-set round-robin (1–1 ties allowed)`
+        : `${describeFormat(t.poolFormat)} round-robin`,
+    },
+    { label: "Bracket games", value: describeFormat(t.matchFormat) },
+    { label: "Pool size", value: `${t.poolSize} teams per pool` },
+    { label: "Courts", value: `${t.courts}` },
+    {
+      label: "Divisions",
+      value: t.divisions.map((d) => d.name).join(", ") || "—",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -117,6 +137,26 @@ export default async function TournamentPage({
           {deadlineText && <span>Registration closes {deadlineText}</span>}
         </p>
       </div>
+
+      {/* Format & setup — what the organizer chose at creation */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Format &amp; setup</CardTitle>
+          <CardDescription>{structure.description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+            {setupItems.map((it) => (
+              <div key={it.label} className="flex flex-col">
+                <dt className="text-ink-2 text-[0.66rem] font-bold tracking-[0.1em] uppercase">
+                  {it.label}
+                </dt>
+                <dd className="text-ink mt-0.5">{it.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
 
       {/* Pools */}
       <Card>

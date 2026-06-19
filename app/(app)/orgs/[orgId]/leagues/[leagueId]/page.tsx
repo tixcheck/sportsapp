@@ -17,7 +17,10 @@ import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
-import { StandingsTable } from "@/components/standings/standings-table";
+import {
+  StandingsTable,
+  StandingsLegend,
+} from "@/components/standings/standings-table";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
@@ -128,8 +131,9 @@ export default async function LeaguePage({
             Live from confirmed scores — the OVA tiebreaker order.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <StandingsTable rows={standings[0]?.rows ?? []} />
+          {(standings[0]?.rows.length ?? 0) > 0 && <StandingsLegend />}
         </CardContent>
       </Card>
 

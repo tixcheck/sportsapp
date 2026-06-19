@@ -139,6 +139,26 @@ export function StandingsTable({
 }
 
 /**
+ * The ranking-rules note + column legend. Mirrors the OVA hierarchy in
+ * lib/scheduler/tiebreakers.ts — keep the order here in sync with it.
+ */
+export function StandingsLegend({ className }: { className?: string }) {
+  return (
+    <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
+      <p>
+        <span className="font-semibold">How rankings are calculated:</span> by
+        matches won (a tied 2-set game counts as ½ a win), then head-to-head
+        among tied teams, then set ratio (SW / SL), then point ratio (PF / PA).
+      </p>
+      <p className="text-ink-3">
+        MW/ML matches won/lost · T tied · SW/SL sets · PF/PA points · Ratio = SW
+        / SL
+      </p>
+    </div>
+  );
+}
+
+/**
  * Render standings grouped by pool/division (tournament) — each group gets a
  * heading. A division heading is shown only when more than one division exists.
  */
@@ -173,6 +193,7 @@ export function StandingsGroups({
           <StandingsTable rows={g.rows} myTeamIds={myTeamIds} />
         </section>
       ))}
+      <StandingsLegend />
     </div>
   );
 }

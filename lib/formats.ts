@@ -119,3 +119,21 @@ export function defaultPoolPreset(sport: Sport): FormatPreset {
 export function findPreset(sport: Sport, id: string): FormatPreset {
   return FORMAT_PRESETS[sport].find((p) => p.id === id) ?? defaultPreset(sport);
 }
+
+/**
+ * A human-readable one-liner for a stored match format, e.g.
+ * "Best of 3 (25/25/15), capped 60'" or "2 sets to 21". An even `bestOf` is a
+ * fixed-set game (2-set round-robin); `bestOf: 1` is a single set.
+ */
+export function describeFormat(f: MatchFormat): string {
+  const pts = f.setsToPoints;
+  const same = pts.every((p) => p === pts[0]);
+  const ptsText = same ? `to ${pts[0]}` : `(${pts.join("/")})`;
+  const base =
+    f.bestOf === 1
+      ? `Single set to ${pts[0]}`
+      : f.bestOf % 2 === 0
+        ? `${f.bestOf} sets ${ptsText}`
+        : `Best of ${f.bestOf} ${ptsText}`;
+  return f.capMinutes ? `${base}, capped ${f.capMinutes}'` : base;
+}
