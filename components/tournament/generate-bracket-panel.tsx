@@ -154,6 +154,12 @@ export function GenerateBracketPanel({
   );
   const totalTeams = poolRows.reduce((s, p) => s + p.length, 0);
   const maxPerPool = poolRows.reduce((m, p) => Math.max(m, p.length), 0);
+  // Signature of the live ranking (team order across pools). When scores shift
+  // the standings, this changes and the seed preview re-seeds — so it tracks
+  // the current ranking, not a mount-time snapshot.
+  const rankingKey = poolRows
+    .map((p) => p.map((r) => r.teamId).join(","))
+    .join("|");
 
   const isDual = formatTemplate === "champ_consolation";
 
@@ -165,7 +171,7 @@ export function GenerateBracketPanel({
   useEffect(() => {
     if (!isDual) setOrder(selectAdvancers(poolRows, mode, Math.min(n, nMax)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, n, totalTeams, isDual]);
+  }, [mode, n, totalTeams, isDual, rankingKey]);
 
   // --- dual brackets: overall ranking split into Championship + Consolation --
   const defaultSplit = tournamentFormat("champ_consolation").split!;
@@ -184,7 +190,7 @@ export function GenerateBracketPanel({
     setChampOrder(championship);
     setConsoOrder(consolation);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [champSize, consoSize, totalTeams, isDual]);
+  }, [champSize, consoSize, totalTeams, isDual, rankingKey]);
 
   const ties = isDual
     ? []
