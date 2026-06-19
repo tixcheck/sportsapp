@@ -225,6 +225,13 @@
       "when": 1781847719388,
       "tag": "0031_list_competition_admins",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1781887436447,
+      "tag": "0032_fix_competitions_select_returning",
+      "breakpoints": true
     }
   ]
 }
