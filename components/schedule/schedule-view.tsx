@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { DateTime } from "luxon";
-import { CalendarDays, List, SquarePen } from "lucide-react";
+import { CalendarDays, List, MapPin, SquarePen } from "lucide-react";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
@@ -60,6 +60,36 @@ function groupByDate(matches: ScheduleMatch[], tz: string): Group[] {
     }));
 }
 
+/** Sort by trailing court number ("Court 2" < "Court 10"); TBD courts last. */
+function courtRank(court: string): number {
+  if (court === "tbd") return Number.MAX_SAFE_INTEGER;
+  const m = court.match(/\d+/);
+  return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER - 1;
+}
+
+function startMillis(m: ScheduleMatch): number {
+  return m.scheduledAt ? DateTime.fromISO(m.scheduledAt).toMillis() : Infinity;
+}
+
+/** Admin-only: group by court, ordered by start time within each court. */
+function groupByCourt(matches: ScheduleMatch[]): Group[] {
+  const map = new Map<string, ScheduleMatch[]>();
+  for (const m of matches) {
+    const key = m.court ?? "tbd";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(m);
+  }
+  return [...map.entries()]
+    .sort(
+      (a, b) => courtRank(a[0]) - courtRank(b[0]) || a[0].localeCompare(b[0]),
+    )
+    .map(([court, ms]) => ({
+      key: `court:${court}`,
+      heading: court === "tbd" ? "Court TBD" : court,
+      matches: [...ms].sort((x, y) => startMillis(x) - startMillis(y)),
+    }));
+}
+
 export function ScheduleView({
   matches,
   timezone,
@@ -71,7 +101,7 @@ export function ScheduleView({
   editable?: boolean;
   myTeamIds?: string[];
 }) {
-  const [view, setView] = useState<"list" | "agenda">("list");
+  const [view, setView] = useState<"list" | "agenda" | "court">("list");
   const [mineOnly, setMineOnly] = useState(false);
   const canFilterMine = myTeamIds.length > 0;
 
@@ -93,9 +123,11 @@ export function ScheduleView({
       : matches;
 
   const groups =
-    view === "list"
-      ? groupByRound(shown, timezone)
-      : groupByDate(shown, timezone);
+    view === "court"
+      ? groupByCourt(shown)
+      : view === "list"
+        ? groupByRound(shown, timezone)
+        : groupByDate(shown, timezone);
 
   return (
     <div className="space-y-5">
@@ -115,6 +147,15 @@ export function ScheduleView({
             <CalendarDays className="size-4" />
             By date
           </ToggleButton>
+          {editable && (
+            <ToggleButton
+              active={view === "court"}
+              onClick={() => setView("court")}
+            >
+              <MapPin className="size-4" />
+              By court
+            </ToggleButton>
+          )}
         </div>
         {canFilterMine && (
           <button
