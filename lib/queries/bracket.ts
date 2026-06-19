@@ -1,6 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { loadStandings } from "@/lib/standings/compute";
-import { crossPoolSeedOrder, matchWinner } from "@/lib/scheduler/tiebreakers";
+import {
+  advancementCutoffTies,
+  crossPoolSeedOrder,
+  matchWinner,
+} from "@/lib/scheduler/tiebreakers";
+import {
+  bracketSeedTracks,
+  projectBracket,
+} from "@/lib/scheduler/bracket-project";
+import {
+  tournamentFormat,
+  type FormatTemplate,
+} from "@/lib/tournament-formats";
 
 export interface BracketEntryView {
   teamId: string;
@@ -193,4 +205,88 @@ export async function getBrackets(
     });
   }
   return out;
+}
+
+// --- live preview (before the bracket is generated) ------------------------
+
+export interface BracketPreviewTeam {
+  teamId: string;
+  teamName: string;
+  track: BracketTrackKey;
+  seed: number;
+  /** Round-1 opponent name; null = a bye into round 2. */
+  opponentName: string | null;
+}
+
+export interface BracketPreview {
+  template: FormatTemplate;
+  /** Always true — it's a projection from current standings, not the real draw. */
+  provisional: true;
+  /** Every pool match is finished (the projection is then near-final). */
+  poolsComplete: boolean;
+  /** Teams are tied across the advancement cutoff (seeding is ambiguous). */
+  tiedAtCutoff: boolean;
+  teams: BracketPreviewTeam[];
+}
+
+/**
+ * Projected bracket from the live standings — "if pools ended now". Uses the
+ * shared bracketSeedTracks + projectBracket (the same seeding/pairing the real
+ * generation uses), with the format's default advancement. Null when there are
+ * no standings yet. Does not read or write any bracket rows.
+ */
+export async function getBracketPreview(
+  competitionId: string,
+): Promise<BracketPreview | null> {
+  const supabase = await createClient();
+
+  const groups = await loadStandings(supabase, competitionId);
+  if (groups.length === 0) return null;
+
+  const { data: settings } = await supabase
+    .from("tournament_settings")
+    .select("format_template")
+    .eq("competition_id", competitionId)
+    .maybeSingle();
+  const template = (settings?.format_template ?? "single") as FormatTemplate;
+
+  const pools = groups.map((g) => g.rows);
+  const projection = projectBracket(bracketSeedTracks(pools, template));
+
+  const nameById = new Map(
+    groups.flatMap((g) => g.rows.map((r) => [r.teamId, r.teamName] as const)),
+  );
+
+  const { data: poolMatches } = await supabase
+    .from("matches")
+    .select("status")
+    .eq("competition_id", competitionId)
+    .not("pool_id", "is", null);
+  const poolsComplete =
+    (poolMatches?.length ?? 0) > 0 &&
+    (poolMatches ?? []).every((m) => m.status === "completed");
+
+  // Ambiguous seeding at the advancement boundary (a coin-flip-level tie).
+  const tiedAtCutoff =
+    template === "champ_consolation"
+      ? advancementCutoffTies(
+          pools,
+          "overall",
+          tournamentFormat("champ_consolation").split!.championship,
+        ).length > 0
+      : advancementCutoffTies(pools, "perPool", 2).length > 0;
+
+  const teams: BracketPreviewTeam[] = [...projection.byTeam.values()].map(
+    (p) => ({
+      teamId: p.teamId,
+      teamName: nameById.get(p.teamId) ?? "—",
+      track: p.track,
+      seed: p.seed,
+      opponentName: p.opponentTeamId
+        ? (nameById.get(p.opponentTeamId) ?? "—")
+        : null,
+    }),
+  );
+
+  return { template, provisional: true, poolsComplete, tiedAtCutoff, teams };
 }

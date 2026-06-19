@@ -9,11 +9,9 @@ import { generateBracketAction } from "@/server/actions/brackets";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import {
   advancementCutoffTies,
-  crossPoolSeedOrder,
-  selectAdvancers,
   type AdvancementMode,
 } from "@/lib/scheduler/tiebreakers";
-import { splitSeeds } from "@/lib/scheduler/bracket";
+import { bracketSeedTracks } from "@/lib/scheduler/bracket-project";
 import {
   tournamentFormat,
   type FormatTemplate,
@@ -214,7 +212,11 @@ export function GenerateBracketPanel({
   const [order, setOrder] = useState<string[]>([]);
   const nMax = mode === "perPool" ? Math.max(1, maxPerPool) : totalTeams;
   useEffect(() => {
-    if (!isDual) setOrder(selectAdvancers(poolRows, mode, Math.min(n, nMax)));
+    if (!isDual)
+      setOrder(
+        bracketSeedTracks(poolRows, "single", { mode, n: Math.min(n, nMax) })
+          .championship,
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, n, totalTeams, isDual, rankingKey]);
 
@@ -231,11 +233,10 @@ export function GenerateBracketPanel({
   const [consoCourts, setConsoCourts] = useState<[number, number]>([3, 4]);
   useEffect(() => {
     if (!isDual) return;
-    const fullOrder = crossPoolSeedOrder(poolRows);
-    const { championship, consolation } = splitSeeds(
-      fullOrder,
-      champSize,
-      consoSize,
+    const { championship, consolation } = bracketSeedTracks(
+      poolRows,
+      "champ_consolation",
+      { championship: champSize, consolation: consoSize },
     );
     setChampOrder(championship);
     setConsoOrder(consolation);
