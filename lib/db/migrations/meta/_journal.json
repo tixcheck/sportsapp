@@ -211,6 +211,13 @@
       "when": 1781845492614,
       "tag": "0029_co_organizers",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1781846044333,
+      "tag": "0030_coorg_view_gate",
+      "breakpoints": true
     }
   ]
 }
