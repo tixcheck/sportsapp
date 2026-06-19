@@ -37,9 +37,6 @@ export async function createTournamentAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "You must be signed in." };
 
-  // TEMP DIAGNOSTIC (remove after): the uid + org the competitions RLS will see.
-  console.log(`[diag] createTournament uid=${user.id} org_id=${orgId}`);
-
   const base = slugify(v.name);
   const { data: existing } = await supabase
     .from("competitions")
@@ -75,11 +72,12 @@ export async function createTournamentAction(
     .select("id")
     .single();
   if (error || !tournament) {
-    // TEMP DIAGNOSTIC (remove after): full insert failure context.
-    console.error(
-      `[diag] createTournament INSERT failed uid=${user.id} org_id=${orgId} code=${error?.code} msg=${error?.message}`,
-    );
-    return { error: error?.message ?? "Could not create tournament." };
+    // TEMP DIAGNOSTIC (remove after): surface the exact uid the action sees and
+    // the org_id it tried to insert straight into the on-screen error, since the
+    // Vercel function logs are hard to find.
+    return {
+      error: `RLS failed — uid=${user.id ?? "NULL"} org_id=${orgId} :: ${error?.message ?? "no row returned"}`,
+    };
   }
 
   const { error: settingsError } = await supabase
