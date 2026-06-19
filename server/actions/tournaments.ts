@@ -49,64 +49,43 @@ export async function createTournamentAction(
     zone: DEFAULT_TIMEZONE,
   }).toISO();
 
-  // TEMP DIAGNOSTIC (remove after): what uid does Postgres see on THIS exact
-  // client — the one doing the insert? If null while getUser() has a uid, the
-  // session JWT isn't reaching the DB connection.
-  const { data: dbUid, error: whoamiErr } = await supabase.rpc("whoami");
-  // And does is_org_admin return true on that same connection? If true while the
-  // insert still fails, the rejection isn't the permissive INSERT with_check.
-  const { data: dbIsAdmin, error: adminErr } = await supabase.rpc(
-    "debug_is_org_admin",
-    { _org_id: orgId },
-  );
-  // The check AND the insert in ONE function body / connection. If is_org_admin
-  // is true here but INSERT_ERR still fires, it's genuine policy evaluation at
-  // insert time; if this says INSERT=OK while the normal path fails, it's the
-  // transaction pooler splitting the rpc and the insert across connections.
-  const { data: dbCreate, error: createErr } = await supabase.rpc(
-    "debug_create_comp",
-    { _org_id: orgId },
-  );
-
-  const { data: tournament, error } = await supabase
-    .from("competitions")
-    .insert({
-      org_id: orgId,
-      slug,
-      name: v.name,
-      type: "tournament",
-      sport: v.sport,
-      status: "draft",
-      start_date: v.startDate,
-      end_date: v.endDate,
-      venue: v.venue || null,
-      timezone: DEFAULT_TIMEZONE,
-      match_format: preset.format,
-      visibility: "private",
-      allow_captain_entry: v.allowCaptainEntry,
-      allow_ref_entry: v.allowRefEntry,
-      allow_organizer_entry: v.allowOrganizerEntry,
-      require_confirmation: v.requireConfirmation,
-    })
-    .select("id")
-    .single();
-  if (error || !tournament) {
-    // TEMP DIAGNOSTIC (remove after): compare the Node-side session uid against
-    // the uid Postgres actually sees on the same client, surfaced on-screen.
-    const dbSeen = dbUid ?? (whoamiErr ? `err:${whoamiErr.message}` : "NULL");
-    const adminSeen =
-      dbIsAdmin ?? (adminErr ? `err:${adminErr.message}` : "NULL");
-    const createSeen =
-      dbCreate ?? (createErr ? `err:${createErr.message}` : "NULL");
+  // DIAGNOSTIC / likely fix: pre-generate the id and insert WITHOUT .select(),
+  // so this is a bare INSERT (no RETURNING). The probes proved the INSERT
+  // WITH CHECK passes (one-conn INSERT=OK with this exact org_id). The failure
+  // shows up only with .select() => INSERT ... RETURNING, which ALSO requires
+  // the new row to pass the SELECT (USING) policy. A fresh private/draft row
+  // failing the SELECT policy is reported as "new row violates RLS". If this
+  // bare insert succeeds, can_view_competition is the real culprit.
+  const newCompId = crypto.randomUUID();
+  const { error } = await supabase.from("competitions").insert({
+    id: newCompId,
+    org_id: orgId,
+    slug,
+    name: v.name,
+    type: "tournament",
+    sport: v.sport,
+    status: "draft",
+    start_date: v.startDate,
+    end_date: v.endDate,
+    venue: v.venue || null,
+    timezone: DEFAULT_TIMEZONE,
+    match_format: preset.format,
+    visibility: "private",
+    allow_captain_entry: v.allowCaptainEntry,
+    allow_ref_entry: v.allowRefEntry,
+    allow_organizer_entry: v.allowOrganizerEntry,
+    require_confirmation: v.requireConfirmation,
+  });
+  if (error) {
     return {
-      error: `getUser uid=${user.id ?? "NULL"} / DB auth.uid()=${dbSeen} / is_org_admin=${adminSeen} / org_id=${orgId} / one-conn[${createSeen}] :: ${error?.message ?? "no row returned"}`,
+      error: `bare INSERT (no .select) org_id=${orgId} :: ${error.message}`,
     };
   }
 
   const { error: settingsError } = await supabase
     .from("tournament_settings")
     .insert({
-      competition_id: tournament.id,
+      competition_id: newCompId,
       pool_size: v.poolSize,
       courts: v.courts,
       // Pool play uses the chosen RR format; the bracket keeps the standard
@@ -122,7 +101,7 @@ export async function createTournamentAction(
 
   const { error: divError } = await supabase.from("divisions").insert(
     v.divisions.map((d, i) => ({
-      competition_id: tournament.id,
+      competition_id: newCompId,
       name: d.name,
       tier_order: i,
     })),
@@ -130,7 +109,7 @@ export async function createTournamentAction(
   if (divError) return { error: divError.message };
 
   revalidatePath(`/orgs/${orgId}`);
-  redirect(`/orgs/${orgId}/tournaments/${tournament.id}`);
+  redirect(`/orgs/${orgId}/tournaments/${newCompId}`);
 }
 
 export async function registerTeamAction(
