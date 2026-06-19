@@ -26,14 +26,9 @@ export async function Navbar() {
     <header className="border-border bg-card/80 sticky top-0 z-40 border-b backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
         <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="font-display text-foreground flex items-center gap-2 font-semibold tracking-tight"
-          >
-            <span className="bg-primary text-primary-foreground grid size-6 place-items-center rounded-md text-xs">
-              V
-            </span>
-            <span className="hidden sm:inline">Volleyball</span>
+          <Link href="/dashboard" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
+            <img src="/logo.png" alt="MySportsApp" className="h-7 w-auto" />
           </Link>
           <OrgSwitcher orgs={orgs} currentOrgId={currentOrgId} />
         </div>

@@ -40,14 +40,9 @@ export default async function PublicLeaguePage({
     <div className="bg-background min-h-svh">
       <header className="border-border bg-surface border-b">
         <div className="mx-auto max-w-4xl px-4 py-8">
-          <Link
-            href="/"
-            className="text-muted-foreground inline-flex items-center gap-2 text-sm font-medium"
-          >
-            <span className="bg-primary text-primary-foreground grid size-5 place-items-center rounded-md text-xs">
-              V
-            </span>
-            Volleyball
+          <Link href="/" className="inline-flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
+            <img src="/logo.png" alt="MySportsApp" className="h-6 w-auto" />
           </Link>
           <p className="text-primary mt-5 text-xs font-semibold tracking-wide uppercase">
             {sportLabel} league

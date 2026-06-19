@@ -8,14 +8,9 @@ export default function AuthLayout({
   return (
     <div className="bg-background flex min-h-svh flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-        <Link
-          href="/"
-          className="font-display text-foreground mb-8 flex items-center justify-center gap-2 text-lg font-semibold tracking-tight"
-        >
-          <span className="bg-primary text-primary-foreground grid size-7 place-items-center rounded-lg text-sm">
-            V
-          </span>
-          Volleyball
+        <Link href="/" className="mb-8 flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
+          <img src="/logo.png" alt="MySportsApp" className="h-9 w-auto" />
         </Link>
         {children}
       </div>
