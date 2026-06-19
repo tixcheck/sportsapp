@@ -623,7 +623,7 @@ export function GeneratePoolsPanel({
         </div>
 
         {v.warnings.length > 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-amber-700">
+          <p className="text-ink-2 flex items-center gap-1.5 text-xs">
             <TriangleAlert className="size-3.5" />
             {v.warnings[0]}
           </p>
@@ -779,7 +779,7 @@ export function GeneratePoolsPanel({
         </div>
 
         {v.warnings.length > 0 && p.unassigned.length === 0 && (
-          <p className="flex items-center gap-1.5 text-xs text-amber-700">
+          <p className="text-ink-2 flex items-center gap-1.5 text-xs">
             <TriangleAlert className="size-3.5" />
             {v.warnings[0]}
           </p>

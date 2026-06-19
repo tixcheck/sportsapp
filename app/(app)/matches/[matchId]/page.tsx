@@ -47,7 +47,7 @@ export default async function MatchEntryPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {match.isAdmin && match.isAbnormal && (
-            <span className="bg-loss/10 text-loss inline-block rounded-full px-2.5 py-0.5 text-xs font-medium">
+            <span className="bg-claret-tint text-claret-deep inline-block rounded-[4px] px-2.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
               Abnormal result
             </span>
           )}

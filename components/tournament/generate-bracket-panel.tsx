@@ -101,7 +101,7 @@ export function GenerateBracketPanel({
   return (
     <div className="space-y-4">
       {!poolPlayComplete && (
-        <p className="flex items-center gap-1.5 text-xs text-amber-700">
+        <p className="text-ink-2 flex items-center gap-1.5 text-xs">
           <TriangleAlert className="size-3.5" />
           Pool play isn&apos;t finished — seeds may change as remaining results
           come in.
@@ -170,7 +170,7 @@ export function GenerateBracketPanel({
       </div>
 
       {tieNames && (
-        <p className="flex items-start gap-1.5 text-xs text-amber-700">
+        <p className="text-ink-2 flex items-start gap-1.5 text-xs">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
           Tied at the cutoff: {tieNames}. Order is a fallback — drag with the
           arrows to enter a coin-flip result before generating.
@@ -187,7 +187,7 @@ export function GenerateBracketPanel({
         <ol className="divide-border border-border divide-y rounded-lg border">
           {order.map((id, i) => (
             <li key={id} className="flex items-center gap-3 px-3 py-2 text-sm">
-              <span className="text-coral-700 w-5 text-right font-semibold tabular-nums">
+              <span className="font-display text-claret w-5 text-right text-base font-semibold tabular-nums">
                 {i + 1}
               </span>
               <span className="flex-1 truncate font-medium">

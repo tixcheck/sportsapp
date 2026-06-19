@@ -21,7 +21,7 @@ const STATE_PILL: Record<
   none: { label: "Scheduled", className: "bg-muted text-muted-foreground" },
   pending: {
     label: "Needs confirmation",
-    className: "bg-gold-300/40 text-coral-900",
+    className: "bg-claret-tint text-claret-deep",
   },
   disputed: {
     label: "Disputed",

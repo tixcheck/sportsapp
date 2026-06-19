@@ -68,7 +68,7 @@ function ScoreInput({
       onChange={(e) => onChange(e.target.value.replace(/\D/g, "").slice(0, 3))}
       className={cn(
         "border-border bg-surface focus-visible:ring-ring h-12 w-16 rounded-lg border text-center text-2xl tabular-nums focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50",
-        emphasize ? "text-win font-semibold" : "text-foreground",
+        emphasize ? "text-claret font-semibold" : "text-foreground",
       )}
     />
   );
@@ -203,7 +203,7 @@ export function ScoreEntryForm({
                   Set {i + 1} · to {target}
                 </p>
                 {isRecorded && (
-                  <span className="text-win inline-flex items-center gap-1 text-xs font-medium">
+                  <span className="text-ink-2 inline-flex items-center gap-1 text-xs font-medium">
                     <Check className="size-3.5" />
                     Recorded
                   </span>
@@ -236,10 +236,10 @@ export function ScoreEntryForm({
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="text-xs">
                   {s.note?.type === "reject" && (
-                    <span className="text-loss">{s.note.message}</span>
+                    <span className="text-claret">{s.note.message}</span>
                   )}
                   {s.note?.type === "warn" && (
-                    <span className="flex items-center gap-1 text-amber-700">
+                    <span className="text-ink-2 flex items-center gap-1">
                       <TriangleAlert className="size-3.5" />
                       {s.note.message}
                     </span>
@@ -265,8 +265,8 @@ export function ScoreEntryForm({
           <span
             className={cn(
               decision.homeSetsWon > decision.awaySetsWon
-                ? "text-win font-semibold"
-                : "text-loss",
+                ? "text-claret font-semibold"
+                : "text-ink-3",
             )}
           >
             {homeTeamName}
@@ -277,8 +277,8 @@ export function ScoreEntryForm({
           <span
             className={cn(
               decision.awaySetsWon > decision.homeSetsWon
-                ? "text-win font-semibold"
-                : "text-loss",
+                ? "text-claret font-semibold"
+                : "text-ink-3",
             )}
           >
             {awayTeamName}
@@ -311,7 +311,7 @@ export function ScoreEntryForm({
               <Button
                 type="button"
                 variant="outline"
-                className="border-loss/40 text-loss w-full"
+                className="border-claret/40 text-claret w-full"
               >
                 Record abnormal result (e.g. abandoned/injury)
               </Button>

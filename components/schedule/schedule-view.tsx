@@ -159,7 +159,7 @@ export function ScheduleView({
                       {m.homeTeamId && m.awayTeamId && (
                         <Link
                           href={`/matches/${m.id}`}
-                          className="text-coral-700 inline-flex items-center gap-1 font-medium hover:underline"
+                          className="text-claret inline-flex items-center gap-1 font-medium hover:underline"
                         >
                           <SquarePen className="size-3.5" />
                           {m.status === "completed"

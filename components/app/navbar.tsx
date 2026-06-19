@@ -45,7 +45,7 @@ export async function Navbar() {
             >
               Admin
               {pendingRequests > 0 && (
-                <span className="bg-coral-600 absolute -top-2 -right-3 grid size-4 place-items-center rounded-full text-[10px] font-semibold text-white tabular-nums">
+                <span className="bg-claret absolute -top-2 -right-3 grid size-4 place-items-center rounded-full text-[10px] font-semibold text-white tabular-nums">
                   {pendingRequests}
                 </span>
               )}

@@ -76,7 +76,7 @@ export default async function TeamPage({
                     {playing.map((m) => (
                       <div key={m.id} className="space-y-1">
                         {m.id === nextId && (
-                          <span className="text-coral-700 text-xs font-semibold">
+                          <span className="text-claret text-xs font-semibold tracking-wide uppercase">
                             Next up
                           </span>
                         )}

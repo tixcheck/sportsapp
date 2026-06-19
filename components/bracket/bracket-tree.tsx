@@ -46,8 +46,8 @@ function TeamRow({
       {entry && myTeamIds.includes(entry.teamId) && <MyTeamBadge />}
       <span
         className={cn(
-          "w-5 text-right tabular-nums",
-          isWinner ? "text-coral-700" : "text-muted-foreground",
+          "font-display w-5 text-right tabular-nums",
+          isWinner ? "text-claret font-semibold" : "text-ink-3",
         )}
       >
         {score ?? ""}
@@ -69,12 +69,12 @@ export function BracketTree({
   return (
     <div className="space-y-4">
       {bracket.championName && (
-        <div className="border-gold-300 bg-gold-300/20 flex items-center gap-2 rounded-lg border px-4 py-3">
-          <Trophy className="text-coral-700 size-5" />
-          <span className="font-display font-semibold">
+        <div className="border-claret/30 bg-claret-tint flex items-center gap-2 rounded-lg border px-4 py-3">
+          <Trophy className="text-claret size-5" />
+          <span className="font-display text-claret-deep text-lg font-semibold">
             {bracket.championName}
           </span>
-          <span className="text-muted-foreground text-sm">— Champions</span>
+          <span className="text-ink-2 text-sm">— Champions</span>
         </div>
       )}
 

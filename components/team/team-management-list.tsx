@@ -267,10 +267,10 @@ export function TeamManagementList({
                   className={cn(
                     "rounded-full px-2.5 py-0.5 text-xs font-medium",
                     withdrawn
-                      ? "bg-gold-300/40 text-coral-900"
+                      ? "bg-paper-sunken text-ink-2"
                       : team.claimed
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-muted text-muted-foreground",
+                        ? "bg-claret-tint text-claret-deep"
+                        : "bg-paper-sunken text-ink-2",
                   )}
                 >
                   {withdrawn

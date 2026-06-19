@@ -72,7 +72,7 @@ export function MatchCard({
         <div className="shrink-0 text-right">
           <StatusPill status={match.status} />
           {showAbnormal && match.isAbnormal && (
-            <span className="bg-loss/10 text-loss mt-1 block rounded-full px-2 py-0.5 text-[10px] font-medium">
+            <span className="bg-claret-tint text-claret-deep mt-1 block rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
               Abnormal
             </span>
           )}
