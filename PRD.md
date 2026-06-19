@@ -261,6 +261,17 @@ This lets us represent any volleyball match format without hardcoding.
 - Algorithm: standard seeding (1 vs 16, 8 vs 9, etc.)
 - v0 supports single elimination only. Double elim and consolation brackets are v1.
 
+> **v1 (in progress): Championship + Consolation brackets, pulled forward.** A
+> tournament can now run two single-elim tracks — pools rank all teams, the top
+> N seed a Championship bracket and the next M a Consolation bracket (organizer
+> sets both sizes, reorders the seed preview, then generates). Stored as a
+> selectable format template at creation (`tournament_settings.format_template`)
+> + `matches.bracket_track`. **Drop a game:** an organizer may flag a pool as
+> `needs_drop`; each team in it excludes one game (`teams.dropped_match_id`)
+> from **its own** standings only — the dropped result still counts in full for
+> the opponent. The exclusion is implemented per-team in `lib/scheduler/tiebreakers.ts`
+> (so it flows through the OVA tiebreakers and bracket seeding unchanged).
+
 ### Implementation requirement
 All scheduling algorithms must be **pure functions** in `lib/scheduler/`. No DB access. Take inputs, return outputs. This makes them trivially testable and reusable.
 

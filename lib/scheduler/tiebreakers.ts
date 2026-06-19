@@ -22,12 +22,30 @@ export interface SetScore {
 }
 
 export interface MatchResult {
+  /** Match identity — only needed to apply per-team drops (see DroppedByTeam). */
+  matchId?: string;
   homeTeamId: TeamId;
   awayTeamId: TeamId;
   /** Set scores in order. Empty is allowed (e.g. an unplayed forfeit). */
   sets: SetScore[];
   /** If set, this team forfeited; the opponent is awarded the match win. */
   forfeitedBy?: TeamId | null;
+}
+
+/**
+ * The "drop a game" rule (v1): a team → the one match id it excludes from ITS
+ * OWN record. The dropped match still counts for the opponent — exclusion is
+ * strictly per-team. Absent/empty ⇒ every game counts (the default).
+ */
+export type DroppedByTeam = ReadonlyMap<TeamId, string>;
+
+/** Whether `teamId` drops match `m` from its own tally. */
+function isDropped(
+  droppedByTeam: DroppedByTeam | undefined,
+  teamId: TeamId,
+  m: MatchResult,
+): boolean {
+  return m.matchId != null && droppedByTeam?.get(teamId) === m.matchId;
 }
 
 export interface TeamStats {
@@ -114,6 +132,7 @@ function ratio(num: number, den: number): number {
 export function computeStats(
   teamIds: TeamId[],
   matches: MatchResult[],
+  droppedByTeam?: DroppedByTeam,
 ): Map<TeamId, TeamStats> {
   const stats = new Map<TeamId, TeamStats>();
   for (const id of teamIds) {
@@ -135,23 +154,32 @@ export function computeStats(
     const away = stats.get(match.awayTeamId);
     if (!home || !away) continue;
 
+    // A dropped match contributes nothing to the dropping side, but is tallied
+    // normally for the opponent — exclusion is per-team, not per-match.
+    const homeOut = isDropped(droppedByTeam, match.homeTeamId, match);
+    const awayOut = isDropped(droppedByTeam, match.awayTeamId, match);
+
     const { homeSets, awaySets, homePoints, awayPoints } = tally(match);
-    home.sw += homeSets;
-    home.sl += awaySets;
-    home.pf += homePoints;
-    home.pa += awayPoints;
-    away.sw += awaySets;
-    away.sl += homeSets;
-    away.pf += awayPoints;
-    away.pa += homePoints;
+    if (!homeOut) {
+      home.sw += homeSets;
+      home.sl += awaySets;
+      home.pf += homePoints;
+      home.pa += awayPoints;
+    }
+    if (!awayOut) {
+      away.sw += awaySets;
+      away.sl += homeSets;
+      away.pf += awayPoints;
+      away.pa += homePoints;
+    }
 
     const winner = matchWinner(match);
     if (winner === match.homeTeamId) {
-      home.mw += 1;
-      away.ml += 1;
+      if (!homeOut) home.mw += 1;
+      if (!awayOut) away.ml += 1;
     } else if (winner === match.awayTeamId) {
-      away.mw += 1;
-      home.ml += 1;
+      if (!awayOut) away.mw += 1;
+      if (!homeOut) home.ml += 1;
     }
   }
 
@@ -169,6 +197,7 @@ export function computeStats(
 export function headToHeadTable(
   teamIds: TeamId[],
   matches: MatchResult[],
+  droppedByTeam?: DroppedByTeam,
 ): HeadToHeadEntry[] {
   const subset = new Set(teamIds);
   const wins = new Map<TeamId, number>(teamIds.map((id) => [id, 0]));
@@ -177,10 +206,17 @@ export function headToHeadTable(
   for (const match of matches) {
     if (!subset.has(match.homeTeamId) || !subset.has(match.awayTeamId))
       continue;
-    played.set(match.homeTeamId, played.get(match.homeTeamId)! + 1);
-    played.set(match.awayTeamId, played.get(match.awayTeamId)! + 1);
+    // Same per-team rule as computeStats: a dropped game isn't counted for the
+    // dropping side (not even here), but remains the opponent's win/played.
+    const homeOut = isDropped(droppedByTeam, match.homeTeamId, match);
+    const awayOut = isDropped(droppedByTeam, match.awayTeamId, match);
+    if (!homeOut)
+      played.set(match.homeTeamId, played.get(match.homeTeamId)! + 1);
+    if (!awayOut)
+      played.set(match.awayTeamId, played.get(match.awayTeamId)! + 1);
     const winner = matchWinner(match);
-    if (winner) wins.set(winner, wins.get(winner)! + 1);
+    if (winner && !isDropped(droppedByTeam, winner, match))
+      wins.set(winner, wins.get(winner)! + 1);
   }
 
   return teamIds.map((id) => {
@@ -216,10 +252,14 @@ function valuerFor(
   group: TeamId[],
   stats: Map<TeamId, TeamStats>,
   matches: MatchResult[],
+  droppedByTeam?: DroppedByTeam,
 ): (id: TeamId) => number {
   if (step === 2) {
     const table = new Map(
-      headToHeadTable(group, matches).map((e) => [e.teamId, e.ratio]),
+      headToHeadTable(group, matches, droppedByTeam).map((e) => [
+        e.teamId,
+        e.ratio,
+      ]),
     );
     return (id) => table.get(id)!;
   }
@@ -236,15 +276,22 @@ function resolveGroup(
   fromStep: TiebreakerStep,
   stats: Map<TeamId, TeamStats>,
   matches: MatchResult[],
+  droppedByTeam?: DroppedByTeam,
 ): Ranked[] {
   if (group.length === 1) {
-    const value = valuerFor(fromStep, group, stats, matches)(group[0]);
+    const value = valuerFor(
+      fromStep,
+      group,
+      stats,
+      matches,
+      droppedByTeam,
+    )(group[0]);
     return [{ teamId: group[0], step: fromStep, value, tiedWith: [group[0]] }];
   }
 
   for (let s = fromStep; s <= 4; s++) {
     const step = s as TiebreakerStep;
-    const valueOf = valuerFor(step, group, stats, matches);
+    const valueOf = valuerFor(step, group, stats, matches, droppedByTeam);
     const sorted = [...group].sort((a, b) =>
       compareDesc(valueOf(a), valueOf(b)),
     );
@@ -272,7 +319,13 @@ function resolveGroup(
           });
         } else {
           out.push(
-            ...resolveGroup(b.teams, (s + 1) as TiebreakerStep, stats, matches),
+            ...resolveGroup(
+              b.teams,
+              (s + 1) as TiebreakerStep,
+              stats,
+              matches,
+              droppedByTeam,
+            ),
           );
         }
       }
@@ -316,9 +369,10 @@ function explain(step: TiebreakerStep, value: number, s: TeamStats): string {
 export function rankStandings(
   teamIds: TeamId[],
   matches: MatchResult[],
+  droppedByTeam?: DroppedByTeam,
 ): StandingRow[] {
-  const stats = computeStats(teamIds, matches);
-  const ranked = resolveGroup(teamIds, 1, stats, matches);
+  const stats = computeStats(teamIds, matches, droppedByTeam);
+  const ranked = resolveGroup(teamIds, 1, stats, matches, droppedByTeam);
 
   return ranked.map((r, i) => {
     const s = stats.get(r.teamId)!;

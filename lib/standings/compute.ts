@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   headToHeadTable,
   rankStandings,
+  type DroppedByTeam,
   type MatchResult,
   type StandingRow,
 } from "@/lib/scheduler/tiebreakers";
@@ -56,6 +57,7 @@ function buildExplainer(
   ranked: StandingRow[],
   results: MatchResult[],
   teamName: Map<string, string>,
+  droppedByTeam: DroppedByTeam,
 ): TiebreakerExplainer {
   const tied = new Set(row.tiedWith);
   const ordered = ranked.filter((r) => tied.has(r.teamId)); // finishing order
@@ -80,7 +82,10 @@ function buildExplainer(
       };
     case 2: {
       const h2h = new Map(
-        headToHeadTable([...tied], results).map((e) => [e.teamId, e]),
+        headToHeadTable([...tied], results, droppedByTeam).map((e) => [
+          e.teamId,
+          e,
+        ]),
       );
       return {
         step: 2,
@@ -133,6 +138,7 @@ type TeamRow = {
   status: string;
   pool_id: string | null;
   division_id: string | null;
+  dropped_match_id: string | null;
 };
 type MatchRow = {
   id: string;
@@ -166,7 +172,7 @@ export async function loadStandings(
 
   const { data: teamsData } = await supabase
     .from("teams")
-    .select("id, name, status, pool_id, division_id")
+    .select("id, name, status, pool_id, division_id, dropped_match_id")
     .eq("competition_id", competitionId);
   const teams = (teamsData ?? []) as TeamRow[];
   if (teams.length === 0) return [];
@@ -203,6 +209,7 @@ export async function loadStandings(
   const toResult = (m: MatchRow): MatchResult | null =>
     m.home_team_id && m.away_team_id
       ? {
+          matchId: m.id,
           homeTeamId: m.home_team_id,
           awayTeamId: m.away_team_id,
           sets: setsByMatch.get(m.id) ?? [],
@@ -213,16 +220,24 @@ export async function loadStandings(
   const isWithdrawn = new Map(
     teams.map((t) => [t.id, t.status === "withdrawn"]),
   );
+  // The "drop a game" rule (v1): team → the one match it excludes from its own
+  // standings. Only set on teams in a needs_drop pool; honored wherever a team's
+  // record is tallied (rankStandings + the tiebreaker explainer).
+  const droppedByTeam: DroppedByTeam = new Map(
+    teams
+      .filter((t) => t.dropped_match_id)
+      .map((t) => [t.id, t.dropped_match_id as string]),
+  );
   const rank = (
     teamIds: string[],
     results: MatchResult[],
   ): StandingsRowView[] => {
-    const ranked = rankStandings(teamIds, results);
+    const ranked = rankStandings(teamIds, results, droppedByTeam);
     return ranked.map((r) => ({
       ...r,
       teamName: teamName.get(r.teamId) ?? "—",
       withdrawn: isWithdrawn.get(r.teamId) ?? false,
-      explainer: buildExplainer(r, ranked, results, teamName),
+      explainer: buildExplainer(r, ranked, results, teamName, droppedByTeam),
     }));
   };
 

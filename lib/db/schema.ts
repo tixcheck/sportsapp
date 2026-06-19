@@ -12,6 +12,7 @@
 //   sync trigger are wired in Phase 2 (auth).
 
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
@@ -288,6 +289,10 @@ export const pools = pgTable(
     // Per-pool format override (e.g. a short pool runs to 15/11); null = use the
     // competition's standard match_format. Resolved via resolveMatchFormat().
     matchFormat: jsonb("match_format").$type<MatchFormat>(),
+    // Manual organizer flag (v1 "drop a game"): on a flagged pool each team
+    // excludes one game from ITS OWN standings — the result still counts for the
+    // opponent. Set at seeding; unflagged pools count every game.
+    needsDrop: boolean("needs_drop").notNull().default(false),
   },
   (t) => [index("pools_competition_id_idx").on(t.competitionId)],
 );
@@ -314,6 +319,14 @@ export const teams = pgTable(
     captainUserId: uuid("captain_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    // The one pool game this team drops from ITS OWN standings (v1 "drop a
+    // game"; only meaningful when the team's pool has needs_drop). The result
+    // still counts for the opponent. Cleared if the match is deleted.
+    // Explicit return type breaks the teams<->matches FK inference cycle.
+    droppedMatchId: uuid("dropped_match_id").references(
+      (): AnyPgColumn => matches.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
