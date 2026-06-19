@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { render } from "@react-email/components";
 import type { ReactElement } from "react";
 
 import { InviteEmail } from "./templates/invite";
@@ -42,13 +43,20 @@ async function dispatch(opts: {
   );
   if (!key) return { sent: false, reason: "RESEND_API_KEY not set" };
   try {
+    // Render to HTML/text ourselves: resend treats @react-email/render as an
+    // optional peer and can't resolve it at runtime, so we never pass `react`.
+    const [html, text] = await Promise.all([
+      render(opts.react),
+      render(opts.react, { plainText: true }),
+    ]);
     const resend = new Resend(key);
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: opts.to,
       replyTo: opts.replyTo,
       subject: opts.subject,
-      react: opts.react,
+      html,
+      text,
     });
     if (error) {
       console.error("[email] resend returned error:", JSON.stringify(error));
