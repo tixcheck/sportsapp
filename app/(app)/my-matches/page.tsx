@@ -1,10 +1,53 @@
-import { getMyMatches } from "@/lib/queries/my-matches";
+import {
+  getMyMatches,
+  getMyPlayoffProjections,
+  type MyMatch,
+} from "@/lib/queries/my-matches";
 import { MyMatchCard } from "@/components/scoring/my-match-card";
+import { PotentialPlayoffCard } from "@/components/tournament/potential-playoff-card";
+
+function timeMs(m: MyMatch): number {
+  return m.scheduledAt
+    ? new Date(m.scheduledAt).getTime()
+    : Number.MAX_SAFE_INTEGER;
+}
+
+/** Earliest start first (unscheduled last), then round. */
+const byTime = (a: MyMatch, b: MyMatch) =>
+  timeMs(a) - timeMs(b) || (a.round ?? 0) - (b.round ?? 0);
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        {title}
+      </p>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
 
 export default async function MyMatchesPage() {
-  const matches = await getMyMatches();
-  const upNext = matches.find((m) => m.state !== "final");
+  const [matches, projections] = await Promise.all([
+    getMyMatches(),
+    getMyPlayoffProjections(),
+  ]);
+
+  // Up Next: the earliest non-final match the viewer can still act on.
+  const upNext = [...matches.filter((m) => m.state !== "final")].sort(
+    byTime,
+  )[0];
   const rest = matches.filter((m) => m.id !== upNext?.id);
+  // Each section is time-sorted within itself (no more pool/playoff interleaving).
+  const pool = rest.filter((m) => m.phase === "pool").sort(byTime);
+  const bracket = rest.filter((m) => m.phase === "bracket").sort(byTime);
+  const hasPlayoff = bracket.length > 0 || projections.length > 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -12,7 +55,7 @@ export default async function MyMatchesPage() {
         My matches
       </h1>
 
-      {matches.length === 0 ? (
+      {matches.length === 0 && projections.length === 0 ? (
         <div className="border-border bg-surface text-muted-foreground rounded-lg border p-10 text-center text-sm">
           No matches yet. When you captain a team — or your team is assigned to
           ref — your matches show up here.
@@ -20,24 +63,28 @@ export default async function MyMatchesPage() {
       ) : (
         <>
           {upNext && (
-            <section className="space-y-2">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                Up next
-              </p>
+            <Section title="Up next">
               <MyMatchCard match={upNext} />
-            </section>
+            </Section>
           )}
-          {rest.length > 0 && (
-            <section className="space-y-3">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                All matches
-              </p>
-              <div className="space-y-3">
-                {rest.map((m) => (
-                  <MyMatchCard key={m.id} match={m} />
-                ))}
-              </div>
-            </section>
+
+          {pool.length > 0 && (
+            <Section title="Round robin">
+              {pool.map((m) => (
+                <MyMatchCard key={m.id} match={m} />
+              ))}
+            </Section>
+          )}
+
+          {hasPlayoff && (
+            <Section title="Playoff bracket">
+              {bracket.map((m) => (
+                <MyMatchCard key={m.id} match={m} />
+              ))}
+              {projections.map((p) => (
+                <PotentialPlayoffCard key={p.teamId} projection={p} />
+              ))}
+            </Section>
           )}
         </>
       )}

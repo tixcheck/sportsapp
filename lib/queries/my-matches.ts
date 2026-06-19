@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
+import { getBracketPreview } from "@/lib/queries/bracket";
 import type { MatchFormat } from "@/lib/db/schema";
 
 export type ConfirmationState = "none" | "pending" | "disputed" | "final";
@@ -25,6 +26,8 @@ export interface MyMatch {
   status: string;
   state: ConfirmationState;
   role: "play" | "ref";
+  /** Pool (round-robin) vs bracket (playoff) — drives the my-matches sections. */
+  phase: "pool" | "bracket";
   canEnter: boolean;
   canConfirm: boolean;
 }
@@ -69,7 +72,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, round, court, scheduled_at, status, home_team_id, away_team_id, ref_team_id, pool_id",
+      "id, competition_id, round, court, scheduled_at, status, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position",
     )
     .or(ors.join(","));
   if (!matches || matches.length === 0) return [];
@@ -208,6 +211,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       status: m.status,
       state,
       role: isCaptainPlaying ? "play" : "ref",
+      phase: m.bracket_position != null ? "bracket" : "pool",
       canEnter,
       canConfirm,
     };
@@ -371,4 +375,101 @@ export async function getMatchForEntry(
     isAdmin,
     isAbnormal: m.is_abnormal === true,
   };
+}
+
+// --- playoff projections (my-matches "Potential Playoff" cards) -------------
+
+export interface PlayoffProjection {
+  competitionId: string;
+  competitionName: string;
+  teamId: string;
+  teamName: string;
+  /** Null for a single-elim bracket. */
+  track: "championship" | "consolation" | null;
+  seed: number;
+  /** Round-1 opponent; null = a bye (or, when madeBracket is false, no matchup). */
+  opponentName: string | null;
+  /** False when the team currently sits outside the advancement cutoff. */
+  madeBracket: boolean;
+  poolsComplete: boolean;
+  tiedAtCutoff: boolean;
+}
+
+/**
+ * For each of the viewer's teams in a tournament where pools are drawn but no
+ * bracket exists yet, project where they'd land if pools ended now — reusing
+ * getBracketPreview (the shared engine). Empty once the bracket is generated
+ * (the real matches then show via getMyMatches).
+ */
+export async function getMyPlayoffProjections(): Promise<PlayoffProjection[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const [{ data: captainTeams }, { data: memberTeams }] = await Promise.all([
+    supabase.from("teams").select("id").eq("captain_user_id", user.id),
+    supabase.from("team_members").select("team_id").eq("user_id", user.id),
+  ]);
+  const myTeamIds = new Set<string>([
+    ...(captainTeams ?? []).map((t) => t.id as string),
+    ...(memberTeams ?? []).map((m) => m.team_id as string),
+  ]);
+  if (myTeamIds.size === 0) return [];
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, competition_id")
+    .in("id", [...myTeamIds]);
+  if (!teams || teams.length === 0) return [];
+
+  const compIds = [...new Set(teams.map((t) => t.competition_id))];
+  const { data: comps } = await supabase
+    .from("competitions")
+    .select("id, name")
+    .in("id", compIds)
+    .eq("type", "tournament");
+  const compName = new Map(
+    (comps ?? []).map((c) => [c.id as string, c.name as string]),
+  );
+  if (compName.size === 0) return [];
+
+  const out: PlayoffProjection[] = [];
+  for (const compId of compName.keys()) {
+    // Skip competitions whose bracket is already generated (real matches show
+    // via getMyMatches), and those without pools drawn (nothing to project yet).
+    const [{ data: bracket }, { data: pools }] = await Promise.all([
+      supabase
+        .from("matches")
+        .select("id")
+        .eq("competition_id", compId)
+        .not("bracket_position", "is", null)
+        .limit(1),
+      supabase.from("pools").select("id").eq("competition_id", compId).limit(1),
+    ]);
+    if (bracket && bracket.length) continue;
+    if (!pools || pools.length === 0) continue;
+
+    const preview = await getBracketPreview(compId);
+    if (!preview) continue;
+
+    const byTeam = new Map(preview.teams.map((t) => [t.teamId, t]));
+    for (const t of teams.filter((x) => x.competition_id === compId)) {
+      const p = byTeam.get(t.id);
+      out.push({
+        competitionId: compId,
+        competitionName: compName.get(compId) ?? "Tournament",
+        teamId: t.id,
+        teamName: t.name,
+        track: p?.track ?? null,
+        seed: p?.seed ?? 0,
+        opponentName: p?.opponentName ?? null,
+        madeBracket: !!p,
+        poolsComplete: preview.poolsComplete,
+        tiedAtCutoff: preview.tiedAtCutoff,
+      });
+    }
+  }
+  return out;
 }
