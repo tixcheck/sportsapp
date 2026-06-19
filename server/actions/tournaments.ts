@@ -49,43 +49,36 @@ export async function createTournamentAction(
     zone: DEFAULT_TIMEZONE,
   }).toISO();
 
-  // DIAGNOSTIC / likely fix: pre-generate the id and insert WITHOUT .select(),
-  // so this is a bare INSERT (no RETURNING). The probes proved the INSERT
-  // WITH CHECK passes (one-conn INSERT=OK with this exact org_id). The failure
-  // shows up only with .select() => INSERT ... RETURNING, which ALSO requires
-  // the new row to pass the SELECT (USING) policy. A fresh private/draft row
-  // failing the SELECT policy is reported as "new row violates RLS". If this
-  // bare insert succeeds, can_view_competition is the real culprit.
-  const newCompId = crypto.randomUUID();
-  const { error } = await supabase.from("competitions").insert({
-    id: newCompId,
-    org_id: orgId,
-    slug,
-    name: v.name,
-    type: "tournament",
-    sport: v.sport,
-    status: "draft",
-    start_date: v.startDate,
-    end_date: v.endDate,
-    venue: v.venue || null,
-    timezone: DEFAULT_TIMEZONE,
-    match_format: preset.format,
-    visibility: "private",
-    allow_captain_entry: v.allowCaptainEntry,
-    allow_ref_entry: v.allowRefEntry,
-    allow_organizer_entry: v.allowOrganizerEntry,
-    require_confirmation: v.requireConfirmation,
-  });
-  if (error) {
-    return {
-      error: `bare INSERT (no .select) org_id=${orgId} :: ${error.message}`,
-    };
+  const { data: tournament, error } = await supabase
+    .from("competitions")
+    .insert({
+      org_id: orgId,
+      slug,
+      name: v.name,
+      type: "tournament",
+      sport: v.sport,
+      status: "draft",
+      start_date: v.startDate,
+      end_date: v.endDate,
+      venue: v.venue || null,
+      timezone: DEFAULT_TIMEZONE,
+      match_format: preset.format,
+      visibility: "private",
+      allow_captain_entry: v.allowCaptainEntry,
+      allow_ref_entry: v.allowRefEntry,
+      allow_organizer_entry: v.allowOrganizerEntry,
+      require_confirmation: v.requireConfirmation,
+    })
+    .select("id")
+    .single();
+  if (error || !tournament) {
+    return { error: error?.message ?? "Could not create tournament." };
   }
 
   const { error: settingsError } = await supabase
     .from("tournament_settings")
     .insert({
-      competition_id: newCompId,
+      competition_id: tournament.id,
       pool_size: v.poolSize,
       courts: v.courts,
       // Pool play uses the chosen RR format; the bracket keeps the standard
@@ -101,7 +94,7 @@ export async function createTournamentAction(
 
   const { error: divError } = await supabase.from("divisions").insert(
     v.divisions.map((d, i) => ({
-      competition_id: newCompId,
+      competition_id: tournament.id,
       name: d.name,
       tier_order: i,
     })),
@@ -109,7 +102,7 @@ export async function createTournamentAction(
   if (divError) return { error: divError.message };
 
   revalidatePath(`/orgs/${orgId}`);
-  redirect(`/orgs/${orgId}/tournaments/${newCompId}`);
+  redirect(`/orgs/${orgId}/tournaments/${tournament.id}`);
 }
 
 export async function registerTeamAction(
