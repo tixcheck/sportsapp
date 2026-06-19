@@ -226,14 +226,6 @@ export function detectCourtTimeCollisions(
 
 // --- organizer-controlled pool structure (Slice A) -------------------------
 
-/** The suggested reduced format for non-standard pools: sets to 15, tiebreak 11. */
-export const SHORT_POOL_FORMAT: MatchFormat = {
-  bestOf: 3,
-  setsToPoints: [15, 15, 11],
-  winBy: 2,
-  tiebreakerSetTo: 11,
-};
-
 /**
  * Suggest a default pool structure for `n` teams: maximize pools of 4, push the
  * remainder into 3s or a 5 — never a 2-team pool (except when n itself is < 3,
@@ -325,26 +317,31 @@ export function snakeDraftIntoSizes(
 export interface PoolPlan {
   /** Round-robin repetitions: 3-team pools play a double round-robin. */
   roundsPerTeam: number;
-  /** Suggested per-pool format override (null = use competition standard). */
-  suggestedFormat: MatchFormat | null;
 }
 
 /**
- * Round-robin repetitions + suggested format for a pool of `size` teams:
- * 3 → double round-robin + 15/11; 5+ → single + 15/11; 4 (and tiny weak pools)
- * → single + standard format. Suggestions only; the organizer can override.
+ * Round-robin repetitions for a pool of `size` teams: a 3-team pool plays a
+ * double round-robin (so every team gets a fair number of games); all other
+ * sizes play a single round-robin. Pool size no longer forces a match format —
+ * the organizer's chosen pool format applies (see resolveMatchFormat); a pool
+ * can still be opted into shorter games explicitly.
  */
 export function poolPlan(size: number): PoolPlan {
-  return {
-    roundsPerTeam: size === 3 ? 2 : 1,
-    suggestedFormat: size === 3 || size >= 5 ? SHORT_POOL_FORMAT : null,
-  };
+  return { roundsPerTeam: size === 3 ? 2 : 1 };
 }
 
-/** The format a match is actually played under: pool override, else competition. */
+/**
+ * The format a match is actually played under, in precedence order:
+ *   1. the pool's explicit override (a "shorter games" pool),
+ *   2. the tournament's chosen pool-play format (2-set vs best-of-3),
+ *   3. the competition's base format (the bracket / default).
+ * Bracket matches pass `poolDefaultFormat = null` (no pool), so they fall
+ * through to the competition base.
+ */
 export function resolveMatchFormat(
-  poolFormat: MatchFormat | null | undefined,
+  poolMatchFormat: MatchFormat | null | undefined,
+  poolDefaultFormat: MatchFormat | null | undefined,
   competitionFormat: MatchFormat,
 ): MatchFormat {
-  return poolFormat ?? competitionFormat;
+  return poolMatchFormat ?? poolDefaultFormat ?? competitionFormat;
 }

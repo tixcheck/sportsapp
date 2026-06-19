@@ -93,6 +93,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
     { data: sets },
     { data: confs },
     { data: pools },
+    { data: tsettings },
   ] = await Promise.all([
     supabase
       .from("competitions")
@@ -116,6 +117,10 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       : Promise.resolve({
           data: [] as { id: string; match_format: MatchFormat | null }[],
         }),
+    supabase
+      .from("tournament_settings")
+      .select("competition_id, pool_format")
+      .in("competition_id", compIds),
   ]);
 
   const compById = new Map((comps ?? []).map((c) => [c.id as string, c]));
@@ -123,6 +128,14 @@ export async function getMyMatches(): Promise<MyMatch[]> {
     (pools ?? []).map((p) => [
       p.id as string,
       (p.match_format as MatchFormat | null) ?? null,
+    ]),
+  );
+  // The tournament's chosen pool-play format, applied to pool matches that have
+  // no explicit per-pool override.
+  const poolDefaultByComp = new Map(
+    (tsettings ?? []).map((s) => [
+      s.competition_id as string,
+      (s.pool_format as MatchFormat | null) ?? null,
     ]),
   );
   const teamName = new Map(
@@ -188,6 +201,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       refTeamName: m.ref_team_id ? (teamName.get(m.ref_team_id) ?? null) : null,
       matchFormat: resolveMatchFormat(
         m.pool_id ? poolFormatById.get(m.pool_id) : null,
+        m.pool_id ? poolDefaultByComp.get(m.competition_id) : null,
         c.match_format as MatchFormat,
       ),
       sets: setsByMatch.get(m.id) ?? [],
@@ -209,7 +223,11 @@ export async function getMyMatches(): Promise<MyMatch[]> {
 
 export interface MatchEntryData {
   id: string;
+  competitionId: string;
   competitionName: string;
+  /** "tournament" | "league" — drives the organizer's admin back-link. */
+  competitionType: string;
+  orgId: string;
   timezone: string;
   homeTeamName: string;
   awayTeamName: string;
@@ -256,7 +274,9 @@ export async function getMatchForEntry(
   ] = await Promise.all([
     supabase
       .from("competitions")
-      .select("name, timezone, match_format, require_confirmation")
+      .select(
+        "name, type, org_id, timezone, match_format, require_confirmation",
+      )
       .eq("id", m.competition_id)
       .single(),
     supabase.rpc("can_enter_score", { _match_id: matchId }),
@@ -284,6 +304,7 @@ export async function getMatchForEntry(
   if (!comp) return null;
 
   let poolFormat: MatchFormat | null = null;
+  let poolDefault: MatchFormat | null = null;
   if (m.pool_id) {
     const { data: pool } = await supabase
       .from("pools")
@@ -291,6 +312,12 @@ export async function getMatchForEntry(
       .eq("id", m.pool_id)
       .single();
     poolFormat = (pool?.match_format as MatchFormat | null) ?? null;
+    const { data: ts } = await supabase
+      .from("tournament_settings")
+      .select("pool_format")
+      .eq("competition_id", m.competition_id)
+      .single();
+    poolDefault = (ts?.pool_format as MatchFormat | null) ?? null;
   }
 
   const teamName = new Map(
@@ -318,7 +345,10 @@ export async function getMatchForEntry(
 
   return {
     id: m.id,
+    competitionId: m.competition_id,
     competitionName: comp.name,
+    competitionType: comp.type,
+    orgId: comp.org_id,
     timezone: comp.timezone,
     homeTeamName: m.home_team_id
       ? (teamName.get(m.home_team_id) ?? "TBD")
@@ -329,6 +359,7 @@ export async function getMatchForEntry(
     refTeamName: m.ref_team_id ? (teamName.get(m.ref_team_id) ?? null) : null,
     matchFormat: resolveMatchFormat(
       poolFormat,
+      poolDefault,
       comp.match_format as MatchFormat,
     ),
     sets: (sets ?? []).map((s) => ({ home: s.home_score, away: s.away_score })),

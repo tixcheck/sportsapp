@@ -29,12 +29,23 @@ export default async function MatchEntryPage({
 
   return (
     <div className="mx-auto max-w-md">
-      <Link
-        href="/my-matches"
-        className="text-muted-foreground text-sm hover:underline"
-      >
-        ← My matches
-      </Link>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+        {match.isAdmin && (
+          <Link
+            href={`/orgs/${match.orgId}/${match.competitionType}s/${match.competitionId}`}
+            className="text-muted-foreground hover:underline"
+          >
+            ← {match.competitionType === "league" ? "League" : "Tournament"}{" "}
+            admin
+          </Link>
+        )}
+        <Link
+          href="/my-matches"
+          className="text-muted-foreground hover:underline"
+        >
+          {match.isAdmin ? "My matches" : "← My matches"}
+        </Link>
+      </div>
       <Card className="mt-4">
         <CardHeader>
           <CardTitle>

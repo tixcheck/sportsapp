@@ -7,13 +7,13 @@ import {
   poolPlan,
   resolveMatchFormat,
   resolveSeedOrder,
-  SHORT_POOL_FORMAT,
   snakeDraftIntoSizes,
   suggestPoolStructure,
   validatePoolStructure,
   type LayoutPool,
   type SeedTeam,
 } from "@/lib/scheduler/pools";
+import { toShortPoolFormat } from "@/lib/formats";
 import type { MatchFormat } from "@/lib/db/schema";
 
 function seeded(n: number): string[] {
@@ -23,6 +23,12 @@ function seeded(n: number): string[] {
 const STANDARD: MatchFormat = {
   bestOf: 3,
   setsToPoints: [25, 25, 15],
+  winBy: 2,
+};
+
+const TWO_SET: MatchFormat = {
+  bestOf: 2,
+  setsToPoints: [21, 21],
   winBy: 2,
 };
 
@@ -100,29 +106,65 @@ describe("snakeDraftIntoSizes", () => {
   });
 });
 
-describe("poolPlan + resolveMatchFormat", () => {
-  it("3-team → double RR + short format", () => {
-    const p = poolPlan(3);
-    expect(p.roundsPerTeam).toBe(2);
-    expect(p.suggestedFormat).toEqual(SHORT_POOL_FORMAT);
+describe("poolPlan", () => {
+  it("3-team pool plays a double round-robin", () => {
+    expect(poolPlan(3)).toEqual({ roundsPerTeam: 2 });
   });
 
-  it("4-team → single RR + standard (null) format", () => {
-    expect(poolPlan(4)).toEqual({ roundsPerTeam: 1, suggestedFormat: null });
+  it("4- and 5-team pools play a single round-robin", () => {
+    expect(poolPlan(4)).toEqual({ roundsPerTeam: 1 });
+    expect(poolPlan(5)).toEqual({ roundsPerTeam: 1 });
+  });
+});
+
+describe("resolveMatchFormat precedence", () => {
+  const SHORT = toShortPoolFormat(TWO_SET);
+
+  it("1. a pool's explicit override wins", () => {
+    expect(resolveMatchFormat(SHORT, TWO_SET, STANDARD)).toBe(SHORT);
   });
 
-  it("5+-team → single RR + short format", () => {
-    const p = poolPlan(5);
-    expect(p.roundsPerTeam).toBe(1);
-    expect(p.suggestedFormat).toEqual(SHORT_POOL_FORMAT);
+  it("2. else the tournament's chosen pool format", () => {
+    expect(resolveMatchFormat(null, TWO_SET, STANDARD)).toBe(TWO_SET);
+    expect(resolveMatchFormat(undefined, TWO_SET, STANDARD)).toBe(TWO_SET);
   });
 
-  it("resolveMatchFormat prefers the pool override", () => {
-    expect(resolveMatchFormat(SHORT_POOL_FORMAT, STANDARD)).toBe(
-      SHORT_POOL_FORMAT,
-    );
-    expect(resolveMatchFormat(null, STANDARD)).toBe(STANDARD);
-    expect(resolveMatchFormat(undefined, STANDARD)).toBe(STANDARD);
+  it("3. else the competition base (bracket matches: no pool default)", () => {
+    expect(resolveMatchFormat(null, null, STANDARD)).toBe(STANDARD);
+    expect(resolveMatchFormat(undefined, undefined, STANDARD)).toBe(STANDARD);
+  });
+});
+
+describe("2-set round-robin reaches the played format", () => {
+  it("a 2-set choice yields bestOf:2 for a 3-team pool (no size override)", () => {
+    // A 3-team pool plays a double round-robin, but "shorter games" is OFF by
+    // default — so the pool carries no explicit override (null) and resolves to
+    // the tournament's chosen 2-set format, not a size-based 15/11.
+    expect(poolPlan(3).roundsPerTeam).toBe(2);
+    const format = resolveMatchFormat(null, TWO_SET, STANDARD);
+    expect(format.bestOf).toBe(2);
+    expect(format.setsToPoints).toEqual([21, 21]);
+  });
+
+  it("toShortPoolFormat reduces to 2 sets to 15, preserving win-by and cap", () => {
+    const capped: MatchFormat = {
+      bestOf: 3,
+      setsToPoints: [21, 21, 15],
+      winBy: 2,
+      capMinutes: 45,
+    };
+    expect(toShortPoolFormat(capped)).toEqual({
+      bestOf: 2,
+      setsToPoints: [15, 15],
+      winBy: 2,
+      capMinutes: 45,
+    });
+    // no cap on the base → no cap on the short variant
+    expect(toShortPoolFormat(TWO_SET)).toEqual({
+      bestOf: 2,
+      setsToPoints: [15, 15],
+      winBy: 2,
+    });
   });
 });
 

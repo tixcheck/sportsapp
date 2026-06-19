@@ -18,7 +18,6 @@ import { generatePoolsAction } from "@/server/actions/pools";
 import {
   poolName,
   poolPlan,
-  SHORT_POOL_FORMAT,
   snakeDraftIntoSizes,
   suggestPoolStructure,
   validatePoolStructure,
@@ -58,13 +57,9 @@ function seedOrder(teams: Team[]): Team[] {
     .map((x) => x.t);
 }
 
+/** Shorter games are off by default — the organizer opts a pool in explicitly. */
 function shortDefaults(sizes: number[]): boolean[] {
-  return sizes.map((s) => poolPlan(s).suggestedFormat !== null);
-}
-
-/** Whether a pool of `size` is suggested to run the short 15/11 format. */
-function suggestedShort(size: number): boolean {
-  return poolPlan(size).suggestedFormat !== null;
+  return sizes.map(() => false);
 }
 
 export function GeneratePoolsPanel({
@@ -242,13 +237,13 @@ export function GeneratePoolsPanel({
     }));
     setSelected(null);
   }
-  function effShort(divId: string, i: number, size: number): boolean {
-    return override[divId]?.[i] ?? suggestedShort(size);
+  function effShort(divId: string, i: number): boolean {
+    return override[divId]?.[i] ?? false;
   }
-  function toggleManualShort(divId: string, i: number, size: number) {
+  function toggleManualShort(divId: string, i: number) {
     setOverride((prev) => {
       const list = [...(prev[divId] ?? [])];
-      list[i] = !effShort(divId, i, size);
+      list[i] = !effShort(divId, i);
       return { ...prev, [divId]: list };
     });
   }
@@ -286,7 +281,7 @@ export function GeneratePoolsPanel({
     const orderByDivision: Record<string, string[]> = {};
     const structureByDivision: Record<
       string,
-      { teamIds: string[]; matchFormat: typeof SHORT_POOL_FORMAT | null }[]
+      { teamIds: string[]; short: boolean }[]
     > = {};
     for (const d of divisions) {
       if (d.teams.length === 0) continue;
@@ -300,14 +295,10 @@ export function GeneratePoolsPanel({
             );
       structureByDivision[d.id] = pools.map((teamIds, i) => ({
         teamIds,
-        matchFormat:
+        short:
           mode[d.id] === "manual"
-            ? effShort(d.id, i, teamIds.length)
-              ? SHORT_POOL_FORMAT
-              : null
-            : short[d.id]?.[i]
-              ? SHORT_POOL_FORMAT
-              : null,
+            ? effShort(d.id, i)
+            : (short[d.id]?.[i] ?? false),
       }));
     }
 
@@ -599,7 +590,7 @@ export function GeneratePoolsPanel({
                   )}
                 >
                   {short[d.id]?.[i]
-                    ? "Format: sets to 15 / tiebreak 11"
+                    ? "Shorter games (2 sets to 15)"
                     : "Format: competition standard"}
                 </button>
                 <ol className="mt-2 space-y-0.5">
@@ -719,17 +710,17 @@ export function GeneratePoolsPanel({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleManualShort(d.id, i, teamIds.length);
+                  toggleManualShort(d.id, i);
                 }}
                 className={cn(
                   "mt-2 w-full rounded-md border px-2 py-1 text-xs transition-colors",
-                  effShort(d.id, i, teamIds.length)
+                  effShort(d.id, i)
                     ? "border-primary bg-accent"
                     : "border-border bg-surface hover:bg-muted",
                 )}
               >
-                {effShort(d.id, i, teamIds.length)
-                  ? "Format: sets to 15 / tiebreak 11"
+                {effShort(d.id, i)
+                  ? "Shorter games (2 sets to 15)"
                   : "Format: competition standard"}
               </button>
               <div className="mt-2 space-y-1">

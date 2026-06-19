@@ -128,8 +128,10 @@ export async function submitScoreAction(
     .single();
   if (!comp) return { error: "Competition not found." };
 
-  // Pool matches may override the format (e.g. a short pool runs to 15/11).
+  // Pool matches use, in precedence order: the pool's explicit override, the
+  // tournament's chosen pool format, then the competition base.
   let poolFormat: MatchFormat | null = null;
+  let poolDefault: MatchFormat | null = null;
   if (match.pool_id) {
     const { data: pool } = await supabase
       .from("pools")
@@ -137,9 +139,16 @@ export async function submitScoreAction(
       .eq("id", match.pool_id)
       .single();
     poolFormat = (pool?.match_format as MatchFormat | null) ?? null;
+    const { data: ts } = await supabase
+      .from("tournament_settings")
+      .select("pool_format")
+      .eq("competition_id", match.competition_id)
+      .single();
+    poolDefault = (ts?.pool_format as MatchFormat | null) ?? null;
   }
   const format = resolveMatchFormat(
     poolFormat,
+    poolDefault,
     comp.match_format as MatchFormat,
   );
 

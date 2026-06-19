@@ -106,6 +106,21 @@ export function toTwoSetFormat(base: MatchFormat): MatchFormat {
   };
 }
 
+/**
+ * The reduced pool-play variant for shorter games: two sets to 15, with a 1–1
+ * tie allowed — keeping the chosen format's win-by and any time cap. Derived
+ * from the organizer's format (not a fixed best-of-3 15/11), so toggling a pool
+ * to "shorter" still respects the 2-set/ties model.
+ */
+export function toShortPoolFormat(base: MatchFormat): MatchFormat {
+  return {
+    bestOf: 2,
+    setsToPoints: [15, 15],
+    winBy: base.winBy,
+    ...(base.capMinutes ? { capMinutes: base.capMinutes } : {}),
+  };
+}
+
 export function defaultPreset(sport: Sport): FormatPreset {
   return FORMAT_PRESETS[sport][0];
 }

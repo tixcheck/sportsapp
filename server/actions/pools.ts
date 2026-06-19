@@ -14,6 +14,7 @@ import {
   type LayoutPool,
 } from "@/lib/scheduler/pools";
 import { generatePairings } from "@/lib/scheduler/round-robin";
+import { toShortPoolFormat } from "@/lib/formats";
 import type { MatchFormat } from "@/lib/db/schema";
 
 type ActionError = { error: string };
@@ -21,8 +22,8 @@ type ActionError = { error: string };
 /** One pool's composition as chosen by the organizer (auto-fill or manual). */
 export interface PoolComposition {
   teamIds: string[];
-  /** Per-pool format override; null = competition standard. */
-  matchFormat: MatchFormat | null;
+  /** Opt this pool into shorter games (2 sets to 15); else the chosen format. */
+  short: boolean;
 }
 
 export interface GeneratePoolsInput {
@@ -73,9 +74,10 @@ export async function generatePoolsAction(
     .eq("competition_id", competitionId)
     .single();
   const courts = settings?.courts ?? 4;
-  const fmt = (settings?.pool_format ??
-    comp.match_format) as MatchFormat | null;
-  const slotMin = fmt?.capMinutes ?? 45;
+  // The chosen pool-play format (2-set vs best-of-3); short pools derive a
+  // reduced variant from it rather than a hardcoded format.
+  const poolFmt = (settings?.pool_format ?? comp.match_format) as MatchFormat;
+  const slotMin = poolFmt.capMinutes ?? 45;
   const tz = comp.timezone ?? "America/Toronto";
   const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)
     ? startTime
@@ -162,7 +164,8 @@ export async function generatePoolsAction(
       orderedPools.push({
         divisionId,
         name: `Pool ${poolName(i)}`,
-        matchFormat: p.matchFormat,
+        // null = use the chosen pool format at read time; short = explicit 2x15.
+        matchFormat: p.short ? toShortPoolFormat(poolFmt) : null,
         pool: {
           teamIds: p.teamIds,
           rounds: generatePairings(
