@@ -70,7 +70,7 @@ export function StandingsTable({
               </th>
             ))}
             <th
-              title="Set ratio (SW / SL)"
+              title="Point ratio (PF / PA)"
               className="px-3 pb-2 text-right font-bold"
             >
               Ratio
@@ -128,7 +128,7 @@ export function StandingsTable({
                 </td>
               ))}
               <td className="text-ink px-3 text-right font-semibold">
-                {fmt(r.setRatio)}
+                {fmt(r.pointRatio)}
               </td>
             </tr>
           ))}
@@ -151,8 +151,8 @@ export function StandingsLegend({ className }: { className?: string }) {
         among tied teams, then set ratio (SW / SL), then point ratio (PF / PA).
       </p>
       <p className="text-ink-3">
-        MW/ML matches won/lost · T tied · SW/SL sets · PF/PA points · Ratio = SW
-        / SL
+        MW/ML matches won/lost · T tied · SW/SL sets · PF/PA points · Ratio = PF
+        / PA
       </p>
     </div>
   );
