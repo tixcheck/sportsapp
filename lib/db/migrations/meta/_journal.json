@@ -218,6 +218,13 @@
       "when": 1781846044333,
       "tag": "0030_coorg_view_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1781847719388,
+      "tag": "0031_list_competition_admins",
+      "breakpoints": true
     }
   ]
 }
