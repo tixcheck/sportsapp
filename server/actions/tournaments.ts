@@ -131,7 +131,9 @@ export async function addTournamentTeamAction(
   competitionId: string,
   divisionId: string,
   values: AddTeamInput,
-): Promise<ActionError | { claimUrl: string; emailSent: boolean }> {
+): Promise<
+  ActionError | { claimUrl: string; emailSent: boolean; emailDebug?: string }
+> {
   const parsed = addTeamSchema.safeParse(values);
   if (!parsed.success) return { error: "Please check the form." };
   const { name, captainEmail } = parsed.data;
@@ -191,8 +193,16 @@ export async function addTournamentTeamAction(
     profile?.email ?? undefined,
   );
 
+  // TEMP DIAGNOSTIC (remove after): surface env state + the send outcome on
+  // screen, since the Vercel function logs are hard to find.
+  const emailDebug =
+    `env: RESEND_API_KEY ${process.env.RESEND_API_KEY ? "present" : "MISSING"}, ` +
+    `EMAIL_FROM ${process.env.EMAIL_FROM ?? "UNDEFINED (using resend.dev default)"} | ` +
+    `to ${captainEmail} → ` +
+    (result.sent ? `SENT id=${result.id ?? "?"}` : `FAILED — ${result.reason}`);
+
   revalidatePath(`/orgs`);
-  return { claimUrl, emailSent: result.sent };
+  return { claimUrl, emailSent: result.sent, emailDebug };
 }
 
 export async function publishTournamentAction(
