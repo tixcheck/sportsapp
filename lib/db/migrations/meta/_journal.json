@@ -232,6 +232,13 @@
       "when": 1781887436447,
       "tag": "0032_fix_competitions_select_returning",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1781893718132,
+      "tag": "0033_null_old_short_pool_overrides",
+      "breakpoints": true
     }
   ]
 }
