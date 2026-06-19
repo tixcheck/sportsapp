@@ -1,26 +1,27 @@
 import { cn } from "@/lib/utils";
 
+// DESIGN §5 — quiet pills; claret only for Live/Disputed, everything else ink.
 const STYLES: Record<
   string,
   { label: string; className: string; live?: boolean }
 > = {
   scheduled: {
     label: "Scheduled",
-    className: "bg-muted text-muted-foreground",
+    className: "bg-paper-sunken text-ink-2",
   },
   in_progress: {
     label: "Live",
-    className: "bg-accent text-accent-foreground",
+    className: "border-claret text-claret border",
     live: true,
   },
-  completed: { label: "Final", className: "bg-muted text-muted-foreground" },
+  completed: { label: "Final", className: "bg-paper-sunken text-ink-2" },
   forfeit: {
     label: "Forfeit",
-    className: "bg-destructive/10 text-destructive",
+    className: "bg-claret-tint text-claret-deep",
   },
   cancelled: {
     label: "Cancelled",
-    className: "bg-muted text-muted-foreground",
+    className: "bg-paper-sunken text-ink-2",
   },
 };
 
@@ -34,7 +35,7 @@ export function StatusPill({ status }: { status: string }) {
       )}
     >
       {s.live && (
-        <span className="bg-primary size-1.5 animate-pulse rounded-full motion-reduce:animate-none" />
+        <span className="bg-claret size-1.5 animate-pulse rounded-full motion-reduce:animate-none" />
       )}
       {s.label}
     </span>

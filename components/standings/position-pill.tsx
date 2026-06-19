@@ -34,7 +34,7 @@ export function PositionPill({
         <button
           type="button"
           aria-label={`Why is ${teamName} ranked ${position}?`}
-          className="bg-coral-600 hover:bg-coral-700 grid size-7 place-items-center rounded-full text-xs font-semibold text-white tabular-nums transition-colors"
+          className="font-display hover:bg-claret-tint hover:text-claret-deep grid size-9 place-items-center rounded-full text-lg tabular-nums transition-colors"
         >
           {position}
         </button>
@@ -53,8 +53,8 @@ export function PositionPill({
               className={cn(
                 "flex items-center justify-between gap-4 rounded-md px-2 py-1.5",
                 e.highlighted
-                  ? "bg-accent text-coral-900 font-medium"
-                  : "text-muted-foreground",
+                  ? "bg-claret-tint text-claret-deep font-medium"
+                  : "text-ink-2",
               )}
             >
               <span className="truncate">{e.teamName}</span>

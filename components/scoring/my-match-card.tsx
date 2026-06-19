@@ -172,9 +172,9 @@ function Row({
     <div className="flex items-center gap-2">
       <span
         className={cn(
-          "truncate font-medium",
-          result === "win" && "text-win",
-          result === "loss" && "text-loss",
+          "font-display truncate text-base font-medium",
+          result === "win" && "text-claret",
+          result === "loss" && "text-ink-3",
         )}
       >
         {name}
@@ -184,12 +184,12 @@ function Row({
           className={cn(
             "font-display text-lg tabular-nums",
             result === "win"
-              ? "text-win"
+              ? "text-claret"
               : result === "loss"
-                ? "text-loss"
+                ? "text-ink-3"
                 : top
-                  ? "text-coral-700"
-                  : "text-text-3",
+                  ? "text-claret"
+                  : "text-ink-3",
           )}
         >
           {won}

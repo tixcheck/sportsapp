@@ -12,13 +12,15 @@ const STAT_COLS: {
   key: keyof StandingsRowView;
   label: string;
   hint: string;
+  // Almanac emphasis (§6.1): wins bold ink, losses recede to muted ink.
+  cell: string;
 }[] = [
-  { key: "mw", label: "MW", hint: "Matches won" },
-  { key: "ml", label: "ML", hint: "Matches lost" },
-  { key: "sw", label: "SW", hint: "Sets won" },
-  { key: "sl", label: "SL", hint: "Sets lost" },
-  { key: "pf", label: "PF", hint: "Points for" },
-  { key: "pa", label: "PA", hint: "Points against" },
+  { key: "mw", label: "MW", hint: "Matches won", cell: "font-bold text-ink" },
+  { key: "ml", label: "ML", hint: "Matches lost", cell: "text-ink-3" },
+  { key: "sw", label: "SW", hint: "Sets won", cell: "" },
+  { key: "sl", label: "SL", hint: "Sets lost", cell: "text-ink-3" },
+  { key: "pf", label: "PF", hint: "Points for", cell: "" },
+  { key: "pa", label: "PA", hint: "Points against", cell: "" },
 ];
 
 export function StandingsTable({
@@ -37,24 +39,24 @@ export function StandingsTable({
   }
 
   return (
-    <div className="border-border overflow-x-auto rounded-lg border">
+    <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] text-sm tabular-nums">
         <thead>
-          <tr className="text-muted-foreground border-border border-b text-xs">
-            <th className="w-10 px-2 py-2 text-center font-medium">#</th>
-            <th className="px-3 py-2 text-left font-medium">Team</th>
+          <tr className="text-ink-2 border-ink border-b-[1.5px] text-[0.66rem] tracking-[0.1em] uppercase">
+            <th className="w-10 px-2 pb-2 text-center font-bold">#</th>
+            <th className="px-3 pb-2 text-left font-bold">Team</th>
             {STAT_COLS.map((c) => (
               <th
                 key={c.key as string}
                 title={c.hint}
-                className="px-2 py-2 text-center font-medium"
+                className="px-2 pb-2 text-center font-bold"
               >
                 {c.label}
               </th>
             ))}
             <th
               title="Set ratio (SW / SL)"
-              className="px-3 py-2 text-right font-medium"
+              className="px-3 pb-2 text-right font-bold"
             >
               Ratio
             </th>
@@ -64,9 +66,18 @@ export function StandingsTable({
           {rows.map((r) => (
             <tr
               key={r.teamId}
-              className="border-border/60 h-12 border-b last:border-0"
+              className={cn(
+                "border-rule h-12 border-b last:border-0",
+                myTeamIds.includes(r.teamId) && "bg-paper-sunken",
+              )}
             >
-              <td className="px-2 text-center">
+              <td
+                className={cn(
+                  "text-center",
+                  // The leader's rank is the one claret note (§6.1).
+                  r.position === 1 ? "text-claret" : "text-ink-2",
+                )}
+              >
                 <div className="flex justify-center">
                   <PositionPill
                     position={r.position}
@@ -78,14 +89,14 @@ export function StandingsTable({
               <td className="px-3">
                 <span
                   className={cn(
-                    "font-medium",
-                    r.withdrawn && "text-muted-foreground line-through",
+                    "font-semibold",
+                    r.withdrawn && "text-ink-3 line-through",
                   )}
                 >
                   {r.teamName}
                 </span>
                 {r.withdrawn && (
-                  <span className="bg-gold-300/40 text-coral-900 ml-2 rounded-full px-2 py-0.5 text-xs font-medium">
+                  <span className="bg-paper-sunken text-ink-2 ml-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
                     Withdrawn
                   </span>
                 )}
@@ -96,15 +107,12 @@ export function StandingsTable({
               {STAT_COLS.map((c) => (
                 <td
                   key={c.key as string}
-                  className={cn(
-                    "px-2 text-center",
-                    c.key === "mw" && "text-coral-700 font-semibold",
-                  )}
+                  className={cn("px-2 text-center", c.cell)}
                 >
                   {r[c.key] as number}
                 </td>
               ))}
-              <td className="text-foreground px-3 text-right font-medium">
+              <td className="text-ink px-3 text-right font-semibold">
                 {fmt(r.setRatio)}
               </td>
             </tr>

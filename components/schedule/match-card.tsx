@@ -41,8 +41,9 @@ export function MatchCard({
         ? "loss"
         : null
     : null;
+  // Winner in claret (the brand voice), loser receding to muted ink (§2 risk).
   const resultColor = (r: "win" | "loss" | null) =>
-    r === "win" ? "text-win" : r === "loss" ? "text-loss" : undefined;
+    r === "win" ? "text-claret" : r === "loss" ? "text-ink-3" : undefined;
 
   return (
     <div className="border-border bg-surface rounded-lg border p-4 shadow-sm">
