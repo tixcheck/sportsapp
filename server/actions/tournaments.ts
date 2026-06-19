@@ -59,6 +59,14 @@ export async function createTournamentAction(
     "debug_is_org_admin",
     { _org_id: orgId },
   );
+  // The check AND the insert in ONE function body / connection. If is_org_admin
+  // is true here but INSERT_ERR still fires, it's genuine policy evaluation at
+  // insert time; if this says INSERT=OK while the normal path fails, it's the
+  // transaction pooler splitting the rpc and the insert across connections.
+  const { data: dbCreate, error: createErr } = await supabase.rpc(
+    "debug_create_comp",
+    { _org_id: orgId },
+  );
 
   const { data: tournament, error } = await supabase
     .from("competitions")
@@ -88,8 +96,10 @@ export async function createTournamentAction(
     const dbSeen = dbUid ?? (whoamiErr ? `err:${whoamiErr.message}` : "NULL");
     const adminSeen =
       dbIsAdmin ?? (adminErr ? `err:${adminErr.message}` : "NULL");
+    const createSeen =
+      dbCreate ?? (createErr ? `err:${createErr.message}` : "NULL");
     return {
-      error: `getUser uid=${user.id ?? "NULL"} / DB auth.uid()=${dbSeen} / is_org_admin=${adminSeen} / org_id=${orgId} :: ${error?.message ?? "no row returned"}`,
+      error: `getUser uid=${user.id ?? "NULL"} / DB auth.uid()=${dbSeen} / is_org_admin=${adminSeen} / org_id=${orgId} / one-conn[${createSeen}] :: ${error?.message ?? "no row returned"}`,
     };
   }
 
