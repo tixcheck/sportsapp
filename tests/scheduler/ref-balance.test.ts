@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assignPoolRefs,
   layoutPoolSchedule,
   poolPlan,
   type LayoutPool,
@@ -62,5 +63,37 @@ describe("ref load balancing", () => {
       }
     }
     expect(crossover).toBeGreaterThanOrEqual(Math.ceil(eligible / 2));
+  });
+});
+
+describe("assignPoolRefs (used by the in-place rebalance)", () => {
+  it("balances ≤1 and never self-refs for an arbitrary match order", () => {
+    const teamIds = ["A", "B", "C", "D"];
+    const matches = [
+      { homeTeamId: "A", awayTeamId: "B" },
+      { homeTeamId: "C", awayTeamId: "D" },
+      { homeTeamId: "A", awayTeamId: "C" },
+      { homeTeamId: "B", awayTeamId: "D" },
+      { homeTeamId: "A", awayTeamId: "D" },
+      { homeTeamId: "B", awayTeamId: "C" },
+    ];
+    const refs = assignPoolRefs(teamIds, matches);
+    expect(refs).toHaveLength(matches.length);
+    refs.forEach((r, i) => {
+      if (r) {
+        expect(r).not.toBe(matches[i].homeTeamId);
+        expect(r).not.toBe(matches[i].awayTeamId);
+      }
+    });
+    const counts = new Map(teamIds.map((id) => [id, 0]));
+    for (const r of refs) if (r) counts.set(r, counts.get(r)! + 1);
+    const vals = [...counts.values()];
+    expect(Math.max(...vals) - Math.min(...vals)).toBeLessThanOrEqual(1);
+  });
+
+  it("returns all nulls for a 2-team pool (no eligible ref)", () => {
+    expect(
+      assignPoolRefs(["A", "B"], [{ homeTeamId: "A", awayTeamId: "B" }]),
+    ).toEqual([null]);
   });
 });

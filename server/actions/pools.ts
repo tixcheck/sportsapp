@@ -6,6 +6,7 @@ import { DateTime } from "luxon";
 import { createClient } from "@/lib/supabase/server";
 import {
   DEFAULT_SLOT_MINUTES,
+  assignPoolRefs,
   detectCourtTimeCollisions,
   layoutPoolSchedule,
   poolName,
@@ -267,4 +268,71 @@ export async function setPoolNeedsDropAction(
 
   revalidatePath("/orgs");
   return { ok: true };
+}
+
+/**
+ * Rebalance only the referee assignments across each pool's existing matches —
+ * pairings, times, courts, and scores are left exactly as they are. Applies the
+ * balanced (≤ 1 spread, crossover-tiebreaker) rule so the load is even without
+ * redrawing the schedule.
+ */
+export async function rebalanceRefsAction(
+  competitionId: string,
+): Promise<ActionError | { updated: number }> {
+  const supabase = await createClient();
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can rebalance refs." };
+  }
+
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("id, pool_id, round, scheduled_at, home_team_id, away_team_id")
+    .eq("competition_id", competitionId)
+    .not("pool_id", "is", null);
+  if (!matches || matches.length === 0) {
+    return { error: "No pool matches to rebalance — draw pools first." };
+  }
+
+  const byPool = new Map<string, typeof matches>();
+  for (const m of matches) {
+    const list = byPool.get(m.pool_id as string) ?? [];
+    list.push(m);
+    byPool.set(m.pool_id as string, list);
+  }
+
+  let updated = 0;
+  for (const poolMatches of byPool.values()) {
+    // Reconstruct play order (the pool runs sequentially on its court).
+    poolMatches.sort(
+      (a, b) =>
+        (a.scheduled_at ? Date.parse(a.scheduled_at) : 0) -
+          (b.scheduled_at ? Date.parse(b.scheduled_at) : 0) ||
+        (a.round ?? 0) - (b.round ?? 0),
+    );
+    const teamIds = [
+      ...new Set(poolMatches.flatMap((m) => [m.home_team_id, m.away_team_id])),
+    ].filter(Boolean) as string[];
+    const refs = assignPoolRefs(
+      teamIds,
+      poolMatches.map((m) => ({
+        homeTeamId: m.home_team_id as string,
+        awayTeamId: m.away_team_id as string,
+      })),
+    );
+    for (let i = 0; i < poolMatches.length; i++) {
+      const { error } = await supabase
+        .from("matches")
+        .update({ ref_team_id: refs[i] })
+        .eq("id", poolMatches[i].id);
+      if (error) return { error: error.message };
+      updated += 1;
+    }
+  }
+
+  revalidatePath("/orgs");
+  return { updated };
 }
