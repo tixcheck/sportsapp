@@ -18,6 +18,10 @@
     "db:seed": "tsx lib/db/seed.ts",
     "prepare": "husky"
   },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,css,json}": "prettier --write",
+    "*.{ts,tsx}": "eslint --fix"
+  },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@react-email/components": "^1.0.12",
@@ -56,6 +60,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.19",
     "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
     "prettier": "^3.8.4",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4",
