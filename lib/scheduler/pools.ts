@@ -183,26 +183,74 @@ export function layoutPoolSchedule(
       })),
     );
 
-    seq.forEach((m, k) => {
-      const playing = new Set<TeamId>([m.home, m.away]);
-      const candidates = pool.teamIds.filter((id) => !playing.has(id));
-      const next = seq[k + 1];
-      // Prefer the team that plays next; else any non-playing pool team
-      // (designated ref for the pool's final match).
-      const ref =
-        (next
-          ? candidates.find((id) => id === next.home || id === next.away)
-          : undefined) ??
-        candidates[0] ??
-        null;
+    // Balance the ref load within the pool (counts differ by ≤ 1), keeping the
+    // reffing-crossover rule (whoever plays next) only as a tiebreaker.
+    const refCount = new Map<TeamId, number>(pool.teamIds.map((id) => [id, 0]));
+    const candidatesOf = (home: TeamId, away: TeamId) =>
+      pool.teamIds.filter((id) => id !== home && id !== away);
 
+    // Pass 1 — greedy least-loaded; ties → plays-next (crossover), then order.
+    const refs: (TeamId | null)[] = seq.map((m, k) => {
+      const candidates = candidatesOf(m.home, m.away);
+      const next = seq[k + 1];
+      const playsNext = (id: TeamId) =>
+        !!next && (id === next.home || id === next.away);
+      let ref: TeamId | null = null;
+      for (const id of candidates) {
+        if (ref === null) {
+          ref = id;
+          continue;
+        }
+        const delta = refCount.get(id)! - refCount.get(ref)!;
+        if (delta < 0 || (delta === 0 && playsNext(id) && !playsNext(ref))) {
+          ref = id;
+        }
+      }
+      if (ref !== null) refCount.set(ref, refCount.get(ref)! + 1);
+      return ref;
+    });
+
+    // Pass 2 — repair: greedy can strand a low-count team that plays the late
+    // matches. Reassign a ref from an overloaded team to an underloaded
+    // candidate until the spread is ≤ 1.
+    let guard = pool.teamIds.length * seq.length + 1;
+    while (guard-- > 0) {
+      const counts = [...refCount.values()];
+      if (Math.max(...counts) - Math.min(...counts) <= 1) break;
+      const max = Math.max(...counts);
+      const min = Math.min(...counts);
+      const over = new Set(
+        [...refCount].filter(([, c]) => c === max).map(([id]) => id),
+      );
+      const under = new Set(
+        [...refCount].filter(([, c]) => c === min).map(([id]) => id),
+      );
+      let swapped = false;
+      for (let k = 0; k < seq.length; k++) {
+        const r = refs[k];
+        if (r === null || !over.has(r)) continue;
+        const u = candidatesOf(seq[k].home, seq[k].away).find((id) =>
+          under.has(id),
+        );
+        if (u) {
+          refs[k] = u;
+          refCount.set(r, refCount.get(r)! - 1);
+          refCount.set(u, refCount.get(u)! + 1);
+          swapped = true;
+          break;
+        }
+      }
+      if (!swapped) break; // no direct improvement available
+    }
+
+    refs.forEach((ref, k) => {
       out.push({
         poolIndex,
         court: court + 1,
         slot: start + k,
-        round: m.round,
-        homeTeamId: m.home,
-        awayTeamId: m.away,
+        round: seq[k].round,
+        homeTeamId: seq[k].home,
+        awayTeamId: seq[k].away,
         refTeamId: ref,
       });
     });
