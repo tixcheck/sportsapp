@@ -34,6 +34,8 @@ export interface ManagedTeam {
   claimed: boolean;
   invite: { token: string; email: string } | null;
   members?: { name: string; role: "captain" | "player" }[];
+  /** Pool matches this team referees (undefined until pools are drawn). */
+  refCount?: number;
 }
 
 function EditInviteDialog({
@@ -259,6 +261,11 @@ export function TeamManagementList({
                 {team.divisionName && (
                   <span className="text-muted-foreground ml-2 text-xs">
                     {team.divisionName}
+                  </span>
+                )}
+                {team.refCount != null && (
+                  <span className="text-muted-foreground ml-2 text-xs tabular-nums">
+                    · refs {team.refCount}
                   </span>
                 )}
               </div>

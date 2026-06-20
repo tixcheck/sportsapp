@@ -68,6 +68,16 @@ export default async function TournamentPage({
       .flatMap((b) => b.view.rounds.flat())
       .map(toBracketScheduleMatch),
   ];
+  // Ref games each team is assigned in pool play (shown on the Teams card).
+  const refCountByTeam = new Map<string, number>();
+  for (const m of poolMatches) {
+    if (m.refTeamId) {
+      refCountByTeam.set(
+        m.refTeamId,
+        (refCountByTeam.get(m.refTeamId) ?? 0) + 1,
+      );
+    }
+  }
 
   const divisionsWithTeams = t.divisions.map((d) => ({
     id: d.id,
@@ -310,6 +320,9 @@ export default async function TournamentPage({
               claimed: !!team.captainUserId,
               invite: team.invite,
               members: rosters[team.id] ?? [],
+              refCount: poolsView?.hasPools
+                ? (refCountByTeam.get(team.id) ?? 0)
+                : undefined,
             }))}
           />
         </CardContent>
