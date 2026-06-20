@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { getMyMatches, type MyMatch } from "@/lib/queries/my-matches";
+import {
+  getMyMatches,
+  getMyPlayoffProjections,
+  type MyMatch,
+  type PlayoffProjection,
+} from "@/lib/queries/my-matches";
 import { getStandings, type StandingsGroup } from "@/lib/standings/compute";
 import { getTeamRosters, type RosterMember } from "@/lib/queries/roster";
 import { getLeagueSchedule, type ScheduleMatch } from "@/lib/queries/leagues";
@@ -18,6 +23,8 @@ export interface TeamView {
   isAdmin: boolean;
   /** Member path: the user's own matches for this team (with their actions). */
   myMatches: MyMatch[];
+  /** Member path: this team's playoff projection (empty once a bracket exists). */
+  projections: PlayoffProjection[];
   /** Admin (non-member) read-only path: the team's matches from the schedule. */
   teamSchedule: ScheduleMatch[];
   /** The standings group (pool / whole league) containing this team. */
@@ -75,15 +82,20 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
   const roster = rosters[teamId] ?? [];
 
   let myMatches: MyMatch[] = [];
+  let projections: PlayoffProjection[] = [];
   let teamSchedule: ScheduleMatch[] = [];
   if (isMember) {
-    const all = await getMyMatches();
+    const [all, allProjections] = await Promise.all([
+      getMyMatches(),
+      getMyPlayoffProjections(),
+    ]);
     myMatches = all.filter(
       (m) =>
         m.homeTeamId === teamId ||
         m.awayTeamId === teamId ||
         m.refTeamId === teamId,
     );
+    projections = allProjections.filter((p) => p.teamId === teamId);
   } else {
     const sched =
       comp.type === "tournament"
@@ -109,6 +121,7 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
     isMember,
     isAdmin,
     myMatches,
+    projections,
     teamSchedule,
     standingsGroup,
     roster,

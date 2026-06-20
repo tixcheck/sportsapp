@@ -3,9 +3,8 @@ import { notFound } from "next/navigation";
 
 import { getTeamView } from "@/lib/queries/team-view";
 import { competitionPath } from "@/lib/queries/dashboard";
-import { cn } from "@/lib/utils";
-import { MyMatchCard } from "@/components/scoring/my-match-card";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { MatchSections } from "@/components/scoring/match-sections";
 import {
   StandingsTable,
   StandingsLegend,
@@ -32,16 +31,11 @@ export default async function TeamPage({
     competition,
     isMember,
     myMatches,
+    projections,
     teamSchedule,
     standingsGroup,
     roster,
   } = view;
-  const playing = myMatches.filter((m) => m.role === "play");
-  const reffing = myMatches.filter((m) => m.role === "ref");
-  // Highlight the team's own next match to play.
-  const nextId = isMember
-    ? playing.find((m) => m.state !== "final")?.id
-    : undefined;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -67,45 +61,10 @@ export default async function TeamPage({
         </CardHeader>
         <CardContent className="space-y-6">
           {isMember ? (
-            myMatches.length === 0 ? (
+            myMatches.length === 0 && projections.length === 0 ? (
               <p className="text-muted-foreground text-sm">No matches yet.</p>
             ) : (
-              <>
-                {playing.length > 0 && (
-                  <section className="space-y-3">
-                    <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                      Playing
-                    </h3>
-                    {playing.map((m) => (
-                      <div key={m.id} className="space-y-1">
-                        {m.id === nextId && (
-                          <span className="text-claret text-xs font-semibold tracking-wide uppercase">
-                            Next up
-                          </span>
-                        )}
-                        <div
-                          className={cn(
-                            m.id === nextId &&
-                              "ring-primary/40 rounded-lg ring-2",
-                          )}
-                        >
-                          <MyMatchCard match={m} />
-                        </div>
-                      </div>
-                    ))}
-                  </section>
-                )}
-                {reffing.length > 0 && (
-                  <section className="space-y-3">
-                    <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-                      Reffing
-                    </h3>
-                    {reffing.map((m) => (
-                      <MyMatchCard key={m.id} match={m} />
-                    ))}
-                  </section>
-                )}
-              </>
+              <MatchSections matches={myMatches} projections={projections} />
             )
           ) : (
             <ScheduleView
