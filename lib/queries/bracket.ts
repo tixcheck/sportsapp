@@ -10,9 +10,17 @@ import {
   projectBracket,
 } from "@/lib/scheduler/bracket-project";
 import {
+  assignBracketTimes,
+  bracketMatchCourt,
+  bracketSlotKey,
+  nextPowerOfTwo,
+} from "@/lib/scheduler/bracket";
+import { DEFAULT_SLOT_MINUTES } from "@/lib/scheduler/pools";
+import {
   tournamentFormat,
   type FormatTemplate,
 } from "@/lib/tournament-formats";
+import type { MatchFormat } from "@/lib/db/schema";
 
 export interface BracketEntryView {
   teamId: string;
@@ -234,6 +242,8 @@ export interface BracketPreviewTeam {
   seed: number;
   /** Round-1 opponent name; null = a bye into round 2. */
   opponentName: string | null;
+  /** A rough estimate (ISO) of the team's first playoff game; null = no basis. */
+  firstGameAt: string | null;
 }
 
 export interface BracketPreview {
@@ -263,7 +273,7 @@ export async function getBracketPreview(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("format_template")
+    .select("format_template, pool_format")
     .eq("competition_id", competitionId)
     .maybeSingle();
   const template = (settings?.format_template ?? "single") as FormatTemplate;
@@ -277,7 +287,7 @@ export async function getBracketPreview(
 
   const { data: poolMatches } = await supabase
     .from("matches")
-    .select("status")
+    .select("status, scheduled_at")
     .eq("competition_id", competitionId)
     .not("pool_id", "is", null);
   const poolsComplete =
@@ -294,6 +304,49 @@ export async function getBracketPreview(
         ).length > 0
       : advancementCutoffTies(pools, "perPool", 2).length > 0;
 
+  // A rough estimate of each team's first playoff game: chain off the latest
+  // pool match's end and run the SAME timing engine generation uses (default
+  // court pairs 1&2 / 3&4). Only when pools have times — no basis ⇒ no estimate.
+  const poolEndsMs = (poolMatches ?? [])
+    .map((m) => (m.scheduled_at ? new Date(m.scheduled_at).getTime() : null))
+    .filter((t): t is number => t != null);
+  const firstGameByTeam = new Map<string, number>();
+  if (poolEndsMs.length > 0) {
+    const poolSlot =
+      (settings?.pool_format as MatchFormat | null)?.capMinutes ??
+      DEFAULT_SLOT_MINUTES;
+    const QUARTER = 15 * 60_000;
+    const startMs =
+      Math.ceil((Math.max(...poolEndsMs) + poolSlot * 60_000) / QUARTER) *
+      QUARTER;
+    const sizeByTrack = new Map<BracketTrackKey, number>(
+      projection.tracks.map((t) => [t.track, nextPowerOfTwo(t.seeds.length)]),
+    );
+    const times = assignBracketTimes(
+      projection.matches.map((m) => ({
+        round: m.round,
+        position: m.position,
+        track: m.track,
+        court: bracketMatchCourt(
+          m.round,
+          m.position,
+          sizeByTrack.get(m.track) ?? 2,
+          m.track === "consolation" ? [3, 4] : [1, 2],
+        ),
+      })),
+      startMs,
+      DEFAULT_SLOT_MINUTES * 60_000,
+    );
+    // The earliest round a team appears in is its first game (round 2 if it byes).
+    for (const m of [...projection.matches].sort((a, b) => a.round - b.round)) {
+      const t = times.get(bracketSlotKey(m.track, m.round, m.position));
+      if (t == null) continue;
+      for (const id of [m.homeTeamId, m.awayTeamId]) {
+        if (id && !firstGameByTeam.has(id)) firstGameByTeam.set(id, t);
+      }
+    }
+  }
+
   const teams: BracketPreviewTeam[] = [...projection.byTeam.values()].map(
     (p) => ({
       teamId: p.teamId,
@@ -302,6 +355,9 @@ export async function getBracketPreview(
       seed: p.seed,
       opponentName: p.opponentTeamId
         ? (nameById.get(p.opponentTeamId) ?? "—")
+        : null,
+      firstGameAt: firstGameByTeam.has(p.teamId)
+        ? new Date(firstGameByTeam.get(p.teamId)!).toISOString()
         : null,
     }),
   );

@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { Trophy, TriangleAlert } from "lucide-react";
 
 import type { PlayoffProjection } from "@/lib/queries/my-matches";
@@ -41,6 +42,19 @@ export function PotentialPlayoffCard({
       ) : (
         <p className="text-muted-foreground mt-2 text-sm">
           Outside the playoff cutoff right now — win more to climb in.
+        </p>
+      )}
+
+      {p.firstGameAt && (
+        <p className="text-muted-foreground mt-1 text-xs">
+          Est. first playoff game{" "}
+          <span className="text-foreground font-medium">
+            ~
+            {DateTime.fromISO(p.firstGameAt, { zone: p.timezone }).toFormat(
+              "h:mm a",
+            )}
+          </span>{" "}
+          <span className="text-ink-3">· rough — shifts as games finish</span>
         </p>
       )}
 

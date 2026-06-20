@@ -389,6 +389,10 @@ export interface PlayoffProjection {
   seed: number;
   /** Round-1 opponent; null = a bye (or, when madeBracket is false, no matchup). */
   opponentName: string | null;
+  /** Rough estimate (ISO) of the team's first playoff game; null = no basis. */
+  firstGameAt: string | null;
+  /** Venue timezone, for formatting firstGameAt. */
+  timezone: string;
   /** False when the team currently sits outside the advancement cutoff. */
   madeBracket: boolean;
   poolsComplete: boolean;
@@ -427,16 +431,19 @@ export async function getMyPlayoffProjections(): Promise<PlayoffProjection[]> {
   const compIds = [...new Set(teams.map((t) => t.competition_id))];
   const { data: comps } = await supabase
     .from("competitions")
-    .select("id, name")
+    .select("id, name, timezone")
     .in("id", compIds)
     .eq("type", "tournament");
-  const compName = new Map(
-    (comps ?? []).map((c) => [c.id as string, c.name as string]),
+  const compInfo = new Map(
+    (comps ?? []).map((c) => [
+      c.id as string,
+      { name: c.name as string, timezone: c.timezone as string },
+    ]),
   );
-  if (compName.size === 0) return [];
+  if (compInfo.size === 0) return [];
 
   const out: PlayoffProjection[] = [];
-  for (const compId of compName.keys()) {
+  for (const compId of compInfo.keys()) {
     // Skip competitions whose bracket is already generated (real matches show
     // via getMyMatches), and those without pools drawn (nothing to project yet).
     const [{ data: bracket }, { data: pools }] = await Promise.all([
@@ -454,17 +461,20 @@ export async function getMyPlayoffProjections(): Promise<PlayoffProjection[]> {
     const preview = await getBracketPreview(compId);
     if (!preview) continue;
 
+    const info = compInfo.get(compId)!;
     const byTeam = new Map(preview.teams.map((t) => [t.teamId, t]));
     for (const t of teams.filter((x) => x.competition_id === compId)) {
       const p = byTeam.get(t.id);
       out.push({
         competitionId: compId,
-        competitionName: compName.get(compId) ?? "Tournament",
+        competitionName: info.name,
+        timezone: info.timezone,
         teamId: t.id,
         teamName: t.name,
         track: p?.track ?? null,
         seed: p?.seed ?? 0,
         opponentName: p?.opponentName ?? null,
+        firstGameAt: p?.firstGameAt ?? null,
         madeBracket: !!p,
         poolsComplete: preview.poolsComplete,
         tiedAtCutoff: preview.tiedAtCutoff,
