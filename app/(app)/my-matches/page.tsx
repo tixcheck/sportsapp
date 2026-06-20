@@ -39,21 +39,24 @@ export default async function MyMatchesPage() {
     getMyPlayoffProjections(),
   ]);
 
-  // Up Next: the earliest non-final match the viewer can still act on.
-  const upNext = [...matches.filter((m) => m.state !== "final")].sort(
-    byTime,
-  )[0];
+  // Up Next: the earliest non-final game the viewer plays (not one they ref).
+  const upNext = [
+    ...matches.filter((m) => m.state !== "final" && m.role === "play"),
+  ].sort(byTime)[0];
   const rest = matches.filter((m) => m.id !== upNext?.id);
-  // Each section is time-sorted within itself (no more pool/playoff interleaving).
-  // Labels are competition-type aware: tournaments use "Round robin" / "Playoff
-  // bracket"; a league's games get a neutral "Schedule".
-  const roundRobin = rest
+  // Games you ref are split out from games you play. Each section is time-sorted
+  // within itself (no more pool/playoff interleaving). Play-section labels are
+  // competition-type aware: tournaments use "Round robin" / "Playoff bracket"; a
+  // league's games get a neutral "Schedule".
+  const playing = rest.filter((m) => m.role === "play");
+  const reffing = rest.filter((m) => m.role === "ref").sort(byTime);
+  const roundRobin = playing
     .filter((m) => m.competitionType === "tournament" && m.phase === "pool")
     .sort(byTime);
-  const leagueGames = rest
+  const leagueGames = playing
     .filter((m) => m.competitionType === "league")
     .sort(byTime);
-  const bracket = rest.filter((m) => m.phase === "bracket").sort(byTime);
+  const bracket = playing.filter((m) => m.phase === "bracket").sort(byTime);
   const hasPlayoff = bracket.length > 0 || projections.length > 0;
 
   return (
@@ -98,6 +101,14 @@ export default async function MyMatchesPage() {
               ))}
               {projections.map((p) => (
                 <PotentialPlayoffCard key={p.teamId} projection={p} />
+              ))}
+            </Section>
+          )}
+
+          {reffing.length > 0 && (
+            <Section title="Reffing">
+              {reffing.map((m) => (
+                <MyMatchCard key={m.id} match={m} />
               ))}
             </Section>
           )}
