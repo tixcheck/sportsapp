@@ -42,6 +42,10 @@ function roundLabel(round: number, totalRounds: number): string {
   return `Round ${round}`;
 }
 
+function fmtRatio(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(2) : "∞";
+}
+
 function TeamRow({
   entry,
   score,
@@ -67,16 +71,26 @@ function TeamRow({
       ) : (
         <span className="w-4 shrink-0" />
       )}
-      <span
-        className={cn("flex-1 truncate", !entry && "text-text-3 italic")}
-        title={entry?.name}
-      >
-        {entry ? entry.name : "TBD"}
-      </span>
-      {entry && myTeamIds.includes(entry.teamId) && <MyTeamBadge />}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn("truncate", !entry && "text-text-3 italic")}
+            title={entry?.name}
+          >
+            {entry ? entry.name : "TBD"}
+          </span>
+          {entry && myTeamIds.includes(entry.teamId) && <MyTeamBadge />}
+        </div>
+        {entry?.record && (
+          <span className="text-muted-foreground block text-[0.65rem] font-normal tabular-nums">
+            {entry.record}
+            {entry.ratio != null ? ` · ${fmtRatio(entry.ratio)}` : ""}
+          </span>
+        )}
+      </div>
       <span
         className={cn(
-          "font-display w-5 text-right tabular-nums",
+          "font-display w-5 shrink-0 text-right tabular-nums",
           isWinner ? "text-claret font-semibold" : "text-ink-3",
         )}
       >

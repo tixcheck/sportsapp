@@ -18,6 +18,10 @@ export interface BracketEntryView {
   teamId: string;
   name: string;
   seed: number | null;
+  /** Pool record ("W-L" or "W-L-T") that earned the seed. Null if unknown. */
+  record: string | null;
+  /** Point ratio (PF/PA) at seeding time — justifies the order. */
+  ratio: number | null;
 }
 
 export interface BracketMatchView {
@@ -116,6 +120,18 @@ export async function getBrackets(
   // 1..N along this order (so seeds reflect where teams ranked out of pools).
   const groups = await loadStandings(supabase, competitionId);
   const fullOrder = crossPoolSeedOrder(groups.map((g) => g.rows));
+  // Pool record + ratio per team, to justify each seed on the bracket.
+  const statsByTeam = new Map(
+    groups.flatMap((g) =>
+      g.rows.map((r) => [
+        r.teamId,
+        {
+          record: r.mt > 0 ? `${r.mw}-${r.ml}-${r.mt}` : `${r.mw}-${r.ml}`,
+          ratio: r.pointRatio,
+        },
+      ]),
+    ),
+  );
 
   const tallies = new Map<string, { home: number; away: number }>();
   const setsByMatch = new Map<string, { home: number; away: number }[]>();
@@ -147,6 +163,8 @@ export async function getBrackets(
             teamId: id,
             name: teamName.get(id) ?? "—",
             seed: seedByTeam.get(id) ?? null,
+            record: statsByTeam.get(id)?.record ?? null,
+            ratio: statsByTeam.get(id)?.ratio ?? null,
           }
         : null;
 
