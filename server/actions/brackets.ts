@@ -12,7 +12,7 @@ import {
   dualBracketMatches,
   nextPowerOfTwo,
 } from "@/lib/scheduler/bracket";
-import { DEFAULT_SLOT_MINUTES } from "@/lib/scheduler/pools";
+import { estimateMatchMinutes } from "@/lib/formats";
 import { teamsMissingDrops } from "@/lib/standings/drops";
 import type { MatchFormat } from "@/lib/db/schema";
 
@@ -143,7 +143,7 @@ export async function generateBracketAction(
     await Promise.all([
       supabase
         .from("competitions")
-        .select("start_date, timezone")
+        .select("start_date, timezone, match_format")
         .eq("id", competitionId)
         .single(),
       supabase
@@ -163,9 +163,13 @@ export async function generateBracketAction(
     ]);
 
   const tz = comp?.timezone ?? "America/Toronto";
-  const poolSlot =
-    (settings?.pool_format as MatchFormat | null)?.capMinutes ??
-    DEFAULT_SLOT_MINUTES;
+  // Pool-play slot (to chain the bracket after pool play) and bracket-match slot
+  // are each derived from their own format.
+  const bracketFormat = comp?.match_format as MatchFormat;
+  const poolFormat =
+    (settings?.pool_format as MatchFormat | null) ?? bracketFormat;
+  const poolSlot = estimateMatchMinutes(poolFormat);
+  const bracketSlotMin = estimateMatchMinutes(bracketFormat);
   let startDt: DateTime | null = null;
   if (lastPool?.scheduled_at) {
     startDt = DateTime.fromISO(lastPool.scheduled_at, { zone: tz }).plus({
@@ -206,7 +210,7 @@ export async function generateBracketAction(
             court: courtFor(m),
           })),
           startMs,
-          DEFAULT_SLOT_MINUTES * 60_000,
+          bracketSlotMin * 60_000,
         );
 
   const rows = matches.map((m) => {

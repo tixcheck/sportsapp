@@ -16,6 +16,7 @@ import {
   nextPowerOfTwo,
 } from "@/lib/scheduler/bracket";
 import { DEFAULT_SLOT_MINUTES } from "@/lib/scheduler/pools";
+import { estimateMatchMinutes } from "@/lib/formats";
 import {
   tournamentFormat,
   type FormatTemplate,
@@ -271,12 +272,20 @@ export async function getBracketPreview(
   const groups = await loadStandings(supabase, competitionId);
   if (groups.length === 0) return null;
 
-  const { data: settings } = await supabase
-    .from("tournament_settings")
-    .select("format_template, pool_format")
-    .eq("competition_id", competitionId)
-    .maybeSingle();
+  const [{ data: settings }, { data: comp }] = await Promise.all([
+    supabase
+      .from("tournament_settings")
+      .select("format_template, pool_format")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("competitions")
+      .select("match_format")
+      .eq("id", competitionId)
+      .maybeSingle(),
+  ]);
   const template = (settings?.format_template ?? "single") as FormatTemplate;
+  const bracketFormat = comp?.match_format as MatchFormat | null;
 
   const pools = groups.map((g) => g.rows);
   const projection = projectBracket(bracketSeedTracks(pools, template));
@@ -312,9 +321,14 @@ export async function getBracketPreview(
     .filter((t): t is number => t != null);
   const firstGameByTeam = new Map<string, number>();
   if (poolEndsMs.length > 0) {
-    const poolSlot =
-      (settings?.pool_format as MatchFormat | null)?.capMinutes ??
-      DEFAULT_SLOT_MINUTES;
+    const poolFormat =
+      (settings?.pool_format as MatchFormat | null) ?? bracketFormat;
+    const poolSlot = poolFormat
+      ? estimateMatchMinutes(poolFormat)
+      : DEFAULT_SLOT_MINUTES;
+    const bracketSlotMin = bracketFormat
+      ? estimateMatchMinutes(bracketFormat)
+      : DEFAULT_SLOT_MINUTES;
     const QUARTER = 15 * 60_000;
     const startMs =
       Math.ceil((Math.max(...poolEndsMs) + poolSlot * 60_000) / QUARTER) *
@@ -335,7 +349,7 @@ export async function getBracketPreview(
         ),
       })),
       startMs,
-      DEFAULT_SLOT_MINUTES * 60_000,
+      bracketSlotMin * 60_000,
     );
     // The earliest round a team appears in is its first game (round 2 if it byes).
     for (const m of [...projection.matches].sort((a, b) => a.round - b.round)) {

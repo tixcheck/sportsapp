@@ -152,3 +152,31 @@ export function describeFormat(f: MatchFormat): string {
         : `Best of ${f.bestOf} ${ptsText}`;
   return f.capMinutes ? `${base}, capped ${f.capMinutes}'` : base;
 }
+
+/** Minutes of rally play per target point of a set (warmup/changeover added separately). */
+const MINUTES_PER_POINT = 0.9;
+/** Warmup + changeovers + clearing the court between matches. */
+const TRANSITION_MINUTES = 7;
+
+/**
+ * Estimated minutes to play a match under this format — the scheduling slot
+ * length. A time cap IS the slot, so it's honored directly. Otherwise estimate
+ * from the set targets and how many sets are likely played (a fixed-set / even
+ * `bestOf` game plays them all; an odd best-of-N typically runs ~80% of its
+ * max, e.g. bo3 → 3 sets, bo5 → 4), plus a transition buffer. Rounded up to the
+ * nearest 5 minutes. Pure — no DB, no clock.
+ */
+export function estimateMatchMinutes(format: MatchFormat): number {
+  if (format.capMinutes) return format.capMinutes;
+  const setsPlayed =
+    format.bestOf % 2 === 0 ? format.bestOf : Math.ceil(format.bestOf * 0.8);
+  let minutes = TRANSITION_MINUTES;
+  for (let i = 0; i < setsPlayed; i++) {
+    const target =
+      format.setsToPoints[i] ??
+      format.setsToPoints[format.setsToPoints.length - 1] ??
+      21;
+    minutes += target * MINUTES_PER_POINT;
+  }
+  return Math.max(5, Math.ceil(minutes / 5) * 5);
+}
