@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
-import { getOrigin } from "@/lib/utils/url";
 import {
   canFinalize,
   validateScore,
@@ -12,8 +11,6 @@ import {
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
 import { advanceBracketWinner } from "@/lib/bracket/advance";
-import { notifyResult } from "@/lib/notifications/notify";
-import { sendConfirmScore } from "@/lib/email/send";
 
 /**
  * Post-completion side effects: advance the bracket if this is a bracket match,
@@ -30,8 +27,8 @@ async function onMatchCompleted(
   } else {
     await recomputeStandings(supabase, competitionId);
   }
-  // Best-effort result notification to both teams (opt-out: notify_results).
-  await notifyResult(supabase, matchId);
+  // Score-result emails are intentionally not sent — standings/results are shown
+  // in-app. (notifyResult remains available in lib/notifications if re-enabled.)
 }
 import type { MatchFormat } from "@/lib/db/schema";
 
@@ -193,11 +190,10 @@ export async function submitScoreAction(
     })
     .eq("id", matchId);
 
-  if (requiresConfirmation) {
-    await notifyOpponents(supabase, match, comp, user.id);
-  } else {
-    // Score is final — advance the bracket or refresh standings (best-effort;
-    // standings display derives live regardless).
+  // When confirmation is required, the opposing captain sees the pending score
+  // in-app (the source of truth) — no email is sent. Once final, advance the
+  // bracket / refresh standings (best-effort; standings also derive live).
+  if (!requiresConfirmation) {
     await onMatchCompleted(
       supabase,
       matchId,
@@ -337,41 +333,4 @@ export async function disputeScoreAction(
 
   revalidatePath("/my-matches");
   return { success: true };
-}
-
-/** Best-effort "confirm the score" email to the opposing captain(s). */
-async function notifyOpponents(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  match: { home_team_id: string | null; away_team_id: string | null },
-  comp: { name: string; slug: string },
-  submitterId: string,
-): Promise<void> {
-  const teamIds = [match.home_team_id, match.away_team_id].filter(
-    Boolean,
-  ) as string[];
-  if (teamIds.length === 0) return;
-  const { data: teams } = await supabase
-    .from("teams")
-    .select("captain_user_id")
-    .in("id", teamIds);
-  const captainIds = (teams ?? [])
-    .map((t) => t.captain_user_id as string | null)
-    .filter((id): id is string => !!id && id !== submitterId);
-  if (captainIds.length === 0) return;
-
-  // RLS may hide opposing emails; if so this resolves to nothing and we rely on
-  // the in-app pending state (the source of truth).
-  const { data: users } = await supabase
-    .from("users")
-    .select("email")
-    .in("id", captainIds);
-  const origin = await getOrigin();
-  for (const u of users ?? []) {
-    if (u.email) {
-      await sendConfirmScore(u.email, {
-        competitionName: comp.name,
-        url: `${origin}/my-matches`,
-      });
-    }
-  }
 }
