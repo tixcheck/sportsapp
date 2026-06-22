@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
-import { CalendarDays, MapPin } from "lucide-react";
+import { CalendarDays, Clock, MapPin } from "lucide-react";
 
 import { getPoolsView, getPublicTournament } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
@@ -78,6 +78,18 @@ export default async function PublicTournamentPage({
                 tournament.endDate !== tournament.startDate
                   ? ` → ${tournament.endDate}`
                   : ""}
+              </span>
+            )}
+            {tournament.startTime && tournament.endTime && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3.5" />
+                {DateTime.fromFormat(tournament.startTime, "HH:mm").toFormat(
+                  "h:mm a",
+                )}{" "}
+                –{" "}
+                {DateTime.fromFormat(tournament.endTime, "HH:mm").toFormat(
+                  "h:mm a",
+                )}
               </span>
             )}
             {tournament.venue && (

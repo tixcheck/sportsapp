@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export const sportEnum = z.enum(["indoor6", "beach2", "coed4"]);
 
@@ -10,6 +11,10 @@ export const createTournamentSchema = z
     sport: sportEnum,
     startDate: z.string().regex(DATE_RE, "Pick a start date."),
     endDate: z.string().regex(DATE_RE, "Pick an end date."),
+    // Daily event window ("HH:mm"), communicated to teams; start time also seeds
+    // the first-match time when generating the schedule.
+    startTime: z.string().regex(TIME_RE, "Pick a start time."),
+    endTime: z.string().regex(TIME_RE, "Pick an end time."),
     venue: z.string().trim().max(120).optional().or(z.literal("")),
     courts: z.number().int().min(1, "At least 1 court.").max(40),
     poolSize: z.number().int().min(2, "Pools need 2+ teams.").max(8),
@@ -33,6 +38,10 @@ export const createTournamentSchema = z
   .refine((v) => v.endDate >= v.startDate, {
     message: "End date must be on or after the start date.",
     path: ["endDate"],
+  })
+  .refine((v) => v.startDate !== v.endDate || v.endTime > v.startTime, {
+    message: "End time must be after the start time.",
+    path: ["endTime"],
   });
 
 export const registerTeamSchema = z.object({

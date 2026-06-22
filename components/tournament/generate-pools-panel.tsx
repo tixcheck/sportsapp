@@ -66,14 +66,17 @@ export function GeneratePoolsPanel({
   competitionId,
   divisions,
   hasPools,
+  defaultStartTime = "09:00",
 }: {
   competitionId: string;
   divisions: DivisionTeams[];
   hasPools: boolean;
+  /** The tournament's start time — the default first-match time. */
+  defaultStartTime?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [startTime, setStartTime] = useState("09:00");
+  const [startTime, setStartTime] = useState(defaultStartTime);
   const [open, setOpen] = useState(false);
   const [orders, setOrders] = useState<Record<string, Team[]>>(() =>
     Object.fromEntries(divisions.map((d) => [d.id, seedOrder(d.teams)])),

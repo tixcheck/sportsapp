@@ -221,9 +221,13 @@ export const competitions = pgTable(
     type: competitionType("type").notNull(),
     sport: sport("sport").notNull(),
     status: competitionStatus("status").notNull().default("draft"),
-    // Calendar dates — a season runs date-to-date with no time-of-day.
+    // Calendar dates — a season/event runs date-to-date.
     startDate: date("start_date"),
     endDate: date("end_date"),
+    // Daily event window, "HH:mm" local — communicated to teams; the start time
+    // also seeds the default first-match time when generating a schedule.
+    startTime: text("start_time"),
+    endTime: text("end_time"),
     venue: text("venue"),
     timezone: text("timezone").notNull().default("America/Toronto"),
     matchFormat: jsonb("match_format").$type<MatchFormat>().notNull(),

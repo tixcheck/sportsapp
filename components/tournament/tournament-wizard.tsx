@@ -25,7 +25,16 @@ import { ScoringFields } from "@/components/scoring/scoring-fields";
 
 const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
   ["sport"],
-  ["name", "startDate", "endDate", "venue", "courts", "poolSize"],
+  [
+    "name",
+    "startDate",
+    "endDate",
+    "startTime",
+    "endTime",
+    "venue",
+    "courts",
+    "poolSize",
+  ],
   ["divisions"],
   ["formatTemplate"],
   ["formatId", "registrationDeadline"],
@@ -52,6 +61,8 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       sport: "beach2",
       startDate: "",
       endDate: "",
+      startTime: "09:00",
+      endTime: "17:00",
       venue: "",
       courts: 4,
       poolSize: 4,
@@ -170,6 +181,18 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                 <Input type="date" {...register("endDate")} />
               </Field>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Start time" error={errors.startTime?.message}>
+                <Input type="time" {...register("startTime")} />
+              </Field>
+              <Field label="End time" error={errors.endTime?.message}>
+                <Input type="time" {...register("endTime")} />
+              </Field>
+            </div>
+            <p className="text-muted-foreground -mt-2 text-xs">
+              The daily window shown to teams. The start time is also the
+              default first-match time when you generate the schedule.
+            </p>
             <Field label="Venue" error={errors.venue?.message}>
               <Input placeholder="Ashbridges Bay" {...register("venue")} />
             </Field>

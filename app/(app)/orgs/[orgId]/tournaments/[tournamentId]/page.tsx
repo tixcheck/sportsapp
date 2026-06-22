@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
-import { CalendarDays, MapPin } from "lucide-react";
+import { CalendarDays, Clock, MapPin } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
@@ -89,6 +89,12 @@ export default async function TournamentPage({
   }));
 
   const sportLabel = SPORTS.find((s) => s.value === t.sport)?.label;
+  const fmtTime = (hhmm: string) =>
+    DateTime.fromFormat(hhmm, "HH:mm").toFormat("h:mm a");
+  const windowText =
+    t.startTime && t.endTime
+      ? `${fmtTime(t.startTime)} – ${fmtTime(t.endTime)}`
+      : null;
   const deadlineText = t.registrationDeadline
     ? DateTime.fromISO(t.registrationDeadline, { zone: t.timezone }).toFormat(
         "LLL d, h:mm a",
@@ -149,6 +155,12 @@ export default async function TournamentPage({
               {t.endDate && t.endDate !== t.startDate ? ` → ${t.endDate}` : ""}
             </span>
           )}
+          {windowText && (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3.5" />
+              {windowText}
+            </span>
+          )}
           {t.venue && (
             <span className="inline-flex items-center gap-1">
               <MapPin className="size-3.5" />
@@ -193,6 +205,7 @@ export default async function TournamentPage({
             competitionId={t.id}
             divisions={divisionsWithTeams}
             hasPools={poolsView?.hasPools ?? false}
+            defaultStartTime={t.startTime ?? "09:00"}
           />
         </CardContent>
       </Card>

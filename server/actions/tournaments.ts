@@ -61,6 +61,8 @@ export async function createTournamentAction(
       status: "draft",
       start_date: v.startDate,
       end_date: v.endDate,
+      start_time: v.startTime,
+      end_time: v.endTime,
       venue: v.venue || null,
       timezone: DEFAULT_TIMEZONE,
       match_format: preset.format,

@@ -39,6 +39,9 @@ export interface TournamentDetail {
   status: string;
   startDate: string | null;
   endDate: string | null;
+  /** Daily window "HH:mm" (local). */
+  startTime: string | null;
+  endTime: string | null;
   venue: string | null;
   timezone: string;
   poolSize: number;
@@ -67,6 +70,8 @@ export interface PublicTournament {
   venue: string | null;
   startDate: string | null;
   endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
   timezone: string;
   registrationDeadline: string | null;
   registrationOpen: boolean;
@@ -111,7 +116,7 @@ export async function getTournamentDetail(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, start_date, end_date, start_time, end_time, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", tournamentId)
     .eq("type", "tournament")
@@ -158,6 +163,8 @@ export async function getTournamentDetail(
     status: t.status,
     startDate: t.start_date,
     endDate: t.end_date,
+    startTime: t.start_time,
+    endTime: t.end_time,
     venue: t.venue,
     timezone: t.timezone,
     poolSize: settings?.pool_size ?? 4,
@@ -193,7 +200,7 @@ export async function getPublicTournament(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, name, slug, sport, venue, start_date, end_date, timezone, status",
+      "id, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status",
     )
     .eq("slug", slug)
     .eq("type", "tournament")
@@ -224,6 +231,8 @@ export async function getPublicTournament(
     slug: t.slug,
     sport: t.sport as Sport,
     venue: t.venue,
+    startTime: t.start_time,
+    endTime: t.end_time,
     startDate: t.start_date,
     endDate: t.end_date,
     timezone: t.timezone,
