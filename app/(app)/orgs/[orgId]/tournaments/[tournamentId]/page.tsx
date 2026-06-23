@@ -122,7 +122,7 @@ export default async function TournamentPage({
     endTime: t.endTime ?? "17:00",
     venue: t.venue ?? "",
     courts: t.courts,
-    poolSize: t.poolSize,
+    gamesPerTeam: t.gamesPerTeam,
     formatId: findPresetId(t.sport, t.matchFormat),
     formatTemplate: t.formatTemplate,
     twoSetRoundRobin,
@@ -136,7 +136,10 @@ export default async function TournamentPage({
         : `${describeFormat(t.poolFormat)} round-robin`,
     },
     { label: "Bracket games", value: describeFormat(t.matchFormat) },
-    { label: "Pool size", value: `${t.poolSize} teams per pool` },
+    {
+      label: "Games per team",
+      value: `${t.gamesPerTeam} pool game${t.gamesPerTeam === 1 ? "" : "s"} (target)`,
+    },
     { label: "Courts", value: `${t.courts}` },
     {
       label: "Divisions",
@@ -237,6 +240,7 @@ export default async function TournamentPage({
             divisions={divisionsWithTeams}
             hasPools={poolsView?.hasPools ?? false}
             defaultStartTime={t.startTime ?? "09:00"}
+            gamesPerTeam={t.gamesPerTeam}
           />
         </CardContent>
       </Card>

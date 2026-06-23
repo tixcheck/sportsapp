@@ -128,12 +128,12 @@ export function EditTournamentSettingsDialog({
                 {...register("courts", { valueAsNumber: true })}
               />
             </Field>
-            <Field label="Pool size" error={errors.poolSize?.message}>
+            <Field label="Games per team" error={errors.gamesPerTeam?.message}>
               <Input
                 type="number"
-                min={2}
-                max={8}
-                {...register("poolSize", { valueAsNumber: true })}
+                min={1}
+                max={12}
+                {...register("gamesPerTeam", { valueAsNumber: true })}
               />
             </Field>
           </div>

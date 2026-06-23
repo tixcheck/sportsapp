@@ -269,6 +269,9 @@ export const tournamentSettings = pgTable("tournament_settings", {
     .primaryKey()
     .references(() => competitions.id, { onDelete: "cascade" }),
   poolSize: integer("pool_size").notNull().default(4),
+  // Target round-robin games per team — drives the suggested pool structure
+  // (pool size ≈ target + 1). Nullable for tournaments created before this.
+  targetGamesPerTeam: integer("target_games_per_team"),
   courts: integer("courts").notNull().default(4),
   poolFormat: jsonb("pool_format").$type<MatchFormat>(),
   bracketType: bracketType("bracket_type").notNull().default("single_elim"),

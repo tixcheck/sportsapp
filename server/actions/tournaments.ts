@@ -84,7 +84,8 @@ export async function createTournamentAction(
     .from("tournament_settings")
     .insert({
       competition_id: tournament.id,
-      pool_size: v.poolSize,
+      pool_size: v.gamesPerTeam + 1,
+      target_games_per_team: v.gamesPerTeam,
       courts: v.courts,
       // Pool play uses the chosen RR format; the bracket keeps the standard
       // best-of-3 (competition match_format) regardless.
@@ -193,7 +194,8 @@ export async function updateTournamentSettingsAction(
   const { error: setErr } = await supabase
     .from("tournament_settings")
     .update({
-      pool_size: v.poolSize,
+      pool_size: v.gamesPerTeam + 1,
+      target_games_per_team: v.gamesPerTeam,
       courts: v.courts,
       format_template: v.formatTemplate,
       pool_format: newPoolFormat,

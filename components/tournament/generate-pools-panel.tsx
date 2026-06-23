@@ -18,8 +18,8 @@ import { generatePoolsAction } from "@/server/actions/pools";
 import {
   poolName,
   poolPlan,
+  poolSizesForGames,
   snakeDraftIntoSizes,
-  suggestPoolStructure,
   validatePoolStructure,
 } from "@/lib/scheduler/pools";
 import {
@@ -67,12 +67,15 @@ export function GeneratePoolsPanel({
   divisions,
   hasPools,
   defaultStartTime = "09:00",
+  gamesPerTeam = 3,
 }: {
   competitionId: string;
   divisions: DivisionTeams[];
   hasPools: boolean;
   /** The tournament's start time — the default first-match time. */
   defaultStartTime?: string;
+  /** Target pool games per team — sizes the suggested pool structure. */
+  gamesPerTeam?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -83,14 +86,17 @@ export function GeneratePoolsPanel({
   );
   const [sizes, setSizes] = useState<Record<string, number[]>>(() =>
     Object.fromEntries(
-      divisions.map((d) => [d.id, suggestPoolStructure(d.teams.length)]),
+      divisions.map((d) => [
+        d.id,
+        poolSizesForGames(d.teams.length, gamesPerTeam),
+      ]),
     ),
   );
   const [short, setShort] = useState<Record<string, boolean[]>>(() =>
     Object.fromEntries(
       divisions.map((d) => [
         d.id,
-        shortDefaults(suggestPoolStructure(d.teams.length)),
+        shortDefaults(poolSizesForGames(d.teams.length, gamesPerTeam)),
       ]),
     ),
   );
@@ -127,7 +133,10 @@ export function GeneratePoolsPanel({
       return next;
     });
     const suggested = Object.fromEntries(
-      divisions.map((d) => [d.id, suggestPoolStructure(d.teams.length)]),
+      divisions.map((d) => [
+        d.id,
+        poolSizesForGames(d.teams.length, gamesPerTeam),
+      ]),
     );
     setSizes(suggested);
     setShort(
@@ -139,7 +148,7 @@ export function GeneratePoolsPanel({
     setPlacement({});
     setOverride({});
     setSelected(null);
-  }, [divisions]);
+  }, [divisions, gamesPerTeam]);
 
   const totalTeams = divisions.reduce((n, d) => n + d.teams.length, 0);
 
@@ -188,7 +197,7 @@ export function GeneratePoolsPanel({
   function resetStructure(divId: string) {
     const d = divisions.find((x) => x.id === divId);
     if (!d) return;
-    const s = suggestPoolStructure(d.teams.length);
+    const s = poolSizesForGames(d.teams.length, gamesPerTeam);
     setSizes((prev) => ({ ...prev, [divId]: s }));
     setShort((prev) => ({ ...prev, [divId]: shortDefaults(s) }));
   }

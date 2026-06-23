@@ -45,6 +45,8 @@ export interface TournamentDetail {
   venue: string | null;
   timezone: string;
   poolSize: number;
+  /** Target round-robin games per team (falls back to poolSize − 1 for old data). */
+  gamesPerTeam: number;
   courts: number;
   formatTemplate: FormatTemplate;
   /** Pool-play match format (2-set round-robin when bestOf is even). */
@@ -126,7 +128,7 @@ export async function getTournamentDetail(
   const { data: settings } = await supabase
     .from("tournament_settings")
     .select(
-      "pool_size, courts, pool_format, format_template, registration_deadline",
+      "pool_size, target_games_per_team, courts, pool_format, format_template, registration_deadline",
     )
     .eq("competition_id", tournamentId)
     .single();
@@ -168,6 +170,8 @@ export async function getTournamentDetail(
     venue: t.venue,
     timezone: t.timezone,
     poolSize: settings?.pool_size ?? 4,
+    gamesPerTeam:
+      settings?.target_games_per_team ?? (settings?.pool_size ?? 4) - 1,
     courts: settings?.courts ?? 1,
     formatTemplate: (settings?.format_template ?? "single") as FormatTemplate,
     poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,

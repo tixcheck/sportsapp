@@ -1,0 +1,1 @@
+ALTER TABLE "tournament_settings" ADD COLUMN "target_games_per_team" integer;

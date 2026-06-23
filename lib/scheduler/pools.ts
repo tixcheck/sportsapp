@@ -314,6 +314,43 @@ export function suggestPoolStructure(n: number): number[] {
   return [...Array<number>(k).fill(4), 3]; // rem === 3
 }
 
+/**
+ * Pool sizes for `teamCount` teams targeting `gamesPerTeam` round-robin games
+ * each (single RR ⇒ games = poolSize − 1, so the ideal pool size is target + 1).
+ * Picks a pool count that lands sizes near that ideal, distributed as evenly as
+ * possible (sizes differ by ≤ 1), never a 1-team pool. Exact games-per-team
+ * isn't always achievable (depends on divisibility) — callers report the actual
+ * spread via gamesPerTeamRange(). Largest pools first.
+ */
+export function poolSizesForGames(
+  teamCount: number,
+  gamesPerTeam: number,
+): number[] {
+  if (teamCount <= 0) return [];
+  const ideal = Math.max(2, Math.floor(gamesPerTeam) + 1);
+  if (teamCount <= ideal) return [teamCount];
+
+  let poolCount = Math.max(1, Math.round(teamCount / ideal));
+  // Don't create pools so small the base size drops below 2.
+  while (poolCount > 1 && Math.floor(teamCount / poolCount) < 2) poolCount -= 1;
+
+  const base = Math.floor(teamCount / poolCount);
+  const extra = teamCount % poolCount; // this many pools get one more team
+  return Array.from({ length: poolCount }, (_, i) =>
+    i < extra ? base + 1 : base,
+  );
+}
+
+/** The min–max games per team implied by a set of pool sizes (single RR). */
+export function gamesPerTeamRange(sizes: number[]): {
+  min: number;
+  max: number;
+} {
+  const games = sizes.filter((s) => s > 0).map((s) => s - 1);
+  if (games.length === 0) return { min: 0, max: 0 };
+  return { min: Math.min(...games), max: Math.max(...games) };
+}
+
 export interface StructureValidation {
   ok: boolean;
   errors: string[];
