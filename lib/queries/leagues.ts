@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Sport } from "@/lib/formats";
+import type { MatchFormat, WeeklySlot } from "@/lib/db/schema";
 
 export interface OrgSummary {
   id: string;
@@ -36,6 +37,13 @@ export interface LeagueDetail {
   endDate: string | null;
   venue: string | null;
   timezone: string;
+  /** Editable settings (for the Edit-settings form). */
+  matchFormat: MatchFormat;
+  roundsPerTeam: number;
+  courts: number;
+  slotDayOfWeek: number;
+  slotStartTime: string;
+  blackoutDates: string[];
   scoring: {
     allowCaptainEntry: boolean;
     allowRefEntry: boolean;
@@ -106,12 +114,19 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", leagueId)
     .eq("type", "league")
     .single();
   if (!league) return null;
+
+  const { data: settings } = await supabase
+    .from("league_settings")
+    .select("weekly_slots, rounds_per_team, blackout_dates")
+    .eq("competition_id", leagueId)
+    .maybeSingle();
+  const slot = (settings?.weekly_slots as WeeklySlot[] | null)?.[0];
 
   const { data: teams } = await supabase
     .from("teams")
@@ -155,6 +170,12 @@ export async function getLeagueDetail(
     endDate: league.end_date,
     venue: league.venue,
     timezone: league.timezone,
+    matchFormat: league.match_format as MatchFormat,
+    roundsPerTeam: settings?.rounds_per_team ?? 1,
+    courts: slot?.courts ?? 2,
+    slotDayOfWeek: slot?.dayOfWeek ?? 2,
+    slotStartTime: slot?.startTime ?? "19:00",
+    blackoutDates: (settings?.blackout_dates as string[] | null) ?? [],
     scoring: {
       allowCaptainEntry: league.allow_captain_entry,
       allowRefEntry: league.allow_ref_entry,

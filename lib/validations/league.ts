@@ -38,12 +38,40 @@ export const createLeagueSchema = z
     path: ["endDate"],
   });
 
+/**
+ * Editable league settings (post-creation). No sport (fundamental). Format/sets
+ * changes are blocked server-side once scores exist; the rest stay editable and
+ * take effect when the schedule is regenerated.
+ */
+export const editLeagueSchema = z
+  .object({
+    name: z.string().trim().min(2, "Name is too short.").max(100),
+    startDate: z.string().regex(DATE_RE, "Pick a start date."),
+    endDate: z.string().regex(DATE_RE, "Pick an end date."),
+    venue: z.string().trim().max(120).optional().or(z.literal("")),
+    courts: z.number().int().min(1, "At least 1 court.").max(20),
+    roundsPerTeam: z
+      .number()
+      .int()
+      .refine((n) => [1, 2].includes(n), { message: "Choose 1× or 2×." }),
+    slotDayOfWeek: z.number().int().min(0).max(6),
+    slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
+    formatId: z.string().min(1),
+    twoSetRoundRobin: z.boolean(),
+    blackoutDates: z.array(z.string().regex(DATE_RE)),
+  })
+  .refine((v) => v.endDate >= v.startDate, {
+    message: "End date must be on or after the start date.",
+    path: ["endDate"],
+  });
+
 export const addTeamSchema = z.object({
   name: z.string().trim().min(2, "Team name is too short.").max(80),
   captainEmail: z.string().trim().email("Enter a valid email."),
 });
 
 export type CreateLeagueInput = z.infer<typeof createLeagueSchema>;
+export type EditLeagueInput = z.infer<typeof editLeagueSchema>;
 export type AddTeamInput = z.infer<typeof addTeamSchema>;
 
 export const DAY_LABELS = [

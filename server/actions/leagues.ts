@@ -15,8 +15,10 @@ import { generateRoundRobin } from "@/lib/scheduler/round-robin";
 import {
   addTeamSchema,
   createLeagueSchema,
+  editLeagueSchema,
   type AddTeamInput,
   type CreateLeagueInput,
+  type EditLeagueInput,
 } from "@/lib/validations/league";
 import type { WeeklySlot } from "@/lib/db/schema";
 
@@ -108,6 +110,103 @@ export async function createLeagueAction(
 
   revalidatePath(`/orgs/${orgId}`);
   redirect(`/orgs/${orgId}/leagues/${league.id}`);
+}
+
+/** True once any match in the competition has a recorded set score. */
+async function leagueHasScores(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<boolean> {
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("competition_id", competitionId);
+  const ids = (matches ?? []).map((m) => m.id);
+  if (ids.length === 0) return false;
+  const { data: sets } = await supabase
+    .from("sets")
+    .select("match_id")
+    .in("match_id", ids)
+    .limit(1);
+  return (sets?.length ?? 0) > 0;
+}
+
+/**
+ * Edit a league's settings after creation (admin only). Name, dates, venue,
+ * courts, weekly slot (day/time), rounds-per-team, and blackout dates are always
+ * editable (schedule changes take effect on the next "Generate schedule"). The
+ * match format + 2-set choice are locked once any score is recorded.
+ */
+export async function updateLeagueSettingsAction(
+  competitionId: string,
+  values: EditLeagueInput,
+): Promise<{ error: string } | { success: true }> {
+  const parsed = editLeagueSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the form." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can edit settings." };
+  }
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("sport, match_format")
+    .eq("id", competitionId)
+    .eq("type", "league")
+    .single();
+  if (!comp) return { error: "League not found." };
+
+  const preset = findPreset(comp.sport as Sport, v.formatId);
+  const newFormat = v.twoSetRoundRobin
+    ? toTwoSetFormat(preset.format)
+    : preset.format;
+
+  // Guard: once scores exist, the format + sets are frozen.
+  const formatChanged =
+    JSON.stringify(comp.match_format) !== JSON.stringify(newFormat);
+  if (formatChanged && (await leagueHasScores(supabase, competitionId))) {
+    return {
+      error:
+        "Scores have been entered — the match format can't be changed. Edit the other fields and leave the format as is.",
+    };
+  }
+
+  const { error: compErr } = await supabase
+    .from("competitions")
+    .update({
+      name: v.name,
+      start_date: v.startDate,
+      end_date: v.endDate,
+      venue: v.venue || null,
+      match_format: newFormat,
+    })
+    .eq("id", competitionId);
+  if (compErr) return { error: compErr.message };
+
+  const weeklySlots: WeeklySlot[] = [
+    {
+      dayOfWeek: v.slotDayOfWeek,
+      startTime: v.slotStartTime,
+      courts: v.courts,
+    },
+  ];
+  const { error: setErr } = await supabase
+    .from("league_settings")
+    .update({
+      weekly_slots: weeklySlots,
+      rounds_per_team: v.roundsPerTeam,
+      blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
+    })
+    .eq("competition_id", competitionId);
+  if (setErr) return { error: setErr.message };
+
+  revalidatePath("/orgs");
+  return { success: true };
 }
 
 export type AddTeamResult =

@@ -11,8 +11,9 @@ import {
   removeCompetitionAdminAction,
 } from "@/server/actions/organizers";
 import { getOrigin } from "@/lib/utils/url";
-import { SPORTS } from "@/lib/formats";
+import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
+import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { PublishToggle } from "@/components/league/publish-toggle";
@@ -48,6 +49,21 @@ export default async function LeaguePage({
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
+  // Match format + 2-set lock once any score exists.
+  const hasScores = schedule.some((m) => m.sets.length > 0);
+  const editInitial = {
+    name: league.name,
+    startDate: league.startDate ?? "",
+    endDate: league.endDate ?? "",
+    venue: league.venue ?? "",
+    courts: league.courts,
+    roundsPerTeam: league.roundsPerTeam,
+    slotDayOfWeek: league.slotDayOfWeek,
+    slotStartTime: league.slotStartTime,
+    formatId: findPresetId(league.sport, league.matchFormat),
+    twoSetRoundRobin: league.matchFormat.bestOf % 2 === 0,
+    blackoutDates: league.blackoutDates,
+  };
 
   return (
     <div className="space-y-6">
@@ -67,11 +83,19 @@ export default async function LeaguePage({
               {league.status}
             </span>
           </div>
-          <PublishToggle
-            competitionId={league.id}
-            status={league.status}
-            slug={league.slug}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <EditLeagueSettingsDialog
+              competitionId={league.id}
+              sport={league.sport}
+              hasScores={hasScores}
+              initial={editInitial}
+            />
+            <PublishToggle
+              competitionId={league.id}
+              status={league.status}
+              slug={league.slug}
+            />
+          </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <span>{sportLabel}</span>
