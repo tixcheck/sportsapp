@@ -44,6 +44,34 @@ export const createTournamentSchema = z
     path: ["endTime"],
   });
 
+/**
+ * Editable tournament settings (post-creation). No sport (fundamental) or
+ * divisions (teams are registered into them). Format/sets changes are blocked
+ * server-side once scores exist; the rest stay editable.
+ */
+export const editTournamentSchema = z
+  .object({
+    name: z.string().trim().min(2, "Name is too short.").max(100),
+    startDate: z.string().regex(DATE_RE, "Pick a start date."),
+    endDate: z.string().regex(DATE_RE, "Pick an end date."),
+    startTime: z.string().regex(TIME_RE, "Pick a start time."),
+    endTime: z.string().regex(TIME_RE, "Pick an end time."),
+    venue: z.string().trim().max(120).optional().or(z.literal("")),
+    courts: z.number().int().min(1, "At least 1 court.").max(40),
+    poolSize: z.number().int().min(2, "Pools need 2+ teams.").max(8),
+    formatId: z.string().min(1),
+    formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
+    twoSetRoundRobin: z.boolean(),
+  })
+  .refine((v) => v.endDate >= v.startDate, {
+    message: "End date must be on or after the start date.",
+    path: ["endDate"],
+  })
+  .refine((v) => v.startDate !== v.endDate || v.endTime > v.startTime, {
+    message: "End time must be after the start time.",
+    path: ["endTime"],
+  });
+
 export const registerTeamSchema = z.object({
   teamName: z.string().trim().min(2, "Team name is too short.").max(80),
   divisionId: z.string().min(1, "Pick a division."),
@@ -53,4 +81,5 @@ export const registerTeamSchema = z.object({
 });
 
 export type CreateTournamentInput = z.infer<typeof createTournamentSchema>;
+export type EditTournamentInput = z.infer<typeof editTournamentSchema>;
 export type RegisterTeamInput = z.infer<typeof registerTeamSchema>;

@@ -14,8 +14,10 @@ import { sendCaptainInvite } from "@/lib/email/send";
 import { addTeamSchema, type AddTeamInput } from "@/lib/validations/league";
 import {
   createTournamentSchema,
+  editTournamentSchema,
   registerTeamSchema,
   type CreateTournamentInput,
+  type EditTournamentInput,
   type RegisterTeamInput,
 } from "@/lib/validations/tournament";
 
@@ -106,6 +108,101 @@ export async function createTournamentAction(
 
   revalidatePath(`/orgs/${orgId}`);
   redirect(`/orgs/${orgId}/tournaments/${tournament.id}`);
+}
+
+/** True once any match in the competition has a recorded set score. */
+async function competitionHasScores(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<boolean> {
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("competition_id", competitionId);
+  const ids = (matches ?? []).map((m) => m.id);
+  if (ids.length === 0) return false;
+  const { data: sets } = await supabase
+    .from("sets")
+    .select("match_id")
+    .in("match_id", ids)
+    .limit(1);
+  return (sets?.length ?? 0) > 0;
+}
+
+/**
+ * Edit a tournament's settings after creation (admin only). Name, dates, times,
+ * venue, courts, pool size, and bracket template are always editable. The match
+ * format + 2-set choice are locked once any score has been recorded (changing
+ * them could invalidate entered results); structure changes (courts/pool size/
+ * template) only take effect on the next pool/bracket generation.
+ */
+export async function updateTournamentSettingsAction(
+  competitionId: string,
+  values: EditTournamentInput,
+): Promise<ActionError | { success: true }> {
+  const parsed = editTournamentSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the form." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can edit settings." };
+  }
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("sport, match_format")
+    .eq("id", competitionId)
+    .eq("type", "tournament")
+    .single();
+  if (!comp) return { error: "Tournament not found." };
+
+  const preset = findPreset(comp.sport as Sport, v.formatId);
+  const newPoolFormat = v.twoSetRoundRobin
+    ? toTwoSetFormat(preset.format)
+    : preset.format;
+
+  // Guard: once scores exist, the format + sets are frozen (a change could make
+  // recorded results invalid). Safe fields below still save.
+  const formatChanged =
+    JSON.stringify(comp.match_format) !== JSON.stringify(preset.format);
+  if (formatChanged && (await competitionHasScores(supabase, competitionId))) {
+    return {
+      error:
+        "Scores have been entered — the match format can't be changed. Edit the other fields and leave the format as is.",
+    };
+  }
+
+  const { error: compErr } = await supabase
+    .from("competitions")
+    .update({
+      name: v.name,
+      start_date: v.startDate,
+      end_date: v.endDate,
+      start_time: v.startTime,
+      end_time: v.endTime,
+      venue: v.venue || null,
+      match_format: preset.format,
+    })
+    .eq("id", competitionId);
+  if (compErr) return { error: compErr.message };
+
+  const { error: setErr } = await supabase
+    .from("tournament_settings")
+    .update({
+      pool_size: v.poolSize,
+      courts: v.courts,
+      format_template: v.formatTemplate,
+      pool_format: newPoolFormat,
+    })
+    .eq("competition_id", competitionId);
+  if (setErr) return { error: setErr.message };
+
+  revalidatePath("/orgs");
+  return { success: true };
 }
 
 export async function registerTeamAction(

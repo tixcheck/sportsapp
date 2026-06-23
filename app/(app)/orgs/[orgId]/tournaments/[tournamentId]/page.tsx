@@ -14,8 +14,9 @@ import {
 } from "@/server/actions/organizers";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
-import { SPORTS, describeFormat } from "@/lib/formats";
+import { SPORTS, describeFormat, findPresetId } from "@/lib/formats";
 import { tournamentFormat } from "@/lib/tournament-formats";
+import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { RebalanceRefsButton } from "@/components/tournament/rebalance-refs-button";
@@ -104,6 +105,28 @@ export default async function TournamentPage({
 
   const structure = tournamentFormat(t.formatTemplate);
   const twoSetRoundRobin = t.poolFormat.bestOf % 2 === 0;
+  // Match format + 2-set choice lock once any score exists (editing them could
+  // invalidate recorded results).
+  const hasScores =
+    poolMatches.some((m) => m.sets.length > 0) ||
+    brackets.some((b) =>
+      b.view.rounds
+        .flat()
+        .some((mt) => mt.homeScore != null || mt.awayScore != null),
+    );
+  const editInitial = {
+    name: t.name,
+    startDate: t.startDate ?? "",
+    endDate: t.endDate ?? "",
+    startTime: t.startTime ?? "09:00",
+    endTime: t.endTime ?? "17:00",
+    venue: t.venue ?? "",
+    courts: t.courts,
+    poolSize: t.poolSize,
+    formatId: findPresetId(t.sport, t.matchFormat),
+    formatTemplate: t.formatTemplate,
+    twoSetRoundRobin,
+  };
   const setupItems: { label: string; value: string }[] = [
     { label: "Structure", value: structure.label },
     {
@@ -139,12 +162,20 @@ export default async function TournamentPage({
               {t.status === "open" ? "registration open" : t.status}
             </span>
           </div>
-          <PublishToggle
-            competitionId={t.id}
-            status={t.status}
-            slug={t.slug}
-            kind="tournament"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <EditTournamentSettingsDialog
+              competitionId={t.id}
+              sport={t.sport}
+              hasScores={hasScores}
+              initial={editInitial}
+            />
+            <PublishToggle
+              competitionId={t.id}
+              status={t.status}
+              slug={t.slug}
+              kind="tournament"
+            />
+          </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <span>{sportLabel}</span>
