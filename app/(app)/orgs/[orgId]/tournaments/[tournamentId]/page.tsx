@@ -20,6 +20,7 @@ import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tourn
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { RebalanceRefsButton } from "@/components/tournament/rebalance-refs-button";
+import { ReoptimizeScheduleButton } from "@/components/tournament/reoptimize-schedule-button";
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
 import {
   BracketTree,
@@ -277,11 +278,17 @@ export default async function TournamentPage({
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle>Pool schedule</CardTitle>
-                <RebalanceRefsButton competitionId={t.id} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <ReoptimizeScheduleButton competitionId={t.id} />
+                  <RebalanceRefsButton competitionId={t.id} />
+                </div>
               </div>
               <CardDescription>
-                Edit a match to change its time or court. Rebalancing refs evens
-                out who referees only — times, courts, and scores stay put.
+                Edit a match to change its time or court. Re-optimizing evens
+                out wait times (and repacks courts before play starts), moving
+                only not-yet-played games; scores are preserved. Rebalancing
+                refs evens out who referees only — times, courts, and scores
+                stay put.
               </CardDescription>
             </CardHeader>
             <CardContent>

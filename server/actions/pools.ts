@@ -15,6 +15,10 @@ import {
   type LayoutPool,
 } from "@/lib/scheduler/pools";
 import { generatePairings } from "@/lib/scheduler/round-robin";
+import {
+  planReoptimize,
+  type ReoptInputMatch,
+} from "@/lib/scheduler/reoptimize";
 import { estimateMatchMinutes, toShortPoolFormat } from "@/lib/formats";
 import type { MatchFormat } from "@/lib/db/schema";
 
@@ -330,6 +334,137 @@ export async function rebalanceRefsAction(
       if (error) return { error: error.message };
       updated += 1;
     }
+  }
+
+  revalidatePath("/orgs");
+  return { updated };
+}
+
+/**
+ * Non-destructively re-optimize the pool schedule (smart-scheduling slice 3):
+ * even out wait times and, when nothing has been played yet, repack courts to
+ * cut idle time. Scores are preserved — any in-progress/completed/scored match
+ * stays put, and a pool that has started is left alone. Only not-yet-played
+ * games move (their slot/time, plus court when the whole event is still
+ * unplayed) and their refs are reassigned. Pure planning lives in
+ * `planReoptimize`; this action is the IO around it.
+ */
+export async function reoptimizeScheduleAction(
+  competitionId: string,
+): Promise<ActionError | { updated: number }> {
+  const supabase = await createClient();
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can re-optimize the schedule." };
+  }
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("timezone, match_format")
+    .eq("id", competitionId)
+    .single();
+  const { data: settings } = await supabase
+    .from("tournament_settings")
+    .select("courts, pool_format")
+    .eq("competition_id", competitionId)
+    .single();
+  const poolFmt = (settings?.pool_format ?? comp?.match_format) as
+    | MatchFormat
+    | undefined;
+  if (!poolFmt) return { error: "Tournament not found." };
+  const courts = settings?.courts ?? 4;
+  const slotMin = estimateMatchMinutes(poolFmt);
+  const tz = comp?.timezone ?? "America/Toronto";
+
+  const { data: matches } = await supabase
+    .from("matches")
+    .select(
+      "id, pool_id, court, scheduled_at, home_team_id, away_team_id, status",
+    )
+    .eq("competition_id", competitionId)
+    .not("pool_id", "is", null);
+  if (!matches || matches.length === 0) {
+    return { error: "No pool matches to re-optimize — draw pools first." };
+  }
+
+  // The announced first-match time anchors slot 0; every match's current wave is
+  // its offset from that base (pools all start at the base on their courts).
+  const times = matches
+    .map((m) => m.scheduled_at)
+    .filter((t): t is string => !!t)
+    .map((t) => DateTime.fromISO(t, { zone: tz }));
+  if (times.length === 0) {
+    return { error: "Generate the pool schedule (with times) first." };
+  }
+  const base = times.reduce((a, b) => (a < b ? a : b));
+  const slotOf = (iso: string | null) =>
+    iso
+      ? Math.round(
+          DateTime.fromISO(iso, { zone: tz }).diff(base, "minutes").minutes /
+            slotMin,
+        )
+      : 0;
+
+  // A match is locked if it is past "scheduled" or already has a score.
+  const { data: setRows } = await supabase
+    .from("sets")
+    .select("match_id")
+    .in(
+      "match_id",
+      matches.map((m) => m.id),
+    );
+  const scored = new Set((setRows ?? []).map((s) => s.match_id));
+
+  const inputs: ReoptInputMatch[] = matches
+    .filter((m) => m.home_team_id && m.away_team_id)
+    .map((m) => ({
+      id: m.id,
+      poolId: m.pool_id as string,
+      court: m.court,
+      slot: slotOf(m.scheduled_at),
+      homeTeamId: m.home_team_id as string,
+      awayTeamId: m.away_team_id as string,
+      played: m.status !== "scheduled" || scored.has(m.id),
+    }));
+
+  const assignments = planReoptimize(inputs, courts);
+  if (assignments.length === 0) {
+    return { error: "Nothing to re-optimize — the schedule is already set." };
+  }
+
+  // Safety net: assert the final court+time grid has no two matches in one cell
+  // (assignment wins, otherwise the match keeps its current cell).
+  const byId = new Map(assignments.map((a) => [a.id, a]));
+  const cell = (m: ReoptInputMatch) => {
+    const a = byId.get(m.id);
+    return `${a?.court ?? m.court ?? "?"}@${a?.slot ?? m.slot}`;
+  };
+  const seen = new Set<string>();
+  for (const m of inputs) {
+    const key = cell(m);
+    if (seen.has(key)) {
+      return {
+        error: "Re-optimize hit a scheduling collision — no changes made.",
+      };
+    }
+    seen.add(key);
+  }
+
+  let updated = 0;
+  for (const a of assignments) {
+    const { error } = await supabase
+      .from("matches")
+      .update({
+        court: a.court,
+        scheduled_at: base.plus({ minutes: a.slot * slotMin }).toISO(),
+        ref_team_id: a.refTeamId,
+      })
+      .eq("id", a.id);
+    if (error) return { error: error.message };
+    updated += 1;
   }
 
   revalidatePath("/orgs");
