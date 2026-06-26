@@ -10,6 +10,8 @@ import {
   type PairingRound,
   type TeamId,
 } from "./round-robin";
+import { orderPoolMatches } from "./pool-ordering";
+import { packPoolsOntoCourts } from "./court-packing";
 import type { MatchFormat } from "@/lib/db/schema";
 
 /** Default minutes per match slot, shared by pool + bracket scheduling. */
@@ -230,52 +232,53 @@ export function assignPoolRefs(
 }
 
 /**
- * Lay out pool-play matches: each pool's matches run sequentially in
+ * Lay out pool-play matches. Each pool's matches run sequentially in
  * non-overlapping slots on a single court (reffing crossover — one match plays
- * while other pool teams ref/rest). Pools are assigned to courts round-robin;
- * when pools outnumber courts, later pools queue into later waves on the same
- * court. No court hosts two matches in the same slot.
+ * while other pool teams ref/rest). Two smart-scheduling steps shape the result
+ * (both never worse than the old round-robin-by-index layout):
+ *   1. orderPoolMatches — sequence each pool's games for even waits / fewer
+ *      back-to-backs.
+ *   2. packPoolsOntoCourts — assign whole pools to courts + starting wave to
+ *      minimize makespan when pools share courts or sizes differ.
+ * Pools stay sequential on one court, so assignPoolRefs and every reffing
+ * invariant are preserved by construction. No court hosts two matches in the
+ * same slot.
  */
 export function layoutPoolSchedule(
   pools: LayoutPool[],
   courts: number,
 ): ScheduledPoolMatch[] {
   const courtCount = Math.max(1, courts);
-  const nextSlot = new Array<number>(courtCount).fill(0);
+  const ordered = pools.map((pool) =>
+    orderPoolMatches(pool.teamIds, pool.rounds),
+  );
+  const placements = packPoolsOntoCourts(
+    ordered.map((seq) => seq.length),
+    courtCount,
+  );
   const out: ScheduledPoolMatch[] = [];
 
   pools.forEach((pool, poolIndex) => {
-    const court = poolIndex % courtCount; // 0-based
-    const start = nextSlot[court];
-
-    // Flatten this pool's matches into play order.
-    const seq = pool.rounds.flatMap((r) =>
-      r.pairs.map((p) => ({
-        round: r.round,
-        home: p.homeTeamId,
-        away: p.awayTeamId,
-      })),
-    );
+    const seq = ordered[poolIndex];
+    const { court, startSlot } = placements[poolIndex];
 
     // Balanced ref assignment (counts differ by ≤ 1), crossover as tiebreaker.
     const refs = assignPoolRefs(
       pool.teamIds,
-      seq.map((m) => ({ homeTeamId: m.home, awayTeamId: m.away })),
+      seq.map((m) => ({ homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId })),
     );
 
-    refs.forEach((ref, k) => {
+    seq.forEach((m, k) => {
       out.push({
         poolIndex,
-        court: court + 1,
-        slot: start + k,
-        round: seq[k].round,
-        homeTeamId: seq[k].home,
-        awayTeamId: seq[k].away,
-        refTeamId: ref,
+        court,
+        slot: startSlot + k,
+        round: m.round,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        refTeamId: refs[k],
       });
     });
-
-    nextSlot[court] = start + seq.length; // next pool on this court starts after
   });
 
   return out;
