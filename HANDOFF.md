@@ -9,11 +9,11 @@
 
 ## Current state (last session)
 
-- **Branch:** `main`. **Latest commit:** `c4dc706` — pushed and **deployed live** on Vercel.
+- **Branch:** `main`. **Latest commit:** `853d2d3` — pushed (Vercel auto-deploys).
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations applied through `0033`.**
-- **Tests:** `npm test` → 206 passing. tsc + eslint clean.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations applied through `0035`** (0034/0035 were applied by hand in the SQL editor, so Drizzle's tracking doesn't know about them — see Known quirks).
+- **Tests:** `npm test` → 220 passing. tsc + eslint + prettier clean.
 
 ## ⚠️ Critical for the live tournament
 
@@ -29,6 +29,20 @@
 
 ## What shipped recently (newest first)
 
+- `853d2d3` — **League playoffs**: seed a single-elim (or Championship +
+  Consolation) bracket from final league standings, reusing the tournament
+  bracket engine. New `LeaguePlayoffPanel`, public **Playoffs** tab.
+  `generateBracketAction` now anchors off the last regular-season match
+  (`bracket_position is null`) so it works for leagues (no pools).
+- `83f2f3f` — **Games-per-team target** (tournaments): organizer sets a target;
+  pools are sized to deliver it (`poolSizesForGames` / `gamesPerTeamRange`,
+  migration `0035` adds `tournament_settings.target_games_per_team`).
+- `dc69f51` / `de8de1b` — **Edit settings after creation** (edit-until-scores)
+  for leagues and tournaments.
+- `36647ad` — **Daily event window**: `start_time`/`end_time` on competitions
+  (migration `0034`); start seeds the default first-match time.
+- `3b2b4d7` — **Slot length derived from match format** (`estimateMatchMinutes`).
+- `4d0445f` — stopped sending score emails (result + confirm-request).
 - `c4dc706` — **My-team page and `/my-matches` now share one `MatchSections`
   component** (can't drift). Sections: Up Next / Round Robin / Schedule (leagues)
   / Playoff bracket / Reffing.
@@ -113,3 +127,12 @@ EMAIL_FROM=MySportsApp <noreply@mysportsapp.ca>
   pre-commit hook runs `prettier --check` + eslint + vitest, so run
   `npm run format` before committing.
 - Vercel deploy = push to `main`; watch the commit status for success.
+- **Git ref corruption after an abrupt restart** (this repo lives in a OneDrive
+  folder): a hard restart can leave `.git/refs/heads/main` (and/or
+  `.git/refs/remotes/origin/main`) filled with null bytes — git then reports
+  _"branch appears to be broken / No commits yet."_ The objects are fine; only
+  the tiny ref file is bad. Fix: find the real tip (`.git/packed-refs`,
+  `.git/ORIG_HEAD`, `git fsck`, or `git log origin/main`), then
+  `rm .git/refs/heads/main && git update-ref refs/heads/main <sha>`. Verify the
+  tip is the true one (origin's loose ref under `.git/refs/remotes/origin/` may
+  be newer than `packed-refs`) before trusting it.
