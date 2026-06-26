@@ -4,6 +4,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
+import { getBrackets } from "@/lib/queries/bracket";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
 import {
@@ -16,8 +17,13 @@ import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
+import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import {
+  BracketTree,
+  toBracketScheduleMatch,
+} from "@/components/bracket/bracket-tree";
 import {
   StandingsTable,
   StandingsLegend,
@@ -40,15 +46,27 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [origin, schedule, standings, rosters, coOrgs] = await Promise.all([
-    getOrigin(),
-    getLeagueSchedule(leagueId),
-    getStandings(leagueId),
-    getTeamRosters(leagueId),
-    getCompetitionAdmins(leagueId),
-  ]);
+  const [origin, schedule, standings, rosters, coOrgs, brackets] =
+    await Promise.all([
+      getOrigin(),
+      getLeagueSchedule(leagueId),
+      getStandings(leagueId),
+      getTeamRosters(leagueId),
+      getCompetitionAdmins(leagueId),
+      getBrackets(leagueId),
+    ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
+  // Regular season done → playoff seeds are final. Pool+bracket matches feed the
+  // bracket reschedule dialog's conflict check.
+  const seasonComplete =
+    schedule.length > 0 && schedule.every((m) => m.status === "completed");
+  const allScheduleMatches = [
+    ...schedule,
+    ...brackets
+      .flatMap((b) => b.view.rounds.flat())
+      .map(toBracketScheduleMatch),
+  ];
   // Match format + 2-set lock once any score exists.
   const hasScores = schedule.some((m) => m.sets.length > 0);
   const editInitial = {
@@ -160,6 +178,42 @@ export default async function LeaguePage({
           {(standings[0]?.rows.length ?? 0) > 0 && <StandingsLegend />}
         </CardContent>
       </Card>
+
+      {/* Playoffs */}
+      {league.teams.length >= 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Playoffs</CardTitle>
+            <CardDescription>
+              Seed a playoff bracket from the final standings — single
+              elimination, or a Championship + Consolation split.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <LeaguePlayoffPanel
+              competitionId={league.id}
+              standings={standings}
+              hasBracket={brackets.length > 0}
+              seasonComplete={seasonComplete}
+            />
+            {brackets.map((b) => (
+              <div key={b.track ?? "single"} className="space-y-3">
+                {b.label && (
+                  <h4 className="font-display text-lg font-semibold">
+                    {b.label}
+                  </h4>
+                )}
+                <BracketTree
+                  bracket={b.view}
+                  editable
+                  timezone={league.timezone}
+                  allMatches={allScheduleMatches}
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Teams */}
       <Card>

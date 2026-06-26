@@ -178,6 +178,7 @@ export function GenerateBracketPanel({
   poolPlayComplete,
   formatTemplate,
   dropsComplete,
+  phaseLabel = "Pool play",
 }: {
   competitionId: string;
   pools: StandingsGroup[];
@@ -186,6 +187,8 @@ export function GenerateBracketPanel({
   formatTemplate: FormatTemplate;
   /** Every team in a needs_drop pool has chosen its drop. */
   dropsComplete: boolean;
+  /** What the qualifying phase is called ("Pool play" / "The season"). */
+  phaseLabel?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -293,8 +296,8 @@ export function GenerateBracketPanel({
       {!poolPlayComplete && (
         <p className="text-ink-2 flex items-center gap-1.5 text-xs">
           <TriangleAlert className="size-3.5" />
-          Pool play isn&apos;t finished — seeds may change as remaining results
-          come in.
+          {phaseLabel} isn&apos;t finished — seeds may change as remaining
+          results come in.
         </p>
       )}
       {blocked && (

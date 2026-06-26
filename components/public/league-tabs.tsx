@@ -2,11 +2,13 @@
 
 import type { PublicLeague } from "@/lib/queries/leagues";
 import type { StandingsGroup } from "@/lib/standings/compute";
+import type { BracketTrackView } from "@/lib/queries/bracket";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   StandingsTable,
   StandingsLegend,
 } from "@/components/standings/standings-table";
+import { BracketTree } from "@/components/bracket/bracket-tree";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -20,12 +22,15 @@ function initials(name: string): string {
 export function LeagueTabs({
   league,
   standings,
+  brackets = [],
   myTeamIds = [],
 }: {
   league: PublicLeague;
   standings: StandingsGroup[];
+  brackets?: BracketTrackView[];
   myTeamIds?: string[];
 }) {
+  const hasPlayoffs = brackets.length > 0;
   return (
     <Tabs defaultValue="schedule">
       <div className="bg-background/90 sticky top-0 z-30 -mx-4 space-y-2 border-b px-4 py-2 backdrop-blur">
@@ -36,6 +41,7 @@ export function LeagueTabs({
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="standings">Standings</TabsTrigger>
+          {hasPlayoffs && <TabsTrigger value="playoffs">Playoffs</TabsTrigger>}
         </TabsList>
       </div>
 
@@ -74,6 +80,25 @@ export function LeagueTabs({
         <StandingsTable rows={standings[0]?.rows ?? []} myTeamIds={myTeamIds} />
         {(standings[0]?.rows.length ?? 0) > 0 && <StandingsLegend />}
       </TabsContent>
+
+      {hasPlayoffs && (
+        <TabsContent value="playoffs" className="mt-6 space-y-6">
+          {brackets.map((b) => (
+            <div key={b.track ?? "single"} className="space-y-3">
+              {b.label && (
+                <h4 className="font-display text-lg font-semibold">
+                  {b.label}
+                </h4>
+              )}
+              <BracketTree
+                bracket={b.view}
+                myTeamIds={myTeamIds}
+                timezone={league.timezone}
+              />
+            </div>
+          ))}
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

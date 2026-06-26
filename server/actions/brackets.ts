@@ -155,7 +155,7 @@ export async function generateBracketAction(
         .from("matches")
         .select("scheduled_at")
         .eq("competition_id", competitionId)
-        .not("pool_id", "is", null)
+        .is("bracket_position", null) // last pool / regular-season match
         .not("scheduled_at", "is", null)
         .order("scheduled_at", { ascending: false })
         .limit(1)

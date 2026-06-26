@@ -5,6 +5,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 
 import { getPublicLeague } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
+import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds } from "@/lib/queries/access";
 import { SPORTS } from "@/lib/formats";
 import { LeagueTabs } from "@/components/public/league-tabs";
@@ -29,9 +30,10 @@ export default async function PublicLeaguePage({
   const { slug } = await params;
   const league = await getPublicLeague(slug);
   if (!league) notFound();
-  const [standings, myTeamIds] = await Promise.all([
+  const [standings, myTeamIds, brackets] = await Promise.all([
     getStandings(league.id),
     getMyTeamIds(league.id),
+    getBrackets(league.id),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -71,6 +73,7 @@ export default async function PublicLeaguePage({
         <LeagueTabs
           league={league}
           standings={standings}
+          brackets={brackets}
           myTeamIds={myTeamIds}
         />
       </main>
