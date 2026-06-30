@@ -9,6 +9,7 @@ import { rankKotcPool } from "@/lib/kotc/ranking";
 import {
   computeKotcSeeds,
   normalizedPlacement,
+  seedElimination,
   type StagePlacement,
 } from "@/lib/kotc/seed";
 import { repoolForRound2, type RepoolPair } from "@/lib/kotc/repool";
@@ -19,12 +20,14 @@ import {
   assignKotcPoolsSchema,
   createKotcSchema,
   repoolSchema,
+  seedEliminationSchema,
   submitKotcResultsSchema,
   updateKotcSettingsSchema,
   type AddKotcPairInput,
   type AssignKotcPoolsInput,
   type CreateKotcInput,
   type RepoolInput,
+  type SeedEliminationInput,
   type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
@@ -525,4 +528,101 @@ export async function repoolRound2Action(
     })),
     repeats,
   };
+}
+
+/** Split `total` pairs into evenly-sized pools of about `perPool` each. */
+function evenSizes(total: number, perPool: number): number[] {
+  const poolCount = Math.max(1, Math.round(total / Math.max(1, perPool)));
+  const base = Math.floor(total / poolCount);
+  const extra = total % poolCount;
+  return Array.from({ length: poolCount }, (_, i) =>
+    i < extra ? base + 1 : base,
+  );
+}
+
+/**
+ * Propose the elimination pools by serpentine-drafting the overall seed order
+ * (pure seedElimination). Returns a reviewable proposal; the organizer tweaks it
+ * then commits + locks via assignKotcPoolsAction + lockKotcStageAction.
+ */
+export async function seedEliminationAction(
+  values: SeedEliminationInput,
+): Promise<ActionError | KotcPoolProposal> {
+  const parsed = seedEliminationSchema.safeParse(values);
+  if (!parsed.success) return { error: "Invalid request." };
+  const { competitionId, sizes } = parsed.data;
+
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  const { data: seeds } = await supabase
+    .from("kotc_seeds")
+    .select("team_id, seed_rank")
+    .eq("competition_id", competitionId)
+    .order("seed_rank");
+  if (!seeds || seeds.length === 0) {
+    return { error: "Compute the seed before drafting the elimination pools." };
+  }
+  const seedOrder = seeds.map((s) => s.team_id as string);
+
+  const { data: stage } = await supabase
+    .from("kotc_stages")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .eq("kind", "elimination")
+    .order("ordinal")
+    .limit(1)
+    .single();
+  if (!stage) return { error: "No elimination stage." };
+
+  let targetSizes = sizes;
+  if (!targetSizes) {
+    const { data: settings } = await supabase
+      .from("kotc_settings")
+      .select("pairs_per_pool")
+      .eq("competition_id", competitionId)
+      .single();
+    targetSizes = evenSizes(seedOrder.length, settings?.pairs_per_pool ?? 5);
+  }
+  if (targetSizes.reduce((a, b) => a + b, 0) !== seedOrder.length) {
+    return { error: "Pool sizes must use every pair exactly once." };
+  }
+
+  const pools = seedElimination(seedOrder, targetSizes);
+  return {
+    stageId: stage.id,
+    pools: pools.map((teamIds, i) => ({
+      name: `Pool ${poolName(i)}`,
+      teamIds,
+    })),
+  };
+}
+
+/** Lock a stage once its pools are set — marks it in_progress so play proceeds. */
+export async function lockKotcStageAction(
+  stageId: string,
+): Promise<ActionError | { ok: true }> {
+  const supabase = await createClient();
+  const { data: stage } = await supabase
+    .from("kotc_stages")
+    .select("competition_id")
+    .eq("id", stageId)
+    .single();
+  if (!stage) return { error: "Stage not found." };
+
+  const denied = await assertKotcAdmin(
+    supabase,
+    stage.competition_id as string,
+  );
+  if (denied) return denied;
+
+  const { error } = await supabase
+    .from("kotc_stages")
+    .update({ status: "in_progress" })
+    .eq("id", stageId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  return { ok: true };
 }
