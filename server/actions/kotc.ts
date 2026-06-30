@@ -8,6 +8,7 @@ import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { rankKotcPool } from "@/lib/kotc/ranking";
 import {
   computeKotcSeeds,
+  evenPoolSizes,
   normalizedPlacement,
   seedElimination,
   type StagePlacement,
@@ -530,16 +531,6 @@ export async function repoolRound2Action(
   };
 }
 
-/** Split `total` pairs into evenly-sized pools of about `perPool` each. */
-function evenSizes(total: number, perPool: number): number[] {
-  const poolCount = Math.max(1, Math.round(total / Math.max(1, perPool)));
-  const base = Math.floor(total / poolCount);
-  const extra = total % poolCount;
-  return Array.from({ length: poolCount }, (_, i) =>
-    i < extra ? base + 1 : base,
-  );
-}
-
 /**
  * Propose the elimination pools by serpentine-drafting the overall seed order
  * (pure seedElimination). Returns a reviewable proposal; the organizer tweaks it
@@ -583,7 +574,10 @@ export async function seedEliminationAction(
       .select("pairs_per_pool")
       .eq("competition_id", competitionId)
       .single();
-    targetSizes = evenSizes(seedOrder.length, settings?.pairs_per_pool ?? 5);
+    targetSizes = evenPoolSizes(
+      seedOrder.length,
+      settings?.pairs_per_pool ?? 5,
+    );
   }
   if (targetSizes.reduce((a, b) => a + b, 0) !== seedOrder.length) {
     return { error: "Pool sizes must use every pair exactly once." };

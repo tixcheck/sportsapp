@@ -102,3 +102,17 @@ export function seedElimination(
 ): TeamId[][] {
   return snakeDraftIntoSizes(seedOrder, sizes);
 }
+
+/**
+ * Split `total` pairs into evenly-sized pools of about `perPool` each. Sizes
+ * differ by at most 1; the larger pools come first. Handles counts that aren't a
+ * clean multiple of `perPool` (e.g. 15 → [5,5,5]; 15 with perPool 4 → [4,4,4,3]).
+ */
+export function evenPoolSizes(total: number, perPool: number): number[] {
+  const poolCount = Math.max(1, Math.round(total / Math.max(1, perPool)));
+  const base = Math.floor(total / poolCount);
+  const extra = total % poolCount;
+  return Array.from({ length: poolCount }, (_, i) =>
+    i < extra ? base + 1 : base,
+  );
+}

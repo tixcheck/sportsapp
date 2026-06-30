@@ -102,4 +102,50 @@ describe("repoolForRound2", () => {
       repoolForRound2(p, prior, [3, 3]),
     );
   });
+
+  it("re-pools into UNEVEN sizes [4,3] without dropping anyone", () => {
+    // 7 pairs, Round-1 pools were also uneven (4 + 3).
+    const prior = [
+      ["A", "B", "C", "D"],
+      ["E", "F", "G"],
+    ];
+    const res = repoolForRound2(
+      pairs(
+        ["A", 7],
+        ["B", 6],
+        ["C", 5],
+        ["D", 4],
+        ["E", 3],
+        ["F", 2],
+        ["G", 1],
+      ),
+      prior,
+      [4, 3],
+    );
+    expect(res.pools.map((p) => p.length)).toEqual([4, 3]); // sizes preserved
+    expect(res.pools.flat().sort()).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+    ]);
+    expect(res.repeats).toBeLessThanOrEqual(countRepeats(prior, prior));
+  });
+
+  it("re-pools 15 pairs [8,7] covering everyone exactly once", () => {
+    const ps = Array.from({ length: 15 }, (_, i) => [`P${i + 1}`, 15 - i]) as [
+      string,
+      number,
+    ][];
+    const prior = [
+      ps.slice(0, 8).map((x) => x[0]),
+      ps.slice(8).map((x) => x[0]),
+    ];
+    const res = repoolForRound2(pairs(...ps), prior, [8, 7]);
+    expect(res.pools.map((p) => p.length)).toEqual([8, 7]);
+    expect(new Set(res.pools.flat()).size).toBe(15);
+  });
 });

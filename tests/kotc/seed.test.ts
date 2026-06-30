@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   computeKotcSeeds,
+  evenPoolSizes,
   normalizedPlacement,
   seedElimination,
   type StagePlacement,
@@ -24,6 +25,16 @@ describe("normalizedPlacement", () => {
 
   it("treats a 1-pair pool as 1.0", () => {
     expect(normalizedPlacement(1, 1)).toBe(1);
+  });
+
+  it("is comparable across unequal pool sizes (7-pool vs 8-pool)", () => {
+    // Endpoints map identically regardless of size…
+    expect(normalizedPlacement(1, 8)).toBe(normalizedPlacement(1, 7)); // both 1.0
+    expect(normalizedPlacement(8, 8)).toBe(normalizedPlacement(7, 7)); // both 0.0
+    // …and a 4th-of-8 (beat 4) outranks a 4th-of-7 (beat 3).
+    expect(normalizedPlacement(4, 8)).toBeGreaterThan(
+      normalizedPlacement(4, 7),
+    );
   });
 });
 
@@ -68,6 +79,62 @@ describe("computeKotcSeeds", () => {
     ];
     expect(computeKotcSeeds(s)).toEqual(computeKotcSeeds(s));
   });
+
+  it("seeds fairly across UNEQUAL pool sizes in a round (8-pool vs 7-pool)", () => {
+    // One seeding round, 15 pairs split 8 + 7. The pure metric must put the two
+    // pool winners on equal footing despite the size difference.
+    const seeds = computeKotcSeeds([
+      stage(
+        ["A1", 1, 8, 20],
+        ["A2", 2, 8, 18],
+        ["A3", 3, 8, 16],
+        ["A4", 4, 8, 14],
+        ["A5", 5, 8, 12],
+        ["A6", 6, 8, 10],
+        ["A7", 7, 8, 8],
+        ["A8", 8, 8, 6],
+        ["B1", 1, 7, 19],
+        ["B2", 2, 7, 17],
+        ["B3", 3, 7, 15],
+        ["B4", 4, 7, 13],
+        ["B5", 5, 7, 11],
+        ["B6", 6, 7, 9],
+        ["B7", 7, 7, 7],
+      ),
+    ]);
+    const get = (t: string) => seeds.find((s) => s.teamId === t)!;
+    // Both pool winners → 1.0; both last places → 0.0 (size-normalized).
+    expect(get("A1").seedScore).toBe(1);
+    expect(get("B1").seedScore).toBe(1);
+    expect(get("A8").seedScore).toBe(0);
+    expect(get("B7").seedScore).toBe(0);
+    // A4 (4th of 8) outranks B4 (4th of 7).
+    expect(get("A4").seedScore).toBeGreaterThan(get("B4").seedScore);
+    // The two winners tie on score; the tie breaks to more total points (A1=20).
+    expect(get("A1").seedRank).toBe(1);
+    expect(get("B1").seedRank).toBe(2);
+  });
+});
+
+describe("evenPoolSizes", () => {
+  it("splits clean and uneven counts sensibly", () => {
+    expect(evenPoolSizes(15, 5)).toEqual([5, 5, 5]);
+    expect(evenPoolSizes(15, 4)).toEqual([4, 4, 4, 3]); // larger pools first
+    expect(evenPoolSizes(14, 5)).toEqual([5, 5, 4]);
+    expect(evenPoolSizes(16, 4)).toEqual([4, 4, 4, 4]);
+    expect(evenPoolSizes(3, 5)).toEqual([3]); // fewer than one pool's worth
+  });
+
+  it("always sums to the total, spread ≤ 1, no empty pool", () => {
+    for (let total = 2; total <= 40; total++) {
+      for (const per of [3, 4, 5, 6]) {
+        const sizes = evenPoolSizes(total, per);
+        expect(sizes.reduce((a, b) => a + b, 0)).toBe(total);
+        expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+        expect(Math.min(...sizes)).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
 });
 
 describe("seedElimination", () => {
@@ -78,5 +145,15 @@ describe("seedElimination", () => {
     // Top two seeds land in different pools (serpentine spreads strength).
     expect(pools[0][0]).toBe("A");
     expect(pools[1][0]).toBe("B");
+  });
+
+  it("handles 15 seeds into uneven pools [4,4,4,3]", () => {
+    const order = Array.from({ length: 15 }, (_, i) => `S${i + 1}`);
+    const sizes = evenPoolSizes(15, 4); // [4,4,4,3]
+    const pools = seedElimination(order, sizes);
+    expect(pools.map((p) => p.length)).toEqual([4, 4, 4, 3]);
+    expect(pools.flat().sort()).toEqual([...order].sort());
+    // Each pool's pairs are distinct and every seed is placed exactly once.
+    expect(new Set(pools.flat()).size).toBe(15);
   });
 });

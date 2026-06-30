@@ -90,4 +90,27 @@ describe("rankKotcPool", () => {
     expect(rows[0].position).toBe(1);
     expect(rows[0].tiebreakStep).toBe(1);
   });
+
+  it("ranks an odd-sized pool (7 pairs) into a full 1..7 order", () => {
+    // Distinct points, shuffled in → positions 1..7, descending by points.
+    const rows = rankKotcPool([
+      r("D", 4),
+      r("G", 1),
+      r("A", 7),
+      r("C", 5),
+      r("F", 2),
+      r("B", 6),
+      r("E", 3),
+    ]);
+    expect(rows.map((x) => x.teamId)).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+    ]);
+    expect(rows.map((x) => x.position)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
 });
