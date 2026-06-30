@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
+import { rankKotcPool } from "@/lib/kotc/ranking";
+import { computeKotcSeeds, type StagePlacement } from "@/lib/kotc/seed";
 import type { MatchFormat } from "@/lib/db/schema";
 import {
   addKotcPairSchema,
@@ -331,4 +333,85 @@ export async function submitKotcPoolResultsAction(
 
   revalidatePath("/orgs");
   return { updated: rows.length };
+}
+
+/**
+ * Compute the overall seed from the seeding rounds. Ranks each pool by the pure
+ * 3-level KotC tiebreaker (rankKotcPool), turns that into normalized placements,
+ * and combines them via computeKotcSeeds; writes kotc_seeds.
+ */
+export async function computeKotcSeedsAction(
+  competitionId: string,
+): Promise<ActionError | { seedCount: number }> {
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  const { data: stages } = await supabase
+    .from("kotc_stages")
+    .select("id, ordinal")
+    .eq("competition_id", competitionId)
+    .eq("kind", "seeding")
+    .order("ordinal");
+  if (!stages || stages.length === 0) return { error: "No seeding rounds." };
+
+  // One StagePlacement[] per seeding round (each pool ranked independently).
+  const byStage: StagePlacement[][] = [];
+  for (const stage of stages) {
+    const { data: pools } = await supabase
+      .from("kotc_pools")
+      .select("id")
+      .eq("stage_id", stage.id);
+    const placements: StagePlacement[] = [];
+    for (const pool of pools ?? []) {
+      const { data: results } = await supabase
+        .from("kotc_pool_results")
+        .select("team_id, king_points, longest_streak, reached_final_seq")
+        .eq("pool_id", pool.id);
+      if (!results || results.length === 0) continue;
+      const ranked = rankKotcPool(
+        results.map((r) => ({
+          teamId: r.team_id as string,
+          kingPoints: r.king_points,
+          longestStreak: r.longest_streak,
+          reachedSeq: r.reached_final_seq,
+        })),
+      );
+      ranked.forEach((row) =>
+        placements.push({
+          teamId: row.teamId,
+          rank: row.position,
+          poolSize: ranked.length,
+          kingPoints: row.kingPoints,
+        }),
+      );
+    }
+    byStage.push(placements);
+  }
+
+  if (byStage.every((s) => s.length === 0)) {
+    return { error: "Enter pool results before computing seeds." };
+  }
+
+  const seeds = computeKotcSeeds(byStage);
+
+  const { error: delErr } = await supabase
+    .from("kotc_seeds")
+    .delete()
+    .eq("competition_id", competitionId);
+  if (delErr) return { error: delErr.message };
+
+  const { error: insErr } = await supabase.from("kotc_seeds").insert(
+    seeds.map((s) => ({
+      competition_id: competitionId,
+      team_id: s.teamId,
+      seed_score: s.seedScore,
+      total_points: s.totalPoints,
+      seed_rank: s.seedRank,
+    })),
+  );
+  if (insErr) return { error: insErr.message };
+
+  revalidatePath("/orgs");
+  return { seedCount: seeds.length };
 }
