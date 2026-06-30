@@ -253,6 +253,13 @@
       "when": 1782243128672,
       "tag": "0035_mushy_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782800989618,
+      "tag": "0036_small_wonder_man",
+      "breakpoints": true
     }
   ]
 }

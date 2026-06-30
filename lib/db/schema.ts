@@ -88,6 +88,7 @@ export const organizerRequestStatus = pgEnum("organizer_request_status", [
 export const competitionType = pgEnum("competition_type", [
   "league",
   "tournament",
+  "kotc",
 ]);
 
 export const sport = pgEnum("sport", ["indoor6", "beach2", "coed4"]);
@@ -673,4 +674,206 @@ export const organizerRequests = pgTable(
     }),
   },
   (t) => [index("organizer_requests_user_id_idx").on(t.userId)],
+);
+
+// ---------------------------------------------------------------------------
+// King of the Court (beach 2s) — a distinct competition type. Continuous
+// rotation play with no fixed matchups or sets, so it gets its own tables and
+// never touches matches/sets/pools/bracket. A pair = a beach2 `teams` row.
+// Source of truth for live play is the append-only kotc_events rally log;
+// kotc_pool_results is the derived, rankable summary (see lib/kotc/*). RLS for
+// all of these is added in the accompanying migration (can_view / is_admin).
+// ---------------------------------------------------------------------------
+
+export const kotcStageKind = pgEnum("kotc_stage_kind", [
+  "seeding",
+  "elimination",
+]);
+
+export const kotcSeedMetric = pgEnum("kotc_seed_metric", [
+  "normalized_placement",
+  "raw_points",
+]);
+
+export const kotcEventType = pgEnum("kotc_event_type", [
+  "round_start",
+  "rally",
+  "round_end",
+  "void",
+]);
+
+// Per-competition KotC config (gameplay + structure). Round transition: at each
+// round end per-round points reset and the next round re-seeds by the finished
+// round's standings; cumulative points sum across rounds and feed the seed.
+export const kotcSettings = pgTable("kotc_settings", {
+  competitionId: uuid("competition_id")
+    .primaryKey()
+    .references(() => competitions.id, { onDelete: "cascade" }),
+  pairsPerPool: integer("pairs_per_pool").notNull().default(5),
+  roundsPerSession: integer("rounds_per_session").notNull().default(3),
+  roundMinutes: integer("round_minutes").notNull().default(15),
+  pointCap: integer("point_cap"),
+  seedingRoundCount: integer("seeding_round_count").notNull().default(2),
+  seedMetric: kotcSeedMetric("seed_metric")
+    .notNull()
+    .default("normalized_placement"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// A tournament-level stage: the seeding rounds (1, 2…) then elimination.
+export const kotcStages = pgTable(
+  "kotc_stages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    kind: kotcStageKind("kind").notNull(),
+    name: text("name").notNull(),
+    status: matchStatus("status").notNull().default("scheduled"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("kotc_stages_competition_id_idx").on(t.competitionId)],
+);
+
+// One KotC session group within a stage (re-pooling = new rows per stage).
+export const kotcPools = pgTable(
+  "kotc_pools",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    stageId: uuid("stage_id")
+      .notNull()
+      .references(() => kotcStages.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    status: matchStatus("status").notNull().default("scheduled"),
+    currentRoundIndex: integer("current_round_index").notNull().default(0),
+    clockStartedAt: timestamp("clock_started_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("kotc_pools_stage_id_idx").on(t.stageId)],
+);
+
+// Which pairs are in a pool, with their entry seed + initial queue position.
+export const kotcPoolPairs = pgTable(
+  "kotc_pool_pairs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    // competitionId carried for uniform RLS (can_view / is_competition_admin).
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    poolId: uuid("pool_id")
+      .notNull()
+      .references(() => kotcPools.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    entrySeed: integer("entry_seed"),
+    queuePosition: integer("queue_position").notNull().default(0),
+  },
+  (t) => [
+    unique("kotc_pool_pairs_pool_team_unique").on(t.poolId, t.teamId),
+    index("kotc_pool_pairs_pool_id_idx").on(t.poolId),
+  ],
+);
+
+// Append-only rally/event log — the source of truth for live play. seq is a
+// per-pool monotonic counter; the engine (lib/kotc/engine.ts) folds these into
+// live state + per-pair results, and the 3-level tiebreaker reads streak/seq.
+export const kotcEvents = pgTable(
+  "kotc_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    poolId: uuid("pool_id")
+      .notNull()
+      .references(() => kotcPools.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    roundIndex: integer("round_index").notNull().default(0),
+    type: kotcEventType("type").notNull(),
+    kingTeamId: uuid("king_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    challengerTeamId: uuid("challenger_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    winnerTeamId: uuid("winner_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    pointAwarded: boolean("point_awarded").notNull().default(false),
+    voidsSeq: integer("voids_seq"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    unique("kotc_events_pool_seq_unique").on(t.poolId, t.seq),
+    index("kotc_events_pool_id_idx").on(t.poolId),
+  ],
+);
+
+// Derived per-pair pool summary (live: from the event log; manual: entered).
+// reached_final_* are null under manual entry (no rally log), so the level-3
+// reached-first tiebreaker is inert until live play.
+export const kotcPoolResults = pgTable(
+  "kotc_pool_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    poolId: uuid("pool_id")
+      .notNull()
+      .references(() => kotcPools.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    kingPoints: integer("king_points").notNull().default(0),
+    longestStreak: integer("longest_streak"),
+    reachedFinalSeq: integer("reached_final_seq"),
+    reachedFinalAt: timestamp("reached_final_at", { withTimezone: true }),
+    computedAt: timestamp("computed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique("kotc_pool_results_pool_team_unique").on(t.poolId, t.teamId)],
+);
+
+// Combined seed after the seeding rounds — drafts the elimination pools.
+export const kotcSeeds = pgTable(
+  "kotc_seeds",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    seedScore: numeric("seed_score"),
+    totalPoints: integer("total_points").notNull().default(0),
+    seedRank: integer("seed_rank"),
+    computedAt: timestamp("computed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("kotc_seeds_competition_team_unique").on(t.competitionId, t.teamId),
+  ],
 );
