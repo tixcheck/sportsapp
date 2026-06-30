@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -12,7 +13,13 @@ import { Input } from "@/components/ui/input";
 
 /** Per-pool manual results entry (King points + optional longest streak) with a
  * live standings table ranked by the pure 3-level KotC tiebreaker. */
-export function ResultsCard({ pool }: { pool: KotcPoolView }) {
+export function ResultsCard({
+  pool,
+  scoreHref,
+}: {
+  pool: KotcPoolView;
+  scoreHref?: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -66,7 +73,17 @@ export function ResultsCard({ pool }: { pool: KotcPoolView }) {
 
   return (
     <div className="border-border bg-surface space-y-3 rounded-lg border p-3">
-      <p className="font-display text-sm font-semibold">{pool.name}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-display text-sm font-semibold">{pool.name}</p>
+        {scoreHref && (
+          <Link
+            href={scoreHref}
+            className="text-primary text-xs font-medium hover:underline"
+          >
+            Score live →
+          </Link>
+        )}
+      </div>
 
       <div className="space-y-2">
         <div className="text-muted-foreground grid grid-cols-[1fr_4rem_4rem] gap-2 text-xs">

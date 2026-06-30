@@ -144,6 +144,7 @@ export default async function KotcPage({
             stage={stage}
             roster={pairs}
             competitionId={kotc.id}
+            orgId={orgId}
           />
         ))}
 
@@ -318,10 +319,12 @@ function SeedingStage({
   stage,
   roster,
   competitionId,
+  orgId,
 }: {
   stage: KotcStageView;
   roster: { id: string; name: string }[];
   competitionId: string;
+  orgId: string;
 }) {
   return (
     <Card>
@@ -329,7 +332,7 @@ function SeedingStage({
         <CardTitle>{stage.name}</CardTitle>
         <CardDescription>
           {stage.ordinal === 1
-            ? "Assign pairs into pools, then enter each pool's King points."
+            ? "Assign pairs into pools, then enter each pool's King points — or score live."
             : "Generate a fair re-pool from the previous round, tweak, then enter results."}
         </CardDescription>
       </CardHeader>
@@ -337,7 +340,11 @@ function SeedingStage({
         {stage.pools.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {stage.pools.map((pool) => (
-              <ResultsCard key={pool.id} pool={pool} />
+              <ResultsCard
+                key={pool.id}
+                pool={pool}
+                scoreHref={`/orgs/${orgId}/kotc/${competitionId}/pool/${pool.id}/score`}
+              />
             ))}
           </div>
         ) : roster.length < 2 ? (
