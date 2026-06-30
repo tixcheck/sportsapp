@@ -10,10 +10,12 @@ import {
   addKotcPairSchema,
   assignKotcPoolsSchema,
   createKotcSchema,
+  submitKotcResultsSchema,
   updateKotcSettingsSchema,
   type AddKotcPairInput,
   type AssignKotcPoolsInput,
   type CreateKotcInput,
+  type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
 
@@ -261,4 +263,72 @@ export async function assignKotcPoolsAction(
 
   revalidatePath("/orgs");
   return { poolCount: v.pools.length, pairCount };
+}
+
+/**
+ * Record a pool's per-pair results manually (Phase 1 — no live rally log). Each
+ * pair in the pool needs a King-points total (longest streak optional); the
+ * reached-first tiebreaker stays inert until live play populates the event log.
+ * Replaces any prior results and marks the pool completed.
+ */
+export async function submitKotcPoolResultsAction(
+  values: SubmitKotcResultsInput,
+): Promise<ActionError | { updated: number }> {
+  const parsed = submitKotcResultsSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the scores." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: pool } = await supabase
+    .from("kotc_pools")
+    .select("id, competition_id")
+    .eq("id", v.poolId)
+    .single();
+  if (!pool) return { error: "Pool not found." };
+
+  const denied = await assertKotcAdmin(supabase, pool.competition_id as string);
+  if (denied) return denied;
+
+  const { data: pairs } = await supabase
+    .from("kotc_pool_pairs")
+    .select("team_id")
+    .eq("pool_id", v.poolId);
+  const poolTeams = new Set((pairs ?? []).map((p) => p.team_id));
+
+  const resultTeams = v.results.map((r) => r.teamId);
+  if (new Set(resultTeams).size !== resultTeams.length) {
+    return { error: "A pair appears twice in the results." };
+  }
+  if (resultTeams.some((id) => !poolTeams.has(id))) {
+    return { error: "A result references a pair that isn't in this pool." };
+  }
+  if (resultTeams.length !== poolTeams.size) {
+    return { error: "Enter a result for every pair in the pool." };
+  }
+
+  const { error: delErr } = await supabase
+    .from("kotc_pool_results")
+    .delete()
+    .eq("pool_id", v.poolId);
+  if (delErr) return { error: delErr.message };
+
+  const rows = v.results.map((r) => ({
+    competition_id: pool.competition_id,
+    pool_id: v.poolId,
+    team_id: r.teamId,
+    king_points: r.kingPoints,
+    longest_streak: r.longestStreak ?? null,
+  }));
+  const { error: insErr } = await supabase
+    .from("kotc_pool_results")
+    .insert(rows);
+  if (insErr) return { error: insErr.message };
+
+  await supabase
+    .from("kotc_pools")
+    .update({ status: "completed" })
+    .eq("id", v.poolId);
+
+  revalidatePath("/orgs");
+  return { updated: rows.length };
 }
