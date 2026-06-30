@@ -23,6 +23,10 @@ export interface SheetPoint {
   opponentTeamId: TeamId;
   /** True when this point is part of an unbroken King run of length ≥ 2. */
   inStreak: boolean;
+  /** The first point of its run — where the run-length badge is drawn. */
+  runStart: boolean;
+  /** Length of the unbroken King run this point belongs to (1 if it stands alone). */
+  runLength: number;
 }
 
 export interface SheetTeam {
@@ -81,16 +85,19 @@ export function buildScoreSheet(
     return byRound.get(ri)!;
   };
 
-  // Finalize a team's current run: flag streak cells + update its round-longest.
+  // Finalize a team's current run: tag run length/start + update round-longest.
   const endRun = (ri: number, teamId: TeamId) => {
     const indices = run.get(teamId);
     if (indices && indices.length > 0) {
       const points = byRound.get(ri)!.get(teamId)!;
-      if (indices.length >= 2) {
-        for (const i of indices) points[i].inStreak = true;
-      }
+      const len = indices.length;
+      indices.forEach((i, k) => {
+        points[i].runLength = len;
+        points[i].runStart = k === 0;
+        points[i].inStreak = len >= 2;
+      });
       const longest = longestByRound.get(ri)!;
-      longest.set(teamId, Math.max(longest.get(teamId) ?? 0, indices.length));
+      longest.set(teamId, Math.max(longest.get(teamId) ?? 0, len));
     }
     run.set(teamId, []);
   };
@@ -115,6 +122,8 @@ export function buildScoreSheet(
         pointNumber: points.length + 1,
         opponentTeamId: challenger,
         inStreak: false,
+        runStart: false,
+        runLength: 1,
       });
       const r = run.get(king) ?? [];
       r.push(points.length - 1);

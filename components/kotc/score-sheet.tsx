@@ -102,8 +102,9 @@ export function ScoreSheet({
                           rank {rankOf.get(team.teamId)}
                         </span>
                       </div>
-                      {/* 1–N tally — horizontally scrollable on mobile */}
-                      <div className="-mx-1 overflow-x-auto px-1">
+                      {/* 1–N tally — horizontally scrollable on mobile. Extra
+                          top padding leaves room for the streak-length badge. */}
+                      <div className="-mx-1 overflow-x-auto px-1 pt-2 pb-1">
                         <div className="flex gap-1">
                           {Array.from({ length: cols }, (_, i) => {
                             const pt = team.points[i];
@@ -111,7 +112,7 @@ export function ScoreSheet({
                               <div
                                 key={i}
                                 className={[
-                                  "flex h-8 w-12 shrink-0 flex-col items-center justify-center rounded border text-[10px] tabular-nums",
+                                  "relative flex h-8 w-12 shrink-0 flex-col items-center justify-center rounded border text-[10px] tabular-nums",
                                   pt
                                     ? pt.inStreak
                                       ? "border-primary/40 bg-primary/15 text-foreground"
@@ -119,6 +120,11 @@ export function ScoreSheet({
                                     : "border-border/50 text-muted-foreground/50",
                                 ].join(" ")}
                               >
+                                {pt?.runStart && pt.runLength >= 2 && (
+                                  <span className="bg-primary text-primary-foreground absolute -top-2 -left-1 rounded-full px-1 text-[9px] leading-4 font-bold shadow-sm">
+                                    ×{pt.runLength}
+                                  </span>
+                                )}
                                 {pt ? (
                                   <span className="font-medium">
                                     {pt.pointNumber}-

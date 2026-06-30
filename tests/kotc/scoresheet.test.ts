@@ -16,8 +16,20 @@ describe("buildScoreSheet", () => {
     expect(sheet).toHaveLength(1);
     const a = sheet[0].teams.find((t) => t.teamId === "A")!;
     expect(a.points).toEqual([
-      { pointNumber: 1, opponentTeamId: "B", inStreak: true },
-      { pointNumber: 2, opponentTeamId: "C", inStreak: true },
+      {
+        pointNumber: 1,
+        opponentTeamId: "B",
+        inStreak: true,
+        runStart: true,
+        runLength: 2,
+      },
+      {
+        pointNumber: 2,
+        opponentTeamId: "C",
+        inStreak: true,
+        runStart: false,
+        runLength: 2,
+      },
     ]);
     expect(a.totalPoints).toBe(2);
     expect(a.longestStreak).toBe(2);
@@ -33,9 +45,13 @@ describe("buildScoreSheet", () => {
     const a = sheet[0].teams.find((t) => t.teamId === "A")!;
     expect(a.points.map((p) => p.inStreak)).toEqual([true, true, true]);
     expect(a.longestStreak).toBe(3);
+    // The badge is drawn on the run's first point, carrying its length.
+    expect(a.points.map((p) => p.runStart)).toEqual([true, false, false]);
+    expect(a.points.map((p) => p.runLength)).toEqual([3, 3, 3]);
     const b = sheet[0].teams.find((t) => t.teamId === "B")!;
     expect(b.points).toHaveLength(1);
     expect(b.points[0].inStreak).toBe(false); // a lone point is not a streak
+    expect(b.points[0].runLength).toBe(1);
     expect(b.longestStreak).toBe(1);
   });
 
