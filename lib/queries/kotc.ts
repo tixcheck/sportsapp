@@ -13,6 +13,12 @@ export interface KotcPairView {
   name: string;
 }
 
+/** A pair as a member of a specific pool — carries its elimination status. */
+export interface KotcPoolPairView extends KotcPairView {
+  /** The drop-round at which this pair was eliminated; null = still in. */
+  eliminatedAtRound: number | null;
+}
+
 export interface KotcResultView {
   teamId: string;
   name: string;
@@ -21,19 +27,35 @@ export interface KotcResultView {
   reachedSeq: number | null;
 }
 
+/** One drop-round of an elimination / consolation / finals pool. */
+export interface KotcRoundView {
+  roundIndex: number;
+  minutes: number | null;
+  results: KotcResultView[];
+}
+
 export interface KotcPoolView {
   id: string;
   name: string;
   sortOrder: number;
   status: string;
-  pairs: KotcPairView[];
+  pairs: KotcPoolPairView[];
+  /** Seeding-stage manual entry (kotc_pool_results). */
   results: KotcResultView[];
+  /** Elimination/consolation/finals drop-round history (kotc_rounds), in order. */
+  rounds: KotcRoundView[];
 }
+
+export type KotcStageKind =
+  | "seeding"
+  | "elimination"
+  | "consolation"
+  | "finals";
 
 export interface KotcStageView {
   id: string;
   ordinal: number;
-  kind: "seeding" | "elimination";
+  kind: KotcStageKind;
   name: string;
   status: string;
   pools: KotcPoolView[];
@@ -96,6 +118,8 @@ export async function getKotcDetail(
     { data: pools },
     { data: pairs },
     { data: results },
+    { data: rounds },
+    { data: roundResults },
     { data: seeds },
   ] = await Promise.all([
     supabase
@@ -121,7 +145,7 @@ export async function getKotcDetail(
       .order("sort_order", { ascending: true }),
     supabase
       .from("kotc_pool_pairs")
-      .select("pool_id, team_id, queue_position")
+      .select("pool_id, team_id, queue_position, eliminated_at_round")
       .eq("competition_id", competitionId)
       .order("queue_position", { ascending: true }),
     supabase
@@ -129,6 +153,15 @@ export async function getKotcDetail(
       .select(
         "pool_id, team_id, king_points, longest_streak, reached_final_seq",
       )
+      .eq("competition_id", competitionId),
+    supabase
+      .from("kotc_rounds")
+      .select("id, pool_id, round_index, minutes")
+      .eq("competition_id", competitionId)
+      .order("round_index", { ascending: true }),
+    supabase
+      .from("kotc_round_results")
+      .select("round_id, team_id, king_points, longest_streak")
       .eq("competition_id", competitionId),
     supabase
       .from("kotc_seeds")
@@ -144,7 +177,7 @@ export async function getKotcDetail(
   const stageViews: KotcStageView[] = (stages ?? []).map((st) => ({
     id: st.id,
     ordinal: st.ordinal,
-    kind: st.kind as "seeding" | "elimination",
+    kind: st.kind as KotcStageKind,
     name: st.name,
     status: st.status,
     pools: (pools ?? [])
@@ -159,6 +192,8 @@ export async function getKotcDetail(
           .map((pp) => ({
             id: pp.team_id as string,
             name: nameOf.get(pp.team_id) ?? "—",
+            eliminatedAtRound:
+              (pp.eliminated_at_round as number | null) ?? null,
           })),
         results: (results ?? [])
           .filter((r) => r.pool_id === p.id)
@@ -168,6 +203,21 @@ export async function getKotcDetail(
             kingPoints: r.king_points,
             longestStreak: r.longest_streak,
             reachedSeq: r.reached_final_seq,
+          })),
+        rounds: (rounds ?? [])
+          .filter((r) => r.pool_id === p.id)
+          .map((r) => ({
+            roundIndex: r.round_index as number,
+            minutes: (r.minutes as number | null) ?? null,
+            results: (roundResults ?? [])
+              .filter((rr) => rr.round_id === r.id)
+              .map((rr) => ({
+                teamId: rr.team_id as string,
+                name: nameOf.get(rr.team_id) ?? "—",
+                kingPoints: rr.king_points,
+                longestStreak: rr.longest_streak,
+                reachedSeq: null,
+              })),
           })),
       })),
   }));

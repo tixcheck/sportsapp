@@ -1,10 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getKotcDetail, type KotcStageView } from "@/lib/queries/kotc";
+import {
+  getKotcDetail,
+  type KotcDetail,
+  type KotcPoolView,
+  type KotcStageView,
+} from "@/lib/queries/kotc";
+import { rankKotcPool } from "@/lib/kotc/ranking";
 import { AddPairForm } from "@/components/kotc/add-pair-form";
 import { PoolBuilder } from "@/components/kotc/pool-builder";
 import { ResultsCard } from "@/components/kotc/results-card";
+import { EliminationPool } from "@/components/kotc/elimination-pool";
+import {
+  ComposeFinalsButton,
+  ConsolationCard,
+} from "@/components/kotc/finals-controls";
 import {
   ComputeSeedsButton,
   EliminationFlow,
@@ -29,6 +40,40 @@ export default async function KotcPage({
   if (!kotc || kotc.orgId !== orgId) notFound();
 
   const { settings, pairs } = kotc;
+
+  // Flow state across the elimination → consolation → finals progression.
+  const elimStage = kotc.stages.find((s) => s.kind === "elimination");
+  const consoStage = kotc.stages.find((s) => s.kind === "consolation");
+  const finalsStage = kotc.stages.find((s) => s.kind === "finals");
+
+  const remainingOf = (pool: KotcPoolView) =>
+    pool.pairs.filter((p) => p.eliminatedAtRound === null);
+  const elimPools = elimStage?.pools ?? [];
+  const elimAllDone =
+    elimPools.length > 0 && elimPools.every((p) => remainingOf(p).length <= 3);
+  const eliminated = elimPools.flatMap((p) =>
+    p.pairs.filter((pp) => pp.eliminatedAtRound !== null),
+  );
+  const needsConsolation = eliminated.length >= 2;
+
+  const consoLastRound = consoStage?.pools[0]?.rounds.at(-1);
+  const consolationWinnerId = consoLastRound
+    ? rankKotcPool(
+        consoLastRound.results.map((r) => ({
+          teamId: r.teamId,
+          kingPoints: r.kingPoints,
+          longestStreak: r.longestStreak,
+          reachedSeq: r.reachedSeq,
+        })),
+      )[0]?.teamId
+    : undefined;
+  const consolationWinnerName =
+    eliminated.find((p) => p.id === consolationWinnerId)?.name ?? null;
+  const consolationDone = !!consolationWinnerId;
+
+  const canCompose =
+    elimAllDone && !finalsStage && (!needsConsolation || consolationDone);
+
   const setupText = [
     `${settings.pairsPerPool} pairs/pool`,
     `${settings.roundsPerSession}×${settings.roundMinutes} min rounds`,
@@ -90,75 +135,174 @@ export default async function KotcPage({
         </CardContent>
       </Card>
 
-      {/* Stages */}
-      {kotc.stages.map((stage) =>
-        stage.kind === "seeding" ? (
+      {/* Seeding rounds */}
+      {kotc.stages
+        .filter((s) => s.kind === "seeding")
+        .map((stage) => (
           <SeedingStage
             key={stage.id}
             stage={stage}
             roster={pairs}
             competitionId={kotc.id}
           />
-        ) : (
-          <Card key={stage.id}>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle>{stage.name}</CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  <ComputeSeedsButton competitionId={kotc.id} />
-                  {stage.pools.length > 0 && stage.status !== "in_progress" && (
-                    <LockStageButton stageId={stage.id} />
-                  )}
-                </div>
-              </div>
-              <CardDescription>
-                Compute the overall seed from the seeding rounds, draft the
-                elimination pools (serpentine), tweak, then lock and play.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {kotc.seeds.length > 0 && (
-                <div className="border-border space-y-1 rounded-lg border p-3">
-                  <p className="text-muted-foreground text-xs">Overall seed</p>
-                  <ol className="space-y-0.5">
-                    {kotc.seeds.map((s) => (
-                      <li
-                        key={s.teamId}
-                        className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-2 text-sm"
-                      >
-                        <span className="text-muted-foreground tabular-nums">
-                          {s.seedRank}
-                        </span>
-                        <span className="truncate">{s.name}</span>
-                        <span className="text-muted-foreground tabular-nums">
-                          {s.seedScore?.toFixed(2)} · {s.totalPoints} pts
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
+        ))}
 
-              {stage.pools.length === 0 ? (
-                kotc.seeds.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">
-                    Finish the seeding rounds and compute the seed first.
-                  </p>
-                ) : (
-                  <EliminationFlow competitionId={kotc.id} roster={pairs} />
-                )
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {stage.pools.map((pool) => (
-                    <ResultsCard key={pool.id} pool={pool} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ),
+      {/* Elimination */}
+      {elimStage && (
+        <EliminationStage stage={elimStage} kotc={kotc} roster={pairs} />
+      )}
+
+      {/* Consolation + Finals */}
+      {elimStage && elimAllDone && (
+        <FinalsSection
+          competitionId={kotc.id}
+          eliminated={eliminated}
+          needsConsolation={needsConsolation}
+          consolationWinnerName={consolationWinnerName}
+          canCompose={canCompose}
+          finalsStage={finalsStage ?? null}
+        />
       )}
     </div>
+  );
+}
+
+function EliminationStage({
+  stage,
+  kotc,
+  roster,
+}: {
+  stage: KotcStageView;
+  kotc: KotcDetail;
+  roster: { id: string; name: string }[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>{stage.name}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <ComputeSeedsButton competitionId={kotc.id} />
+            {stage.pools.length > 0 && stage.status !== "in_progress" && (
+              <LockStageButton stageId={stage.id} />
+            )}
+          </div>
+        </div>
+        <CardDescription>
+          Compute the overall seed, draft the elimination pools (serpentine),
+          lock, then play each pool: drop the lowest pair each round until 3
+          remain and advance.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {kotc.seeds.length > 0 && (
+          <div className="border-border space-y-1 rounded-lg border p-3">
+            <p className="text-muted-foreground text-xs">Overall seed</p>
+            <ol className="space-y-0.5">
+              {kotc.seeds.map((s) => (
+                <li
+                  key={s.teamId}
+                  className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-2 text-sm"
+                >
+                  <span className="text-muted-foreground tabular-nums">
+                    {s.seedRank}
+                  </span>
+                  <span className="truncate">{s.name}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {s.seedScore?.toFixed(2)} · {s.totalPoints} pts
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {stage.pools.length === 0 ? (
+          kotc.seeds.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Finish the seeding rounds and compute the seed first.
+            </p>
+          ) : (
+            <EliminationFlow competitionId={kotc.id} roster={roster} />
+          )
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {stage.pools.map((pool) => (
+              <EliminationPool key={pool.id} pool={pool} kind="elimination" />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FinalsSection({
+  competitionId,
+  eliminated,
+  needsConsolation,
+  consolationWinnerName,
+  canCompose,
+  finalsStage,
+}: {
+  competitionId: string;
+  eliminated: { id: string; name: string }[];
+  needsConsolation: boolean;
+  consolationWinnerName: string | null;
+  canCompose: boolean;
+  finalsStage: KotcStageView | null;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Consolation & Finals</CardTitle>
+        <CardDescription>
+          Every pair dropped in the pools plays one 15-minute consolation round
+          for the last finals berth; the pool survivors plus that winner then
+          run the same drop loop to decide the podium.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Consolation */}
+        <div className="border-border space-y-2 rounded-lg border p-3">
+          <p className="text-sm font-semibold">Consolation</p>
+          {needsConsolation ? (
+            consolationWinnerName ? (
+              <p className="text-muted-foreground text-sm">
+                Winner:{" "}
+                <span className="text-foreground">{consolationWinnerName}</span>{" "}
+                → into the finals.
+              </p>
+            ) : (
+              <ConsolationCard
+                competitionId={competitionId}
+                eliminated={eliminated}
+              />
+            )
+          ) : eliminated.length === 1 ? (
+            <p className="text-muted-foreground text-sm">
+              {eliminated[0].name} was the only pair eliminated — they take the
+              berth automatically (no round needed).
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              No pairs were eliminated, so there is no consolation berth.
+            </p>
+          )}
+        </div>
+
+        {/* Finals */}
+        {finalsStage && finalsStage.pools[0] ? (
+          <EliminationPool pool={finalsStage.pools[0]} kind="finals" />
+        ) : canCompose ? (
+          <ComposeFinalsButton competitionId={competitionId} />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            Finish the consolation round to assemble the finals.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
