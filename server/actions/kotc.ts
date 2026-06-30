@@ -8,9 +8,11 @@ import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import type { MatchFormat } from "@/lib/db/schema";
 import {
   addKotcPairSchema,
+  assignKotcPoolsSchema,
   createKotcSchema,
   updateKotcSettingsSchema,
   type AddKotcPairInput,
+  type AssignKotcPoolsInput,
   type CreateKotcInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
@@ -180,4 +182,83 @@ export async function addKotcPairAction(
 
   revalidatePath("/orgs");
   return { teamId: team.id };
+}
+
+/**
+ * Assign pairs into a stage's pools (manual for Round 1; the reviewed output of
+ * re-pool / elimination seeding for later stages). Replaces any existing pools
+ * for the stage (cascade clears their pairs/events/results), then inserts the
+ * new pools + memberships.
+ */
+export async function assignKotcPoolsAction(
+  values: AssignKotcPoolsInput,
+): Promise<ActionError | { poolCount: number; pairCount: number }> {
+  const parsed = assignKotcPoolsSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the pools." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: stage } = await supabase
+    .from("kotc_stages")
+    .select("id, competition_id")
+    .eq("id", v.stageId)
+    .single();
+  if (!stage) return { error: "Stage not found." };
+  const competitionId = stage.competition_id as string;
+
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  // Every pair appears once and belongs to this competition.
+  const teamIds = v.pools.flatMap((p) => p.teamIds);
+  if (new Set(teamIds).size !== teamIds.length) {
+    return { error: "A pair was placed in more than one pool." };
+  }
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .in("id", teamIds);
+  const valid = new Set((teams ?? []).map((t) => t.id));
+  if (teamIds.some((id) => !valid.has(id))) {
+    return { error: "A pool contains a pair that isn't in this competition." };
+  }
+
+  const { error: delErr } = await supabase
+    .from("kotc_pools")
+    .delete()
+    .eq("stage_id", v.stageId);
+  if (delErr) return { error: delErr.message };
+
+  let pairCount = 0;
+  for (let i = 0; i < v.pools.length; i++) {
+    const { data: poolRow, error: pErr } = await supabase
+      .from("kotc_pools")
+      .insert({
+        competition_id: competitionId,
+        stage_id: v.stageId,
+        name: v.pools[i].name,
+        sort_order: i,
+      })
+      .select("id")
+      .single();
+    if (pErr || !poolRow) {
+      return { error: pErr?.message ?? "Could not create pool." };
+    }
+    const pairRows = v.pools[i].teamIds.map((teamId, j) => ({
+      competition_id: competitionId,
+      pool_id: poolRow.id,
+      team_id: teamId,
+      entry_seed: j + 1,
+      queue_position: j,
+    }));
+    const { error: ppErr } = await supabase
+      .from("kotc_pool_pairs")
+      .insert(pairRows);
+    if (ppErr) return { error: ppErr.message };
+    pairCount += pairRows.length;
+  }
+
+  revalidatePath("/orgs");
+  return { poolCount: v.pools.length, pairCount };
 }
