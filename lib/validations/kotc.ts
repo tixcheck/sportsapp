@@ -108,6 +108,14 @@ export const composeFinalsSchema = z.object({
   competitionId: z.string().min(1),
 });
 
+// --- Live scoring (rally-by-rally tap → kotc_events log) ----------------------
+
+/** A single rally tap: which side won the point. */
+export const appendKotcRallySchema = z.object({
+  poolId: z.string().min(1),
+  winnerSide: z.enum(["king", "challenger"]),
+});
+
 export type CreateKotcInput = z.infer<typeof createKotcSchema>;
 export type UpdateKotcSettingsInput = z.infer<typeof updateKotcSettingsSchema>;
 export type AddKotcPairInput = z.infer<typeof addKotcPairSchema>;
@@ -120,3 +128,4 @@ export type AdvanceEliminationRoundInput = z.infer<
 >;
 export type RunConsolationInput = z.infer<typeof runConsolationSchema>;
 export type ComposeFinalsInput = z.infer<typeof composeFinalsSchema>;
+export type AppendKotcRallyInput = z.infer<typeof appendKotcRallySchema>;

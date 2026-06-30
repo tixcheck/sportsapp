@@ -12,6 +12,13 @@ import {
   gatherConsolation,
 } from "@/lib/kotc/elimination";
 import {
+  applyEvent,
+  overallResults,
+  reduceKotc,
+  type KotcConfig,
+  type KotcEvent,
+} from "@/lib/kotc/engine";
+import {
   computeKotcSeeds,
   evenPoolSizes,
   normalizedPlacement,
@@ -24,6 +31,7 @@ import type { MatchFormat } from "@/lib/db/schema";
 import {
   addKotcPairSchema,
   advanceEliminationRoundSchema,
+  appendKotcRallySchema,
   assignKotcPoolsSchema,
   composeFinalsSchema,
   createKotcSchema,
@@ -34,6 +42,7 @@ import {
   updateKotcSettingsSchema,
   type AddKotcPairInput,
   type AdvanceEliminationRoundInput,
+  type AppendKotcRallyInput,
   type AssignKotcPoolsInput,
   type ComposeFinalsInput,
   type CreateKotcInput,
@@ -1127,4 +1136,227 @@ export async function composeFinalsAction(
 
   revalidatePath("/orgs");
   return { stageId: finalsStageId, poolId: pool.id as string, roster, done };
+}
+
+// --- Live scoring (rally-by-rally) -------------------------------------------
+// MVP scope: live scoring runs a seeding pool's KotC session — taps append to the
+// append-only kotc_events log, and the derived per-pair summary is upserted into
+// kotc_pool_results (so standings + the seed update live, and reached_final_seq
+// activates the level-3 reached-first tiebreaker). Elimination/finals pools still
+// use manual King-points entry.
+
+/** Load a pool's roster + config + replayed event log for the pure engine. */
+async function loadKotcPoolLog(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  poolId: string,
+): Promise<{
+  competitionId: string;
+  pairOrder: string[];
+  config: KotcConfig;
+  events: KotcEvent[];
+  nextSeq: number;
+} | null> {
+  const { data: pool } = await supabase
+    .from("kotc_pools")
+    .select("id, competition_id")
+    .eq("id", poolId)
+    .single();
+  if (!pool) return null;
+  const competitionId = pool.competition_id as string;
+
+  const { data: pairs } = await supabase
+    .from("kotc_pool_pairs")
+    .select("team_id, queue_position")
+    .eq("pool_id", poolId)
+    .order("queue_position", { ascending: true });
+  const pairOrder = (pairs ?? []).map((p) => p.team_id as string);
+
+  const { data: settings } = await supabase
+    .from("kotc_settings")
+    .select("rounds_per_session, point_cap")
+    .eq("competition_id", competitionId)
+    .single();
+  const config: KotcConfig = {
+    roundsPerSession: settings?.rounds_per_session ?? 3,
+    pointCap: settings?.point_cap ?? null,
+  };
+
+  const { data: rows } = await supabase
+    .from("kotc_events")
+    .select("seq, type, point_awarded")
+    .eq("pool_id", poolId)
+    .order("seq", { ascending: true });
+  const events: KotcEvent[] = [];
+  let maxSeq = 0;
+  for (const r of rows ?? []) {
+    maxSeq = Math.max(maxSeq, r.seq as number);
+    if (r.type === "rally") {
+      events.push({
+        type: "rally",
+        winnerSide: r.point_awarded ? "king" : "challenger",
+      });
+    } else if (r.type === "round_end") {
+      events.push({ type: "round_end" });
+    } else if (r.type === "void") {
+      events.push({ type: "void" });
+    }
+  }
+  return { competitionId, pairOrder, config, events, nextSeq: maxSeq + 1 };
+}
+
+/** Recompute the pool's per-pair summary from a state and upsert kotc_pool_results. */
+async function persistPoolResults(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+  poolId: string,
+  results: ReturnType<typeof overallResults>,
+): Promise<{ error: string } | null> {
+  const { error } = await supabase.from("kotc_pool_results").upsert(
+    results.map((r) => ({
+      competition_id: competitionId,
+      pool_id: poolId,
+      team_id: r.teamId,
+      king_points: r.kingPoints,
+      longest_streak: r.longestStreak,
+      reached_final_seq: r.reachedSeq,
+    })),
+    { onConflict: "pool_id,team_id" },
+  );
+  return error ? { error: error.message } : null;
+}
+
+/**
+ * Record one rally tap. Replays the log to find the current King/challenger,
+ * appends the rally, and re-derives the pool summary so standings update live.
+ */
+export async function appendKotcRallyAction(
+  values: AppendKotcRallyInput,
+): Promise<ActionError | { ok: true; done: boolean }> {
+  const parsed = appendKotcRallySchema.safeParse(values);
+  if (!parsed.success) return { error: "Invalid rally." };
+  const { poolId, winnerSide } = parsed.data;
+
+  const supabase = await createClient();
+  const log = await loadKotcPoolLog(supabase, poolId);
+  if (!log) return { error: "Pool not found." };
+  if (log.pairOrder.length < 2) return { error: "This pool needs 2+ pairs." };
+
+  const denied = await assertKotcAdmin(supabase, log.competitionId);
+  if (denied) return denied;
+
+  const state = reduceKotc(log.pairOrder, log.events, log.config);
+  if (state.status === "complete") {
+    return { error: "This session is already complete." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const king = state.kingTeamId;
+  const challenger = state.challengerTeamId;
+
+  const { error: insErr } = await supabase.from("kotc_events").insert({
+    competition_id: log.competitionId,
+    pool_id: poolId,
+    seq: log.nextSeq,
+    round_index: state.roundIndex,
+    type: "rally",
+    king_team_id: king,
+    challenger_team_id: challenger,
+    winner_team_id: winnerSide === "king" ? king : challenger,
+    point_awarded: winnerSide === "king",
+    created_by: user?.id ?? null,
+  });
+  if (insErr) return { error: insErr.message };
+
+  const next = applyEvent(state, { type: "rally", winnerSide }, log.config);
+  const persistErr = await persistPoolResults(
+    supabase,
+    log.competitionId,
+    poolId,
+    overallResults(next),
+  );
+  if (persistErr) return persistErr;
+
+  revalidatePath("/orgs");
+  return { ok: true, done: next.status === "complete" };
+}
+
+/** Undo the most recent rally (append a void event, then re-derive results). */
+export async function undoKotcRallyAction(
+  poolId: string,
+): Promise<ActionError | { ok: true }> {
+  const supabase = await createClient();
+  const log = await loadKotcPoolLog(supabase, poolId);
+  if (!log) return { error: "Pool not found." };
+
+  const denied = await assertKotcAdmin(supabase, log.competitionId);
+  if (denied) return denied;
+
+  if (!log.events.some((e) => e.type === "rally")) {
+    return { error: "Nothing to undo." };
+  }
+
+  const state = reduceKotc(log.pairOrder, log.events, log.config);
+  const { error: insErr } = await supabase.from("kotc_events").insert({
+    competition_id: log.competitionId,
+    pool_id: poolId,
+    seq: log.nextSeq,
+    round_index: state.roundIndex,
+    type: "void",
+  });
+  if (insErr) return { error: insErr.message };
+
+  const next = reduceKotc(
+    log.pairOrder,
+    [...log.events, { type: "void" }],
+    log.config,
+  );
+  const persistErr = await persistPoolResults(
+    supabase,
+    log.competitionId,
+    poolId,
+    overallResults(next),
+  );
+  if (persistErr) return persistErr;
+
+  revalidatePath("/orgs");
+  return { ok: true };
+}
+
+/** End the current round — re-seeds the next round's lineup by this round's standings. */
+export async function endKotcRoundAction(
+  poolId: string,
+): Promise<ActionError | { ok: true; done: boolean }> {
+  const supabase = await createClient();
+  const log = await loadKotcPoolLog(supabase, poolId);
+  if (!log) return { error: "Pool not found." };
+
+  const denied = await assertKotcAdmin(supabase, log.competitionId);
+  if (denied) return denied;
+
+  const state = reduceKotc(log.pairOrder, log.events, log.config);
+  if (state.status === "complete")
+    return { error: "Session already complete." };
+
+  const { error: insErr } = await supabase.from("kotc_events").insert({
+    competition_id: log.competitionId,
+    pool_id: poolId,
+    seq: log.nextSeq,
+    round_index: state.roundIndex,
+    type: "round_end",
+  });
+  if (insErr) return { error: insErr.message };
+
+  const next = applyEvent(state, { type: "round_end" }, log.config);
+  const persistErr = await persistPoolResults(
+    supabase,
+    log.competitionId,
+    poolId,
+    overallResults(next),
+  );
+  if (persistErr) return persistErr;
+
+  revalidatePath("/orgs");
+  return { ok: true, done: next.status === "complete" };
 }
