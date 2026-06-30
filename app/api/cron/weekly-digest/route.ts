@@ -45,12 +45,25 @@ export async function GET(request: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const periodKey = DateTime.now().toFormat("kkkk-'W'WW"); // ISO week, e.g. 2026-W24
+  // `?dry=1` computes who/what would be emailed without claiming the log or
+  // sending — used to verify the query never picks up a finished event.
+  const dry = new URL(request.url).searchParams.get("dry") === "1";
 
+  const now = DateTime.now();
+  const periodKey = now.toFormat("kkkk-'W'WW"); // ISO week, e.g. 2026-W24
+  const today = now.toISODate()!;
+  // "This week" window: only matches scheduled from now through the next 8 days.
+  const windowStartIso = now.toISO()!;
+  const windowEndIso = now.plus({ days: 8 }).toISO()!;
+
+  // Active by status AND not finished by date — a past-dated event whose status
+  // was never moved off active must not keep generating reminders. (Null
+  // end_date — e.g. an undated draft — is kept; the match window still gates it.)
   const { data: comps } = await admin
     .from("competitions")
     .select("id, name, slug, type")
-    .in("status", ACTIVE);
+    .in("status", ACTIVE)
+    .or(`end_date.is.null,end_date.gte.${today}`);
   if (!comps || comps.length === 0) {
     return NextResponse.json({
       sent: 0,
@@ -72,7 +85,12 @@ export async function GET(request: Request) {
         "competition_id, home_team_id, away_team_id, round, court, status",
       )
       .in("competition_id", compIds)
-      .in("status", UPCOMING),
+      .in("status", UPCOMING)
+      // Only matches actually happening this week — excludes past matches that
+      // were never scored (the source of reminders for finished events) and
+      // far-future ones. Untimed matches (null scheduled_at) are skipped.
+      .gte("scheduled_at", windowStartIso)
+      .lt("scheduled_at", windowEndIso),
   ]);
   const teamById = new Map((teams ?? []).map((t) => [t.id, t]));
   const teamIds = (teams ?? []).map((t) => t.id);
@@ -145,6 +163,12 @@ export async function GET(request: Request) {
     }
     if (items.length === 0) continue;
 
+    // Dry run: count what would send, but never claim the log or email.
+    if (dry) {
+      sent += 1;
+      continue;
+    }
+
     // Claim-then-send: idempotent per (user, week). A conflict yields no row.
     const { data: claim } = await admin
       .from("notification_log")
@@ -166,5 +190,5 @@ export async function GET(request: Request) {
     sent += 1;
   }
 
-  return NextResponse.json({ sent, skipped, periodKey });
+  return NextResponse.json({ sent, skipped, periodKey, dry });
 }
