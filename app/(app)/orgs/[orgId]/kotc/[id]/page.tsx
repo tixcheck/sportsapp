@@ -228,7 +228,11 @@ function EliminationStage({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {stage.pools.map((pool) => (
-              <EliminationPool key={pool.id} pool={pool} kind="elimination" />
+              <EliminationPool
+                key={`${pool.id}-${pool.rounds.length}`}
+                pool={pool}
+                kind="elimination"
+              />
             ))}
           </div>
         )}
@@ -293,7 +297,11 @@ function FinalsSection({
 
         {/* Finals */}
         {finalsStage && finalsStage.pools[0] ? (
-          <EliminationPool pool={finalsStage.pools[0]} kind="finals" />
+          <EliminationPool
+            key={`${finalsStage.pools[0].id}-${finalsStage.pools[0].rounds.length}`}
+            pool={finalsStage.pools[0]}
+            kind="finals"
+          />
         ) : canCompose ? (
           <ComposeFinalsButton competitionId={competitionId} />
         ) : (
