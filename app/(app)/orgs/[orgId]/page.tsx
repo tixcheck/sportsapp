@@ -2,15 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plus } from "lucide-react";
 
-import {
-  getOrg,
-  getOrgLeagues,
-  type LeagueSummary,
-} from "@/lib/queries/leagues";
-import {
-  getOrgTournaments,
-  type TournamentSummary,
-} from "@/lib/queries/tournaments";
+import { getOrg, getOrgLeagues } from "@/lib/queries/leagues";
+import { getOrgTournaments } from "@/lib/queries/tournaments";
+import { getOrgKotc } from "@/lib/queries/kotc";
 import { getUserOrgs } from "@/lib/auth/user";
 import { getOrgOrganizers } from "@/lib/queries/organizers";
 import {
@@ -36,9 +30,10 @@ export default async function OrgPage({
   const { orgId } = await params;
   const org = await getOrg(orgId);
   if (!org) notFound();
-  const [leagues, tournaments, orgs] = await Promise.all([
+  const [leagues, tournaments, kotc, orgs] = await Promise.all([
     getOrgLeagues(orgId),
     getOrgTournaments(orgId),
+    getOrgKotc(orgId),
     getUserOrgs(),
   ]);
   const myRole = orgs.find((o) => o.id === orgId)?.role;
@@ -71,6 +66,15 @@ export default async function OrgPage({
         hrefFor={(c) => `/orgs/${orgId}/tournaments/${c.id}`}
       />
 
+      <Section
+        title="King of the Court"
+        newHref={`/orgs/${orgId}/kotc/new`}
+        newLabel="New KotC"
+        emptyText="No King of the Court events yet. Create one to add pairs and seed."
+        items={kotc}
+        hrefFor={(c) => `/orgs/${orgId}/kotc/${c.id}`}
+      />
+
       {isOrgAdmin && (
         <Card>
           <CardHeader>
@@ -95,6 +99,8 @@ export default async function OrgPage({
   );
 }
 
+type CompCard = { id: string; name: string; sport: string; status: string };
+
 function Section({
   title,
   newHref,
@@ -107,8 +113,8 @@ function Section({
   newHref: string;
   newLabel: string;
   emptyText: string;
-  items: (LeagueSummary | TournamentSummary)[];
-  hrefFor: (c: LeagueSummary | TournamentSummary) => string;
+  items: CompCard[];
+  hrefFor: (c: CompCard) => string;
 }) {
   return (
     <section className="space-y-4">
