@@ -97,6 +97,12 @@ export const advanceEliminationRoundSchema = z.object({
   dropTeamId: z.string().min(1).optional(),
 });
 
+/** The single consolation round — results for all eliminated pairs. */
+export const runConsolationSchema = z.object({
+  competitionId: z.string().min(1),
+  results: z.array(kotcRoundResultItem).min(2, "Consolation needs 2+ pairs."),
+});
+
 export type CreateKotcInput = z.infer<typeof createKotcSchema>;
 export type UpdateKotcSettingsInput = z.infer<typeof updateKotcSettingsSchema>;
 export type AddKotcPairInput = z.infer<typeof addKotcPairSchema>;
@@ -107,3 +113,4 @@ export type SeedEliminationInput = z.infer<typeof seedEliminationSchema>;
 export type AdvanceEliminationRoundInput = z.infer<
   typeof advanceEliminationRoundSchema
 >;
+export type RunConsolationInput = z.infer<typeof runConsolationSchema>;

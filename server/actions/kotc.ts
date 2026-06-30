@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { rankKotcPool, type KotcPoolResult } from "@/lib/kotc/ranking";
-import { dropLowest } from "@/lib/kotc/elimination";
+import { dropLowest, gatherConsolation } from "@/lib/kotc/elimination";
 import {
   computeKotcSeeds,
   evenPoolSizes,
@@ -23,6 +23,7 @@ import {
   assignKotcPoolsSchema,
   createKotcSchema,
   repoolSchema,
+  runConsolationSchema,
   seedEliminationSchema,
   submitKotcResultsSchema,
   updateKotcSettingsSchema,
@@ -31,6 +32,7 @@ import {
   type AssignKotcPoolsInput,
   type CreateKotcInput,
   type RepoolInput,
+  type RunConsolationInput,
   type SeedEliminationInput,
   type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
@@ -58,6 +60,10 @@ export interface KotcPoolProposal {
 }
 
 const DEFAULT_TIMEZONE = "America/Toronto";
+
+// The consolation round is ALWAYS a fixed 15 minutes — deliberately independent
+// of the competition's configured round length (which drives elimination/finals).
+const CONSOLATION_MINUTES = 15;
 
 // KotC scores individual rallies, not sets; competitions.match_format is NOT
 // NULL, so we store a representative single-target format (rally to 11). It is
@@ -765,4 +771,174 @@ export async function advanceEliminationRoundAction(
 
   revalidatePath("/orgs");
   return { dropped: drop, remaining, done };
+}
+
+/**
+ * Run the single consolation round: gather every pair eliminated across the
+ * elimination pools into one pool, record one round, and crown the highest-ranked
+ * pair as the consolation winner (who earns the last finals berth). This round is
+ * ALWAYS {@link CONSOLATION_MINUTES} (15) minutes — never the configured round
+ * length. Idempotent: re-running replaces the consolation pool and its round.
+ */
+export async function runConsolationAction(
+  values: RunConsolationInput,
+): Promise<ActionError | { winner: string; played: number }> {
+  const parsed = runConsolationSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the scores." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, v.competitionId);
+  if (denied) return denied;
+
+  // Pairs eliminated across every elimination pool = the consolation field.
+  const { data: elimStages } = await supabase
+    .from("kotc_stages")
+    .select("id")
+    .eq("competition_id", v.competitionId)
+    .eq("kind", "elimination");
+  const elimStageIds = (elimStages ?? []).map((s) => s.id as string);
+  if (elimStageIds.length === 0) return { error: "No elimination stage." };
+
+  const { data: elimPools } = await supabase
+    .from("kotc_pools")
+    .select("id")
+    .in("stage_id", elimStageIds);
+  const elimPoolIds = (elimPools ?? []).map((p) => p.id as string);
+  if (elimPoolIds.length === 0) return { error: "No elimination pools yet." };
+
+  const { data: dropped } = await supabase
+    .from("kotc_pool_pairs")
+    .select("pool_id, team_id")
+    .in("pool_id", elimPoolIds)
+    .not("eliminated_at_round", "is", null);
+  const eliminated = gatherConsolation(
+    elimPoolIds.map((id) => ({
+      eliminated: (dropped ?? [])
+        .filter((p) => p.pool_id === id)
+        .map((p) => p.team_id as string),
+    })),
+  );
+  if (eliminated.length < 2) {
+    return {
+      error: "Need at least 2 eliminated pairs for a consolation round.",
+    };
+  }
+
+  // Results must cover exactly the eliminated field.
+  const resultTeams = v.results.map((r) => r.teamId);
+  if (new Set(resultTeams).size !== resultTeams.length) {
+    return { error: "A pair appears twice in the results." };
+  }
+  const field = new Set(eliminated);
+  if (
+    resultTeams.length !== field.size ||
+    resultTeams.some((id) => !field.has(id))
+  ) {
+    return { error: "Enter a result for exactly the eliminated pairs." };
+  }
+
+  // Lazily create the consolation stage (one per competition), then rebuild its
+  // pool + round so re-runs are idempotent.
+  let consolationStageId: string;
+  const { data: existingStage } = await supabase
+    .from("kotc_stages")
+    .select("id")
+    .eq("competition_id", v.competitionId)
+    .eq("kind", "consolation")
+    .maybeSingle();
+  if (existingStage) {
+    consolationStageId = existingStage.id as string;
+  } else {
+    const { data: maxRow } = await supabase
+      .from("kotc_stages")
+      .select("ordinal")
+      .eq("competition_id", v.competitionId)
+      .order("ordinal", { ascending: false })
+      .limit(1)
+      .single();
+    const nextOrdinal = (maxRow?.ordinal ?? 0) + 1;
+    const { data: created, error: stageErr } = await supabase
+      .from("kotc_stages")
+      .insert({
+        competition_id: v.competitionId,
+        ordinal: nextOrdinal,
+        kind: "consolation",
+        name: "Consolation",
+        status: "completed",
+      })
+      .select("id")
+      .single();
+    if (stageErr || !created) {
+      return { error: stageErr?.message ?? "Could not create the stage." };
+    }
+    consolationStageId = created.id as string;
+  }
+
+  // Cascades clear any prior consolation pool's pairs/rounds/results.
+  await supabase.from("kotc_pools").delete().eq("stage_id", consolationStageId);
+
+  const { data: pool, error: poolErr } = await supabase
+    .from("kotc_pools")
+    .insert({
+      competition_id: v.competitionId,
+      stage_id: consolationStageId,
+      name: "Consolation",
+      sort_order: 0,
+      status: "completed",
+    })
+    .select("id")
+    .single();
+  if (poolErr || !pool) {
+    return { error: poolErr?.message ?? "Could not create the pool." };
+  }
+
+  const { error: ppErr } = await supabase.from("kotc_pool_pairs").insert(
+    eliminated.map((teamId, i) => ({
+      competition_id: v.competitionId,
+      pool_id: pool.id,
+      team_id: teamId,
+      entry_seed: i + 1,
+      queue_position: i,
+    })),
+  );
+  if (ppErr) return { error: ppErr.message };
+
+  const { data: round, error: rErr } = await supabase
+    .from("kotc_rounds")
+    .insert({
+      competition_id: v.competitionId,
+      pool_id: pool.id,
+      round_index: 0,
+      minutes: CONSOLATION_MINUTES,
+      status: "completed",
+    })
+    .select("id")
+    .single();
+  if (rErr || !round) {
+    return { error: rErr?.message ?? "Could not record the round." };
+  }
+
+  const { error: resErr } = await supabase.from("kotc_round_results").insert(
+    v.results.map((r) => ({
+      competition_id: v.competitionId,
+      round_id: round.id,
+      team_id: r.teamId,
+      king_points: r.kingPoints,
+      longest_streak: r.longestStreak ?? null,
+    })),
+  );
+  if (resErr) return { error: resErr.message };
+
+  const ranked = rankKotcPool(
+    v.results.map((r) => ({
+      teamId: r.teamId,
+      kingPoints: r.kingPoints,
+      longestStreak: r.longestStreak ?? null,
+      reachedSeq: null,
+    })),
+  );
+
+  revalidatePath("/orgs");
+  return { winner: ranked[0].teamId, played: eliminated.length };
 }
