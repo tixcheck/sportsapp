@@ -17,6 +17,7 @@ import {
   type KotcEvent,
 } from "@/lib/kotc/engine";
 import { rankKotcPool } from "@/lib/kotc/ranking";
+import { replayHistory } from "@/lib/kotc/history";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -50,6 +51,11 @@ export function LiveScoreboard({
 
   const state = reduceKotc(pairOrder, events, config);
   const standings = rankKotcPool(overallResults(state));
+  const { rallies, byPair } = replayHistory(pairOrder, events, config);
+  const recent = rallies
+    .map((r, idx) => ({ r, idx }))
+    .slice(-8)
+    .reverse();
   const nameOf = (id: string) => names[id] ?? "—";
   const done = state.status === "complete";
 
@@ -170,27 +176,76 @@ export function LiveScoreboard({
         </>
       )}
 
-      {/* Live standings */}
+      {/* Recent points — who each point was scored against */}
+      {recent.length > 0 && (
+        <div className="border-border space-y-1 rounded-lg border p-3">
+          <p className="text-muted-foreground text-xs">Recent points</p>
+          <ul className="space-y-0.5 text-sm">
+            {recent.map(({ r, idx }) => (
+              <li
+                key={idx}
+                className="flex items-baseline justify-between gap-2"
+              >
+                {r.scored ? (
+                  <>
+                    <span className="truncate">
+                      <span className="font-medium">
+                        {nameOf(r.kingTeamId)}
+                      </span>{" "}
+                      <span className="text-muted-foreground">scored vs</span>{" "}
+                      {nameOf(r.challengerTeamId)}
+                    </span>
+                    <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+                      pt {r.pointNumber}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground truncate">
+                    <span className="text-foreground font-medium">
+                      {nameOf(r.challengerTeamId)}
+                    </span>{" "}
+                    took the crown from {nameOf(r.kingTeamId)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Live standings — points + longest-streak range at a glance */}
       <div className="border-border space-y-1 rounded-lg border p-3">
         <p className="text-muted-foreground text-xs">Standings</p>
-        <ol className="space-y-0.5">
-          {standings.map((row) => (
-            <li
-              key={row.teamId}
-              className="grid grid-cols-[1.5rem_1fr_auto] items-center gap-2 text-sm"
-            >
-              <span className="text-muted-foreground tabular-nums">
-                {row.position}
-              </span>
-              <span className="truncate">{nameOf(row.teamId)}</span>
-              <span
-                className="text-muted-foreground tabular-nums"
-                title={row.explanation}
+        <ol className="space-y-1">
+          {standings.map((row) => {
+            const h = byPair.get(row.teamId);
+            return (
+              <li
+                key={row.teamId}
+                className="grid grid-cols-[1.5rem_1fr_auto] items-baseline gap-2 text-sm"
               >
-                {row.kingPoints} pts
-              </span>
-            </li>
-          ))}
+                <span className="text-muted-foreground tabular-nums">
+                  {row.position}
+                </span>
+                <span className="min-w-0">
+                  <span className="truncate">{nameOf(row.teamId)}</span>
+                  {h?.longestRange && (
+                    <span className="text-muted-foreground ml-2 text-xs tabular-nums">
+                      best {h.longestStreak} · pts {h.longestRange[0]}–
+                      {h.longestRange[1]}
+                    </span>
+                  )}
+                </span>
+                <span
+                  className="font-medium tabular-nums"
+                  title={row.explanation}
+                >
+                  {row.kingPoints}
+                  <span className="text-muted-foreground text-xs"> pts</span>
+                </span>
+              </li>
+            );
+          })}
         </ol>
       </div>
     </div>
