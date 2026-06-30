@@ -18,7 +18,9 @@ import {
 } from "@/lib/kotc/engine";
 import { rankKotcPool } from "@/lib/kotc/ranking";
 import { replayHistory } from "@/lib/kotc/history";
+import { buildScoreSheet } from "@/lib/kotc/scoresheet";
 import { Button } from "@/components/ui/button";
+import { ScoreSheet } from "@/components/kotc/score-sheet";
 
 /**
  * Rally-by-rally live scoring for a KotC pool session. The pure engine runs
@@ -56,6 +58,7 @@ export function LiveScoreboard({
     .map((r, idx) => ({ r, idx }))
     .slice(-8)
     .reverse();
+  const sheet = buildScoreSheet(pairOrder, events, config);
   const nameOf = (id: string) => names[id] ?? "—";
   const done = state.status === "complete";
 
@@ -248,6 +251,14 @@ export function LiveScoreboard({
           })}
         </ol>
       </div>
+
+      {/* Paper-style score sheet (read-only) */}
+      <ScoreSheet
+        rounds={sheet}
+        names={names}
+        pairOrder={pairOrder}
+        pointCap={config.pointCap}
+      />
     </div>
   );
 }
