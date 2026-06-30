@@ -6,20 +6,36 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { rankKotcPool } from "@/lib/kotc/ranking";
-import { computeKotcSeeds, type StagePlacement } from "@/lib/kotc/seed";
+import {
+  computeKotcSeeds,
+  normalizedPlacement,
+  type StagePlacement,
+} from "@/lib/kotc/seed";
+import { repoolForRound2, type RepoolPair } from "@/lib/kotc/repool";
+import { poolName } from "@/lib/scheduler/pools";
 import type { MatchFormat } from "@/lib/db/schema";
 import {
   addKotcPairSchema,
   assignKotcPoolsSchema,
   createKotcSchema,
+  repoolSchema,
   submitKotcResultsSchema,
   updateKotcSettingsSchema,
   type AddKotcPairInput,
   type AssignKotcPoolsInput,
   type CreateKotcInput,
+  type RepoolInput,
   type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
+
+/** A reviewable pool proposal the UI tweaks, then commits via assignKotcPoolsAction. */
+export interface KotcPoolProposal {
+  stageId: string;
+  pools: { name: string; teamIds: string[] }[];
+  /** Residual repeat-poolmate count (re-pool only; 0 = no rematches). */
+  repeats?: number;
+}
 
 const DEFAULT_TIMEZONE = "America/Toronto";
 
@@ -414,4 +430,99 @@ export async function computeKotcSeedsAction(
 
   revalidatePath("/orgs");
   return { seedCount: seeds.length };
+}
+
+/**
+ * Propose a fair Round-2 re-pool from Round-1 results — balances pool strength
+ * and minimizes rematches via the pure repoolForRound2. Returns a proposal (no
+ * DB write); the organizer tweaks it, then commits with assignKotcPoolsAction.
+ */
+export async function repoolRound2Action(
+  values: RepoolInput,
+): Promise<ActionError | KotcPoolProposal> {
+  const parsed = repoolSchema.safeParse(values);
+  if (!parsed.success) return { error: "Invalid request." };
+  const { competitionId, sizes } = parsed.data;
+
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  const { data: stages } = await supabase
+    .from("kotc_stages")
+    .select("id, ordinal")
+    .eq("competition_id", competitionId)
+    .eq("kind", "seeding")
+    .order("ordinal");
+  if (!stages || stages.length < 2) {
+    return { error: "Re-pool needs at least two seeding rounds." };
+  }
+  const round1 = stages[0];
+  const round2 = stages[1];
+
+  const { data: pools } = await supabase
+    .from("kotc_pools")
+    .select("id")
+    .eq("stage_id", round1.id);
+  if (!pools || pools.length === 0) {
+    return { error: "Assign and play Round 1 first." };
+  }
+
+  // Round-1 groupings (for rematch avoidance) + each pair's R1 placement score.
+  const round1Pools: string[][] = [];
+  const seedScore = new Map<string, number>();
+  for (const pool of pools) {
+    const { data: pairs } = await supabase
+      .from("kotc_pool_pairs")
+      .select("team_id")
+      .eq("pool_id", pool.id);
+    round1Pools.push((pairs ?? []).map((p) => p.team_id as string));
+
+    const { data: results } = await supabase
+      .from("kotc_pool_results")
+      .select("team_id, king_points, longest_streak, reached_final_seq")
+      .eq("pool_id", pool.id);
+    if (!results || results.length === 0) {
+      return { error: "Enter Round 1 results before re-pooling." };
+    }
+    const ranked = rankKotcPool(
+      results.map((r) => ({
+        teamId: r.team_id as string,
+        kingPoints: r.king_points,
+        longestStreak: r.longest_streak,
+        reachedSeq: r.reached_final_seq,
+      })),
+    );
+    ranked.forEach((row) =>
+      seedScore.set(
+        row.teamId,
+        normalizedPlacement(row.position, ranked.length),
+      ),
+    );
+  }
+
+  const allTeams = round1Pools.flat();
+  const targetSizes = sizes ?? round1Pools.map((p) => p.length);
+  if (targetSizes.reduce((a, b) => a + b, 0) !== allTeams.length) {
+    return { error: "Pool sizes must use every pair exactly once." };
+  }
+
+  const pairsInput: RepoolPair[] = allTeams.map((teamId) => ({
+    teamId,
+    seedScore: seedScore.get(teamId) ?? 0,
+  }));
+  const { pools: newPools, repeats } = repoolForRound2(
+    pairsInput,
+    round1Pools,
+    targetSizes,
+  );
+
+  return {
+    stageId: round2.id,
+    pools: newPools.map((teamIds, i) => ({
+      name: `Pool ${poolName(i)}`,
+      teamIds,
+    })),
+    repeats,
+  };
 }
