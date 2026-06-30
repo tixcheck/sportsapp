@@ -65,6 +65,11 @@ fit a one-winner output (that would need a "stop at 1" rule nothing else uses). 
 single ranked round is the right primitive here; the finals (which wants a podium of
 3) reuses the loop, consolation does not.
 
+**Consolation round duration is ALWAYS 15 minutes — fixed, not the configured
+`kotc_settings.round_minutes`.** A `CONSOLATION_MINUTES = 15` constant (in the
+consolation action, not read from settings) is written to that round's
+`kotc_rounds.minutes`; elimination/finals rounds carry the configured value.
+
 ## (c) Composing the finals roster, then running the SAME drop loop
 
 - **Top 3 per pool**: the survivors of each elimination pool
@@ -92,8 +97,11 @@ Additive changes (no seeding breakage):
   consolation stage and one finals stage (each holds a single pool). Elimination
   pools stay in the existing `'elimination'` stage.
 - **`kotc_rounds`** (NEW) — `id, competition_id, pool_id, round_index, status,
-  created_at`. One row per iterative elimination round; the consolation and finals
-  pools each get a single round (index 0). This is "a played KotC round."
+  minutes, created_at`. One row per iterative elimination round; the consolation and
+  finals pools each get a single round (index 0). This is "a played KotC round."
+  `minutes` is the round's clock duration: the configured `round_minutes` for
+  elimination/finals rounds, and a fixed `CONSOLATION_MINUTES = 15` for the
+  consolation round (set by the action, never read from settings).
 - **`kotc_round_results`** (NEW) — `id, competition_id, round_id, team_id,
   king_points, longest_streak, reached_final_seq, computed_at`,
   `unique(round_id, team_id)`. Per-round results (manual entry writes here; live

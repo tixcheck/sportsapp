@@ -688,6 +688,10 @@ export const organizerRequests = pgTable(
 export const kotcStageKind = pgEnum("kotc_stage_kind", [
   "seeding",
   "elimination",
+  // All pairs dropped during elimination play one round → a single finalist.
+  "consolation",
+  // Top-3-per-pool + consolation winner run the drop loop → the podium.
+  "finals",
 ]);
 
 export const kotcSeedMetric = pgEnum("kotc_seed_metric", [
@@ -781,6 +785,9 @@ export const kotcPoolPairs = pgTable(
       .references(() => teams.id, { onDelete: "cascade" }),
     entrySeed: integer("entry_seed"),
     queuePosition: integer("queue_position").notNull().default(0),
+    // Elimination pools only: the drop-round index at which this pair was
+    // eliminated. Null = still in / advanced (a surviving top-3 pair).
+    eliminatedAtRound: integer("eliminated_at_round"),
   },
   (t) => [
     unique("kotc_pool_pairs_pool_team_unique").on(t.poolId, t.teamId),
@@ -801,6 +808,11 @@ export const kotcEvents = pgTable(
     poolId: uuid("pool_id")
       .notNull()
       .references(() => kotcPools.id, { onDelete: "cascade" }),
+    // The elimination/consolation/finals round this rally belongs to (Phase 2
+    // live play). Null for seeding-session rallies, which use roundIndex only.
+    roundId: uuid("round_id").references(() => kotcRounds.id, {
+      onDelete: "set null",
+    }),
     seq: integer("seq").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true })
       .notNull()
@@ -875,5 +887,62 @@ export const kotcSeeds = pgTable(
   },
   (t) => [
     unique("kotc_seeds_competition_team_unique").on(t.competitionId, t.teamId),
+  ],
+);
+
+// One played KotC round in the elimination phase: an elimination pool's iterative
+// drop-rounds (round_index 0..n), and the single consolation / finals rounds. The
+// seeding phase uses its own per-pool aggregate (kotc_pool_results) and is
+// unaffected. `minutes` is the clock duration — the configured round_minutes for
+// elimination/finals rounds, a fixed CONSOLATION_MINUTES (15) for consolation.
+export const kotcRounds = pgTable(
+  "kotc_rounds",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    poolId: uuid("pool_id")
+      .notNull()
+      .references(() => kotcPools.id, { onDelete: "cascade" }),
+    roundIndex: integer("round_index").notNull().default(0),
+    status: matchStatus("status").notNull().default("scheduled"),
+    minutes: integer("minutes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("kotc_rounds_pool_round_unique").on(t.poolId, t.roundIndex),
+    index("kotc_rounds_pool_id_idx").on(t.poolId),
+  ],
+);
+
+// Per-(round, pair) result — the rankable unit for elimination/consolation/finals
+// rounds (live: derived from the event log; manual: entered). reached_final_seq is
+// null under manual entry, so the level-3 reached-first tiebreaker is inert there.
+export const kotcRoundResults = pgTable(
+  "kotc_round_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    roundId: uuid("round_id")
+      .notNull()
+      .references(() => kotcRounds.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    kingPoints: integer("king_points").notNull().default(0),
+    longestStreak: integer("longest_streak"),
+    reachedFinalSeq: integer("reached_final_seq"),
+    computedAt: timestamp("computed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("kotc_round_results_round_team_unique").on(t.roundId, t.teamId),
+    index("kotc_round_results_round_id_idx").on(t.roundId),
   ],
 );
