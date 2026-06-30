@@ -80,6 +80,23 @@ export const seedEliminationSchema = z.object({
   sizes: sizesField,
 });
 
+// --- Full elimination (iterative drop, consolation, finals) ------------------
+
+/** A per-pair result for one elimination / consolation / finals round (manual). */
+const kotcRoundResultItem = z.object({
+  teamId: z.string().min(1),
+  kingPoints: z.number().int().min(0).max(999),
+  longestStreak: z.number().int().min(0).max(999).nullable().optional(),
+});
+
+/** Record one drop-round of an elimination pool (also the finals pool): the
+ *  round's per-pair results, plus `dropTeamId` only to break a true tie. */
+export const advanceEliminationRoundSchema = z.object({
+  poolId: z.string().min(1),
+  results: z.array(kotcRoundResultItem).min(4, "A drop-round needs 4+ pairs."),
+  dropTeamId: z.string().min(1).optional(),
+});
+
 export type CreateKotcInput = z.infer<typeof createKotcSchema>;
 export type UpdateKotcSettingsInput = z.infer<typeof updateKotcSettingsSchema>;
 export type AddKotcPairInput = z.infer<typeof addKotcPairSchema>;
@@ -87,3 +104,6 @@ export type AssignKotcPoolsInput = z.infer<typeof assignKotcPoolsSchema>;
 export type SubmitKotcResultsInput = z.infer<typeof submitKotcResultsSchema>;
 export type RepoolInput = z.infer<typeof repoolSchema>;
 export type SeedEliminationInput = z.infer<typeof seedEliminationSchema>;
+export type AdvanceEliminationRoundInput = z.infer<
+  typeof advanceEliminationRoundSchema
+>;

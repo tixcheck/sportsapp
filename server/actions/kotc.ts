@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
-import { rankKotcPool } from "@/lib/kotc/ranking";
+import { rankKotcPool, type KotcPoolResult } from "@/lib/kotc/ranking";
+import { dropLowest } from "@/lib/kotc/elimination";
 import {
   computeKotcSeeds,
   evenPoolSizes,
@@ -18,6 +19,7 @@ import { poolName } from "@/lib/scheduler/pools";
 import type { MatchFormat } from "@/lib/db/schema";
 import {
   addKotcPairSchema,
+  advanceEliminationRoundSchema,
   assignKotcPoolsSchema,
   createKotcSchema,
   repoolSchema,
@@ -25,6 +27,7 @@ import {
   submitKotcResultsSchema,
   updateKotcSettingsSchema,
   type AddKotcPairInput,
+  type AdvanceEliminationRoundInput,
   type AssignKotcPoolsInput,
   type CreateKotcInput,
   type RepoolInput,
@@ -32,6 +35,19 @@ import {
   type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
+
+/** The genuinely tied-lowest pairs (the bottom run sharing rank, tiebreakStep 4)
+ * — what the organizer must choose between when a drop can't be auto-resolved. */
+function tiedLowestTeamIds(results: KotcPoolResult[]): string[] {
+  const ranked = rankKotcPool(results);
+  let i = ranked.length - 1;
+  const ids = [ranked[i].teamId];
+  while (i > 0 && ranked[i].tiebreakStep === 4) {
+    ids.unshift(ranked[i - 1].teamId);
+    i -= 1;
+  }
+  return ids;
+}
 
 /** A reviewable pool proposal the UI tweaks, then commits via assignKotcPoolsAction. */
 export interface KotcPoolProposal {
@@ -619,4 +635,134 @@ export async function lockKotcStageAction(
 
   revalidatePath("/orgs");
   return { ok: true };
+}
+
+/**
+ * Record one drop-round of an elimination pool (and, identically, the finals
+ * pool): write the round + its per-pair results, rank by the KotC tiebreaker,
+ * drop the lowest, and report whether the pool is down to its final 3. A genuine
+ * tie for last (manual entry only) is NOT auto-dropped — the action returns
+ * `{ tie: true, tiedTeamIds }` and the organizer re-submits with `dropTeamId`.
+ */
+export async function advanceEliminationRoundAction(
+  values: AdvanceEliminationRoundInput,
+): Promise<
+  | ActionError
+  | { tie: true; tiedTeamIds: string[] }
+  | { dropped: string; remaining: number; done: boolean }
+> {
+  const parsed = advanceEliminationRoundSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the scores." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: pool } = await supabase
+    .from("kotc_pools")
+    .select("id, competition_id")
+    .eq("id", v.poolId)
+    .single();
+  if (!pool) return { error: "Pool not found." };
+  const competitionId = pool.competition_id as string;
+
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  // Current roster = pairs not yet eliminated from this pool.
+  const { data: pairs } = await supabase
+    .from("kotc_pool_pairs")
+    .select("team_id")
+    .eq("pool_id", v.poolId)
+    .is("eliminated_at_round", null);
+  const participants = new Set((pairs ?? []).map((p) => p.team_id as string));
+  if (participants.size <= 3) {
+    return { error: "This pool is already down to its final 3." };
+  }
+  const resultTeams = v.results.map((r) => r.teamId);
+  if (new Set(resultTeams).size !== resultTeams.length) {
+    return { error: "A pair appears twice in the results." };
+  }
+  if (
+    resultTeams.length !== participants.size ||
+    resultTeams.some((id) => !participants.has(id))
+  ) {
+    return { error: "Enter a result for exactly the pairs still in the pool." };
+  }
+
+  const roundResults: KotcPoolResult[] = v.results.map((r) => ({
+    teamId: r.teamId,
+    kingPoints: r.kingPoints,
+    longestStreak: r.longestStreak ?? null,
+    reachedSeq: null,
+  }));
+  const { dropped: autoDrop, tied } = dropLowest(roundResults);
+
+  let drop: string;
+  if (tied) {
+    const tiedIds = tiedLowestTeamIds(roundResults);
+    if (!v.dropTeamId) return { tie: true, tiedTeamIds: tiedIds };
+    if (!tiedIds.includes(v.dropTeamId)) {
+      return { error: "Pick one of the tied pairs to eliminate." };
+    }
+    drop = v.dropTeamId;
+  } else {
+    drop = autoDrop;
+  }
+
+  // The next round_index = how many rounds this pool has already played.
+  const { data: existing } = await supabase
+    .from("kotc_rounds")
+    .select("id")
+    .eq("pool_id", v.poolId);
+  const roundIndex = existing?.length ?? 0;
+
+  const { data: comp } = await supabase
+    .from("kotc_settings")
+    .select("round_minutes")
+    .eq("competition_id", competitionId)
+    .single();
+
+  const { data: round, error: rErr } = await supabase
+    .from("kotc_rounds")
+    .insert({
+      competition_id: competitionId,
+      pool_id: v.poolId,
+      round_index: roundIndex,
+      minutes: comp?.round_minutes ?? 15,
+      status: "completed",
+    })
+    .select("id")
+    .single();
+  if (rErr || !round) {
+    return { error: rErr?.message ?? "Could not record the round." };
+  }
+
+  const { error: resErr } = await supabase.from("kotc_round_results").insert(
+    v.results.map((r) => ({
+      competition_id: competitionId,
+      round_id: round.id,
+      team_id: r.teamId,
+      king_points: r.kingPoints,
+      longest_streak: r.longestStreak ?? null,
+    })),
+  );
+  if (resErr) return { error: resErr.message };
+
+  const { error: dropErr } = await supabase
+    .from("kotc_pool_pairs")
+    .update({ eliminated_at_round: roundIndex })
+    .eq("pool_id", v.poolId)
+    .eq("team_id", drop);
+  if (dropErr) return { error: dropErr.message };
+
+  const remaining = participants.size - 1;
+  const done = remaining <= 3;
+  if (done) {
+    await supabase
+      .from("kotc_pools")
+      .update({ status: "completed" })
+      .eq("id", v.poolId);
+  }
+
+  revalidatePath("/orgs");
+  return { dropped: drop, remaining, done };
 }
