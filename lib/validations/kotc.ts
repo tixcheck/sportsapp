@@ -116,6 +116,12 @@ export const appendKotcRallySchema = z.object({
   winnerSide: z.enum(["king", "challenger"]),
 });
 
+/** Publish (public) or unpublish (private) the spectator view. */
+export const setKotcVisibilitySchema = z.object({
+  competitionId: z.string().min(1),
+  isPublic: z.boolean(),
+});
+
 export type CreateKotcInput = z.infer<typeof createKotcSchema>;
 export type UpdateKotcSettingsInput = z.infer<typeof updateKotcSettingsSchema>;
 export type AddKotcPairInput = z.infer<typeof addKotcPairSchema>;
@@ -129,3 +135,4 @@ export type AdvanceEliminationRoundInput = z.infer<
 export type RunConsolationInput = z.infer<typeof runConsolationSchema>;
 export type ComposeFinalsInput = z.infer<typeof composeFinalsSchema>;
 export type AppendKotcRallyInput = z.infer<typeof appendKotcRallySchema>;
+export type SetKotcVisibilityInput = z.infer<typeof setKotcVisibilitySchema>;

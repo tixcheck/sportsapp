@@ -38,6 +38,7 @@ import {
   repoolSchema,
   runConsolationSchema,
   seedEliminationSchema,
+  setKotcVisibilitySchema,
   submitKotcResultsSchema,
   updateKotcSettingsSchema,
   type AddKotcPairInput,
@@ -49,6 +50,7 @@ import {
   type RepoolInput,
   type RunConsolationInput,
   type SeedEliminationInput,
+  type SetKotcVisibilityInput,
   type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
@@ -1359,4 +1361,28 @@ export async function endKotcRoundAction(
 
   revalidatePath("/orgs");
   return { ok: true, done: next.status === "complete" };
+}
+
+/** Publish (public) or unpublish (private) the read-only spectator page. */
+export async function setKotcVisibilityAction(
+  values: SetKotcVisibilityInput,
+): Promise<ActionError | { visibility: "public" | "private" }> {
+  const parsed = setKotcVisibilitySchema.safeParse(values);
+  if (!parsed.success) return { error: "Invalid request." };
+  const { competitionId, isPublic } = parsed.data;
+
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  const visibility = isPublic ? "public" : "private";
+  const { error } = await supabase
+    .from("competitions")
+    .update({ visibility })
+    .eq("id", competitionId)
+    .eq("type", "kotc");
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  return { visibility };
 }

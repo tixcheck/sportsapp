@@ -73,7 +73,11 @@ export interface KotcDetail {
   id: string;
   orgId: string;
   name: string;
+  slug: string;
+  sport: string;
+  venue: string | null;
   status: string;
+  visibility: string;
   settings: {
     pairsPerPool: number;
     roundsPerSession: number;
@@ -105,7 +109,7 @@ export async function getKotcDetail(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("id, org_id, name, status")
+    .select("id, org_id, name, slug, sport, venue, status, visibility")
     .eq("id", competitionId)
     .eq("type", "kotc")
     .single();
@@ -226,7 +230,11 @@ export async function getKotcDetail(
     id: comp.id,
     orgId: comp.org_id,
     name: comp.name,
+    slug: comp.slug as string,
+    sport: comp.sport as string,
+    venue: (comp.venue as string | null) ?? null,
     status: comp.status,
+    visibility: (comp.visibility as string) ?? "private",
     settings: {
       pairsPerPool: settings?.pairs_per_pool ?? 5,
       roundsPerSession: settings?.rounds_per_session ?? 3,
@@ -246,4 +254,23 @@ export async function getKotcDetail(
       seedRank: s.seed_rank,
     })),
   };
+}
+
+/**
+ * Public spectator view by slug. Resolves the competition (RLS returns it only
+ * when public, or to a member/organizer), then reuses getKotcDetail. Returns null
+ * for an unknown or non-public competition.
+ */
+export async function getPublicKotcDetail(
+  slug: string,
+): Promise<KotcDetail | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("competitions")
+    .select("id")
+    .eq("slug", slug)
+    .eq("type", "kotc")
+    .maybeSingle();
+  if (!data) return null;
+  return getKotcDetail(data.id as string);
 }

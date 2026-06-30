@@ -12,6 +12,7 @@ import { AddPairForm } from "@/components/kotc/add-pair-form";
 import { PoolBuilder } from "@/components/kotc/pool-builder";
 import { ResultsCard } from "@/components/kotc/results-card";
 import { EliminationPool } from "@/components/kotc/elimination-pool";
+import { PublishToggle } from "@/components/kotc/publish-toggle";
 import {
   ComposeFinalsButton,
   ConsolationCard,
@@ -92,13 +93,20 @@ export default async function KotcPage({
         >
           ← Back to organization
         </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
-            {kotc.name}
-          </h1>
-          <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
-            {kotc.status}
-          </span>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
+              {kotc.name}
+            </h1>
+            <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
+              {kotc.status}
+            </span>
+          </div>
+          <PublishToggle
+            competitionId={kotc.id}
+            slug={kotc.slug}
+            visibility={kotc.visibility}
+          />
         </div>
         <p className="text-muted-foreground mt-1 text-sm">
           King of the Court · beach 2s · {setupText}
