@@ -6,7 +6,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { rankKotcPool, type KotcPoolResult } from "@/lib/kotc/ranking";
-import { dropLowest, gatherConsolation } from "@/lib/kotc/elimination";
+import {
+  composeFinals,
+  dropLowest,
+  gatherConsolation,
+} from "@/lib/kotc/elimination";
 import {
   computeKotcSeeds,
   evenPoolSizes,
@@ -21,6 +25,7 @@ import {
   addKotcPairSchema,
   advanceEliminationRoundSchema,
   assignKotcPoolsSchema,
+  composeFinalsSchema,
   createKotcSchema,
   repoolSchema,
   runConsolationSchema,
@@ -30,6 +35,7 @@ import {
   type AddKotcPairInput,
   type AdvanceEliminationRoundInput,
   type AssignKotcPoolsInput,
+  type ComposeFinalsInput,
   type CreateKotcInput,
   type RepoolInput,
   type RunConsolationInput,
@@ -941,4 +947,184 @@ export async function runConsolationAction(
 
   revalidatePath("/orgs");
   return { winner: ranked[0].teamId, played: eliminated.length };
+}
+
+/**
+ * Assemble the finals: the 3 survivors of every elimination pool plus the
+ * consolation winner, dropped into a fresh finals pool. Finals play then reuses
+ * {@link advanceEliminationRoundAction} (the same drop-until-3 loop) on this pool
+ * — the last 3 standing are the podium. Idempotent: rebuilds the finals pool.
+ *
+ * Consolation winner: 0 eliminated pairs → none; exactly 1 → that pair advances
+ * directly (no round was playable); 2+ → requires {@link runConsolationAction}
+ * to have crowned one first.
+ */
+export async function composeFinalsAction(
+  values: ComposeFinalsInput,
+): Promise<
+  | ActionError
+  | { stageId: string; poolId: string; roster: string[]; done: boolean }
+> {
+  const parsed = composeFinalsSchema.safeParse(values);
+  if (!parsed.success) return { error: "Invalid request." };
+  const { competitionId } = parsed.data;
+
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  const { data: elimStages } = await supabase
+    .from("kotc_stages")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .eq("kind", "elimination");
+  const elimStageIds = (elimStages ?? []).map((s) => s.id as string);
+  if (elimStageIds.length === 0) return { error: "No elimination stage." };
+
+  const { data: elimPools } = await supabase
+    .from("kotc_pools")
+    .select("id")
+    .in("stage_id", elimStageIds)
+    .order("sort_order");
+  const elimPoolIds = (elimPools ?? []).map((p) => p.id as string);
+  if (elimPoolIds.length === 0) return { error: "No elimination pools yet." };
+
+  // Every elimination pool must be down to its final ≤3 before the finals form.
+  const { data: allPairs } = await supabase
+    .from("kotc_pool_pairs")
+    .select("pool_id, team_id, entry_seed, eliminated_at_round")
+    .in("pool_id", elimPoolIds)
+    .order("entry_seed");
+  const pairs = allPairs ?? [];
+
+  const advancersPerPool: string[][] = [];
+  for (const poolId of elimPoolIds) {
+    const survivors = pairs
+      .filter((p) => p.pool_id === poolId && p.eliminated_at_round === null)
+      .map((p) => p.team_id as string);
+    if (survivors.length > 3) {
+      return { error: "Finish every elimination pool down to 3 first." };
+    }
+    advancersPerPool.push(survivors);
+  }
+
+  // Consolation winner — depends on how many pairs were eliminated overall.
+  const eliminated = pairs
+    .filter((p) => p.eliminated_at_round !== null)
+    .map((p) => p.team_id as string);
+  let consolationWinner: string | null = null;
+  if (eliminated.length === 1) {
+    consolationWinner = eliminated[0];
+  } else if (eliminated.length >= 2) {
+    const { data: consoStage } = await supabase
+      .from("kotc_stages")
+      .select("id")
+      .eq("competition_id", competitionId)
+      .eq("kind", "consolation")
+      .maybeSingle();
+    if (!consoStage) return { error: "Run the consolation round first." };
+
+    const { data: consoPool } = await supabase
+      .from("kotc_pools")
+      .select("id")
+      .eq("stage_id", consoStage.id)
+      .maybeSingle();
+    const { data: consoRound } = consoPool
+      ? await supabase
+          .from("kotc_rounds")
+          .select("id")
+          .eq("pool_id", consoPool.id)
+          .maybeSingle()
+      : { data: null };
+    if (!consoRound) return { error: "Run the consolation round first." };
+
+    const { data: consoResults } = await supabase
+      .from("kotc_round_results")
+      .select("team_id, king_points, longest_streak")
+      .eq("round_id", consoRound.id);
+    if (!consoResults || consoResults.length === 0) {
+      return { error: "Run the consolation round first." };
+    }
+    const ranked = rankKotcPool(
+      consoResults.map((r) => ({
+        teamId: r.team_id as string,
+        kingPoints: r.king_points as number,
+        longestStreak: (r.longest_streak as number | null) ?? null,
+        reachedSeq: null,
+      })),
+    );
+    consolationWinner = ranked[0].teamId;
+  }
+
+  const roster = composeFinals(advancersPerPool, consolationWinner);
+  if (roster.length === 0) return { error: "No finalists to seed." };
+
+  // Lazily create the finals stage, then rebuild its pool so re-runs are idempotent.
+  let finalsStageId: string;
+  const { data: existingStage } = await supabase
+    .from("kotc_stages")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .eq("kind", "finals")
+    .maybeSingle();
+  if (existingStage) {
+    finalsStageId = existingStage.id as string;
+  } else {
+    const { data: maxRow } = await supabase
+      .from("kotc_stages")
+      .select("ordinal")
+      .eq("competition_id", competitionId)
+      .order("ordinal", { ascending: false })
+      .limit(1)
+      .single();
+    const { data: created, error: stageErr } = await supabase
+      .from("kotc_stages")
+      .insert({
+        competition_id: competitionId,
+        ordinal: (maxRow?.ordinal ?? 0) + 1,
+        kind: "finals",
+        name: "Finals",
+        status: "in_progress",
+      })
+      .select("id")
+      .single();
+    if (stageErr || !created) {
+      return { error: stageErr?.message ?? "Could not create the stage." };
+    }
+    finalsStageId = created.id as string;
+  }
+
+  await supabase.from("kotc_pools").delete().eq("stage_id", finalsStageId);
+
+  // A roster of 3 is already the podium — mark the pool completed; otherwise the
+  // drop loop (advanceEliminationRoundAction) runs and completes it.
+  const done = roster.length <= 3;
+  const { data: pool, error: poolErr } = await supabase
+    .from("kotc_pools")
+    .insert({
+      competition_id: competitionId,
+      stage_id: finalsStageId,
+      name: "Finals",
+      sort_order: 0,
+      status: done ? "completed" : "scheduled",
+    })
+    .select("id")
+    .single();
+  if (poolErr || !pool) {
+    return { error: poolErr?.message ?? "Could not create the pool." };
+  }
+
+  const { error: ppErr } = await supabase.from("kotc_pool_pairs").insert(
+    roster.map((teamId, i) => ({
+      competition_id: competitionId,
+      pool_id: pool.id,
+      team_id: teamId,
+      entry_seed: i + 1,
+      queue_position: i,
+    })),
+  );
+  if (ppErr) return { error: ppErr.message };
+
+  revalidatePath("/orgs");
+  return { stageId: finalsStageId, poolId: pool.id as string, roster, done };
 }

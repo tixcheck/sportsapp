@@ -103,6 +103,11 @@ export const runConsolationSchema = z.object({
   results: z.array(kotcRoundResultItem).min(2, "Consolation needs 2+ pairs."),
 });
 
+/** Assemble the finals roster (3-per-pool advancers + consolation winner). */
+export const composeFinalsSchema = z.object({
+  competitionId: z.string().min(1),
+});
+
 export type CreateKotcInput = z.infer<typeof createKotcSchema>;
 export type UpdateKotcSettingsInput = z.infer<typeof updateKotcSettingsSchema>;
 export type AddKotcPairInput = z.infer<typeof addKotcPairSchema>;
@@ -114,3 +119,4 @@ export type AdvanceEliminationRoundInput = z.infer<
   typeof advanceEliminationRoundSchema
 >;
 export type RunConsolationInput = z.infer<typeof runConsolationSchema>;
+export type ComposeFinalsInput = z.infer<typeof composeFinalsSchema>;
