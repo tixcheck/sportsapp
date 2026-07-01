@@ -31,6 +31,7 @@ export function ConsolationCard({
     eliminated.map((p) => ({
       teamId: p.id,
       name: p.name,
+      players: p.players ?? null,
       points: "",
       streak: "",
     })),
@@ -78,7 +79,12 @@ export function ConsolationCard({
           key={r.teamId}
           className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2"
         >
-          <span className="truncate text-sm">{r.name}</span>
+          <span className="truncate text-sm">
+            {r.name}
+            {r.players && (
+              <span className="text-muted-foreground"> · {r.players}</span>
+            )}
+          </span>
           <Input
             type="number"
             inputMode="numeric"

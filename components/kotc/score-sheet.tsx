@@ -14,11 +14,13 @@ import type { SheetRound } from "@/lib/kotc/scoresheet";
 export function ScoreSheet({
   rounds,
   names,
+  players,
   pairOrder,
   pointCap,
 }: {
   rounds: SheetRound[];
   names: Record<string, string>;
+  players?: Record<string, string | null>;
   pairOrder: string[];
   pointCap: number | null;
 }) {
@@ -26,6 +28,7 @@ export function ScoreSheet({
   const label = new Map(pairOrder.map((id, i) => [id, `P${i + 1}`]));
   const labelOf = (id: string) => label.get(id) ?? "?";
   const nameOf = (id: string) => names[id] ?? "—";
+  const playersOf = (id: string) => players?.[id] ?? null;
 
   const [open, setOpen] = useState<Set<number>>(
     () => new Set(rounds.filter((r) => r.active).map((r) => r.roundIndex)),
@@ -96,6 +99,12 @@ export function ScoreSheet({
                         </span>
                         <span className="truncate font-medium">
                           {nameOf(team.teamId)}
+                          {playersOf(team.teamId) && (
+                            <span className="text-muted-foreground font-normal">
+                              {" "}
+                              · {playersOf(team.teamId)}
+                            </span>
+                          )}
                         </span>
                         <span className="text-muted-foreground text-xs tabular-nums">
                           {team.totalPoints} pts · streak {team.longestStreak} ·

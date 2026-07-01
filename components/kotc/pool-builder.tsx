@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Pair = { id: string; name: string };
+type Pair = { id: string; name: string; players?: string | null };
 type Pool = { name: string; teamIds: string[] };
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -34,6 +34,10 @@ export function PoolBuilder({
   const [pending, start] = useTransition();
   const nameOf = useMemo(
     () => new Map(roster.map((p) => [p.id, p.name])),
+    [roster],
+  );
+  const playersOf = useMemo(
+    () => new Map(roster.map((p) => [p.id, p.players ?? null])),
     [roster],
   );
 
@@ -118,6 +122,9 @@ export function PoolBuilder({
       )}
     >
       {nameOf.get(id) ?? "—"}
+      {playersOf.get(id) && (
+        <span className="text-muted-foreground"> · {playersOf.get(id)}</span>
+      )}
     </button>
   );
 

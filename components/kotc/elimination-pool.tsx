@@ -27,6 +27,7 @@ export function EliminationPool({
   const [pending, start] = useTransition();
 
   const nameOf = new Map(pool.pairs.map((p) => [p.id, p.name]));
+  const playersOf = new Map(pool.pairs.map((p) => [p.id, p.players ?? null]));
   const remaining = pool.pairs.filter((p) => p.eliminatedAtRound === null);
   const done = remaining.length <= 3;
 
@@ -134,7 +135,15 @@ export function EliminationPool({
                 <span className="text-muted-foreground tabular-nums">
                   {kind === "finals" ? medal(i) : i + 1}
                 </span>
-                <span className="truncate">{nameOf.get(row.teamId)}</span>
+                <span className="truncate">
+                  {nameOf.get(row.teamId)}
+                  {playersOf.get(row.teamId) && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {playersOf.get(row.teamId)}
+                    </span>
+                  )}
+                </span>
               </li>
             ))}
           </ol>
@@ -152,6 +161,11 @@ export function EliminationPool({
                   onChange={() => setDropChoice(id)}
                 />
                 {nameOf.get(id)}
+                {playersOf.get(id) && (
+                  <span className="text-muted-foreground">
+                    · {playersOf.get(id)}
+                  </span>
+                )}
               </label>
             ))}
           </div>
@@ -185,7 +199,15 @@ export function EliminationPool({
               key={r.teamId}
               className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2"
             >
-              <span className="truncate text-sm">{nameOf.get(r.teamId)}</span>
+              <span className="truncate text-sm">
+                {nameOf.get(r.teamId)}
+                {playersOf.get(r.teamId) && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {playersOf.get(r.teamId)}
+                  </span>
+                )}
+              </span>
               <Input
                 type="number"
                 inputMode="numeric"

@@ -6,6 +6,7 @@ import {
   getKotcDetail,
   kotcDisplayStatus,
   type KotcDetail,
+  type KotcPairView,
   type KotcPoolView,
   type KotcStageView,
 } from "@/lib/queries/kotc";
@@ -208,7 +209,7 @@ function EliminationStage({
 }: {
   stage: KotcStageView;
   kotc: KotcDetail;
-  roster: { id: string; name: string }[];
+  roster: KotcPairView[];
 }) {
   return (
     <Card>
@@ -241,7 +242,15 @@ function EliminationStage({
                   <span className="text-muted-foreground tabular-nums">
                     {s.seedRank}
                   </span>
-                  <span className="truncate">{s.name}</span>
+                  <span className="truncate">
+                    {s.name}
+                    {s.players && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {s.players}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-muted-foreground tabular-nums">
                     {s.seedScore?.toFixed(2)} · {s.totalPoints} pts
                   </span>
@@ -284,7 +293,7 @@ function FinalsSection({
   finalsStage,
 }: {
   competitionId: string;
-  eliminated: { id: string; name: string }[];
+  eliminated: KotcPairView[];
   needsConsolation: boolean;
   consolationWinnerName: string | null;
   canCompose: boolean;
@@ -355,7 +364,7 @@ function SeedingStage({
   orgId,
 }: {
   stage: KotcStageView;
-  roster: { id: string; name: string }[];
+  roster: KotcPairView[];
   competitionId: string;
   orgId: string;
 }) {

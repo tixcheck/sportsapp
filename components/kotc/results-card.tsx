@@ -28,6 +28,7 @@ export function ResultsCard({
     pool.pairs.map((p) => ({
       teamId: p.id,
       name: p.name,
+      players: p.players ?? null,
       points: String(saved.get(p.id)?.kingPoints ?? ""),
       streak:
         saved.get(p.id)?.longestStreak == null
@@ -62,6 +63,7 @@ export function ResultsCard({
   }
 
   const nameOf = new Map(pool.pairs.map((p) => [p.id, p.name]));
+  const playersOf = new Map(pool.pairs.map((p) => [p.id, p.players ?? null]));
   const standings = rankKotcPool(
     pool.results.map((r) => ({
       teamId: r.teamId,
@@ -96,7 +98,12 @@ export function ResultsCard({
             key={r.teamId}
             className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2"
           >
-            <span className="truncate text-sm">{r.name}</span>
+            <span className="truncate text-sm">
+              {r.name}
+              {r.players && (
+                <span className="text-muted-foreground"> · {r.players}</span>
+              )}
+            </span>
             <Input
               type="number"
               inputMode="numeric"
@@ -132,7 +139,15 @@ export function ResultsCard({
                 <span className="text-muted-foreground tabular-nums">
                   {row.position}
                 </span>
-                <span className="truncate">{nameOf.get(row.teamId)}</span>
+                <span className="truncate">
+                  {nameOf.get(row.teamId)}
+                  {playersOf.get(row.teamId) && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {playersOf.get(row.teamId)}
+                    </span>
+                  )}
+                </span>
                 <span
                   className="text-muted-foreground tabular-nums"
                   title={row.explanation}

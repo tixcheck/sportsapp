@@ -36,6 +36,7 @@ export function LiveScoreboard({
   poolName,
   pairOrder,
   names,
+  players,
   config,
   roundMinutes,
   initialEvents,
@@ -46,6 +47,7 @@ export function LiveScoreboard({
   poolName: string;
   pairOrder: string[];
   names: Record<string, string>;
+  players?: Record<string, string | null>;
   config: KotcConfig;
   roundMinutes: number;
   initialEvents: KotcEvent[];
@@ -72,6 +74,7 @@ export function LiveScoreboard({
     .reverse();
   const sheet = buildScoreSheet(pairOrder, events, config);
   const nameOf = (id: string) => names[id] ?? "—";
+  const playersOf = (id: string) => players?.[id] ?? null;
   const done = state.status === "complete";
 
   // --- Round clock ----------------------------------------------------------
@@ -224,6 +227,11 @@ export function LiveScoreboard({
               <span className="font-display mt-1 text-2xl font-bold">
                 {nameOf(state.kingTeamId)}
               </span>
+              {playersOf(state.kingTeamId) && (
+                <span className="text-xs opacity-80">
+                  {playersOf(state.kingTeamId)}
+                </span>
+              )}
               <span className="text-sm tabular-nums opacity-80">
                 {state.totalPoints[state.kingTeamId]} pts · streak{" "}
                 {state.roundStreak[state.kingTeamId]}
@@ -239,6 +247,11 @@ export function LiveScoreboard({
               <span className="font-display mt-1 text-2xl font-bold">
                 {nameOf(state.challengerTeamId)}
               </span>
+              {playersOf(state.challengerTeamId) && (
+                <span className="text-muted-foreground text-xs">
+                  {playersOf(state.challengerTeamId)}
+                </span>
+              )}
               <span className="text-muted-foreground text-sm tabular-nums">
                 {state.totalPoints[state.challengerTeamId]} pts
               </span>
@@ -326,6 +339,11 @@ export function LiveScoreboard({
                 </span>
                 <span className="min-w-0">
                   <span className="truncate">{nameOf(row.teamId)}</span>
+                  {playersOf(row.teamId) && (
+                    <span className="text-muted-foreground ml-2 text-xs">
+                      {playersOf(row.teamId)}
+                    </span>
+                  )}
                   {h?.longestRange && (
                     <span className="text-muted-foreground ml-2 text-xs tabular-nums">
                       best {h.longestStreak} · pts {h.longestRange[0]}–
@@ -350,6 +368,7 @@ export function LiveScoreboard({
       <ScoreSheet
         rounds={sheet}
         names={names}
+        players={players}
         pairOrder={pairOrder}
         pointCap={config.pointCap}
       />

@@ -237,6 +237,11 @@ export default async function PublicKotcPage({
                   <span className="text-xl">{r.medal}</span>
                   <span className="font-display text-lg font-semibold">
                     {r.name}
+                    {r.players && (
+                      <span className="text-muted-foreground ml-2 text-sm font-normal">
+                        {r.players}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
@@ -262,7 +267,15 @@ export default async function PublicKotcPage({
                   <span className="text-muted-foreground tabular-nums">
                     {s.seedRank}
                   </span>
-                  <span className="truncate font-medium">{s.name}</span>
+                  <span className="min-w-0 truncate font-medium">
+                    {s.name}
+                    {playersOf(s.teamId) && (
+                      <span className="text-muted-foreground font-normal">
+                        {" "}
+                        · {playersOf(s.teamId)}
+                      </span>
+                    )}
+                  </span>
                   <span className="text-muted-foreground tabular-nums">
                     {s.totalPoints} pts
                   </span>
@@ -394,6 +407,7 @@ function StageSection({
                 <ScoreSheet
                   rounds={sheet}
                   names={names}
+                  players={players}
                   pairOrder={pairOrder}
                   pointCap={config.pointCap}
                 />

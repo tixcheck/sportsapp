@@ -25,6 +25,7 @@ export interface KotcPoolPairView extends KotcPairView {
 export interface KotcResultView {
   teamId: string;
   name: string;
+  players?: string | null;
   kingPoints: number;
   longestStreak: number | null;
   reachedSeq: number | null;
@@ -67,6 +68,7 @@ export interface KotcStageView {
 export interface KotcSeedView {
   teamId: string;
   name: string;
+  players?: string | null;
   seedScore: number | null;
   totalPoints: number;
   seedRank: number | null;
@@ -182,6 +184,9 @@ export async function getKotcDetail(
   const nameOf = new Map<string, string>(
     (teams ?? []).map((t) => [t.id, t.name]),
   );
+  const playersOf = new Map<string, string | null>(
+    (teams ?? []).map((t) => [t.id, (t.players as string | null) ?? null]),
+  );
 
   const stageViews: KotcStageView[] = (stages ?? []).map((st) => ({
     id: st.id,
@@ -201,6 +206,7 @@ export async function getKotcDetail(
           .map((pp) => ({
             id: pp.team_id as string,
             name: nameOf.get(pp.team_id) ?? "—",
+            players: playersOf.get(pp.team_id) ?? null,
             eliminatedAtRound:
               (pp.eliminated_at_round as number | null) ?? null,
           })),
@@ -209,6 +215,7 @@ export async function getKotcDetail(
           .map((r) => ({
             teamId: r.team_id as string,
             name: nameOf.get(r.team_id) ?? "—",
+            players: playersOf.get(r.team_id) ?? null,
             kingPoints: r.king_points,
             longestStreak: r.longest_streak,
             reachedSeq: r.reached_final_seq,
@@ -223,6 +230,7 @@ export async function getKotcDetail(
               .map((rr) => ({
                 teamId: rr.team_id as string,
                 name: nameOf.get(rr.team_id) ?? "—",
+                players: playersOf.get(rr.team_id) ?? null,
                 kingPoints: rr.king_points,
                 longestStreak: rr.longest_streak,
                 reachedSeq: null,
@@ -260,6 +268,7 @@ export async function getKotcDetail(
     seeds: (seeds ?? []).map((s) => ({
       teamId: s.team_id as string,
       name: nameOf.get(s.team_id) ?? "—",
+      players: playersOf.get(s.team_id) ?? null,
       seedScore: s.seed_score == null ? null : Number(s.seed_score),
       totalPoints: s.total_points,
       seedRank: s.seed_rank,

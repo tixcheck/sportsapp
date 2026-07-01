@@ -44,7 +44,10 @@ export default async function KotcScorePage({
         .select("seq, type, point_awarded, round_index, occurred_at")
         .eq("pool_id", poolId)
         .order("seq", { ascending: true }),
-      supabase.from("teams").select("id, name").eq("competition_id", id),
+      supabase
+        .from("teams")
+        .select("id, name, players")
+        .eq("competition_id", id),
     ]);
 
   const pairOrder = (pairs ?? []).map((p) => p.team_id as string);
@@ -52,6 +55,12 @@ export default async function KotcScorePage({
 
   const names: Record<string, string> = Object.fromEntries(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+  const players: Record<string, string | null> = Object.fromEntries(
+    (teams ?? []).map((t) => [
+      t.id as string,
+      (t.players as string | null) ?? null,
+    ]),
   );
 
   const config: KotcConfig = {
@@ -84,6 +93,7 @@ export default async function KotcScorePage({
       poolName={pool.name as string}
       pairOrder={pairOrder}
       names={names}
+      players={players}
       config={config}
       roundMinutes={roundMinutes}
       initialEvents={initialEvents}
