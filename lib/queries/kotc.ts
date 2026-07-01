@@ -267,6 +267,29 @@ export async function getKotcDetail(
  * when public, or to a member/organizer), then reuses getKotcDetail. Returns null
  * for an unknown or non-public competition.
  */
+/**
+ * A live status derived from actual progress — the raw competitions.status stays
+ * "draft" for KotC (no action advances it), so we compute a meaningful label:
+ * "Completed" once the finals reach a podium, "Live" once any pool is scored,
+ * else "Upcoming".
+ */
+export function kotcDisplayStatus(
+  kotc: KotcDetail,
+): "Completed" | "Live" | "Upcoming" {
+  const finalsPool = kotc.stages.find((s) => s.kind === "finals")?.pools[0];
+  if (finalsPool) {
+    const remaining = finalsPool.pairs.filter(
+      (p) => p.eliminatedAtRound === null,
+    ).length;
+    if (remaining <= 3 && finalsPool.pairs.length > remaining)
+      return "Completed";
+  }
+  const live = kotc.stages.some((s) =>
+    s.pools.some((p) => p.results.length > 0 || p.rounds.length > 0),
+  );
+  return live ? "Live" : "Upcoming";
+}
+
 export async function getPublicKotcDetail(
   slug: string,
 ): Promise<KotcDetail | null> {

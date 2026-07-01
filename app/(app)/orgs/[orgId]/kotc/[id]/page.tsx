@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import {
   getKotcDetail,
+  kotcDisplayStatus,
   type KotcDetail,
   type KotcPoolView,
   type KotcStageView,
@@ -13,6 +14,7 @@ import { PoolBuilder } from "@/components/kotc/pool-builder";
 import { ResultsCard } from "@/components/kotc/results-card";
 import { EliminationPool } from "@/components/kotc/elimination-pool";
 import { PublishToggle } from "@/components/kotc/publish-toggle";
+import { StatusPill } from "@/components/kotc/status-pill";
 import {
   ComposeFinalsButton,
   ConsolationCard,
@@ -98,9 +100,7 @@ export default async function KotcPage({
             <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
               {kotc.name}
             </h1>
-            <span className="bg-muted text-muted-foreground rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
-              {kotc.status}
-            </span>
+            <StatusPill status={kotcDisplayStatus(kotc)} />
           </div>
           <PublishToggle
             competitionId={kotc.id}

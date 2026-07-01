@@ -5,12 +5,14 @@ import { Crown, MapPin } from "lucide-react";
 
 import {
   getPublicKotcDetail,
+  kotcDisplayStatus,
   type KotcPoolView,
   type KotcStageKind,
   type KotcStageView,
 } from "@/lib/queries/kotc";
 import { rankKotcPool } from "@/lib/kotc/ranking";
 import { AutoRefresh } from "@/components/public/auto-refresh";
+import { StatusPill } from "@/components/kotc/status-pill";
 
 export async function generateMetadata({
   params,
@@ -167,9 +169,7 @@ export default async function PublicKotcPage({
             {kotc.name}
           </h1>
           <p className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium capitalize">
-              {kotc.status}
-            </span>
+            <StatusPill status={kotcDisplayStatus(kotc)} />
             {kotc.venue && (
               <span className="inline-flex items-center gap-1">
                 <MapPin className="size-3.5" />
