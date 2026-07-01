@@ -170,11 +170,25 @@ export default async function PublicKotcPage({
           </h1>
           <p className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             <StatusPill status={kotcDisplayStatus(kotc)} />
-            {kotc.venue && (
-              <span className="inline-flex items-center gap-1">
+            {kotc.settings.location ? (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  kotc.settings.location,
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary inline-flex items-center gap-1 hover:underline"
+              >
                 <MapPin className="size-3.5" />
-                {kotc.venue}
-              </span>
+                {kotc.venue || kotc.settings.location}
+              </a>
+            ) : (
+              kotc.venue && (
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="size-3.5" />
+                  {kotc.venue}
+                </span>
+              )
             )}
             <span className="tabular-nums">{kotc.pairs.length} pairs</span>
           </p>
@@ -182,6 +196,18 @@ export default async function PublicKotcPage({
       </header>
 
       <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+        {/* Organizer notes */}
+        {kotc.settings.notes && (
+          <section className="border-border bg-surface rounded-xl border p-4">
+            <h2 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+              Info
+            </h2>
+            <p className="mt-2 text-sm whitespace-pre-line">
+              {kotc.settings.notes}
+            </p>
+          </section>
+        )}
+
         {/* Podium */}
         {podium && podium.length > 0 && (
           <section className="border-primary/30 from-primary/10 rounded-2xl border bg-gradient-to-b to-transparent p-5 text-center">

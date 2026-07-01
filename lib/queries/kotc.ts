@@ -87,6 +87,8 @@ export interface KotcDetail {
     pointCap: number | null;
     seedingRoundCount: number;
     seedMetric: "normalized_placement" | "raw_points";
+    location: string | null;
+    notes: string | null;
   };
   pairs: KotcPairView[];
   stages: KotcStageView[];
@@ -245,6 +247,8 @@ export async function getKotcDetail(
       seedingRoundCount: settings?.seeding_round_count ?? 2,
       seedMetric: (settings?.seed_metric ??
         "normalized_placement") as KotcDetail["settings"]["seedMetric"],
+      location: (settings?.location as string | null) ?? null,
+      notes: (settings?.notes as string | null) ?? null,
     },
     pairs: (teams ?? []).map((t) => ({
       id: t.id,

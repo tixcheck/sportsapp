@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { MapPin } from "lucide-react";
 
 import {
   getKotcDetail,
@@ -15,6 +16,7 @@ import { ResultsCard } from "@/components/kotc/results-card";
 import { EliminationPool } from "@/components/kotc/elimination-pool";
 import { PublishToggle } from "@/components/kotc/publish-toggle";
 import { StatusPill } from "@/components/kotc/status-pill";
+import { EditDetailsDialog } from "@/components/kotc/edit-details-dialog";
 import {
   ComposeFinalsButton,
   ConsolationCard,
@@ -102,15 +104,48 @@ export default async function KotcPage({
             </h1>
             <StatusPill status={kotcDisplayStatus(kotc)} />
           </div>
-          <PublishToggle
-            competitionId={kotc.id}
-            slug={kotc.slug}
-            visibility={kotc.visibility}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <EditDetailsDialog
+              competitionId={kotc.id}
+              name={kotc.name}
+              venue={kotc.venue}
+              location={settings.location}
+              notes={settings.notes}
+              pairsPerPool={settings.pairsPerPool}
+              roundsPerSession={settings.roundsPerSession}
+              roundMinutes={settings.roundMinutes}
+              pointCap={settings.pointCap}
+              seedMetric={settings.seedMetric}
+            />
+            <PublishToggle
+              competitionId={kotc.id}
+              slug={kotc.slug}
+              visibility={kotc.visibility}
+            />
+          </div>
         </div>
-        <p className="text-muted-foreground mt-1 text-sm">
-          King of the Court · beach 2s · {setupText}
+        <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span>King of the Court · beach 2s · {setupText}</span>
+          {kotc.venue && <span>· {kotc.venue}</span>}
+          {settings.location && (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                settings.location,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary inline-flex items-center gap-1 hover:underline"
+            >
+              <MapPin className="size-3.5" />
+              {settings.location}
+            </a>
+          )}
         </p>
+        {settings.notes && (
+          <div className="border-border bg-surface text-muted-foreground mt-3 rounded-lg border p-3 text-sm whitespace-pre-line">
+            {settings.notes}
+          </div>
+        )}
       </div>
 
       {/* Roster */}

@@ -29,6 +29,10 @@ export const createKotcSchema = z.object({
 export const updateKotcSettingsSchema = z.object({
   name: NAME,
   venue: z.string().trim().max(120).optional().or(z.literal("")),
+  // Full address for a clickable map link.
+  location: z.string().trim().max(300).optional().or(z.literal("")),
+  // Free-text notes shown to participants on the spectator page.
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
   pairsPerPool: z.number().int().min(2).max(12),
   roundsPerSession: z.number().int().min(1).max(10),
   roundMinutes: z.number().int().min(1).max(120),

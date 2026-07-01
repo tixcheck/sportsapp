@@ -240,6 +240,8 @@ export async function updateKotcSettingsAction(
       round_minutes: v.roundMinutes,
       point_cap: v.pointCap,
       seed_metric: v.seedMetric,
+      location: v.location || null,
+      notes: v.notes || null,
     })
     .eq("competition_id", competitionId);
   if (setErr) return { error: setErr.message };

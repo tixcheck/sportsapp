@@ -274,6 +274,13 @@
       "when": 1782866189165,
       "tag": "0038_outstanding_metal_master",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1782869306893,
+      "tag": "0039_smart_iron_monger",
+      "breakpoints": true
     }
   ]
 }

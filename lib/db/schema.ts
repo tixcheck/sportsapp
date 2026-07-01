@@ -724,6 +724,9 @@ export const kotcSettings = pgTable("kotc_settings", {
   seedMetric: kotcSeedMetric("seed_metric")
     .notNull()
     .default("normalized_placement"),
+  // Full address for a clickable map link; participant-facing notes.
+  location: text("location"),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
