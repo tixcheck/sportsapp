@@ -278,6 +278,32 @@ export async function addKotcPairAction(
 }
 
 /**
+ * Remove a pair (e.g. a no-show) so the schedule can be adjusted. Hard-deletes
+ * the team; FKs cascade its pool membership, results and seed, and null its
+ * rally-log references. Admin-gated; scoped to the competition.
+ */
+export async function removeKotcPairAction(
+  competitionId: string,
+  pairId: string,
+): Promise<ActionError | { ok: true }> {
+  if (!competitionId || !pairId) return { error: "Invalid request." };
+
+  const supabase = await createClient();
+  const denied = await assertKotcAdmin(supabase, competitionId);
+  if (denied) return denied;
+
+  const { error } = await supabase
+    .from("teams")
+    .delete()
+    .eq("id", pairId)
+    .eq("competition_id", competitionId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  return { ok: true };
+}
+
+/**
  * Assign pairs into a stage's pools (manual for Round 1; the reviewed output of
  * re-pool / elimination seeding for later stages). Replaces any existing pools
  * for the stage (cascade clears their pairs/events/results), then inserts the

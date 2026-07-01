@@ -17,6 +17,7 @@ import { EliminationPool } from "@/components/kotc/elimination-pool";
 import { PublishToggle } from "@/components/kotc/publish-toggle";
 import { StatusPill } from "@/components/kotc/status-pill";
 import { EditDetailsDialog } from "@/components/kotc/edit-details-dialog";
+import { RosterList } from "@/components/kotc/roster-list";
 import {
   ComposeFinalsButton,
   ConsolationCard,
@@ -163,24 +164,7 @@ export default async function KotcPage({
         </CardHeader>
         <CardContent className="space-y-3">
           <AddPairForm competitionId={kotc.id} />
-          {pairs.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {pairs.map((p) => (
-                <span
-                  key={p.id}
-                  className="border-border bg-surface rounded-md border px-2 py-1 text-xs"
-                >
-                  {p.name}
-                  {p.players && (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {p.players}
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
+          <RosterList competitionId={kotc.id} pairs={pairs} />
         </CardContent>
       </Card>
 
