@@ -224,7 +224,7 @@ export async function updateKotcSettingsAction(
   return { success: true };
 }
 
-/** Add a pair (a beach2 team, name only) to the competition roster. */
+/** Add a pair (a beach2 team) — team name + optional participant names. */
 export async function addKotcPairAction(
   competitionId: string,
   values: AddKotcPairInput,
@@ -238,7 +238,11 @@ export async function addKotcPairAction(
 
   const { data: team, error } = await supabase
     .from("teams")
-    .insert({ competition_id: competitionId, name: parsed.data.name })
+    .insert({
+      competition_id: competitionId,
+      name: parsed.data.name,
+      players: parsed.data.players || null,
+    })
     .select("id")
     .single();
   if (error || !team) return { error: error?.message ?? "Could not add pair." };

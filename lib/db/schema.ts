@@ -338,6 +338,9 @@ export const teams = pgTable(
       onDelete: "set null",
     }),
     name: text("name").notNull(),
+    // KotC: the two participants' first names, e.g. "Sam/Riley" (nullable; other
+    // competition types don't use it).
+    players: text("players"),
     seed: integer("seed"),
     // 'withdrawn' teams stay visible (history/standings stay coherent); the
     // organizer handles their matches manually via normal score entry.

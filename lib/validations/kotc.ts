@@ -36,7 +36,12 @@ export const updateKotcSettingsSchema = z.object({
   seedMetric: kotcSeedMetricEnum,
 });
 
-export const addKotcPairSchema = z.object({ name: PAIR_NAME });
+export const addKotcPairSchema = z.object({
+  // Team name (identity shown in standings/brackets).
+  name: PAIR_NAME,
+  // The two participants' first names, e.g. "Sam/Riley". Optional.
+  players: z.string().trim().max(80).optional().or(z.literal("")),
+});
 
 /** Assign pairs into the pools of a stage (manual for Round 1; the reviewed
  * output of re-pool / elimination seeding for later stages). */

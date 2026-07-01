@@ -136,6 +136,12 @@ export default async function KotcPage({
                   className="border-border bg-surface rounded-md border px-2 py-1 text-xs"
                 >
                   {p.name}
+                  {p.players && (
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {p.players}
+                    </span>
+                  )}
                 </span>
               ))}
             </div>

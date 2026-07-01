@@ -11,6 +11,8 @@ export interface KotcSummary {
 export interface KotcPairView {
   id: string;
   name: string;
+  /** The two participants' first names, e.g. "Sam/Riley" (KotC roster only). */
+  players?: string | null;
 }
 
 /** A pair as a member of a specific pool — carries its elimination status. */
@@ -133,7 +135,7 @@ export async function getKotcDetail(
       .single(),
     supabase
       .from("teams")
-      .select("id, name")
+      .select("id, name, players")
       .eq("competition_id", competitionId)
       .eq("status", "active")
       .order("created_at", { ascending: true }),
@@ -244,7 +246,11 @@ export async function getKotcDetail(
       seedMetric: (settings?.seed_metric ??
         "normalized_placement") as KotcDetail["settings"]["seedMetric"],
     },
-    pairs: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
+    pairs: (teams ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      players: (t.players as string | null) ?? null,
+    })),
     stages: stageViews,
     seeds: (seeds ?? []).map((s) => ({
       teamId: s.team_id as string,

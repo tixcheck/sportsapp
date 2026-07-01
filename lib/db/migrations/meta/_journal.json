@@ -267,6 +267,13 @@
       "when": 1782833386482,
       "tag": "0037_yielding_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1782866189165,
+      "tag": "0038_outstanding_metal_master",
+      "breakpoints": true
     }
   ]
 }
