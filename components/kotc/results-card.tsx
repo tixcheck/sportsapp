@@ -10,6 +10,7 @@ import { rankKotcPool } from "@/lib/kotc/ranking";
 import type { KotcPoolView } from "@/lib/queries/kotc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PairLabel } from "@/components/kotc/pair-label";
 
 /** Per-pool manual results entry (King points + optional longest streak) with a
  * live standings table ranked by the pure 3-level KotC tiebreaker. */
@@ -98,12 +99,7 @@ export function ResultsCard({
             key={r.teamId}
             className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2"
           >
-            <span className="truncate text-sm">
-              {r.name}
-              {r.players && (
-                <span className="text-muted-foreground"> · {r.players}</span>
-              )}
-            </span>
+            <PairLabel name={r.name} players={r.players} className="text-sm" />
             <Input
               type="number"
               inputMode="numeric"
@@ -139,15 +135,10 @@ export function ResultsCard({
                 <span className="text-muted-foreground tabular-nums">
                   {row.position}
                 </span>
-                <span className="truncate">
-                  {nameOf.get(row.teamId)}
-                  {playersOf.get(row.teamId) && (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {playersOf.get(row.teamId)}
-                    </span>
-                  )}
-                </span>
+                <PairLabel
+                  name={nameOf.get(row.teamId) ?? "—"}
+                  players={playersOf.get(row.teamId)}
+                />
                 <span
                   className="text-muted-foreground tabular-nums"
                   title={row.explanation}

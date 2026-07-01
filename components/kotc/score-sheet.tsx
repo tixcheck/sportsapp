@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import type { SheetRound } from "@/lib/kotc/scoresheet";
+import { PairLabel } from "@/components/kotc/pair-label";
 
 /**
  * Paper-style read-only score sheet. Each round is a collapsible section (the
@@ -97,15 +98,11 @@ export function ScoreSheet({
                         <span className="text-muted-foreground w-7 font-medium tabular-nums">
                           {labelOf(team.teamId)}
                         </span>
-                        <span className="truncate font-medium">
-                          {nameOf(team.teamId)}
-                          {playersOf(team.teamId) && (
-                            <span className="text-muted-foreground font-normal">
-                              {" "}
-                              · {playersOf(team.teamId)}
-                            </span>
-                          )}
-                        </span>
+                        <PairLabel
+                          name={nameOf(team.teamId)}
+                          players={playersOf(team.teamId)}
+                          className="font-medium"
+                        />
                         <span className="text-muted-foreground text-xs tabular-nums">
                           {team.totalPoints} pts · streak {team.longestStreak} ·
                           rank {rankOf.get(team.teamId)}

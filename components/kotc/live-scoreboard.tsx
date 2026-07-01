@@ -338,16 +338,17 @@ export function LiveScoreboard({
                   {row.position}
                 </span>
                 <span className="min-w-0">
-                  <span className="truncate">{nameOf(row.teamId)}</span>
-                  {playersOf(row.teamId) && (
-                    <span className="text-muted-foreground ml-2 text-xs">
+                  <span className="block truncate">{nameOf(row.teamId)}</span>
+                  {(playersOf(row.teamId) || h?.longestRange) && (
+                    <span className="text-muted-foreground block truncate text-xs">
                       {playersOf(row.teamId)}
-                    </span>
-                  )}
-                  {h?.longestRange && (
-                    <span className="text-muted-foreground ml-2 text-xs tabular-nums">
-                      best {h.longestStreak} · pts {h.longestRange[0]}–
-                      {h.longestRange[1]}
+                      {playersOf(row.teamId) && h?.longestRange && " · "}
+                      {h?.longestRange && (
+                        <span className="tabular-nums">
+                          best {h.longestStreak} · pts {h.longestRange[0]}–
+                          {h.longestRange[1]}
+                        </span>
+                      )}
                     </span>
                   )}
                 </span>

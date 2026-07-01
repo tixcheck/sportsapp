@@ -17,6 +17,7 @@ import type { KotcConfig, KotcEvent } from "@/lib/kotc/engine";
 import { AutoRefresh } from "@/components/public/auto-refresh";
 import { StatusPill } from "@/components/kotc/status-pill";
 import { ScoreSheet } from "@/components/kotc/score-sheet";
+import { PairLabel } from "@/components/kotc/pair-label";
 
 export async function generateMetadata({
   params,
@@ -235,14 +236,13 @@ export default async function PublicKotcPage({
                   className="flex items-center justify-center gap-2"
                 >
                   <span className="text-xl">{r.medal}</span>
-                  <span className="font-display text-lg font-semibold">
-                    {r.name}
-                    {r.players && (
-                      <span className="text-muted-foreground ml-2 text-sm font-normal">
-                        {r.players}
-                      </span>
-                    )}
-                  </span>
+                  <PairLabel
+                    name={r.name}
+                    players={r.players}
+                    className="font-display text-lg font-semibold"
+                    subClassName="text-sm"
+                    align="center"
+                  />
                 </li>
               ))}
             </ol>
@@ -267,15 +267,11 @@ export default async function PublicKotcPage({
                   <span className="text-muted-foreground tabular-nums">
                     {s.seedRank}
                   </span>
-                  <span className="min-w-0 truncate font-medium">
-                    {s.name}
-                    {playersOf(s.teamId) && (
-                      <span className="text-muted-foreground font-normal">
-                        {" "}
-                        · {playersOf(s.teamId)}
-                      </span>
-                    )}
-                  </span>
+                  <PairLabel
+                    name={s.name}
+                    players={playersOf(s.teamId)}
+                    className="font-medium"
+                  />
                   <span className="text-muted-foreground tabular-nums">
                     {s.totalPoints} pts
                   </span>

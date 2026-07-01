@@ -9,6 +9,7 @@ import { assignKotcPoolsAction } from "@/server/actions/kotc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PairLabel } from "@/components/kotc/pair-label";
 
 type Pair = { id: string; name: string; players?: string | null };
 type Pool = { name: string; teamIds: string[] };
@@ -121,10 +122,12 @@ export function PoolBuilder({
           : "border-border bg-surface hover:bg-muted",
       )}
     >
-      {nameOf.get(id) ?? "—"}
-      {playersOf.get(id) && (
-        <span className="text-muted-foreground"> · {playersOf.get(id)}</span>
-      )}
+      <PairLabel
+        name={nameOf.get(id) ?? "—"}
+        players={playersOf.get(id)}
+        className="font-medium"
+        subClassName="text-[10px] leading-tight"
+      />
     </button>
   );
 

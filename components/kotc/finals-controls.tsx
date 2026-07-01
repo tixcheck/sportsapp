@@ -12,6 +12,7 @@ import {
 import type { KotcPairView } from "@/lib/queries/kotc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PairLabel } from "@/components/kotc/pair-label";
 
 /**
  * The single consolation round: enter King points for every pair eliminated in
@@ -79,12 +80,7 @@ export function ConsolationCard({
           key={r.teamId}
           className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2"
         >
-          <span className="truncate text-sm">
-            {r.name}
-            {r.players && (
-              <span className="text-muted-foreground"> · {r.players}</span>
-            )}
-          </span>
+          <PairLabel name={r.name} players={r.players} className="text-sm" />
           <Input
             type="number"
             inputMode="numeric"

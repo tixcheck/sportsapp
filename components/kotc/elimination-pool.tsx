@@ -9,6 +9,7 @@ import { rankKotcPool } from "@/lib/kotc/ranking";
 import type { KotcPoolView } from "@/lib/queries/kotc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PairLabel } from "@/components/kotc/pair-label";
 
 /**
  * One elimination (or finals) pool, played as an iterative drop loop: enter the
@@ -135,15 +136,10 @@ export function EliminationPool({
                 <span className="text-muted-foreground tabular-nums">
                   {kind === "finals" ? medal(i) : i + 1}
                 </span>
-                <span className="truncate">
-                  {nameOf.get(row.teamId)}
-                  {playersOf.get(row.teamId) && (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {playersOf.get(row.teamId)}
-                    </span>
-                  )}
-                </span>
+                <PairLabel
+                  name={nameOf.get(row.teamId) ?? "—"}
+                  players={playersOf.get(row.teamId)}
+                />
               </li>
             ))}
           </ol>
@@ -160,12 +156,10 @@ export function EliminationPool({
                   checked={dropChoice === id}
                   onChange={() => setDropChoice(id)}
                 />
-                {nameOf.get(id)}
-                {playersOf.get(id) && (
-                  <span className="text-muted-foreground">
-                    · {playersOf.get(id)}
-                  </span>
-                )}
+                <PairLabel
+                  name={nameOf.get(id) ?? "—"}
+                  players={playersOf.get(id)}
+                />
               </label>
             ))}
           </div>
@@ -199,15 +193,11 @@ export function EliminationPool({
               key={r.teamId}
               className="grid grid-cols-[1fr_4rem_4rem] items-center gap-2"
             >
-              <span className="truncate text-sm">
-                {nameOf.get(r.teamId)}
-                {playersOf.get(r.teamId) && (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {playersOf.get(r.teamId)}
-                  </span>
-                )}
-              </span>
+              <PairLabel
+                name={nameOf.get(r.teamId) ?? "—"}
+                players={playersOf.get(r.teamId)}
+                className="text-sm"
+              />
               <Input
                 type="number"
                 inputMode="numeric"

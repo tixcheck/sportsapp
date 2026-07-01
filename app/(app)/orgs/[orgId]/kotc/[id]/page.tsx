@@ -19,6 +19,7 @@ import { PublishToggle } from "@/components/kotc/publish-toggle";
 import { StatusPill } from "@/components/kotc/status-pill";
 import { EditDetailsDialog } from "@/components/kotc/edit-details-dialog";
 import { RosterList } from "@/components/kotc/roster-list";
+import { PairLabel } from "@/components/kotc/pair-label";
 import {
   ComposeFinalsButton,
   ConsolationCard,
@@ -242,15 +243,7 @@ function EliminationStage({
                   <span className="text-muted-foreground tabular-nums">
                     {s.seedRank}
                   </span>
-                  <span className="truncate">
-                    {s.name}
-                    {s.players && (
-                      <span className="text-muted-foreground">
-                        {" "}
-                        · {s.players}
-                      </span>
-                    )}
-                  </span>
+                  <PairLabel name={s.name} players={s.players} />
                   <span className="text-muted-foreground tabular-nums">
                     {s.seedScore?.toFixed(2)} · {s.totalPoints} pts
                   </span>
