@@ -1,16 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Eye, EyeOff } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { Check, Copy, Eye, EyeOff, QrCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { setKotcVisibilityAction } from "@/server/actions/kotc";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /**
  * Organizer control: publish the read-only spectator page (sets the competition
- * public) and copy its shareable link. Private by default.
+ * public), copy its shareable link, and show a scannable QR code for participants.
  */
 export function PublishToggle({
   competitionId,
@@ -24,7 +33,10 @@ export function PublishToggle({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
   const isPublic = visibility === "public";
+  const url = origin ? `${origin}/k/${slug}` : "";
 
   function toggle() {
     start(async () => {
@@ -46,7 +58,6 @@ export function PublishToggle({
   }
 
   function copy() {
-    const url = `${window.location.origin}/k/${slug}`;
     navigator.clipboard?.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -61,18 +72,46 @@ export function PublishToggle({
         {pending ? "Saving…" : isPublic ? "Public" : "Make public"}
       </Button>
       {isPublic && (
-        <button
-          type="button"
-          onClick={copy}
-          className="border-border bg-surface text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium"
-        >
-          {copied ? (
-            <Check className="size-3.5" />
-          ) : (
-            <Copy className="size-3.5" />
-          )}
-          /k/{slug}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={copy}
+            className="border-border bg-surface text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium"
+          >
+            {copied ? (
+              <Check className="size-3.5" />
+            ) : (
+              <Copy className="size-3.5" />
+            )}
+            /k/{slug}
+          </button>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline">
+                <QrCode /> QR
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xs">
+              <DialogHeader>
+                <DialogTitle>Scan to view scores</DialogTitle>
+                <DialogDescription>
+                  Participants scan this to open the live spectator page.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-3 py-2">
+                {url && (
+                  <div className="rounded-lg bg-white p-4">
+                    <QRCodeSVG value={url} size={224} marginSize={0} />
+                  </div>
+                )}
+                <span className="text-muted-foreground text-center text-xs break-all">
+                  {url}
+                </span>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
       )}
     </div>
   );
