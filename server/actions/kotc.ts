@@ -1363,6 +1363,57 @@ export async function endKotcRoundAction(
   return { ok: true, done: next.status === "complete" };
 }
 
+/**
+ * Start (or read) the current round's 15-minute game clock by stamping a
+ * round_start event. Idempotent — returns the existing start if already running.
+ * round_start rows are timestamp markers only; the scoring engine ignores them.
+ */
+export async function startKotcRoundAction(
+  poolId: string,
+): Promise<ActionError | { startedAt: string; roundIndex: number }> {
+  const supabase = await createClient();
+  const log = await loadKotcPoolLog(supabase, poolId);
+  if (!log) return { error: "Pool not found." };
+
+  const denied = await assertKotcAdmin(supabase, log.competitionId);
+  if (denied) return denied;
+
+  const state = reduceKotc(log.pairOrder, log.events, log.config);
+  if (state.status === "complete") return { error: "Session complete." };
+
+  const { data: existing } = await supabase
+    .from("kotc_events")
+    .select("occurred_at")
+    .eq("pool_id", poolId)
+    .eq("type", "round_start")
+    .eq("round_index", state.roundIndex)
+    .maybeSingle();
+  if (existing) {
+    return {
+      startedAt: existing.occurred_at as string,
+      roundIndex: state.roundIndex,
+    };
+  }
+
+  const { data: row, error } = await supabase
+    .from("kotc_events")
+    .insert({
+      competition_id: log.competitionId,
+      pool_id: poolId,
+      seq: log.nextSeq,
+      round_index: state.roundIndex,
+      type: "round_start",
+    })
+    .select("occurred_at")
+    .single();
+  if (error || !row) {
+    return { error: error?.message ?? "Could not start the round." };
+  }
+
+  revalidatePath("/orgs");
+  return { startedAt: row.occurred_at as string, roundIndex: state.roundIndex };
+}
+
 /** Publish (public) or unpublish (private) the read-only spectator page. */
 export async function setKotcVisibilityAction(
   values: SetKotcVisibilityInput,

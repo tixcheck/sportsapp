@@ -36,12 +36,12 @@ export default async function KotcScorePage({
         .order("queue_position", { ascending: true }),
       supabase
         .from("kotc_settings")
-        .select("rounds_per_session, point_cap")
+        .select("rounds_per_session, point_cap, round_minutes")
         .eq("competition_id", id)
         .single(),
       supabase
         .from("kotc_events")
-        .select("seq, type, point_awarded")
+        .select("seq, type, point_awarded, round_index, occurred_at")
         .eq("pool_id", poolId)
         .order("seq", { ascending: true }),
       supabase.from("teams").select("id, name").eq("competition_id", id),
@@ -58,8 +58,11 @@ export default async function KotcScorePage({
     roundsPerSession: settings?.rounds_per_session ?? 3,
     pointCap: settings?.point_cap ?? null,
   };
+  const roundMinutes = settings?.round_minutes ?? 15;
 
   const initialEvents: KotcEvent[] = [];
+  // round_index → ISO start time of that round's clock (round_start markers).
+  const roundStarts: Record<number, string> = {};
   for (const r of rows ?? []) {
     if (r.type === "rally") {
       initialEvents.push({
@@ -70,6 +73,8 @@ export default async function KotcScorePage({
       initialEvents.push({ type: "round_end" });
     } else if (r.type === "void") {
       initialEvents.push({ type: "void" });
+    } else if (r.type === "round_start") {
+      roundStarts[r.round_index as number] = r.occurred_at as string;
     }
   }
 
@@ -80,7 +85,9 @@ export default async function KotcScorePage({
       pairOrder={pairOrder}
       names={names}
       config={config}
+      roundMinutes={roundMinutes}
       initialEvents={initialEvents}
+      roundStarts={roundStarts}
       backHref={`/orgs/${orgId}/kotc/${id}`}
     />
   );

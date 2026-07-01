@@ -1,16 +1,19 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Clock, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   appendKotcRallyAction,
   endKotcRoundAction,
+  startKotcRoundAction,
   undoKotcRallyAction,
 } from "@/server/actions/kotc";
 import {
+  isRoundComplete,
   overallResults,
   reduceKotc,
   type KotcConfig,
@@ -34,7 +37,9 @@ export function LiveScoreboard({
   pairOrder,
   names,
   config,
+  roundMinutes,
   initialEvents,
+  roundStarts,
   backHref,
 }: {
   poolId: string;
@@ -42,7 +47,9 @@ export function LiveScoreboard({
   pairOrder: string[];
   names: Record<string, string>;
   config: KotcConfig;
+  roundMinutes: number;
   initialEvents: KotcEvent[];
+  roundStarts: Record<number, string>;
   backHref: string;
 }) {
   const router = useRouter();
@@ -50,6 +57,11 @@ export function LiveScoreboard({
   const [, startTransition] = useTransition();
   // Serialize background appends so the server log stays in tap order.
   const chain = useRef<Promise<unknown>>(Promise.resolve());
+  // Optimistic round-clock starts (before the server round_start round-trips).
+  const [localStarts, setLocalStarts] = useState<Record<number, number>>({});
+  // Rounds already auto-ended (cap or timer) — guards against double-firing.
+  const autoEnded = useRef<Set<number>>(new Set());
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const state = reduceKotc(pairOrder, events, config);
   const standings = rankKotcPool(overallResults(state));
@@ -61,6 +73,38 @@ export function LiveScoreboard({
   const sheet = buildScoreSheet(pairOrder, events, config);
   const nameOf = (id: string) => names[id] ?? "—";
   const done = state.status === "complete";
+
+  // --- Round clock ----------------------------------------------------------
+  const roundIdx = state.roundIndex;
+  const startMs =
+    roundStarts[roundIdx] != null
+      ? new Date(roundStarts[roundIdx]).getTime()
+      : (localStarts[roundIdx] ?? null);
+  const endsAt = startMs != null ? startMs + roundMinutes * 60_000 : null;
+  const remainingMs = endsAt != null ? Math.max(0, endsAt - nowMs) : null;
+
+  // Tick the clock once a second while a round is running.
+  useEffect(() => {
+    if (endsAt == null || done) return;
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [endsAt, done]);
+
+  // Auto-end the round when its clock hits zero.
+  useEffect(() => {
+    if (
+      remainingMs === 0 &&
+      endsAt != null &&
+      !done &&
+      !autoEnded.current.has(roundIdx)
+    ) {
+      autoEnded.current.add(roundIdx);
+      setEvents((prev) => [...prev, { type: "round_end" }]);
+      startTransition(() => enqueue(() => endKotcRoundAction(poolId)));
+      toast.message("Time! Round ended.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- enqueue is per-render
+  }, [remainingMs, endsAt, done, roundIdx, poolId]);
 
   function enqueue(run: () => Promise<{ error?: string } | unknown>) {
     chain.current = chain.current
@@ -79,10 +123,30 @@ export function LiveScoreboard({
 
   function rally(winnerSide: "king" | "challenger") {
     if (done) return;
-    setEvents((prev) => [...prev, { type: "rally", winnerSide }]);
+    let next: KotcEvent[] = [...events, { type: "rally", winnerSide }];
     startTransition(() =>
       enqueue(() => appendKotcRallyAction({ poolId, winnerSide })),
     );
+    // Point cap: end the round automatically when a pair reaches the cap.
+    const after = reduceKotc(pairOrder, next, config);
+    if (
+      config.pointCap != null &&
+      after.status !== "complete" &&
+      isRoundComplete(after, config) &&
+      !autoEnded.current.has(roundIdx)
+    ) {
+      autoEnded.current.add(roundIdx);
+      next = [...next, { type: "round_end" }];
+      startTransition(() => enqueue(() => endKotcRoundAction(poolId)));
+      toast.message(`Cap ${config.pointCap} reached — round ended.`);
+    }
+    setEvents(next);
+  }
+
+  function startRound() {
+    if (done || startMs != null) return;
+    setLocalStarts((prev) => ({ ...prev, [roundIdx]: Date.now() }));
+    startTransition(() => enqueue(() => startKotcRoundAction(poolId)));
   }
 
   function undo() {
@@ -110,6 +174,36 @@ export function LiveScoreboard({
           {poolName} · Round {state.roundIndex + 1}/{config.roundsPerSession}
         </span>
       </div>
+
+      {/* Round clock */}
+      {!done && (
+        <div className="border-border bg-surface flex items-center justify-between gap-3 rounded-xl border px-4 py-3">
+          {remainingMs != null ? (
+            <span
+              className={`font-display inline-flex items-center gap-2 text-2xl font-bold tabular-nums ${
+                remainingMs <= 60_000 ? "text-destructive" : ""
+              }`}
+            >
+              <Clock className="size-5" /> {formatClock(remainingMs)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground text-sm">
+              Clock not started
+            </span>
+          )}
+          {remainingMs == null ? (
+            <Button size="sm" onClick={startRound}>
+              <Play /> Start round ({roundMinutes}m)
+            </Button>
+          ) : (
+            <span className="text-muted-foreground text-right text-xs">
+              {config.pointCap != null
+                ? `first to ${config.pointCap} or time`
+                : "ends on time"}
+            </span>
+          )}
+        </div>
+      )}
 
       {done ? (
         <div className="border-border bg-surface rounded-xl border p-6 text-center">
@@ -261,4 +355,12 @@ export function LiveScoreboard({
       />
     </div>
   );
+}
+
+/** ms → "m:ss". */
+function formatClock(ms: number): string {
+  const total = Math.ceil(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
