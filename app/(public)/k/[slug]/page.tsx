@@ -25,6 +25,7 @@ export async function generateMetadata({
 type Row = {
   teamId: string;
   name: string;
+  players: string | null;
   points: number;
   out: number | null; // round dropped, else null
   medal: string | null;
@@ -32,13 +33,29 @@ type Row = {
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-/** A pool's display rows: seeding = ranked by points; drop pools = survivors
- *  first (ranked by the last round), then eliminated pairs (most-recent first). */
-function poolRows(pool: KotcPoolView, kind: KotcStageKind): Row[] {
+/** A pool's display rows: seeding = ranked by points (or just the roster before
+ *  any scores); drop pools = survivors first (ranked by the last round), then
+ *  eliminated pairs (most-recent first). */
+function poolRows(
+  pool: KotcPoolView,
+  kind: KotcStageKind,
+  playersOf: (id: string) => string | null,
+): Row[] {
   const nameOf = (id: string) =>
     pool.pairs.find((p) => p.id === id)?.name ?? "—";
 
   if (kind === "seeding") {
+    // Pool drawn but not scored yet — show who's in it so pairs can find theirs.
+    if (pool.results.length === 0) {
+      return pool.pairs.map((p) => ({
+        teamId: p.id,
+        name: p.name,
+        players: playersOf(p.id),
+        points: 0,
+        out: null,
+        medal: null,
+      }));
+    }
     return rankKotcPool(
       pool.results.map((r) => ({
         teamId: r.teamId,
@@ -49,6 +66,7 @@ function poolRows(pool: KotcPoolView, kind: KotcStageKind): Row[] {
     ).map((row) => ({
       teamId: row.teamId,
       name: nameOf(row.teamId),
+      players: playersOf(row.teamId),
       points: row.kingPoints,
       out: null,
       medal: null,
@@ -77,6 +95,7 @@ function poolRows(pool: KotcPoolView, kind: KotcStageKind): Row[] {
   const rows: Row[] = survivors.map((s, i) => ({
     teamId: s.teamId,
     name: nameOf(s.teamId),
+    players: playersOf(s.teamId),
     points: s.points,
     out: null,
     medal: kind === "finals" && done ? (MEDALS[i] ?? null) : null,
@@ -88,6 +107,7 @@ function poolRows(pool: KotcPoolView, kind: KotcStageKind): Row[] {
       rows.push({
         teamId: p.id,
         name: nameOf(p.id),
+        players: playersOf(p.id),
         points: 0,
         out: (p.eliminatedAtRound ?? 0) + 1,
         medal: null,
@@ -113,6 +133,12 @@ export default async function PublicKotcPage({
   const kotc = await getPublicKotcDetail(slug);
   if (!kotc) notFound();
 
+  // Participant first names by pair, so viewers can spot their own pair.
+  const players: Record<string, string> = Object.fromEntries(
+    kotc.pairs.filter((p) => p.players).map((p) => [p.id, p.players as string]),
+  );
+  const playersOf = (id: string) => players[id] ?? null;
+
   // Podium = the finals pool once it's down to its last 3.
   const finals = kotc.stages.find((s) => s.kind === "finals");
   const finalsPool = finals?.pools[0];
@@ -121,7 +147,7 @@ export default async function PublicKotcPage({
     finalsPool.pairs.filter((p) => p.eliminatedAtRound === null).length <= 3 &&
     finalsPool.pairs.length >
       finalsPool.pairs.filter((p) => p.eliminatedAtRound === null).length
-      ? poolRows(finalsPool, "finals").filter((r) => r.medal)
+      ? poolRows(finalsPool, "finals", playersOf).filter((r) => r.medal)
       : null;
 
   return (
@@ -210,7 +236,7 @@ export default async function PublicKotcPage({
         {kotc.stages
           .filter((stage) => stage.pools.length > 0)
           .map((stage) => (
-            <StageSection key={stage.id} stage={stage} />
+            <StageSection key={stage.id} stage={stage} players={players} />
           ))}
 
         {kotc.stages.every((s) => s.pools.length === 0) &&
@@ -228,7 +254,14 @@ export default async function PublicKotcPage({
   );
 }
 
-function StageSection({ stage }: { stage: KotcStageView }) {
+function StageSection({
+  stage,
+  players,
+}: {
+  stage: KotcStageView;
+  players: Record<string, string>;
+}) {
+  const playersOf = (id: string) => players[id] ?? null;
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2">
@@ -239,7 +272,10 @@ function StageSection({ stage }: { stage: KotcStageView }) {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {stage.pools.map((pool) => {
-          const rows = poolRows(pool, stage.kind);
+          const rows = poolRows(pool, stage.kind, playersOf);
+          // Seeding pool drawn but not yet scored — a roster, not a ranking.
+          const unscored =
+            stage.kind === "seeding" && pool.results.length === 0;
           return (
             <div
               key={pool.id}
@@ -248,7 +284,7 @@ function StageSection({ stage }: { stage: KotcStageView }) {
               <p className="font-display text-sm font-semibold">{pool.name}</p>
               {rows.length === 0 ? (
                 <p className="text-muted-foreground text-xs">
-                  Waiting for scores…
+                  Waiting for pairs…
                 </p>
               ) : (
                 <ol className="space-y-0.5">
@@ -256,7 +292,7 @@ function StageSection({ stage }: { stage: KotcStageView }) {
                     <li
                       key={r.teamId}
                       className={[
-                        "grid grid-cols-[1.5rem_1fr_auto] items-center gap-2 rounded px-1 py-1 text-sm",
+                        "grid grid-cols-[1.25rem_1fr_auto] items-center gap-2 rounded px-1 py-1 text-sm",
                         r.out !== null
                           ? "text-muted-foreground/60"
                           : r.medal
@@ -265,22 +301,31 @@ function StageSection({ stage }: { stage: KotcStageView }) {
                       ].join(" ")}
                     >
                       <span className="text-muted-foreground tabular-nums">
-                        {r.medal ?? i + 1}
+                        {r.medal ?? (unscored ? "·" : i + 1)}
                       </span>
-                      <span
-                        className={[
-                          "truncate",
-                          r.out !== null ? "line-through" : "font-medium",
-                        ].join(" ")}
-                      >
-                        {r.name}
+                      <span className="min-w-0">
+                        <span
+                          className={[
+                            "block truncate",
+                            r.out !== null ? "line-through" : "font-medium",
+                          ].join(" ")}
+                        >
+                          {r.name}
+                        </span>
+                        {r.players && (
+                          <span className="text-muted-foreground block truncate text-xs">
+                            {r.players}
+                          </span>
+                        )}
                       </span>
                       <span className="text-muted-foreground text-xs tabular-nums">
                         {r.out !== null
                           ? `out · R${r.out}`
-                          : stage.kind === "seeding"
-                            ? `${r.points} pts`
-                            : "in"}
+                          : unscored
+                            ? ""
+                            : stage.kind === "seeding"
+                              ? `${r.points} pts`
+                              : "in"}
                       </span>
                     </li>
                   ))}
