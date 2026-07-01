@@ -104,6 +104,30 @@ async function assertKotcAdmin(
   return isAdmin === true ? null : { error: "Only the organizer can do that." };
 }
 
+/** Advance the competition to in_progress once play begins (only from draft). */
+async function markKotcInProgress(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<void> {
+  await supabase
+    .from("competitions")
+    .update({ status: "in_progress" })
+    .eq("id", competitionId)
+    .eq("status", "draft");
+}
+
+/** Mark the competition completed (from any not-yet-completed status). */
+async function markKotcCompleted(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<void> {
+  await supabase
+    .from("competitions")
+    .update({ status: "completed" })
+    .eq("id", competitionId)
+    .neq("status", "completed");
+}
+
 /**
  * Create a King of the Court competition (beach 2s): the competition row +
  * kotc_settings + the seeding and elimination stages. Mirrors
@@ -393,6 +417,7 @@ export async function submitKotcPoolResultsAction(
     .from("kotc_pools")
     .update({ status: "completed" })
     .eq("id", v.poolId);
+  await markKotcInProgress(supabase, pool.competition_id as string);
 
   revalidatePath("/orgs");
   return { updated: rows.length };
@@ -685,7 +710,7 @@ export async function advanceEliminationRoundAction(
   const supabase = await createClient();
   const { data: pool } = await supabase
     .from("kotc_pools")
-    .select("id, competition_id")
+    .select("id, competition_id, stage_id")
     .eq("id", v.poolId)
     .single();
   if (!pool) return { error: "Pool not found." };
@@ -783,11 +808,19 @@ export async function advanceEliminationRoundAction(
 
   const remaining = participants.size - 1;
   const done = remaining <= 3;
+  await markKotcInProgress(supabase, competitionId);
   if (done) {
     await supabase
       .from("kotc_pools")
       .update({ status: "completed" })
       .eq("id", v.poolId);
+    // A finished finals pool = the competition has a podium → completed.
+    const { data: st } = await supabase
+      .from("kotc_stages")
+      .select("kind")
+      .eq("id", pool.stage_id as string)
+      .single();
+    if (st?.kind === "finals") await markKotcCompleted(supabase, competitionId);
   }
 
   revalidatePath("/orgs");
@@ -1140,6 +1173,9 @@ export async function composeFinalsAction(
   );
   if (ppErr) return { error: ppErr.message };
 
+  // A 3-pair finals is the podium outright → competition complete.
+  if (done) await markKotcCompleted(supabase, competitionId);
+
   revalidatePath("/orgs");
   return { stageId: finalsStageId, poolId: pool.id as string, roster, done };
 }
@@ -1283,6 +1319,7 @@ export async function appendKotcRallyAction(
     overallResults(next),
   );
   if (persistErr) return persistErr;
+  await markKotcInProgress(supabase, log.competitionId);
 
   revalidatePath("/orgs");
   return { ok: true, done: next.status === "complete" };

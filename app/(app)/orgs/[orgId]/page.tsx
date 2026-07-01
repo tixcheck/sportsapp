@@ -141,7 +141,9 @@ function Section({
                   <CardTitle className="truncate">{c.name}</CardTitle>
                   <CardDescription>
                     {SPORTS.find((s) => s.value === c.sport)?.label} ·{" "}
-                    <span className="capitalize">{c.status}</span>
+                    <span className="capitalize">
+                      {c.status.replace(/_/g, " ")}
+                    </span>
                   </CardDescription>
                 </CardHeader>
               </Card>
