@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Crown, MapPin } from "lucide-react";
 
 import {
+  getKotcPoolEvents,
   getPublicKotcDetail,
   kotcDisplayStatus,
   type KotcPoolView,
@@ -11,8 +12,11 @@ import {
   type KotcStageView,
 } from "@/lib/queries/kotc";
 import { rankKotcPool } from "@/lib/kotc/ranking";
+import { buildScoreSheet } from "@/lib/kotc/scoresheet";
+import type { KotcConfig, KotcEvent } from "@/lib/kotc/engine";
 import { AutoRefresh } from "@/components/public/auto-refresh";
 import { StatusPill } from "@/components/kotc/status-pill";
+import { ScoreSheet } from "@/components/kotc/score-sheet";
 
 export async function generateMetadata({
   params,
@@ -134,6 +138,16 @@ export default async function PublicKotcPage({
   const { slug } = await params;
   const kotc = await getPublicKotcDetail(slug);
   if (!kotc) notFound();
+
+  // Rally logs (for the read-only per-round score sheet on live-scored pools).
+  const poolEvents = await getKotcPoolEvents(kotc.id);
+  const names: Record<string, string> = Object.fromEntries(
+    kotc.pairs.map((p) => [p.id, p.name]),
+  );
+  const config: KotcConfig = {
+    roundsPerSession: kotc.settings.roundsPerSession,
+    pointCap: kotc.settings.pointCap,
+  };
 
   // Participant first names by pair, so viewers can spot their own pair.
   const players: Record<string, string> = Object.fromEntries(
@@ -262,7 +276,14 @@ export default async function PublicKotcPage({
         {kotc.stages
           .filter((stage) => stage.pools.length > 0)
           .map((stage) => (
-            <StageSection key={stage.id} stage={stage} players={players} />
+            <StageSection
+              key={stage.id}
+              stage={stage}
+              players={players}
+              poolEvents={poolEvents}
+              names={names}
+              config={config}
+            />
           ))}
 
         {kotc.stages.every((s) => s.pools.length === 0) &&
@@ -283,9 +304,15 @@ export default async function PublicKotcPage({
 function StageSection({
   stage,
   players,
+  poolEvents,
+  names,
+  config,
 }: {
   stage: KotcStageView;
   players: Record<string, string>;
+  poolEvents: Record<string, KotcEvent[]>;
+  names: Record<string, string>;
+  config: KotcConfig;
 }) {
   const playersOf = (id: string) => players[id] ?? null;
   return (
@@ -302,10 +329,16 @@ function StageSection({
           // Seeding pool drawn but not yet scored — a roster, not a ranking.
           const unscored =
             stage.kind === "seeding" && pool.results.length === 0;
+          // Per-round score sheet, only where a live rally log exists.
+          const events = poolEvents[pool.id] ?? [];
+          const pairOrder = pool.pairs.map((p) => p.id);
+          const sheet = events.some((e) => e.type === "rally")
+            ? buildScoreSheet(pairOrder, events, config)
+            : [];
           return (
             <div
               key={pool.id}
-              className="border-border bg-surface space-y-1 rounded-xl border p-4"
+              className="border-border bg-surface space-y-2 rounded-xl border p-4"
             >
               <p className="font-display text-sm font-semibold">{pool.name}</p>
               {rows.length === 0 ? (
@@ -356,6 +389,14 @@ function StageSection({
                     </li>
                   ))}
                 </ol>
+              )}
+              {sheet.length > 0 && (
+                <ScoreSheet
+                  rounds={sheet}
+                  names={names}
+                  pairOrder={pairOrder}
+                  pointCap={config.pointCap}
+                />
               )}
             </div>
           );

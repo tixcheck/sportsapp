@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { KotcEvent } from "@/lib/kotc/engine";
 
 export interface KotcSummary {
   id: string;
@@ -292,6 +293,38 @@ export function kotcDisplayStatus(
     s.pools.some((p) => p.results.length > 0 || p.rounds.length > 0),
   );
   return live ? "Live" : "Upcoming";
+}
+
+/**
+ * The rally log per pool, resolved to engine events (for the read-only score
+ * sheet). Only live-scored pools have entries; manual entry records no rallies.
+ */
+export async function getKotcPoolEvents(
+  competitionId: string,
+): Promise<Record<string, KotcEvent[]>> {
+  const supabase = await createClient();
+  const { data: rows } = await supabase
+    .from("kotc_events")
+    .select("pool_id, seq, type, point_awarded")
+    .eq("competition_id", competitionId)
+    .order("seq", { ascending: true });
+
+  const byPool: Record<string, KotcEvent[]> = {};
+  for (const r of rows ?? []) {
+    const pid = r.pool_id as string;
+    byPool[pid] ??= [];
+    if (r.type === "rally") {
+      byPool[pid].push({
+        type: "rally",
+        winnerSide: r.point_awarded ? "king" : "challenger",
+      });
+    } else if (r.type === "round_end") {
+      byPool[pid].push({ type: "round_end" });
+    } else if (r.type === "void") {
+      byPool[pid].push({ type: "void" });
+    }
+  }
+  return byPool;
 }
 
 export async function getPublicKotcDetail(
