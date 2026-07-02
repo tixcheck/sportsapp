@@ -69,6 +69,20 @@ describe("buildScoreSheet", () => {
     expect(r1a.totalPoints).toBe(1);
   });
 
+  it("a serve error scores no cell but the King's run carries across it", () => {
+    // A: point, serve error (no point), point → one unbroken run of 2.
+    const sheet = buildScoreSheet(
+      PAIRS,
+      [king(), { type: "serve_error" }, king()],
+      CFG,
+    );
+    const a = sheet[0].teams.find((t) => t.teamId === "A")!;
+    expect(a.totalPoints).toBe(2); // only the two King points show
+    expect(a.points.map((p) => p.opponentTeamId)).toEqual(["B", "D"]);
+    expect(a.longestStreak).toBe(2); // the run wasn't broken by the error
+    expect(a.points.map((p) => p.inStreak)).toEqual([true, true]);
+  });
+
   it("a void removes the last point from the sheet", () => {
     const events: KotcEvent[] = [king(), king(), { type: "void" }];
     const sheet = buildScoreSheet(PAIRS, events, CFG);

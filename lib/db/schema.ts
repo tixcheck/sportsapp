@@ -705,6 +705,9 @@ export const kotcSeedMetric = pgEnum("kotc_seed_metric", [
 export const kotcEventType = pgEnum("kotc_event_type", [
   "round_start",
   "rally",
+  // Challenger missed their serve: the King holds the court but scores no point;
+  // the challenger rotates to the back and the next challenger serves.
+  "serve_error",
   "round_end",
   "void",
 ]);

@@ -327,6 +327,8 @@ export async function getKotcPoolEvents(
         type: "rally",
         winnerSide: r.point_awarded ? "king" : "challenger",
       });
+    } else if (r.type === "serve_error") {
+      byPool[pid].push({ type: "serve_error" });
     } else if (r.type === "round_end") {
       byPool[pid].push({ type: "round_end" });
     } else if (r.type === "void") {

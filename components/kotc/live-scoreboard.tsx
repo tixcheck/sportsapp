@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import {
   appendKotcRallyAction,
+  appendKotcServeErrorAction,
   endKotcRoundAction,
   startKotcRoundAction,
   undoKotcRallyAction,
@@ -146,6 +147,13 @@ export function LiveScoreboard({
     setEvents(next);
   }
 
+  function serveError() {
+    if (done) return;
+    // Challenger missed the serve: no point, King holds, challenger rotates out.
+    setEvents((prev) => [...prev, { type: "serve_error" }]);
+    startTransition(() => enqueue(() => appendKotcServeErrorAction(poolId)));
+  }
+
   function startRound() {
     if (done || startMs != null) return;
     setLocalStarts((prev) => ({ ...prev, [roundIdx]: Date.now() }));
@@ -258,6 +266,15 @@ export function LiveScoreboard({
             </button>
           </div>
 
+          {/* Challenger service error — King holds the court, no point scored. */}
+          <button
+            onClick={serveError}
+            className="border-border bg-surface text-muted-foreground hover:text-foreground flex h-12 items-center justify-center gap-2 rounded-xl border text-sm font-medium active:scale-[0.99]"
+          >
+            Missed serve
+            <span className="text-xs">· challenger out, no point</span>
+          </button>
+
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -309,6 +326,13 @@ export function LiveScoreboard({
                       pt {r.pointNumber}
                     </span>
                   </>
+                ) : r.serveError ? (
+                  <span className="text-muted-foreground truncate">
+                    <span className="text-foreground font-medium">
+                      {nameOf(r.challengerTeamId)}
+                    </span>{" "}
+                    missed serve · no point
+                  </span>
                 ) : (
                   <span className="text-muted-foreground truncate">
                     <span className="text-foreground font-medium">

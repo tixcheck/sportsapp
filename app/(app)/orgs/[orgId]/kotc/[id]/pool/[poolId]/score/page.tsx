@@ -78,6 +78,8 @@ export default async function KotcScorePage({
         type: "rally",
         winnerSide: r.point_awarded ? "king" : "challenger",
       });
+    } else if (r.type === "serve_error") {
+      initialEvents.push({ type: "serve_error" });
     } else if (r.type === "round_end") {
       initialEvents.push({ type: "round_end" });
     } else if (r.type === "void") {

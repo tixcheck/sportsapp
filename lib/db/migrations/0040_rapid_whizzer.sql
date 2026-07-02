@@ -1,0 +1,1 @@
+ALTER TYPE "public"."kotc_event_type" ADD VALUE 'serve_error' BEFORE 'round_end';

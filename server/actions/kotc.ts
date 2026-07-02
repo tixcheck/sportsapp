@@ -1265,6 +1265,8 @@ async function loadKotcPoolLog(
         type: "rally",
         winnerSide: r.point_awarded ? "king" : "challenger",
       });
+    } else if (r.type === "serve_error") {
+      events.push({ type: "serve_error" });
     } else if (r.type === "round_end") {
       events.push({ type: "round_end" });
     } else if (r.type === "void") {
@@ -1353,6 +1355,63 @@ export async function appendKotcRallyAction(
   return { ok: true, done: next.status === "complete" };
 }
 
+/**
+ * Record a challenger service error: the King holds but scores no point; the
+ * challenger rotates to the back and the next challenger serves. Mirrors
+ * appendKotcRallyAction but writes a `serve_error` event (no point awarded).
+ */
+export async function appendKotcServeErrorAction(
+  poolId: string,
+): Promise<ActionError | { ok: true; done: boolean }> {
+  if (!poolId) return { error: "Invalid pool." };
+
+  const supabase = await createClient();
+  const log = await loadKotcPoolLog(supabase, poolId);
+  if (!log) return { error: "Pool not found." };
+  if (log.pairOrder.length < 2) return { error: "This pool needs 2+ pairs." };
+
+  const denied = await assertKotcAdmin(supabase, log.competitionId);
+  if (denied) return denied;
+
+  const state = reduceKotc(log.pairOrder, log.events, log.config);
+  if (state.status === "complete") {
+    return { error: "This session is already complete." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const king = state.kingTeamId;
+  const challenger = state.challengerTeamId;
+
+  const { error: insErr } = await supabase.from("kotc_events").insert({
+    competition_id: log.competitionId,
+    pool_id: poolId,
+    seq: log.nextSeq,
+    round_index: state.roundIndex,
+    type: "serve_error",
+    king_team_id: king,
+    challenger_team_id: challenger,
+    winner_team_id: king, // King holds the court…
+    point_awarded: false, // …but no point is scored.
+    created_by: user?.id ?? null,
+  });
+  if (insErr) return { error: insErr.message };
+
+  const next = applyEvent(state, { type: "serve_error" }, log.config);
+  const persistErr = await persistPoolResults(
+    supabase,
+    log.competitionId,
+    poolId,
+    overallResults(next),
+  );
+  if (persistErr) return persistErr;
+  await markKotcInProgress(supabase, log.competitionId);
+
+  revalidatePath("/orgs");
+  return { ok: true, done: next.status === "complete" };
+}
+
 /** Undo the most recent rally (append a void event, then re-derive results). */
 export async function undoKotcRallyAction(
   poolId: string,
@@ -1364,7 +1423,7 @@ export async function undoKotcRallyAction(
   const denied = await assertKotcAdmin(supabase, log.competitionId);
   if (denied) return denied;
 
-  if (!log.events.some((e) => e.type === "rally")) {
+  if (!log.events.some((e) => e.type === "rally" || e.type === "serve_error")) {
     return { error: "Nothing to undo." };
   }
 

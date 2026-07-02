@@ -24,6 +24,8 @@ export interface RallyRecord {
   winnerTeamId: TeamId;
   /** True when the King held and scored a point. */
   scored: boolean;
+  /** True when the challenger missed the serve (King held, no point scored). */
+  serveError?: boolean;
   roundIndex: number;
 }
 
@@ -43,7 +45,7 @@ function resolveVoids(events: KotcEvent[]): KotcEvent[] {
   for (const e of events) {
     if (e.type === "void") {
       for (let i = eff.length - 1; i >= 0; i--) {
-        if (eff[i].type === "rally") {
+        if (eff[i].type === "rally" || eff[i].type === "serve_error") {
           eff.splice(i, 1);
           break;
         }
@@ -80,10 +82,25 @@ export function replayHistory(
       state = applyEvent(state, e, config);
       continue;
     }
-    if (e.type !== "rally") continue;
 
     const king = state.kingTeamId;
     const challenger = state.challengerTeamId;
+
+    if (e.type === "serve_error") {
+      // King holds, no point, run untouched — just log it and rotate.
+      rallies.push({
+        pointNumber: null,
+        kingTeamId: king,
+        challengerTeamId: challenger,
+        winnerTeamId: king,
+        scored: false,
+        serveError: true,
+        roundIndex: state.roundIndex,
+      });
+      state = applyEvent(state, e, config);
+      continue;
+    }
+    if (e.type !== "rally") continue;
 
     if (e.winnerSide === "king") {
       const h = byPair.get(king)!;

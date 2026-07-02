@@ -40,6 +40,19 @@ describe("replayHistory", () => {
     expect(byPair.get("B")!.points).toBe(0); // promotion isn't a point
   });
 
+  it("logs a serve error without scoring or breaking the King's run", () => {
+    // A scores, challenger misses serve (no point), A scores → run of 2.
+    const events: KotcEvent[] = [king(), { type: "serve_error" }, king()];
+    const { rallies, byPair } = replayHistory(PAIRS, events, CFG);
+    const err = rallies[1];
+    expect(err.serveError).toBe(true);
+    expect(err.scored).toBe(false);
+    expect(err.pointNumber).toBeNull();
+    expect(err.winnerTeamId).toBe("A"); // King held the court
+    expect(byPair.get("A")!.points).toBe(2);
+    expect(byPair.get("A")!.longestStreak).toBe(2); // run carried across the error
+  });
+
   it("a void undoes the last rally", () => {
     const events: KotcEvent[] = [king(), king(), { type: "void" }];
     const { rallies, byPair } = replayHistory(PAIRS, events, CFG);

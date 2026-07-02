@@ -75,6 +75,56 @@ describe("rally mechanics", () => {
   });
 });
 
+describe("serve error — challenger misses, King holds, no point", () => {
+  const serveError: KotcEvent = { type: "serve_error" };
+
+  it("scores no point, King stays, challenger rotates to the back", () => {
+    const s = play(initKotcPool(["A", "B", "C", "D"]), [serveError]);
+    expect(s.kingTeamId).toBe("A"); // King unchanged
+    expect(s.totalPoints["A"]).toBe(0); // no point awarded
+    expect(s.roundPoints["A"]).toBe(0);
+    expect(s.challengerTeamId).toBe("C"); // next challenger serves
+    expect(s.queue).toEqual(["D", "B"]); // erring B to the back
+    expect(s.seq).toBe(1); // still advances the rally counter
+  });
+
+  it("does not touch the King's streak — a run carries across it", () => {
+    // Point, serve error, point → an unbroken run of 2 (longest = 2).
+    const s = play(initKotcPool(["A", "B", "C", "D"]), [
+      kingWin, // A:1, streak 1
+      serveError, // no point, run carries
+      kingWin, // A:2, streak 2
+    ]);
+    expect(s.totalPoints["A"]).toBe(2);
+    expect(s.roundStreak["A"]).toBe(2);
+    expect(s.roundLongest["A"]).toBe(2);
+  });
+
+  it("never trips the point cap (it awards no point)", () => {
+    const cfg: KotcConfig = { roundsPerSession: 1, pointCap: 2 };
+    const s = play(initKotcPool(["A", "B", "C"]), [
+      serveError,
+      serveError,
+      serveError,
+    ]);
+    expect(isRoundComplete(s, cfg)).toBe(false);
+    expect(s.totalPoints["A"]).toBe(0);
+  });
+
+  it("void undoes a serve error like any other tap", () => {
+    const withUndo = reduceKotc(
+      ["A", "B", "C", "D"],
+      [kingWin, serveError, { type: "void" }],
+      CFG,
+    );
+    const withoutLast = reduceKotc(["A", "B", "C", "D"], [kingWin], CFG);
+    expect(withUndo.kingTeamId).toBe(withoutLast.kingTeamId);
+    expect(withUndo.challengerTeamId).toBe(withoutLast.challengerTeamId);
+    expect(withUndo.queue).toEqual(withoutLast.queue);
+    expect(withUndo.totalPoints).toEqual(withoutLast.totalPoints);
+  });
+});
+
 describe("round transition — re-seed by standings, reset per-round points", () => {
   // Hand-traced 4-pair round (see plan): A scores at seq1, C scores at seq3.
   it("re-seeds next round 1st=King, 2nd=challenger, rest in standings order; reached-first breaks the A/C tie", () => {

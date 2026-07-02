@@ -50,7 +50,7 @@ function resolveVoids(events: KotcEvent[]): KotcEvent[] {
   for (const e of events) {
     if (e.type === "void") {
       for (let i = eff.length - 1; i >= 0; i--) {
-        if (eff[i].type === "rally") {
+        if (eff[i].type === "rally" || eff[i].type === "serve_error") {
           eff.splice(i, 1);
           break;
         }
@@ -109,6 +109,11 @@ export function buildScoreSheet(
     if (e.type === "round_end") {
       for (const t of pairOrder) endRun(ri, t);
       run = new Map();
+      state = applyEvent(state, e, config);
+      continue;
+    }
+    if (e.type === "serve_error") {
+      // No point scored; the King's run carries across it. Just rotate.
       state = applyEvent(state, e, config);
       continue;
     }

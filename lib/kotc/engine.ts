@@ -2,8 +2,10 @@
  * King of the Court — pure live-scoring state machine (no DB, no UI).
  *
  * A pool plays a session of `roundsPerSession` timed rounds. The King side scores
- * a point on a King win; a challenger win promotes the challenger (no point). The
- * beaten side goes to the back of the rotation queue and the next team steps in.
+ * a point on a King win; a challenger win promotes the challenger (no point); a
+ * challenger serve error keeps the King on court but scores no point. In every
+ * case the beaten/erring challenger goes to the back of the rotation queue and the
+ * next team steps in.
  *
  * Round transition (round_end): rank the just-finished round, then re-seed the
  * next round's lineup by those standings — 1st = King, 2nd = challenger, the rest
@@ -30,8 +32,16 @@ export interface KotcConfig {
 
 export type KotcEvent =
   | { type: "rally"; winnerSide: "king" | "challenger" }
+  // Challenger missed their serve: no point, the King holds, the challenger
+  // rotates to the back of the queue and the next challenger serves.
+  | { type: "serve_error" }
   | { type: "round_end" }
   | { type: "void" };
+
+/** A tap that can be undone by a `void` (a rally or a serve error). */
+function isUndoableTap(e: KotcEvent): boolean {
+  return e.type === "rally" || e.type === "serve_error";
+}
 
 export interface KotcState {
   /** Full pool membership as a stable set (order = initial seed order; it is NOT
@@ -172,6 +182,23 @@ function applyRally(
   return next;
 }
 
+/**
+ * Challenger missed the serve. The King holds the court but earns NO point, and
+ * the King's streak is neither extended nor broken (the run simply carries). The
+ * challenger goes to the back of the rotation and the next challenger serves.
+ */
+function applyServeError(s: KotcState): KotcState {
+  const queue = [...s.queue];
+  queue.push(s.challengerTeamId);
+  return {
+    ...s,
+    seq: s.seq + 1,
+    challengerTeamId: queue.shift()!,
+    queue,
+    // king, all points/streak/reached tallies unchanged
+  };
+}
+
 function applyRoundEnd(s: KotcState, config: KotcConfig): KotcState {
   // Rank the just-finished round, then re-seed the next round by those standings.
   const order = rankKotcPool(roundResults(s)).map((r) => r.teamId);
@@ -202,6 +229,8 @@ export function applyEvent(
   switch (event.type) {
     case "rally":
       return applyRally(s, event.winnerSide);
+    case "serve_error":
+      return applyServeError(s);
     case "round_end":
       return applyRoundEnd(s, config);
     case "void":
@@ -223,7 +252,7 @@ export function reduceKotc(
   for (const e of events) {
     if (e.type === "void") {
       for (let i = effective.length - 1; i >= 0; i--) {
-        if (effective[i].type === "rally") {
+        if (isUndoableTap(effective[i])) {
           effective.splice(i, 1);
           break;
         }
