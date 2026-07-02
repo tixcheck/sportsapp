@@ -11,13 +11,7 @@ import {
   dropLowest,
   gatherConsolation,
 } from "@/lib/kotc/elimination";
-import {
-  applyEvent,
-  overallResults,
-  reduceKotc,
-  type KotcConfig,
-  type KotcEvent,
-} from "@/lib/kotc/engine";
+import { applyEvent, overallResults, reduceKotc } from "@/lib/kotc/engine";
 import {
   computeKotcSeeds,
   evenPoolSizes,
@@ -26,6 +20,7 @@ import {
   type StagePlacement,
 } from "@/lib/kotc/seed";
 import { repoolForRound2, type RepoolPair } from "@/lib/kotc/repool";
+import { loadPoolSession } from "@/lib/queries/kotc";
 import { poolName } from "@/lib/scheduler/pools";
 import type { MatchFormat } from "@/lib/db/schema";
 import {
@@ -1209,72 +1204,16 @@ export async function composeFinalsAction(
 }
 
 // --- Live scoring (rally-by-rally) -------------------------------------------
-// MVP scope: live scoring runs a seeding pool's KotC session — taps append to the
-// append-only kotc_events log, and the derived per-pair summary is upserted into
-// kotc_pool_results (so standings + the seed update live, and reached_final_seq
-// activates the level-3 reached-first tiebreaker). Elimination/finals pools still
-// use manual King-points entry.
-
-/** Load a pool's roster + config + replayed event log for the pure engine. */
-async function loadKotcPoolLog(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  poolId: string,
-): Promise<{
-  competitionId: string;
-  pairOrder: string[];
-  config: KotcConfig;
-  events: KotcEvent[];
-  nextSeq: number;
-} | null> {
-  const { data: pool } = await supabase
-    .from("kotc_pools")
-    .select("id, competition_id")
-    .eq("id", poolId)
-    .single();
-  if (!pool) return null;
-  const competitionId = pool.competition_id as string;
-
-  const { data: pairs } = await supabase
-    .from("kotc_pool_pairs")
-    .select("team_id, queue_position")
-    .eq("pool_id", poolId)
-    .order("queue_position", { ascending: true });
-  const pairOrder = (pairs ?? []).map((p) => p.team_id as string);
-
-  const { data: settings } = await supabase
-    .from("kotc_settings")
-    .select("rounds_per_session, point_cap")
-    .eq("competition_id", competitionId)
-    .single();
-  const config: KotcConfig = {
-    roundsPerSession: settings?.rounds_per_session ?? 3,
-    pointCap: settings?.point_cap ?? null,
-  };
-
-  const { data: rows } = await supabase
-    .from("kotc_events")
-    .select("seq, type, point_awarded")
-    .eq("pool_id", poolId)
-    .order("seq", { ascending: true });
-  const events: KotcEvent[] = [];
-  let maxSeq = 0;
-  for (const r of rows ?? []) {
-    maxSeq = Math.max(maxSeq, r.seq as number);
-    if (r.type === "rally") {
-      events.push({
-        type: "rally",
-        winnerSide: r.point_awarded ? "king" : "challenger",
-      });
-    } else if (r.type === "serve_error") {
-      events.push({ type: "serve_error" });
-    } else if (r.type === "round_end") {
-      events.push({ type: "round_end" });
-    } else if (r.type === "void") {
-      events.push({ type: "void" });
-    }
-  }
-  return { competitionId, pairOrder, config, events, nextSeq: maxSeq + 1 };
-}
+// Taps append to the append-only kotc_events log. A seeding pool plays one KotC
+// session over `roundsPerSession` timed rounds. An elimination/finals pool plays
+// the same drop loop, but LIVE: each drop-round is a single game among the current
+// survivors (loadPoolSession scopes to it); when the round ends the lowest pair is
+// dropped automatically (live rally seqs always break ties). Manual King-points
+// entry remains available as a fallback for every stage.
+//
+// loadPoolSession (in lib/queries/kotc) resolves the pool's current session:
+// roster (survivors for elimination), config, the scoped event log, and — for
+// elimination/finals — dropRoundIndex, which tags this round's events.
 
 /** Recompute the pool's per-pair summary from a state and upsert kotc_pool_results. */
 async function persistPoolResults(
@@ -1309,7 +1248,7 @@ export async function appendKotcRallyAction(
   const { poolId, winnerSide } = parsed.data;
 
   const supabase = await createClient();
-  const log = await loadKotcPoolLog(supabase, poolId);
+  const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
   if (log.pairOrder.length < 2) return { error: "This pool needs 2+ pairs." };
 
@@ -1331,7 +1270,7 @@ export async function appendKotcRallyAction(
     competition_id: log.competitionId,
     pool_id: poolId,
     seq: log.nextSeq,
-    round_index: state.roundIndex,
+    round_index: log.dropRoundIndex ?? state.roundIndex,
     type: "rally",
     king_team_id: king,
     challenger_team_id: challenger,
@@ -1342,13 +1281,17 @@ export async function appendKotcRallyAction(
   if (insErr) return { error: insErr.message };
 
   const next = applyEvent(state, { type: "rally", winnerSide }, log.config);
-  const persistErr = await persistPoolResults(
-    supabase,
-    log.competitionId,
-    poolId,
-    overallResults(next),
-  );
-  if (persistErr) return persistErr;
+  // Seeding derives kotc_pool_results live; an elimination drop-round's summary is
+  // written only when the round is finalized (endKotcRoundAction).
+  if (log.dropRoundIndex == null) {
+    const persistErr = await persistPoolResults(
+      supabase,
+      log.competitionId,
+      poolId,
+      overallResults(next),
+    );
+    if (persistErr) return persistErr;
+  }
   await markKotcInProgress(supabase, log.competitionId);
 
   revalidatePath("/orgs");
@@ -1366,7 +1309,7 @@ export async function appendKotcServeErrorAction(
   if (!poolId) return { error: "Invalid pool." };
 
   const supabase = await createClient();
-  const log = await loadKotcPoolLog(supabase, poolId);
+  const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
   if (log.pairOrder.length < 2) return { error: "This pool needs 2+ pairs." };
 
@@ -1388,7 +1331,7 @@ export async function appendKotcServeErrorAction(
     competition_id: log.competitionId,
     pool_id: poolId,
     seq: log.nextSeq,
-    round_index: state.roundIndex,
+    round_index: log.dropRoundIndex ?? state.roundIndex,
     type: "serve_error",
     king_team_id: king,
     challenger_team_id: challenger,
@@ -1399,13 +1342,15 @@ export async function appendKotcServeErrorAction(
   if (insErr) return { error: insErr.message };
 
   const next = applyEvent(state, { type: "serve_error" }, log.config);
-  const persistErr = await persistPoolResults(
-    supabase,
-    log.competitionId,
-    poolId,
-    overallResults(next),
-  );
-  if (persistErr) return persistErr;
+  if (log.dropRoundIndex == null) {
+    const persistErr = await persistPoolResults(
+      supabase,
+      log.competitionId,
+      poolId,
+      overallResults(next),
+    );
+    if (persistErr) return persistErr;
+  }
   await markKotcInProgress(supabase, log.competitionId);
 
   revalidatePath("/orgs");
@@ -1417,7 +1362,7 @@ export async function undoKotcRallyAction(
   poolId: string,
 ): Promise<ActionError | { ok: true }> {
   const supabase = await createClient();
-  const log = await loadKotcPoolLog(supabase, poolId);
+  const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
 
   const denied = await assertKotcAdmin(supabase, log.competitionId);
@@ -1432,34 +1377,41 @@ export async function undoKotcRallyAction(
     competition_id: log.competitionId,
     pool_id: poolId,
     seq: log.nextSeq,
-    round_index: state.roundIndex,
+    round_index: log.dropRoundIndex ?? state.roundIndex,
     type: "void",
   });
   if (insErr) return { error: insErr.message };
 
-  const next = reduceKotc(
-    log.pairOrder,
-    [...log.events, { type: "void" }],
-    log.config,
-  );
-  const persistErr = await persistPoolResults(
-    supabase,
-    log.competitionId,
-    poolId,
-    overallResults(next),
-  );
-  if (persistErr) return persistErr;
+  if (log.dropRoundIndex == null) {
+    const next = reduceKotc(
+      log.pairOrder,
+      [...log.events, { type: "void" }],
+      log.config,
+    );
+    const persistErr = await persistPoolResults(
+      supabase,
+      log.competitionId,
+      poolId,
+      overallResults(next),
+    );
+    if (persistErr) return persistErr;
+  }
 
   revalidatePath("/orgs");
   return { ok: true };
 }
 
-/** End the current round — re-seeds the next round's lineup by this round's standings. */
+/**
+ * End the current round. For a seeding pool this re-seeds the next round by this
+ * round's standings. For an elimination/finals pool the round IS a drop-round: we
+ * record its results, then automatically eliminate the lowest-ranked survivor
+ * (live rally seqs always break the tiebreaker, so no organizer pick is needed).
+ */
 export async function endKotcRoundAction(
   poolId: string,
-): Promise<ActionError | { ok: true; done: boolean }> {
+): Promise<ActionError | { ok: true; done: boolean; dropped?: string }> {
   const supabase = await createClient();
-  const log = await loadKotcPoolLog(supabase, poolId);
+  const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
 
   const denied = await assertKotcAdmin(supabase, log.competitionId);
@@ -1469,6 +1421,80 @@ export async function endKotcRoundAction(
   if (state.status === "complete")
     return { error: "Session already complete." };
 
+  // --- Elimination / finals: finalize this drop-round and drop the lowest. -----
+  if (log.dropRoundIndex != null) {
+    if (log.survivorCount <= 3) {
+      return { error: "This pool is already at its final 3." };
+    }
+    if (!log.events.some((e) => e.type === "rally")) {
+      return { error: "Score at least one rally before ending the round." };
+    }
+
+    const { error: endErr } = await supabase.from("kotc_events").insert({
+      competition_id: log.competitionId,
+      pool_id: poolId,
+      seq: log.nextSeq,
+      round_index: log.dropRoundIndex,
+      type: "round_end",
+    });
+    if (endErr) return { error: endErr.message };
+
+    const completed = applyEvent(state, { type: "round_end" }, log.config);
+    const results = overallResults(completed);
+
+    const { data: round, error: rErr } = await supabase
+      .from("kotc_rounds")
+      .insert({
+        competition_id: log.competitionId,
+        pool_id: poolId,
+        round_index: log.dropRoundIndex,
+        minutes: log.roundMinutes,
+        status: "completed",
+      })
+      .select("id")
+      .single();
+    if (rErr || !round) {
+      return { error: rErr?.message ?? "Could not record the round." };
+    }
+
+    const { error: resErr } = await supabase.from("kotc_round_results").insert(
+      results.map((r) => ({
+        competition_id: log.competitionId,
+        round_id: round.id,
+        team_id: r.teamId,
+        king_points: r.kingPoints,
+        longest_streak: r.longestStreak,
+      })),
+    );
+    if (resErr) return { error: resErr.message };
+
+    // Live seqs always break ties, so `tied` is false — take the ranked-lowest.
+    const { dropped } = dropLowest(results);
+    const { error: dropErr } = await supabase
+      .from("kotc_pool_pairs")
+      .update({ eliminated_at_round: log.dropRoundIndex })
+      .eq("pool_id", poolId)
+      .eq("team_id", dropped);
+    if (dropErr) return { error: dropErr.message };
+
+    const remaining = log.survivorCount - 1;
+    const done = remaining <= 3;
+    await markKotcInProgress(supabase, log.competitionId);
+    if (done) {
+      await supabase
+        .from("kotc_pools")
+        .update({ status: "completed" })
+        .eq("id", poolId);
+      if (log.kind === "finals") {
+        await markKotcCompleted(supabase, log.competitionId);
+      }
+    }
+
+    revalidatePath("/orgs");
+    return { ok: true, done, dropped };
+  }
+
+  // --- Seeding: append round_end and re-seed the next round. -------------------
   const { error: insErr } = await supabase.from("kotc_events").insert({
     competition_id: log.competitionId,
     pool_id: poolId,
@@ -1500,7 +1526,7 @@ export async function startKotcRoundAction(
   poolId: string,
 ): Promise<ActionError | { startedAt: string; roundIndex: number }> {
   const supabase = await createClient();
-  const log = await loadKotcPoolLog(supabase, poolId);
+  const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
 
   const denied = await assertKotcAdmin(supabase, log.competitionId);
@@ -1509,17 +1535,21 @@ export async function startKotcRoundAction(
   const state = reduceKotc(log.pairOrder, log.events, log.config);
   if (state.status === "complete") return { error: "Session complete." };
 
+  // For elimination/finals the "round" is the drop-round; its clock is stamped
+  // under the drop-round index so each drop-round gets its own timer.
+  const roundIdx = log.dropRoundIndex ?? state.roundIndex;
+
   const { data: existing } = await supabase
     .from("kotc_events")
     .select("occurred_at")
     .eq("pool_id", poolId)
     .eq("type", "round_start")
-    .eq("round_index", state.roundIndex)
+    .eq("round_index", roundIdx)
     .maybeSingle();
   if (existing) {
     return {
       startedAt: existing.occurred_at as string,
-      roundIndex: state.roundIndex,
+      roundIndex: roundIdx,
     };
   }
 
@@ -1529,7 +1559,7 @@ export async function startKotcRoundAction(
       competition_id: log.competitionId,
       pool_id: poolId,
       seq: log.nextSeq,
-      round_index: state.roundIndex,
+      round_index: roundIdx,
       type: "round_start",
     })
     .select("occurred_at")
@@ -1539,7 +1569,7 @@ export async function startKotcRoundAction(
   }
 
   revalidatePath("/orgs");
-  return { startedAt: row.occurred_at as string, roundIndex: state.roundIndex };
+  return { startedAt: row.occurred_at as string, roundIndex: roundIdx };
 }
 
 /** Publish (public) or unpublish (private) the read-only spectator page. */

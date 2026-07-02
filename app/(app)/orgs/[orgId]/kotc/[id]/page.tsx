@@ -191,6 +191,7 @@ export default async function KotcPage({
       {/* Consolation + Finals */}
       {elimStage && elimAllDone && (
         <FinalsSection
+          orgId={orgId}
           competitionId={kotc.id}
           eliminated={eliminated}
           needsConsolation={needsConsolation}
@@ -268,6 +269,7 @@ function EliminationStage({
                 key={`${pool.id}-${pool.rounds.length}`}
                 pool={pool}
                 kind="elimination"
+                scoreHref={`/orgs/${kotc.orgId}/kotc/${kotc.id}/pool/${pool.id}/score`}
               />
             ))}
           </div>
@@ -278,6 +280,7 @@ function EliminationStage({
 }
 
 function FinalsSection({
+  orgId,
   competitionId,
   eliminated,
   needsConsolation,
@@ -285,6 +288,7 @@ function FinalsSection({
   canCompose,
   finalsStage,
 }: {
+  orgId: string;
   competitionId: string;
   eliminated: KotcPairView[];
   needsConsolation: boolean;
@@ -337,6 +341,7 @@ function FinalsSection({
             key={`${finalsStage.pools[0].id}-${finalsStage.pools[0].rounds.length}`}
             pool={finalsStage.pools[0]}
             kind="finals"
+            scoreHref={`/orgs/${orgId}/kotc/${competitionId}/pool/${finalsStage.pools[0].id}/score`}
           />
         ) : canCompose ? (
           <ComposeFinalsButton competitionId={competitionId} />

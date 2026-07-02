@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import type { KotcEvent } from "@/lib/kotc/engine";
+import { rankKotcPool } from "@/lib/kotc/ranking";
+import type { KotcConfig, KotcEvent } from "@/lib/kotc/engine";
+
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 
 export interface KotcSummary {
   id: string;
@@ -336,6 +339,189 @@ export async function getKotcPoolEvents(
     }
   }
   return byPool;
+}
+
+/**
+ * One live-scoreable KotC session for a pool. For a seeding pool that's the whole
+ * pool played over `roundsPerSession` timed rounds. For an elimination/finals pool
+ * it's the CURRENT drop-round only: a single game (roundsPerSession = 1) among the
+ * pairs still in, seeded by the previous drop-round's ranking (or entry order for
+ * the first). Scoping by the drop-round index keeps each round's rally log separate
+ * so the roster can shrink round to round. Shared by the score page (to render the
+ * board) and the live-scoring actions (to append/finalize).
+ */
+export interface PoolSession {
+  competitionId: string;
+  poolName: string;
+  kind: KotcStageKind;
+  pairOrder: string[];
+  config: KotcConfig;
+  events: KotcEvent[];
+  nextSeq: number;
+  /** Elimination/finals: the drop-round being scored now. Null for seeding. */
+  dropRoundIndex: number | null;
+  roundMinutes: number;
+  /** Engine round-index → ISO start time (for the game clock). */
+  roundStarts: Record<number, string>;
+  /** Pairs still in (elimination/finals); the full roster for seeding. */
+  survivorCount: number;
+}
+
+function mapEventRows(
+  rows: { type: string; point_awarded: boolean }[],
+): KotcEvent[] {
+  const events: KotcEvent[] = [];
+  for (const r of rows) {
+    if (r.type === "rally") {
+      events.push({
+        type: "rally",
+        winnerSide: r.point_awarded ? "king" : "challenger",
+      });
+    } else if (r.type === "serve_error") {
+      events.push({ type: "serve_error" });
+    } else if (r.type === "round_end") {
+      events.push({ type: "round_end" });
+    } else if (r.type === "void") {
+      events.push({ type: "void" });
+    }
+  }
+  return events;
+}
+
+export async function loadPoolSession(
+  supabase: SupabaseServer,
+  poolId: string,
+): Promise<PoolSession | null> {
+  const { data: pool } = await supabase
+    .from("kotc_pools")
+    .select("id, name, competition_id, stage_id")
+    .eq("id", poolId)
+    .single();
+  if (!pool) return null;
+  const competitionId = pool.competition_id as string;
+  const poolName = pool.name as string;
+
+  const { data: stage } = await supabase
+    .from("kotc_stages")
+    .select("kind")
+    .eq("id", pool.stage_id as string)
+    .single();
+  const kind = (stage?.kind as KotcStageKind) ?? "seeding";
+
+  const { data: settings } = await supabase
+    .from("kotc_settings")
+    .select("rounds_per_session, point_cap, round_minutes")
+    .eq("competition_id", competitionId)
+    .single();
+  const pointCap = (settings?.point_cap as number | null) ?? null;
+  const roundMinutes = (settings?.round_minutes as number | null) ?? 15;
+
+  const { data: pairs } = await supabase
+    .from("kotc_pool_pairs")
+    .select("team_id, queue_position, eliminated_at_round")
+    .eq("pool_id", poolId)
+    .order("queue_position", { ascending: true });
+  const allPairs = pairs ?? [];
+
+  // Every event in the pool — for the pool-wide max seq (seq is unique per pool,
+  // so a new drop-round must continue the sequence) and reconstruction.
+  const { data: rows } = await supabase
+    .from("kotc_events")
+    .select("seq, type, point_awarded, round_index, occurred_at")
+    .eq("pool_id", poolId)
+    .order("seq", { ascending: true });
+  const allRows = rows ?? [];
+  let maxSeq = 0;
+  for (const r of allRows) maxSeq = Math.max(maxSeq, r.seq as number);
+
+  if (kind === "elimination" || kind === "finals") {
+    const survivors = allPairs
+      .filter((p) => p.eliminated_at_round == null)
+      .map((p) => p.team_id as string);
+
+    const { data: rounds } = await supabase
+      .from("kotc_rounds")
+      .select("id, round_index")
+      .eq("pool_id", poolId)
+      .order("round_index", { ascending: true });
+    const played = rounds ?? [];
+    const dropRoundIndex = played.length;
+
+    // Seed the lineup: first drop-round = entry order; later = the previous
+    // round's ranking (survivors already exclude who was dropped).
+    let pairOrder = [...survivors];
+    if (played.length > 0) {
+      const prev = played[played.length - 1];
+      const { data: pr } = await supabase
+        .from("kotc_round_results")
+        .select("team_id, king_points, longest_streak")
+        .eq("round_id", prev.id as string);
+      const survivorSet = new Set(survivors);
+      const ranked = rankKotcPool(
+        (pr ?? []).map((r) => ({
+          teamId: r.team_id as string,
+          kingPoints: r.king_points as number,
+          longestStreak: r.longest_streak as number | null,
+          reachedSeq: null,
+        })),
+      )
+        .map((r) => r.teamId)
+        .filter((id) => survivorSet.has(id));
+      const missing = survivors.filter((id) => !ranked.includes(id));
+      pairOrder = [...ranked, ...missing];
+    }
+
+    const scoped = allRows.filter(
+      (r) => (r.round_index as number) === dropRoundIndex,
+    );
+    const roundStarts: Record<number, string> = {};
+    const start = allRows.find(
+      (r) =>
+        r.type === "round_start" &&
+        (r.round_index as number) === dropRoundIndex,
+    );
+    // The scoped session is a single game, so its clock maps to engine round 0.
+    if (start) roundStarts[0] = start.occurred_at as string;
+
+    return {
+      competitionId,
+      poolName,
+      kind,
+      pairOrder,
+      config: { roundsPerSession: 1, pointCap },
+      events: mapEventRows(scoped),
+      nextSeq: maxSeq + 1,
+      dropRoundIndex,
+      roundMinutes,
+      roundStarts,
+      survivorCount: survivors.length,
+    };
+  }
+
+  // Seeding (or consolation): one session across all of the pool's events.
+  const pairOrder = allPairs.map((p) => p.team_id as string);
+  const roundStarts: Record<number, string> = {};
+  for (const r of allRows) {
+    if (r.type === "round_start") {
+      roundStarts[r.round_index as number] = r.occurred_at as string;
+    }
+  }
+  return {
+    competitionId,
+    poolName,
+    kind,
+    pairOrder,
+    config: {
+      roundsPerSession: (settings?.rounds_per_session as number) ?? 3,
+      pointCap,
+    },
+    events: mapEventRows(allRows),
+    nextSeq: maxSeq + 1,
+    dropRoundIndex: null,
+    roundMinutes,
+    roundStarts,
+    survivorCount: pairOrder.length,
+  };
 }
 
 export async function getPublicKotcDetail(

@@ -43,6 +43,9 @@ export function LiveScoreboard({
   initialEvents,
   roundStarts,
   backHref,
+  roundLabel,
+  endLabel,
+  completeMessage,
 }: {
   poolId: string;
   poolName: string;
@@ -54,6 +57,12 @@ export function LiveScoreboard({
   initialEvents: KotcEvent[];
   roundStarts: Record<number, string>;
   backHref: string;
+  /** Replaces the "Round X/Y" counter (e.g. an elimination drop-round label). */
+  roundLabel?: string;
+  /** Overrides the "End round" button label. */
+  endLabel?: string;
+  /** Overrides the session-complete message. */
+  completeMessage?: string;
 }) {
   const router = useRouter();
   const [events, setEvents] = useState<KotcEvent[]>(initialEvents);
@@ -182,7 +191,9 @@ export function LiveScoreboard({
           ← Done
         </Link>
         <span className="text-muted-foreground text-sm tabular-nums">
-          {poolName} · Round {state.roundIndex + 1}/{config.roundsPerSession}
+          {poolName} ·{" "}
+          {roundLabel ??
+            `Round ${state.roundIndex + 1}/${config.roundsPerSession}`}
         </span>
       </div>
 
@@ -218,9 +229,9 @@ export function LiveScoreboard({
 
       {done ? (
         <div className="border-border bg-surface rounded-xl border p-6 text-center">
-          <p className="font-display text-lg font-semibold">Session complete</p>
+          <p className="font-display text-lg font-semibold">Round complete</p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Final standings are saved below.
+            {completeMessage ?? "Final standings are saved below."}
           </p>
         </div>
       ) : (
@@ -290,7 +301,7 @@ export function LiveScoreboard({
               onClick={endRound}
               className="flex-1"
             >
-              End round
+              {endLabel ?? "End round"}
             </Button>
           </div>
 

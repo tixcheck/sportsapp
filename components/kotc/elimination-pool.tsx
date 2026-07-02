@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -20,9 +21,11 @@ import { PairLabel } from "@/components/kotc/pair-label";
 export function EliminationPool({
   pool,
   kind,
+  scoreHref,
 }: {
   pool: KotcPoolView;
   kind: "elimination" | "finals";
+  scoreHref?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -101,9 +104,19 @@ export function EliminationPool({
     <div className="border-border bg-surface space-y-3 rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-sm font-semibold">{pool.name}</p>
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {done ? "complete" : `${remaining.length} left`}
-        </span>
+        <div className="flex items-center gap-3">
+          {!done && scoreHref && (
+            <Link
+              href={scoreHref}
+              className="text-primary text-xs font-medium hover:underline"
+            >
+              Score live →
+            </Link>
+          )}
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {done ? "complete" : `${remaining.length} left`}
+          </span>
+        </div>
       </div>
 
       {pool.rounds.length > 0 && (

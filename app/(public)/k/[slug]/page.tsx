@@ -338,12 +338,16 @@ function StageSection({
           // Seeding pool drawn but not yet scored — a roster, not a ranking.
           const unscored =
             stage.kind === "seeding" && pool.results.length === 0;
-          // Per-round score sheet, only where a live rally log exists.
+          // Per-round score sheet, only for a live-scored seeding pool. An
+          // elimination pool's events span multiple drop-rounds with a shrinking
+          // roster, which the single-session sheet can't aggregate — its standings
+          // (survivors + eliminated) tell that story instead.
           const events = poolEvents[pool.id] ?? [];
           const pairOrder = pool.pairs.map((p) => p.id);
-          const sheet = events.some((e) => e.type === "rally")
-            ? buildScoreSheet(pairOrder, events, config)
-            : [];
+          const sheet =
+            stage.kind === "seeding" && events.some((e) => e.type === "rally")
+              ? buildScoreSheet(pairOrder, events, config)
+              : [];
           return (
             <div
               key={pool.id}
