@@ -196,6 +196,15 @@ export function EliminationPool({
         </div>
       ) : (
         <div className="space-y-2">
+          {scoreHref && (
+            <p className="text-muted-foreground text-xs">
+              Enter each pair&apos;s King points below, or{" "}
+              <Link href={scoreHref} className="text-primary hover:underline">
+                score the round live
+              </Link>{" "}
+              to tap rallies and drop automatically.
+            </p>
+          )}
           <div className="text-muted-foreground grid grid-cols-[1fr_4rem_4rem] gap-2 text-xs">
             <span>Pair</span>
             <span className="text-right">King pts</span>
