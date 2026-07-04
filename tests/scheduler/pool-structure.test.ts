@@ -201,6 +201,64 @@ describe("court/time invariant holds after structuring", () => {
   });
 });
 
+describe("single pool spreads across courts (waves)", () => {
+  function onePool(teamIds: string[]): LayoutPool[] {
+    return [{ teamIds, rounds: generatePairings(teamIds, 1) }];
+  }
+
+  it("12 teams on 3 courts uses all 3, no collisions, no double-booked team", () => {
+    const slots = layoutPoolSchedule(onePool(seeded(12)), 3);
+    expect(detectCourtTimeCollisions(slots)).toEqual([]);
+
+    // All three courts are used (the old behavior used only court 1).
+    expect(new Set(slots.map((s) => s.court))).toEqual(new Set([1, 2, 3]));
+
+    // No team plays two games in the same time slot.
+    const bySlot = new Map<number, string[]>();
+    for (const s of slots) {
+      const list = bySlot.get(s.slot) ?? [];
+      list.push(s.homeTeamId, s.awayTeamId);
+      bySlot.set(s.slot, list);
+    }
+    for (const teams of bySlot.values()) {
+      expect(new Set(teams).size).toBe(teams.length);
+    }
+
+    // Each team still plays a full round robin (11 games).
+    const games = new Map<string, number>();
+    for (const s of slots) {
+      games.set(s.homeTeamId, (games.get(s.homeTeamId) ?? 0) + 1);
+      games.set(s.awayTeamId, (games.get(s.awayTeamId) ?? 0) + 1);
+    }
+    expect([...games.values()].every((g) => g === 11)).toBe(true);
+  });
+
+  it("a referee is never playing in its own time slot", () => {
+    const slots = layoutPoolSchedule(onePool(seeded(12)), 3);
+    const playingInSlot = new Map<number, Set<string>>();
+    for (const s of slots) {
+      const set = playingInSlot.get(s.slot) ?? new Set<string>();
+      set.add(s.homeTeamId);
+      set.add(s.awayTeamId);
+      playingInSlot.set(s.slot, set);
+    }
+    for (const s of slots) {
+      if (s.refTeamId) {
+        expect(playingInSlot.get(s.slot)!.has(s.refTeamId)).toBe(false);
+      }
+    }
+    // With 12 teams on 3 courts every wave has idle teams — refs are assigned.
+    expect(slots.every((s) => s.refTeamId !== null)).toBe(true);
+  });
+
+  it("keeps the single-court layout for a small pool (reffing preserved)", () => {
+    // A pool of 4: floor(4/3)=1 court of spread → falls back to the
+    // rest-optimized single-court block layout (all on court 1).
+    const slots = layoutPoolSchedule(onePool(seeded(4)), 3);
+    expect(new Set(slots.map((s) => s.court))).toEqual(new Set([1]));
+  });
+});
+
 describe("seed preservation when a team is removed", () => {
   it("survivors keep their relative seed order", () => {
     const teams: SeedTeam[] = [1, 2, 3, 4, 5].map((s) => ({

@@ -232,23 +232,38 @@ export function assignPoolRefs(
 }
 
 /**
- * Lay out pool-play matches. Each pool's matches run sequentially in
- * non-overlapping slots on a single court (reffing crossover — one match plays
- * while other pool teams ref/rest). Two smart-scheduling steps shape the result
- * (both never worse than the old round-robin-by-index layout):
- *   1. orderPoolMatches — sequence each pool's games for even waits / fewer
- *      back-to-backs.
+ * Lay out pool-play matches onto courts + time slots.
+ *
+ * Multi-pool (or one court): each pool plays sequentially on ONE court (reffing
+ * crossover — one match plays while other pool teams ref/rest), shaped by two
+ * smart-scheduling steps (both never worse than the old by-index layout):
+ *   1. orderPoolMatches — sequence each pool's games for even waits.
  *   2. packPoolsOntoCourts — assign whole pools to courts + starting wave to
  *      minimize makespan when pools share courts or sizes differ.
- * Pools stay sequential on one court, so assignPoolRefs and every reffing
- * invariant are preserved by construction. No court hosts two matches in the
- * same slot.
+ *
+ * Single big pool with spare courts: spreadSinglePool runs several of its games
+ * at once across the courts in timed waves (e.g. 12 teams on 3 courts → 2 waves
+ * of 3), with wave-crossover reffing — so one pool actually uses every court
+ * instead of leaving them idle.
+ *
+ * Either way no court hosts two matches in the same slot.
  */
 export function layoutPoolSchedule(
   pools: LayoutPool[],
   courts: number,
 ): ScheduledPoolMatch[] {
   const courtCount = Math.max(1, courts);
+
+  // Single big pool with spare courts: spread it across multiple courts in
+  // timed waves instead of stacking it on one court (see spreadSinglePool). Only
+  // when it actually uses ≥2 courts while keeping wave-crossover reffing — so a
+  // small pool (or a single court) still uses the rest-optimized single-court
+  // layout. Multi-pool scheduling is unchanged.
+  if (pools.length === 1 && courtCount > 1) {
+    const k = Math.min(courtCount, Math.floor(pools[0].teamIds.length / 3));
+    if (k >= 2) return spreadSinglePool(pools[0], k);
+  }
+
   const ordered = pools.map((pool) =>
     orderPoolMatches(pool.teamIds, pool.rounds),
   );
@@ -282,6 +297,89 @@ export function layoutPoolSchedule(
   });
 
   return out;
+}
+
+/**
+ * Lay a single pool across `courts` courts as timed waves. Each circle-method
+ * pairing round is a set of team-disjoint games; we run up to `courts` of them at
+ * once (one wave = one time slot on courts 1..K), spilling a round that has more
+ * games than courts into the next wave. So 12 teams on 3 courts → 6 games/round →
+ * 2 waves of 3 concurrent games, using every court.
+ *
+ * Reffing is wave-crossover: the teams sitting out a wave referee it (the second
+ * wave of a round is exactly the teams the first wave benched, and vice-versa),
+ * balanced. `courts` is pre-capped by the caller to n/3 so every wave has enough
+ * idle teams to referee; if a wave ever leaves nobody free, its refs are null.
+ */
+function spreadSinglePool(
+  pool: LayoutPool,
+  courts: number,
+): ScheduledPoolMatch[] {
+  const waves: { round: number; homeTeamId: TeamId; awayTeamId: TeamId }[][] =
+    [];
+  for (const r of pool.rounds) {
+    for (let i = 0; i < r.pairs.length; i += courts) {
+      waves.push(
+        r.pairs.slice(i, i + courts).map((p) => ({
+          round: r.round,
+          homeTeamId: p.homeTeamId,
+          awayTeamId: p.awayTeamId,
+        })),
+      );
+    }
+  }
+
+  const refs = assignWaveRefs(pool.teamIds, waves);
+  const out: ScheduledPoolMatch[] = [];
+  waves.forEach((wave, slot) => {
+    wave.forEach((m, courtIdx) => {
+      out.push({
+        poolIndex: 0,
+        court: courtIdx + 1,
+        slot,
+        round: m.round,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        refTeamId: refs[slot][courtIdx],
+      });
+    });
+  });
+  return out;
+}
+
+/**
+ * Balanced referee assignment for wave (parallel-court) play: for each wave, the
+ * teams NOT playing in it may referee its games — a distinct least-loaded idle
+ * team per concurrent game. Null when no team is free in that wave. Pure.
+ */
+export function assignWaveRefs(
+  teamIds: TeamId[],
+  waves: { homeTeamId: TeamId; awayTeamId: TeamId }[][],
+): (TeamId | null)[][] {
+  const refCount = new Map<TeamId, number>(teamIds.map((id) => [id, 0]));
+  return waves.map((wave) => {
+    const busy = new Set<TeamId>(
+      wave.flatMap((m) => [m.homeTeamId, m.awayTeamId]),
+    );
+    const usedThisWave = new Set<TeamId>();
+    return wave.map(() => {
+      let pick: TeamId | null = null;
+      let best = Infinity;
+      for (const id of teamIds) {
+        if (busy.has(id) || usedThisWave.has(id)) continue;
+        const c = refCount.get(id)!;
+        if (c < best) {
+          best = c;
+          pick = id;
+        }
+      }
+      if (pick !== null) {
+        usedThisWave.add(pick);
+        refCount.set(pick, refCount.get(pick)! + 1);
+      }
+      return pick;
+    });
+  });
 }
 
 /** Invariant check: returns any (court, slot) pairs used by more than one match. */
