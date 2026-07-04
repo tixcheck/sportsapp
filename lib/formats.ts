@@ -40,6 +40,13 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
         capMinutes: 60,
       },
     },
+    {
+      // A single set to 21 with an on-court cap at 23 (win-by-1 so a 23–22 cap
+      // finish records without being rejected as a non-win-by-2 margin).
+      id: "indoor6-single21",
+      label: "Single set to 21 (cap 23)",
+      format: { bestOf: 1, setsToPoints: [21], winBy: 1 },
+    },
   ],
   beach2: [
     {
@@ -63,6 +70,12 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
       label: "Single set to 25 (quick play)",
       format: { bestOf: 1, setsToPoints: [25], winBy: 2 },
     },
+    {
+      // Single set to 21, on-court cap at 23 (win-by-1 to allow a 23–22 finish).
+      id: "beach2-single21",
+      label: "Single set to 21 (cap 23)",
+      format: { bestOf: 1, setsToPoints: [21], winBy: 1 },
+    },
   ],
   coed4: [
     {
@@ -79,6 +92,12 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
         winBy: 2,
         capMinutes: 50,
       },
+    },
+    {
+      // Single set to 21, on-court cap at 23 (win-by-1 to allow a 23–22 finish).
+      id: "coed4-single21",
+      label: "Single set to 21 (cap 23)",
+      format: { bestOf: 1, setsToPoints: [21], winBy: 1 },
     },
   ],
 };
