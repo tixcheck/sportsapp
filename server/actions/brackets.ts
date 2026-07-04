@@ -54,6 +54,12 @@ export async function generateBracketAction(
   competitionId: string,
   seeds: BracketSeeds,
   courts: BracketCourts = DEFAULT_COURTS,
+  /**
+   * An explicit format for the bracket matches (e.g. best-of-3 playoffs off a
+   * single-set league season). When omitted, bracket matches carry no format and
+   * resolve to the competition's format, as before.
+   */
+  bracketFormatOverride?: MatchFormat | null,
 ): Promise<ActionError | { matchCount: number }> {
   const supabase = await createClient();
   const {
@@ -165,9 +171,13 @@ export async function generateBracketAction(
   const tz = comp?.timezone ?? "America/Toronto";
   // Pool-play slot (to chain the bracket after pool play) and bracket-match slot
   // are each derived from their own format.
-  const bracketFormat = comp?.match_format as MatchFormat;
+  // The bracket's own format (an override, e.g. best-of-3 playoffs) or the
+  // competition default. Drives both the time estimate and the per-match stamp.
+  const bracketFormat =
+    bracketFormatOverride ?? (comp?.match_format as MatchFormat);
   const poolFormat =
-    (settings?.pool_format as MatchFormat | null) ?? bracketFormat;
+    (settings?.pool_format as MatchFormat | null) ??
+    (comp?.match_format as MatchFormat);
   const poolSlot = estimateMatchMinutes(poolFormat);
   const bracketSlotMin = estimateMatchMinutes(bracketFormat);
   let startDt: DateTime | null = null;
@@ -226,6 +236,9 @@ export async function generateBracketAction(
       status: "scheduled" as const,
       court: courtNo == null ? null : `Court ${courtNo}`,
       scheduled_at: slotMs != null ? new Date(slotMs).toISOString() : null,
+      // Only stamp a per-match format when overriding; otherwise leave null so it
+      // resolves to the competition format (unchanged behavior).
+      match_format: bracketFormatOverride ?? null,
     };
   });
   const { error: ins } = await supabase.from("matches").insert(rows);

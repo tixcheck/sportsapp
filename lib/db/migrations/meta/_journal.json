@@ -288,6 +288,13 @@
       "when": 1783002130662,
       "tag": "0040_rapid_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1783128463006,
+      "tag": "0041_third_william_stryker",
+      "breakpoints": true
     }
   ]
 }

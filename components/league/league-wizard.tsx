@@ -25,7 +25,15 @@ import { ScoringFields } from "@/components/scoring/scoring-fields";
 
 const STEP_FIELDS: (keyof CreateLeagueInput)[][] = [
   ["sport"],
-  ["name", "startDate", "endDate", "venue", "courts", "roundsPerTeam"],
+  [
+    "name",
+    "startDate",
+    "endDate",
+    "venue",
+    "courts",
+    "roundsPerTeam",
+    "gamesPerTeam",
+  ],
   ["slotDayOfWeek", "slotStartTime"],
   ["formatId"],
   [],
@@ -48,6 +56,7 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
       venue: "",
       courts: 2,
       roundsPerTeam: 1,
+      gamesPerTeam: null,
       slotDayOfWeek: 2,
       slotStartTime: "19:00",
       formatId: defaultPreset("indoor6").id,
@@ -63,6 +72,7 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
   const errors = formState.errors;
   const sport = watch("sport") as Sport;
   const rounds = watch("roundsPerTeam");
+  const gamesPerTeam = watch("gamesPerTeam");
 
   async function next() {
     setFormError(null);
@@ -197,6 +207,27 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
                   ))}
                 </div>
               </Field>
+              <Field
+                label="Games per team"
+                error={errors.gamesPerTeam?.message}
+                hint="Leave blank for a full round robin (everyone plays everyone). Set a number for a partial schedule — each team plays that many different opponents."
+              >
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="All (full round robin)"
+                  value={gamesPerTeam ?? ""}
+                  onChange={(e) =>
+                    setValue(
+                      "gamesPerTeam",
+                      e.target.value === "" ? null : Number(e.target.value),
+                      { shouldValidate: true },
+                    )
+                  }
+                  className="border-border bg-surface h-9 w-full rounded-md border px-3 text-sm tabular-nums"
+                />
+              </Field>
             </div>
           </div>
         )}
@@ -323,16 +354,19 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid gap-1.5">
       <Label>{label}</Label>
       {children}
+      {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
       {error && <p className="text-destructive text-sm">{error}</p>}
     </div>
   );
@@ -349,7 +383,14 @@ function Review({ form }: { form: CreateLeagueInput }) {
         k="Schedule"
         v={`${DAY_LABELS[form.slotDayOfWeek]}s at ${form.slotStartTime}, ${form.courts} court(s)`}
       />
-      <Row k="Rounds" v={`${form.roundsPerTeam}× round robin`} />
+      <Row
+        k="Rounds"
+        v={
+          form.gamesPerTeam
+            ? `${form.gamesPerTeam} games/team (partial round robin)`
+            : `${form.roundsPerTeam}× full round robin`
+        }
+      />
     </dl>
   );
 }

@@ -16,6 +16,7 @@ import {
   tournamentFormat,
   type FormatTemplate,
 } from "@/lib/tournament-formats";
+import { FORMAT_PRESETS, findPreset, type Sport } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -179,6 +180,7 @@ export function GenerateBracketPanel({
   formatTemplate,
   dropsComplete,
   phaseLabel = "Pool play",
+  playoffFormat,
 }: {
   competitionId: string;
   pools: StandingsGroup[];
@@ -189,10 +191,18 @@ export function GenerateBracketPanel({
   dropsComplete: boolean;
   /** What the qualifying phase is called ("Pool play" / "The season"). */
   phaseLabel?: string;
+  /**
+   * When set, show a bracket match-format picker (e.g. best-of-3 playoffs off a
+   * single-set league season). `default` pre-selects a preset id; "" = match the
+   * competition's format. Omit for tournaments (bracket uses the comp format).
+   */
+  playoffFormat?: { sport: Sport; default: string };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  // Bracket match format (league playoffs only). "" = match the season format.
+  const [formatId, setFormatId] = useState(playoffFormat?.default ?? "");
 
   const poolRows = pools.map((g) => g.rows);
   const nameById = new Map(
@@ -262,11 +272,20 @@ export function GenerateBracketPanel({
       toast.error("At least 2 teams must advance.");
       return;
     }
+    const bracketFormat =
+      playoffFormat && formatId
+        ? findPreset(playoffFormat.sport, formatId).format
+        : null;
     startTransition(async () => {
-      const res = await generateBracketAction(competitionId, payload, {
-        championship: champCourts,
-        consolation: consoCourts,
-      });
+      const res = await generateBracketAction(
+        competitionId,
+        payload,
+        {
+          championship: champCourts,
+          consolation: consoCourts,
+        },
+        bracketFormat,
+      );
       if ("error" in res) {
         toast.error(res.error);
         return;
@@ -423,6 +442,28 @@ export function GenerateBracketPanel({
             />
           </div>
         </>
+      )}
+
+      {playoffFormat && (
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium">Playoff format</p>
+          <select
+            value={formatId}
+            onChange={(e) => setFormatId(e.target.value)}
+            className="border-border bg-surface h-9 w-full max-w-sm rounded-md border px-2 text-sm"
+          >
+            <option value="">Match the season format</option>
+            {FORMAT_PRESETS[playoffFormat.sport].map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-muted-foreground text-xs">
+            The bracket can use a different format than the season — e.g.
+            best-of-3 playoffs off a single-set season.
+          </p>
+        </div>
       )}
 
       <div className="space-y-1.5">

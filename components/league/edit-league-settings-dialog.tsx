@@ -165,6 +165,20 @@ export function EditLeagueSettingsDialog({
                 <option value={2}>Double (play each team twice)</option>
               </select>
             </Field>
+            <Field
+              label="Games per team"
+              error={errors.gamesPerTeam?.message}
+              hint="Blank = full round robin. A number caps each team at that many different opponents (partial round robin)."
+            >
+              <Input
+                type="number"
+                min={1}
+                placeholder="All"
+                {...register("gamesPerTeam", {
+                  setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                })}
+              />
+            </Field>
           </div>
 
           <Field label="Blackout dates" error={errors.blackoutDates?.message}>
@@ -225,16 +239,19 @@ export function EditLeagueSettingsDialog({
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid gap-1.5">
       <Label>{label}</Label>
       {children}
+      {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
       {error && <p className="text-destructive text-sm">{error}</p>}
     </div>
   );

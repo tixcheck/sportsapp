@@ -72,7 +72,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, round, court, scheduled_at, status, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position",
+      "id, competition_id, round, court, scheduled_at, status, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position, match_format",
     )
     .or(ors.join(","));
   if (!matches || matches.length === 0) return [];
@@ -202,11 +202,13 @@ export async function getMyMatches(): Promise<MyMatch[]> {
         ? (teamName.get(m.away_team_id) ?? "TBD")
         : "TBD",
       refTeamName: m.ref_team_id ? (teamName.get(m.ref_team_id) ?? null) : null,
-      matchFormat: resolveMatchFormat(
-        m.pool_id ? poolFormatById.get(m.pool_id) : null,
-        m.pool_id ? poolDefaultByComp.get(m.competition_id) : null,
-        c.match_format as MatchFormat,
-      ),
+      matchFormat:
+        (m.match_format as MatchFormat | null) ??
+        resolveMatchFormat(
+          m.pool_id ? poolFormatById.get(m.pool_id) : null,
+          m.pool_id ? poolDefaultByComp.get(m.competition_id) : null,
+          c.match_format as MatchFormat,
+        ),
       sets: setsByMatch.get(m.id) ?? [],
       status: m.status,
       state,
@@ -262,7 +264,7 @@ export async function getMatchForEntry(
   const { data: m } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal",
+      "id, competition_id, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal, match_format",
     )
     .eq("id", matchId)
     .single();
@@ -361,11 +363,13 @@ export async function getMatchForEntry(
       ? (teamName.get(m.away_team_id) ?? "TBD")
       : "TBD",
     refTeamName: m.ref_team_id ? (teamName.get(m.ref_team_id) ?? null) : null,
-    matchFormat: resolveMatchFormat(
-      poolFormat,
-      poolDefault,
-      comp.match_format as MatchFormat,
-    ),
+    matchFormat:
+      (m.match_format as MatchFormat | null) ??
+      resolveMatchFormat(
+        poolFormat,
+        poolDefault,
+        comp.match_format as MatchFormat,
+      ),
     sets: (sets ?? []).map((s) => ({ home: s.home_score, away: s.away_score })),
     status: m.status,
     state,

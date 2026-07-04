@@ -260,6 +260,10 @@ export const leagueSettings = pgTable("league_settings", {
     .references(() => competitions.id, { onDelete: "cascade" }),
   weeklySlots: jsonb("weekly_slots").$type<WeeklySlot[]>().notNull(),
   roundsPerTeam: integer("rounds_per_team").notNull().default(1),
+  // Cap each team at this many round-robin games (a partial round robin: the
+  // first N rotations of the circle method, so opponents are distinct and even).
+  // Null = a full round robin (everyone plays everyone).
+  gamesPerTeam: integer("games_per_team"),
   blackoutDates: date("blackout_dates").array(),
   promotionRelegation: boolean("promotion_relegation").notNull().default(false),
 });
@@ -450,6 +454,10 @@ export const matches = pgTable(
     }),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     court: varchar("court", { length: 64 }),
+    // Per-match format override (highest precedence, above pool/competition
+    // format). Used for league playoffs that differ from the season, e.g.
+    // best-of-3 brackets off a single-set season. Null = resolve normally.
+    matchFormat: jsonb("match_format").$type<MatchFormat>(),
     status: matchStatus("status").notNull().default("scheduled"),
     // Set true only when an organizer used the override to record a result that
     // failed the normal completion checks (abandoned/injury). Audit/display

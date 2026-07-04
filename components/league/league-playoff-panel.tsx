@@ -5,7 +5,14 @@ import { useState } from "react";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import type { FormatTemplate } from "@/lib/tournament-formats";
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
+import { FORMAT_PRESETS, type Sport } from "@/lib/formats";
 import { cn } from "@/lib/utils";
+
+/** A best-of-3 preset for the sport (for the playoff default), else the first. */
+function bestOf3Default(sport: Sport): string {
+  const presets = FORMAT_PRESETS[sport];
+  return (presets.find((p) => p.format.bestOf === 3) ?? presets[0]).id;
+}
 
 /**
  * League playoffs: seed a bracket from the final league standings. Wraps the
@@ -14,11 +21,13 @@ import { cn } from "@/lib/utils";
  */
 export function LeaguePlayoffPanel({
   competitionId,
+  sport,
   standings,
   hasBracket,
   seasonComplete,
 }: {
   competitionId: string;
+  sport: Sport;
   standings: StandingsGroup[];
   hasBracket: boolean;
   seasonComplete: boolean;
@@ -60,6 +69,7 @@ export function LeaguePlayoffPanel({
         formatTemplate={template}
         dropsComplete={true}
         phaseLabel="The season"
+        playoffFormat={{ sport, default: bestOf3Default(sport) }}
       />
     </div>
   );

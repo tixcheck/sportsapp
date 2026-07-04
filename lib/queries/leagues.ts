@@ -40,6 +40,7 @@ export interface LeagueDetail {
   /** Editable settings (for the Edit-settings form). */
   matchFormat: MatchFormat;
   roundsPerTeam: number;
+  gamesPerTeam: number | null;
   courts: number;
   slotDayOfWeek: number;
   slotStartTime: string;
@@ -123,7 +124,7 @@ export async function getLeagueDetail(
 
   const { data: settings } = await supabase
     .from("league_settings")
-    .select("weekly_slots, rounds_per_team, blackout_dates")
+    .select("weekly_slots, rounds_per_team, games_per_team, blackout_dates")
     .eq("competition_id", leagueId)
     .maybeSingle();
   const slot = (settings?.weekly_slots as WeeklySlot[] | null)?.[0];
@@ -172,6 +173,7 @@ export async function getLeagueDetail(
     timezone: league.timezone,
     matchFormat: league.match_format as MatchFormat,
     roundsPerTeam: settings?.rounds_per_team ?? 1,
+    gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
     courts: slot?.courts ?? 2,
     slotDayOfWeek: slot?.dayOfWeek ?? 2,
     slotStartTime: slot?.startTime ?? "19:00",

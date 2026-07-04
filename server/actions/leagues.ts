@@ -103,6 +103,7 @@ export async function createLeagueAction(
       competition_id: league.id,
       weekly_slots: weeklySlots,
       rounds_per_team: v.roundsPerTeam,
+      games_per_team: v.gamesPerTeam,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
       promotion_relegation: false,
     });
@@ -200,6 +201,7 @@ export async function updateLeagueSettingsAction(
     .update({
       weekly_slots: weeklySlots,
       rounds_per_team: v.roundsPerTeam,
+      games_per_team: v.gamesPerTeam,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
     })
     .eq("competition_id", competitionId);
@@ -298,7 +300,7 @@ export async function generateLeagueScheduleAction(
 
   const { data: settings, error: sErr } = await supabase
     .from("league_settings")
-    .select("weekly_slots, rounds_per_team, blackout_dates")
+    .select("weekly_slots, rounds_per_team, games_per_team, blackout_dates")
     .eq("competition_id", competitionId)
     .single();
   if (sErr || !settings) return { error: "League settings not found." };
@@ -320,6 +322,7 @@ export async function generateLeagueScheduleAction(
   const schedule = generateRoundRobin({
     teamIds: teams.map((t) => t.id),
     roundsPerTeam: settings.rounds_per_team ?? 1,
+    gamesPerTeam: (settings.games_per_team as number | null) ?? null,
     courts: slot.courts,
     startDate,
     intervalDays: 7,

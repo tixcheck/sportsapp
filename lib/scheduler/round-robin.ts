@@ -18,6 +18,13 @@ export interface RoundRobinInput {
   teamIds: TeamId[];
   /** How many times each pair meets (1× or 2×). Default 1. */
   roundsPerTeam?: number;
+  /**
+   * Cap each team at this many games (a partial round robin). The circle method
+   * emits a distinct, evenly-spread opponent per round, so taking the first N
+   * rounds gives every team N different opponents with no repeats. Null/omitted
+   * or a value ≥ a full round robin means play the full schedule.
+   */
+  gamesPerTeam?: number | null;
   /** Courts available per slot (≥1). */
   courts: number;
   /** First slot date, "YYYY-MM-DD". */
@@ -64,6 +71,7 @@ function rotate(slots: number[]): void {
 export function generatePairings(
   teamIds: TeamId[],
   roundsPerTeam = 1,
+  gamesPerTeam?: number | null,
 ): PairingRound[] {
   const result: PairingRound[] = [];
   if (teamIds.length < 2) return result;
@@ -102,6 +110,17 @@ export function generatePairings(
     }
   }
 
+  // Partial round robin: keep only the first `gamesPerTeam` rounds. Each round is
+  // one game per team (the byed team in an odd pool plays one fewer), so N rounds
+  // ⇒ N games each, with distinct opponents while N ≤ a single full cycle.
+  if (
+    gamesPerTeam != null &&
+    gamesPerTeam >= 1 &&
+    gamesPerTeam < result.length
+  ) {
+    return result.slice(0, gamesPerTeam);
+  }
+
   return result;
 }
 
@@ -128,7 +147,11 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
 
   const intervalDays = input.intervalDays ?? 7;
   const blackout = new Set(input.blackoutDates ?? []);
-  const pairings = generatePairings(input.teamIds, input.roundsPerTeam ?? 1);
+  const pairings = generatePairings(
+    input.teamIds,
+    input.roundsPerTeam ?? 1,
+    input.gamesPerTeam,
+  );
 
   let cursor = parseDate(input.startDate);
   const rounds: ScheduledRound[] = pairings.map((pr) => {

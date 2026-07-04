@@ -76,6 +76,7 @@ export default async function LeaguePage({
     venue: league.venue ?? "",
     courts: league.courts,
     roundsPerTeam: league.roundsPerTeam,
+    gamesPerTeam: league.gamesPerTeam,
     slotDayOfWeek: league.slotDayOfWeek,
     slotStartTime: league.slotStartTime,
     formatId: findPresetId(league.sport, league.matchFormat),
@@ -192,6 +193,7 @@ export default async function LeaguePage({
           <CardContent className="space-y-6">
             <LeaguePlayoffPanel
               competitionId={league.id}
+              sport={league.sport}
               standings={standings}
               hasBracket={brackets.length > 0}
               seasonComplete={seasonComplete}

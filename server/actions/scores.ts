@@ -102,7 +102,7 @@ export async function submitScoreAction(
   const { data: match } = await supabase
     .from("matches")
     .select(
-      "competition_id, status, home_team_id, away_team_id, pool_id, bracket_position",
+      "competition_id, status, home_team_id, away_team_id, pool_id, bracket_position, match_format",
     )
     .eq("id", matchId)
     .single();
@@ -143,11 +143,14 @@ export async function submitScoreAction(
       .single();
     poolDefault = (ts?.pool_format as MatchFormat | null) ?? null;
   }
-  const format = resolveMatchFormat(
-    poolFormat,
-    poolDefault,
-    comp.match_format as MatchFormat,
-  );
+  // A per-match override (e.g. best-of-3 playoffs) wins over everything else.
+  const format =
+    (match.match_format as MatchFormat | null) ??
+    resolveMatchFormat(
+      poolFormat,
+      poolDefault,
+      comp.match_format as MatchFormat,
+    );
 
   const result = validateScore(format, sets);
   if (result.errors.length > 0) return { error: result.errors[0] };

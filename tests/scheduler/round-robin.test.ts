@@ -97,6 +97,68 @@ describe("generatePairings — coverage & structure", () => {
   });
 });
 
+describe("generatePairings — partial round robin (gamesPerTeam)", () => {
+  /** opponents[team] = the list of opponents that team faced. */
+  function opponentsByTeam(rounds: PairingRound[]): Map<string, string[]> {
+    const opp = new Map<string, string[]>();
+    const add = (a: string, b: string) => {
+      const list = opp.get(a) ?? [];
+      list.push(b);
+      opp.set(a, list);
+    };
+    for (const r of rounds) {
+      for (const p of r.pairs) {
+        add(p.homeTeamId, p.awayTeamId);
+        add(p.awayTeamId, p.homeTeamId);
+      }
+    }
+    return opp;
+  }
+
+  it("12 teams, 6 games each: 6 rounds, distinct opponents, no repeats", () => {
+    const rounds = generatePairings(teams(12), 1, 6);
+    expect(rounds).toHaveLength(6);
+    rounds.forEach((r) => expect(r.pairs).toHaveLength(6)); // 12/2 per round
+
+    const opp = opponentsByTeam(rounds);
+    expect(opp.size).toBe(12);
+    for (const list of opp.values()) {
+      expect(list).toHaveLength(6); // exactly 6 games
+      expect(new Set(list).size).toBe(6); // all different opponents
+    }
+  });
+
+  it("is the prefix of the full schedule (first N rounds)", () => {
+    const full = generatePairings(teams(12), 1);
+    const partial = generatePairings(teams(12), 1, 6);
+    expect(partial).toEqual(full.slice(0, 6));
+  });
+
+  it("a cap ≥ the full round robin plays the whole schedule", () => {
+    const full = generatePairings(teams(8), 1);
+    expect(generatePairings(teams(8), 1, 99)).toEqual(full); // full = 7 rounds
+    expect(generatePairings(teams(8), 1, 7)).toEqual(full);
+  });
+
+  it("null/omitted cap plays the full round robin", () => {
+    const full = generatePairings(teams(6), 1);
+    expect(generatePairings(teams(6), 1, null)).toEqual(full);
+    expect(generatePairings(teams(6), 1, undefined)).toEqual(full);
+  });
+
+  it("generateRoundRobin honors the games-per-team cap", () => {
+    const { rounds } = generateRoundRobin({
+      teamIds: teams(12),
+      courts: 3,
+      startDate: "2026-01-06",
+      gamesPerTeam: 6,
+    });
+    expect(rounds).toHaveLength(6);
+    // 6 matches per round across 3 courts (two per court, i.e. two waves).
+    rounds.forEach((r) => expect(r.matches).toHaveLength(6));
+  });
+});
+
 describe("generateRoundRobin — calendar & courts", () => {
   it("lays rounds onto a weekly cadence from startDate", () => {
     const { rounds } = generateRoundRobin({
