@@ -75,14 +75,22 @@ export async function generatePoolsAction(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("courts, pool_format")
+    .select("courts, pool_format, target_games_per_team, minutes_per_game")
     .eq("competition_id", competitionId)
     .single();
   const courts = settings?.courts ?? 4;
   // The chosen pool-play format (2-set vs best-of-3); short pools derive a
   // reduced variant from it rather than a hardcoded format.
   const poolFmt = (settings?.pool_format ?? comp.match_format) as MatchFormat;
-  const slotMin = estimateMatchMinutes(poolFmt);
+  // Cap each team's games at the organizer's target (a partial round robin) —
+  // binds only when a pool is bigger than target+1 (e.g. one pool of 12, 6
+  // games). Normal pools sized to target+1 play a full RR = target games.
+  const gamesPerTeam =
+    (settings?.target_games_per_team as number | null) ?? null;
+  // Per-game slot length: the organizer's override, else estimated from format.
+  const slotMin =
+    (settings?.minutes_per_game as number | null) ??
+    estimateMatchMinutes(poolFmt);
   const tz = comp.timezone ?? "America/Toronto";
   const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)
     ? startTime
@@ -176,6 +184,13 @@ export async function generatePoolsAction(
           rounds: generatePairings(
             p.teamIds,
             poolPlan(p.teamIds.length).roundsPerTeam,
+            // Cap only a pool that's genuinely bigger than the target needs (so
+            // normal pools sized to target+1, and small double-RR pools, are
+            // untouched); an oversized pool (e.g. 12 with target 6) is trimmed
+            // to a partial round robin.
+            gamesPerTeam != null && p.teamIds.length > gamesPerTeam + 1
+              ? gamesPerTeam
+              : null,
           ),
         },
       });

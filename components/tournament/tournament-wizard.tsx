@@ -34,6 +34,7 @@ const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
     "venue",
     "courts",
     "gamesPerTeam",
+    "minutesPerGame",
   ],
   ["divisions"],
   ["formatTemplate"],
@@ -66,6 +67,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       venue: "",
       courts: 4,
       gamesPerTeam: 3,
+      minutesPerGame: null,
       formatId: defaultPoolPreset("beach2").id,
       formatTemplate: "single",
       twoSetRoundRobin: false,
@@ -214,6 +216,21 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                   min={1}
                   max={12}
                   {...register("gamesPerTeam", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Minutes per game"
+                error={errors.minutesPerGame?.message}
+              >
+                <Input
+                  type="number"
+                  min={5}
+                  max={120}
+                  placeholder="Auto (from format)"
+                  {...register("minutesPerGame", {
+                    setValueAs: (v) =>
+                      v === "" || v == null ? null : Number(v),
+                  })}
                 />
               </Field>
             </div>

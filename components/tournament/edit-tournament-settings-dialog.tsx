@@ -136,6 +136,20 @@ export function EditTournamentSettingsDialog({
                 {...register("gamesPerTeam", { valueAsNumber: true })}
               />
             </Field>
+            <Field
+              label="Minutes per game"
+              error={errors.minutesPerGame?.message}
+            >
+              <Input
+                type="number"
+                min={5}
+                max={120}
+                placeholder="Auto"
+                {...register("minutesPerGame", {
+                  setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                })}
+              />
+            </Field>
           </div>
 
           <Field label="Bracket type" error={errors.formatTemplate?.message}>

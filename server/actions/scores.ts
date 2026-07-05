@@ -46,8 +46,9 @@ async function canEnter(
 
 /**
  * Where to send the user after scoring. Organizers land back on the
- * competition's admin page (where they enter the next match); captains/refs/
- * players go to their "my matches" list.
+ * competition's admin page at the schedule section (the #schedule anchor, so
+ * they can pick the next match without scrolling); captains/refs/players go to
+ * their "my matches" list.
  */
 async function redirectAfterScore(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -62,7 +63,7 @@ async function redirectAfterScore(
     .single();
   if (!comp) return "/my-matches";
   const seg = comp.type === "tournament" ? "tournaments" : "leagues";
-  return `/orgs/${comp.org_id}/${seg}/${competitionId}`;
+  return `/orgs/${comp.org_id}/${seg}/${competitionId}#schedule`;
 }
 
 /** The user id of the most recent score submitter for a match, if any. */

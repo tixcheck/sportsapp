@@ -86,6 +86,7 @@ export async function createTournamentAction(
       competition_id: tournament.id,
       pool_size: v.gamesPerTeam + 1,
       target_games_per_team: v.gamesPerTeam,
+      minutes_per_game: v.minutesPerGame,
       courts: v.courts,
       // Pool play uses the chosen RR format; the bracket keeps the standard
       // best-of-3 (competition match_format) regardless.
@@ -196,6 +197,7 @@ export async function updateTournamentSettingsAction(
     .update({
       pool_size: v.gamesPerTeam + 1,
       target_games_per_team: v.gamesPerTeam,
+      minutes_per_game: v.minutesPerGame,
       courts: v.courts,
       format_template: v.formatTemplate,
       pool_format: newPoolFormat,

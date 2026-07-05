@@ -32,11 +32,10 @@ export default async function MatchEntryPage({
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         {match.isAdmin && (
           <Link
-            href={`/orgs/${match.orgId}/${match.competitionType}s/${match.competitionId}`}
+            href={`/orgs/${match.orgId}/${match.competitionType}s/${match.competitionId}#schedule`}
             className="text-muted-foreground hover:underline"
           >
-            ← {match.competitionType === "league" ? "League" : "Tournament"}{" "}
-            admin
+            ← Back to schedule
           </Link>
         )}
         <Link

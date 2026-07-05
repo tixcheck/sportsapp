@@ -275,8 +275,12 @@ export const tournamentSettings = pgTable("tournament_settings", {
     .references(() => competitions.id, { onDelete: "cascade" }),
   poolSize: integer("pool_size").notNull().default(4),
   // Target round-robin games per team — drives the suggested pool structure
-  // (pool size ≈ target + 1). Nullable for tournaments created before this.
+  // (pool size ≈ target + 1) AND caps games within a bigger pool (partial round
+  // robin). Nullable for tournaments created before this.
   targetGamesPerTeam: integer("target_games_per_team"),
+  // Minutes to allow per game when spacing the schedule. Null = estimate from
+  // the match format. Lets the organizer set a tighter slot (e.g. 20 min).
+  minutesPerGame: integer("minutes_per_game"),
   courts: integer("courts").notNull().default(4),
   poolFormat: jsonb("pool_format").$type<MatchFormat>(),
   bracketType: bracketType("bracket_type").notNull().default("single_elim"),

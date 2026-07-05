@@ -1,0 +1,1 @@
+ALTER TABLE "tournament_settings" ADD COLUMN "minutes_per_game" integer;

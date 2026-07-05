@@ -20,6 +20,8 @@ export const createTournamentSchema = z
     // Target round-robin games each team plays in pool play; the pool structure
     // is sized to deliver ~this many (pool size ≈ games + 1).
     gamesPerTeam: z.number().int().min(1, "At least 1 game.").max(12),
+    // Minutes to allow per game when spacing the schedule (null = estimate).
+    minutesPerGame: z.number().int().min(5).max(120).nullable(),
     formatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
     // Pool play: true = a fixed 2-set game (ties allowed); false = best-of-3.
@@ -61,6 +63,7 @@ export const editTournamentSchema = z
     venue: z.string().trim().max(120).optional().or(z.literal("")),
     courts: z.number().int().min(1, "At least 1 court.").max(40),
     gamesPerTeam: z.number().int().min(1, "At least 1 game.").max(12),
+    minutesPerGame: z.number().int().min(5).max(120).nullable(),
     formatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
     twoSetRoundRobin: z.boolean(),

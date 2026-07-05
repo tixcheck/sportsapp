@@ -134,7 +134,7 @@ export default async function LeaguePage({
       </div>
 
       {/* Schedule */}
-      <Card>
+      <Card id="schedule" className="scroll-mt-4">
         <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
           <div>
             <CardTitle>Schedule</CardTitle>

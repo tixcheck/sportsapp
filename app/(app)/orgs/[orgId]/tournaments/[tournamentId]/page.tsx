@@ -124,6 +124,7 @@ export default async function TournamentPage({
     venue: t.venue ?? "",
     courts: t.courts,
     gamesPerTeam: t.gamesPerTeam,
+    minutesPerGame: t.minutesPerGame,
     formatId: findPresetId(t.sport, t.matchFormat),
     formatTemplate: t.formatTemplate,
     twoSetRoundRobin,
@@ -274,7 +275,7 @@ export default async function TournamentPage({
               </CardContent>
             </Card>
           )}
-          <Card>
+          <Card id="schedule" className="scroll-mt-4">
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle>Pool schedule</CardTitle>
