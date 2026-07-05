@@ -35,7 +35,7 @@ export async function Navbar() {
         <div className="flex items-center gap-3">
           {access.isPlatformAdmin && (
             <Link
-              href="/admin/organizer-requests"
+              href="/admin"
               className="text-muted-foreground hover:text-foreground relative text-sm font-medium"
             >
               Admin
