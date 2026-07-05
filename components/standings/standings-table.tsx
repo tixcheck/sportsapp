@@ -60,6 +60,12 @@ export function StandingsTable({
           <tr className="text-ink-2 border-ink border-b-[1.5px] text-[0.66rem] tracking-[0.1em] uppercase">
             <th className="w-10 px-2 pb-2 text-center font-bold">#</th>
             <th className="px-3 pb-2 text-left font-bold">Team</th>
+            <th
+              title="Games played / scheduled"
+              className="px-2 pb-2 text-center font-bold"
+            >
+              GP
+            </th>
             {cols.map((c) => (
               <th
                 key={c.key as string}
@@ -119,6 +125,10 @@ export function StandingsTable({
                   <MyTeamBadge className="ml-2" />
                 )}
               </td>
+              <td className="text-ink-2 px-2 text-center">
+                {r.mw + r.ml + r.mt}
+                <span className="text-ink-3">/{r.gamesScheduled}</span>
+              </td>
               {cols.map((c) => (
                 <td
                   key={c.key as string}
@@ -151,8 +161,8 @@ export function StandingsLegend({ className }: { className?: string }) {
         among tied teams, then set ratio (SW / SL), then point ratio (PF / PA).
       </p>
       <p className="text-ink-3">
-        MW/ML matches won/lost · T tied · SW/SL sets · PF/PA points · Ratio = PF
-        / PA
+        GP games played / scheduled · MW/ML matches won/lost · T tied · SW/SL
+        sets · PF/PA points · Ratio = PF / PA
       </p>
     </div>
   );

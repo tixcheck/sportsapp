@@ -41,6 +41,8 @@ export interface TiebreakerExplainer {
 export interface StandingsRowView extends StandingRow {
   teamName: string;
   withdrawn: boolean;
+  /** Total pool-play / season games scheduled for this team (any status). */
+  gamesScheduled: number;
   explainer: TiebreakerExplainer;
 }
 
@@ -147,6 +149,12 @@ type MatchRow = {
   home_team_id: string | null;
   away_team_id: string | null;
 };
+type ScheduledRow = {
+  pool_id: string | null;
+  bracket_position: number | null;
+  home_team_id: string | null;
+  away_team_id: string | null;
+};
 
 /**
  * Compute standings for a competition — one group for a league, one per pool for
@@ -184,6 +192,27 @@ export async function loadStandings(
     .eq("competition_id", competitionId)
     .eq("status", "completed");
   const matches = (matchesData ?? []) as MatchRow[];
+
+  // Every scheduled match (any status) to count each team's total games. Scoped
+  // to pool play / the season — bracket matches (bracket_position set) don't
+  // count toward the round-robin games-scheduled figure.
+  const { data: allMatchesData } = await supabase
+    .from("matches")
+    .select("pool_id, bracket_position, home_team_id, away_team_id")
+    .eq("competition_id", competitionId);
+  const allMatches = (allMatchesData ?? []) as ScheduledRow[];
+  const countScheduled = (
+    keep: (m: ScheduledRow) => boolean,
+  ): Map<string, number> => {
+    const counts = new Map<string, number>();
+    for (const m of allMatches) {
+      if (!keep(m)) continue;
+      for (const id of [m.home_team_id, m.away_team_id]) {
+        if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  };
 
   const matchIds = matches.map((m) => m.id);
   const { data: sets } = matchIds.length
@@ -232,12 +261,14 @@ export async function loadStandings(
   const rank = (
     teamIds: string[],
     results: MatchResult[],
+    scheduledByTeam: Map<string, number>,
   ): StandingsRowView[] => {
     const ranked = rankStandings(teamIds, results, droppedByTeam);
     return ranked.map((r) => ({
       ...r,
       teamName: teamName.get(r.teamId) ?? "—",
       withdrawn: isWithdrawn.get(r.teamId) ?? false,
+      gamesScheduled: scheduledByTeam.get(r.teamId) ?? 0,
       explainer: buildExplainer(r, ranked, results, teamName, droppedByTeam),
     }));
   };
@@ -247,13 +278,15 @@ export async function loadStandings(
     const results = matches
       .map(toResult)
       .filter((r): r is MatchResult => r !== null);
+    // Season games only (exclude the playoff bracket).
+    const scheduled = countScheduled((m) => m.bracket_position === null);
     return [
       {
         poolId: null,
         poolName: null,
         divisionId: null,
         divisionName: null,
-        rows: rank(teamIds, results),
+        rows: rank(teamIds, results, scheduled),
       },
     ];
   }
@@ -280,12 +313,13 @@ export async function loadStandings(
       .filter((m) => m.pool_id === p.id)
       .map(toResult)
       .filter((r): r is MatchResult => r !== null);
+    const scheduled = countScheduled((m) => m.pool_id === p.id);
     groups.push({
       poolId: p.id,
       poolName: p.name,
       divisionId: p.division_id,
       divisionName: p.division_id ? (divName.get(p.division_id) ?? null) : null,
-      rows: rank(teamIds, results),
+      rows: rank(teamIds, results, scheduled),
     });
   }
   return groups;
