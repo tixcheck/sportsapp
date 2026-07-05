@@ -25,12 +25,14 @@ export function LeaguePlayoffPanel({
   standings,
   hasBracket,
   seasonComplete,
+  courts,
 }: {
   competitionId: string;
   sport: Sport;
   standings: StandingsGroup[];
   hasBracket: boolean;
   seasonComplete: boolean;
+  courts?: number;
 }) {
   const [template, setTemplate] = useState<FormatTemplate>("single");
 
@@ -70,6 +72,7 @@ export function LeaguePlayoffPanel({
         dropsComplete={true}
         phaseLabel="The season"
         playoffFormat={{ sport, default: bestOf3Default(sport) }}
+        courts={courts}
       />
     </div>
   );

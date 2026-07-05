@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   assignBracketTimes,
-  bracketMatchCourt,
   bracketSlotKey,
   nextPowerOfTwo,
   seededBracketMatches,
@@ -12,6 +11,21 @@ import {
 const M = 60_000;
 const SLOT = 45 * M;
 const seeds = (n: number) => Array.from({ length: n }, (_, i) => `T${i + 1}`);
+
+// A fixed top/bottom-half court layout, so these ENGINE (timing) tests are
+// independent of the court-assignment rule: the top half of each round plays the
+// lower court, the bottom half the higher — a stable two-court arrangement.
+function halfCourt(
+  round: number,
+  position: number,
+  size: number,
+  pair: [number, number],
+): number | null {
+  const totalRounds = Math.log2(size);
+  if (round >= totalRounds) return null;
+  const positionsInRound = size / 2 ** round;
+  return position <= positionsInRound / 2 ? pair[0] : pair[1];
+}
 
 /** Build the timing inputs exactly as generateBracketAction does for a track. */
 function inputs(
@@ -24,7 +38,7 @@ function inputs(
     round: m.round,
     position: m.position,
     track,
-    court: bracketMatchCourt(m.round, m.position, size, pair),
+    court: halfCourt(m.round, m.position, size, pair),
   }));
 }
 

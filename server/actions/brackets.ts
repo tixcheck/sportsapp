@@ -24,20 +24,22 @@ export interface BracketSeeds {
   consolation?: string[];
 }
 
-/** The [lowerCourt, higherCourt] pair each track is laid out across. */
+/** The courts each track's matches are spread across (round-robin per round). */
 export interface BracketCourts {
-  championship: [number, number];
-  consolation: [number, number];
+  championship: number[];
+  consolation: number[];
 }
 
 const DEFAULT_COURTS: BracketCourts = {
-  championship: [1, 2],
-  consolation: [3, 4],
+  championship: [1, 2, 3],
+  consolation: [1, 2, 3],
 };
 
-function validPair(p: [number, number] | undefined): boolean {
+function validCourts(list: number[] | undefined): boolean {
   return (
-    !!p && p.every((n) => Number.isInteger(n) && n >= 1 && n <= 99) // sane range
+    !!list &&
+    list.length > 0 &&
+    list.every((n) => Number.isInteger(n) && n >= 1 && n <= 99)
   );
 }
 
@@ -104,7 +106,7 @@ export async function generateBracketAction(
     }
   }
 
-  if (!validPair(courts.championship) || !validPair(courts.consolation)) {
+  if (!validCourts(courts.championship) || !validCourts(courts.consolation)) {
     return { error: "Enter valid court numbers for the bracket." };
   }
 

@@ -128,46 +128,35 @@ function SizeStepper({
   );
 }
 
-/** A [lowerCourt, higherCourt] pair input for a bracket track. */
-function CourtPairInput({
+/** A comma-separated court-list input for a bracket track (e.g. "1, 2, 3"). */
+function CourtListInput({
   label,
   value,
   onChange,
 }: {
   label: string;
-  value: [number, number];
-  onChange: (v: [number, number]) => void;
+  value: number[];
+  onChange: (v: number[]) => void;
 }) {
-  const set = (i: 0 | 1, raw: string) => {
-    const n = Math.min(99, Math.max(1, parseInt(raw, 10) || 1));
-    const next: [number, number] = [value[0], value[1]];
-    next[i] = n;
-    onChange(next);
-  };
+  const [text, setText] = useState(value.join(", "));
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-medium">{label}</p>
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          min={1}
-          max={99}
-          value={value[0]}
-          onChange={(e) => set(0, e.target.value)}
-          className="w-16"
-          aria-label={`${label}: top-half court`}
-        />
-        <span className="text-muted-foreground text-sm">&amp;</span>
-        <Input
-          type="number"
-          min={1}
-          max={99}
-          value={value[1]}
-          onChange={(e) => set(1, e.target.value)}
-          className="w-16"
-          aria-label={`${label}: bottom-half court`}
-        />
-      </div>
+      <Input
+        value={text}
+        inputMode="numeric"
+        placeholder="1, 2, 3"
+        aria-label={label}
+        onChange={(e) => {
+          setText(e.target.value);
+          const parsed = e.target.value
+            .split(/[\s,]+/)
+            .map((s) => parseInt(s, 10))
+            .filter((n) => Number.isInteger(n) && n >= 1 && n <= 99);
+          onChange(parsed);
+        }}
+        className="w-40"
+      />
     </div>
   );
 }
@@ -181,6 +170,7 @@ export function GenerateBracketPanel({
   dropsComplete,
   phaseLabel = "Pool play",
   playoffFormat,
+  courts,
 }: {
   competitionId: string;
   pools: StandingsGroup[];
@@ -197,6 +187,8 @@ export function GenerateBracketPanel({
    * competition's format. Omit for tournaments (bracket uses the comp format).
    */
   playoffFormat?: { sport: Sport; default: string };
+  /** The competition's court count — the bracket defaults to using all of them. */
+  courts?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -240,10 +232,15 @@ export function GenerateBracketPanel({
   const [champOrder, setChampOrder] = useState<string[]>([]);
   const [consoOrder, setConsoOrder] = useState<string[]>([]);
 
-  // Court pair per track — top half of the bracket plays the lower court, the
-  // bottom half the higher; the final is left blank for the organizer.
-  const [champCourts, setChampCourts] = useState<[number, number]>([1, 2]);
-  const [consoCourts, setConsoCourts] = useState<[number, number]>([3, 4]);
+  // Courts per track — a round's games are spread across these (round-robin), so
+  // every court is used; the final is left blank for the organizer. Defaults to
+  // all of the competition's courts.
+  const allCourts =
+    courts && courts >= 1
+      ? Array.from({ length: courts }, (_, i) => i + 1)
+      : [1, 2, 3];
+  const [champCourts, setChampCourts] = useState<number[]>(allCourts);
+  const [consoCourts, setConsoCourts] = useState<number[]>(allCourts);
   useEffect(() => {
     if (!isDual) return;
     const { championship, consolation } = bracketSeedTracks(
@@ -468,13 +465,13 @@ export function GenerateBracketPanel({
 
       <div className="space-y-1.5">
         <div className="flex flex-wrap items-end gap-4">
-          <CourtPairInput
+          <CourtListInput
             label={isDual ? "Championship courts" : "Bracket courts"}
             value={champCourts}
             onChange={setChampCourts}
           />
           {isDual && consoOrder.length > 0 && (
-            <CourtPairInput
+            <CourtListInput
               label="Consolation courts"
               value={consoCourts}
               onChange={setConsoCourts}
@@ -482,8 +479,8 @@ export function GenerateBracketPanel({
           )}
         </div>
         <p className="text-muted-foreground text-xs">
-          Top half of the bracket plays the first court, the bottom half the
-          second; the final is left for you to set.
+          Each round&apos;s games are spread across these courts; the final is
+          left for you to set.
         </p>
       </div>
 

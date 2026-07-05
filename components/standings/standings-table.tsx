@@ -47,11 +47,23 @@ export function StandingsTable({
     );
   }
 
+  // Single-set play (one set per game): a team's sets won/lost always equal its
+  // matches won/lost, so the SW/SL columns are redundant — hide them (the game
+  // count lives in GP, and the meaningful tiebreaker is the point ratio). Detect
+  // it from the data so a mixed competition is handled per pool.
+  const played = rows.filter((r) => r.mw + r.ml + r.mt > 0);
+  const singleSet =
+    played.length > 0 &&
+    played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
+  const base = singleSet
+    ? STAT_COLS.filter((c) => c.key !== "sw" && c.key !== "sl")
+    : STAT_COLS;
+
   // Show the Tied column only for formats that can tie (2-set games); a
   // best-of-3 pool/league has no ties, so its table is unchanged.
   const cols = rows.some((r) => r.mt > 0)
-    ? [STAT_COLS[0], TIE_COL, ...STAT_COLS.slice(1)]
-    : STAT_COLS;
+    ? [base[0], TIE_COL, ...base.slice(1)]
+    : base;
 
   return (
     <div className="overflow-x-auto">
@@ -152,17 +164,28 @@ export function StandingsTable({
  * The ranking-rules note + column legend. Mirrors the OVA hierarchy in
  * lib/scheduler/tiebreakers.ts — keep the order here in sync with it.
  */
-export function StandingsLegend({ className }: { className?: string }) {
+export function StandingsLegend({
+  className,
+  singleSet = false,
+}: {
+  className?: string;
+  /** One set per game: drop the set-ratio step and the SW/SL legend. */
+  singleSet?: boolean;
+}) {
   return (
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
       <p>
-        <span className="font-semibold">How rankings are calculated:</span> by
-        matches won (a tied 2-set game counts as ½ a win), then head-to-head
-        among tied teams, then set ratio (SW / SL), then point ratio (PF / PA).
+        <span className="font-semibold">How rankings are calculated:</span> by{" "}
+        {singleSet ? "games" : "matches"} won
+        {singleSet ? "" : " (a tied 2-set game counts as ½ a win)"}, then
+        head-to-head among tied teams,
+        {singleSet ? "" : " then set ratio (SW / SL),"} then point ratio (PF /
+        PA).
       </p>
       <p className="text-ink-3">
-        GP games played / scheduled · MW/ML matches won/lost · T tied · SW/SL
-        sets · PF/PA points · Ratio = PF / PA
+        GP games played / scheduled · MW/ML {singleSet ? "games" : "matches"}{" "}
+        won/lost · T tied ·{singleSet ? "" : " SW/SL sets ·"} PF/PA points ·
+        Ratio = PF / PA
       </p>
     </div>
   );
@@ -188,6 +211,12 @@ export function StandingsGroups({
       </p>
     );
   }
+  const played = groups.flatMap((g) =>
+    g.rows.filter((r) => r.mw + r.ml + r.mt > 0),
+  );
+  const singleSet =
+    played.length > 0 &&
+    played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
   return (
     <div className="space-y-6">
       {groups.map((g) => (
@@ -203,7 +232,7 @@ export function StandingsGroups({
           <StandingsTable rows={g.rows} myTeamIds={myTeamIds} />
         </section>
       ))}
-      <StandingsLegend />
+      <StandingsLegend singleSet={singleSet} />
     </div>
   );
 }

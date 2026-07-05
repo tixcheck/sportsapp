@@ -352,6 +352,7 @@ export default async function TournamentPage({
               pools={standings}
               hasBracket={brackets.length > 0}
               poolPlayComplete={poolPlayComplete}
+              courts={t.courts}
             />
             {brackets.map((b) => (
               <div key={b.track ?? "single"} className="space-y-3">

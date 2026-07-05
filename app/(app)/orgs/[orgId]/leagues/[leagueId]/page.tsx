@@ -197,6 +197,7 @@ export default async function LeaguePage({
               standings={standings}
               hasBracket={brackets.length > 0}
               seasonComplete={seasonComplete}
+              courts={league.courts}
             />
             {brackets.map((b) => (
               <div key={b.track ?? "single"} className="space-y-3">
