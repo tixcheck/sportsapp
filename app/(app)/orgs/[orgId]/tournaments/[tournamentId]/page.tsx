@@ -14,7 +14,12 @@ import {
 } from "@/server/actions/organizers";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getOrigin } from "@/lib/utils/url";
-import { SPORTS, describeFormat, findPresetId } from "@/lib/formats";
+import {
+  SPORTS,
+  describeFormat,
+  findPresetId,
+  poolBasePresetId,
+} from "@/lib/formats";
 import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
@@ -126,7 +131,8 @@ export default async function TournamentPage({
     courts: t.courts,
     gamesPerTeam: t.gamesPerTeam,
     minutesPerGame: t.minutesPerGame,
-    formatId: findPresetId(t.sport, t.matchFormat),
+    formatId: poolBasePresetId(t.sport, t.poolFormat),
+    bracketFormatId: findPresetId(t.sport, t.matchFormat),
     formatTemplate: t.formatTemplate,
     twoSetRoundRobin,
   };

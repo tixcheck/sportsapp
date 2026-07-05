@@ -22,10 +22,12 @@ export const createTournamentSchema = z
     gamesPerTeam: z.number().int().min(1, "At least 1 game.").max(12),
     // Minutes to allow per game when spacing the schedule (null = estimate).
     minutesPerGame: z.number().int().min(5).max(120).nullable(),
+    // Pool-play format preset; the bracket has its own (bracketFormatId).
     formatId: z.string().min(1),
+    bracketFormatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
-    // Pool play: true = a fixed 2-set game (ties allowed); false = best-of-3.
-    // Bracket always uses the standard best-of-3 format.
+    // Pool play: true = a fixed 2-set game (ties allowed); false = the base
+    // preset played as-is.
     twoSetRoundRobin: z.boolean(),
     // datetime-local string (interpreted in the tournament's timezone server-side)
     registrationDeadline: z.string().min(1, "Set a registration deadline."),
@@ -65,6 +67,7 @@ export const editTournamentSchema = z
     gamesPerTeam: z.number().int().min(1, "At least 1 game.").max(12),
     minutesPerGame: z.number().int().min(5).max(120).nullable(),
     formatId: z.string().min(1),
+    bracketFormatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
     twoSetRoundRobin: z.boolean(),
   })

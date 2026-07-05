@@ -48,6 +48,7 @@ export async function createTournamentAction(
   const slug = uniqueSlug(base, new Set((existing ?? []).map((r) => r.slug)));
 
   const preset = findPreset(v.sport as Sport, v.formatId);
+  const bracketPreset = findPreset(v.sport as Sport, v.bracketFormatId);
   const deadlineIso = DateTime.fromISO(v.registrationDeadline, {
     zone: DEFAULT_TIMEZONE,
   }).toISO();
@@ -67,7 +68,8 @@ export async function createTournamentAction(
       end_time: v.endTime,
       venue: v.venue || null,
       timezone: DEFAULT_TIMEZONE,
-      match_format: preset.format,
+      // match_format is the BRACKET format; pool play uses pool_format below.
+      match_format: bracketPreset.format,
       visibility: "private",
       allow_captain_entry: v.allowCaptainEntry,
       allow_ref_entry: v.allowRefEntry,
@@ -88,8 +90,8 @@ export async function createTournamentAction(
       target_games_per_team: v.gamesPerTeam,
       minutes_per_game: v.minutesPerGame,
       courts: v.courts,
-      // Pool play uses the chosen RR format; the bracket keeps the standard
-      // best-of-3 (competition match_format) regardless.
+      // Pool play uses the chosen pool format (2-set variant when opted in); the
+      // bracket uses the separate bracket format (competition match_format).
       pool_format: v.twoSetRoundRobin
         ? toTwoSetFormat(preset.format)
         : preset.format,
@@ -161,16 +163,25 @@ export async function updateTournamentSettingsAction(
     .eq("type", "tournament")
     .single();
   if (!comp) return { error: "Tournament not found." };
+  const { data: oldSettings } = await supabase
+    .from("tournament_settings")
+    .select("pool_format")
+    .eq("competition_id", competitionId)
+    .single();
 
   const preset = findPreset(comp.sport as Sport, v.formatId);
+  const bracketPreset = findPreset(comp.sport as Sport, v.bracketFormatId);
   const newPoolFormat = v.twoSetRoundRobin
     ? toTwoSetFormat(preset.format)
     : preset.format;
 
-  // Guard: once scores exist, the format + sets are frozen (a change could make
-  // recorded results invalid). Safe fields below still save.
+  // Guard: once scores exist, the pool + bracket formats are frozen (a change
+  // could make recorded results invalid). Safe fields below still save.
   const formatChanged =
-    JSON.stringify(comp.match_format) !== JSON.stringify(preset.format);
+    JSON.stringify(comp.match_format) !==
+      JSON.stringify(bracketPreset.format) ||
+    JSON.stringify(oldSettings?.pool_format ?? null) !==
+      JSON.stringify(newPoolFormat);
   if (formatChanged && (await competitionHasScores(supabase, competitionId))) {
     return {
       error:
@@ -187,7 +198,7 @@ export async function updateTournamentSettingsAction(
       start_time: v.startTime,
       end_time: v.endTime,
       venue: v.venue || null,
-      match_format: preset.format,
+      match_format: bracketPreset.format,
     })
     .eq("id", competitionId);
   if (compErr) return { error: compErr.message };

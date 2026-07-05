@@ -162,11 +162,25 @@ export function EditTournamentSettingsDialog({
             </select>
           </Field>
 
-          <Field label="Match format" error={errors.formatId?.message}>
+          <Field label="Pool format" error={errors.formatId?.message}>
             <select
               className={selectClass}
               disabled={hasScores}
               {...register("formatId")}
+            >
+              {FORMAT_PRESETS[sport].map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Bracket format" error={errors.bracketFormatId?.message}>
+            <select
+              className={selectClass}
+              disabled={hasScores}
+              {...register("bracketFormatId")}
             >
               {FORMAT_PRESETS[sport].map((p) => (
                 <option key={p.id} value={p.id}>
@@ -182,7 +196,7 @@ export function EditTournamentSettingsDialog({
               disabled={hasScores}
               {...register("twoSetRoundRobin")}
             />
-            Pool games are 2 sets (can tie 1–1) instead of best-of-3
+            Pool games are 2 sets (can tie 1–1) instead of the pool format as-is
           </label>
 
           {hasScores && (

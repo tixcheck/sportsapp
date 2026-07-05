@@ -150,6 +150,33 @@ export function defaultPoolPreset(sport: Sport): FormatPreset {
   return presets.find((p) => p.id.includes("pool")) ?? presets[0];
 }
 
+/** Default bracket format — the sport's best-of-3 preset, else the default. */
+export function defaultBracketPreset(sport: Sport): FormatPreset {
+  return (
+    FORMAT_PRESETS[sport].find((p) => p.format.bestOf === 3) ??
+    defaultPreset(sport)
+  );
+}
+
+/**
+ * The preset id for a pool format, recovering the base even when the pool is a
+ * 2-set variant (toTwoSetFormat of a base preset) — so the edit form re-selects
+ * the right base + "2 sets" toggle.
+ */
+export function poolBasePresetId(
+  sport: Sport,
+  poolFormat: MatchFormat,
+): string {
+  if (poolFormat.bestOf % 2 === 0) {
+    const match = FORMAT_PRESETS[sport].find(
+      (p) =>
+        JSON.stringify(toTwoSetFormat(p.format)) === JSON.stringify(poolFormat),
+    );
+    if (match) return match.id;
+  }
+  return findPresetId(sport, poolFormat);
+}
+
 export function findPreset(sport: Sport, id: string): FormatPreset {
   return FORMAT_PRESETS[sport].find((p) => p.id === id) ?? defaultPreset(sport);
 }

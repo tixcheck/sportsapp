@@ -14,6 +14,7 @@ import {
   FORMAT_PRESETS,
   SPORTS,
   defaultPoolPreset,
+  defaultBracketPreset,
   type Sport,
 } from "@/lib/formats";
 import { TOURNAMENT_FORMATS } from "@/lib/tournament-formats";
@@ -38,7 +39,7 @@ const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
   ],
   ["divisions"],
   ["formatTemplate"],
-  ["formatId", "registrationDeadline"],
+  ["formatId", "bracketFormatId", "registrationDeadline"],
   [],
 ];
 const STEP_TITLES = [
@@ -69,6 +70,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       gamesPerTeam: 3,
       minutesPerGame: null,
       formatId: defaultPoolPreset("beach2").id,
+      bracketFormatId: defaultBracketPreset("beach2").id,
       formatTemplate: "single",
       twoSetRoundRobin: false,
       registrationDeadline: "",
@@ -148,6 +150,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                 onClick={() => {
                   setValue("sport", s.value);
                   setValue("formatId", defaultPoolPreset(s.value).id);
+                  setValue("bracketFormatId", defaultBracketPreset(s.value).id);
                 }}
                 className={cn(
                   "flex items-center justify-between rounded-lg border p-4 text-left transition-colors",
@@ -317,7 +320,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
         {step === 4 && (
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label>Match format</Label>
+              <Label>Pool format</Label>
               {FORMAT_PRESETS[sport].map((p) => {
                 const selected = watch("formatId") === p.id;
                 return (
@@ -348,10 +351,34 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                 <span>
                   Pool games are{" "}
                   <strong className="text-foreground">2 sets</strong> (can end
-                  1–1, a tie). Leave off for best-of-3. The bracket always plays
-                  best-of-3.
+                  1–1, a tie). Leave off to play the pool format as-is.
                 </span>
               </label>
+            </div>
+            <div className="grid gap-2">
+              <Label>Bracket format</Label>
+              <p className="text-muted-foreground text-xs">
+                The playoff bracket can differ from pool play — e.g. best-of-3
+                even if pools are a single set.
+              </p>
+              {FORMAT_PRESETS[sport].map((p) => {
+                const selected = watch("bracketFormatId") === p.id;
+                return (
+                  <button
+                    type="button"
+                    key={p.id}
+                    onClick={() => setValue("bracketFormatId", p.id)}
+                    className={cn(
+                      "rounded-lg border p-3 text-left text-sm transition-colors",
+                      selected
+                        ? "border-primary bg-accent text-accent-foreground"
+                        : "border-border bg-surface hover:bg-muted",
+                    )}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
             </div>
             <Field
               label="Registration deadline"
