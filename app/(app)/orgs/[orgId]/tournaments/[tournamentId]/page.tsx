@@ -29,6 +29,7 @@ import {
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { DropSelectionCard } from "@/components/tournament/drop-selection-card";
 import { StandingsGroups } from "@/components/standings/standings-table";
+import { ScheduleMatrix } from "@/components/tournament/schedule-matrix";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
@@ -297,6 +298,21 @@ export default async function TournamentPage({
                 matches={poolsView.schedule}
                 timezone={t.timezone}
                 editable
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Matchup grid</CardTitle>
+              <CardDescription>
+                Who plays whom — a ✓ marks a scheduled game. GP is each
+                team&apos;s game count.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScheduleMatrix
+                divisions={poolsView.divisions}
+                showDivisionHeadings={t.divisions.length > 1}
               />
             </CardContent>
           </Card>

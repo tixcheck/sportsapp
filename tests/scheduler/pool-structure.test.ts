@@ -251,6 +251,29 @@ describe("single pool spreads across courts (waves)", () => {
     expect(slots.every((s) => s.refTeamId !== null)).toBe(true);
   });
 
+  it("balances each team's wait between games (even rest across waves)", () => {
+    const slots = layoutPoolSchedule(onePool(seeded(12)), 3);
+    // The waves (time slots) each team plays in.
+    const wavesByTeam = new Map<string, number[]>();
+    for (const s of slots) {
+      for (const id of [s.homeTeamId, s.awayTeamId]) {
+        const list = wavesByTeam.get(id) ?? [];
+        list.push(s.slot);
+        wavesByTeam.set(id, list);
+      }
+    }
+    // With 6 of 12 teams playing per wave, a balanced schedule has every team
+    // resting ~1 wave between games — so no gap should exceed 3 waves.
+    let maxGap = 0;
+    for (const waves of wavesByTeam.values()) {
+      const sorted = [...waves].sort((a, b) => a - b);
+      for (let i = 1; i < sorted.length; i++) {
+        maxGap = Math.max(maxGap, sorted[i] - sorted[i - 1]);
+      }
+    }
+    expect(maxGap).toBeLessThanOrEqual(3);
+  });
+
   it("keeps the single-court layout for a small pool (reffing preserved)", () => {
     // A pool of 4: floor(4/3)=1 court of spread → falls back to the
     // rest-optimized single-court block layout (all on court 1).

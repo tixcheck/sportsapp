@@ -300,33 +300,66 @@ export function layoutPoolSchedule(
 }
 
 /**
- * Lay a single pool across `courts` courts as timed waves. Each circle-method
- * pairing round is a set of team-disjoint games; we run up to `courts` of them at
- * once (one wave = one time slot on courts 1..K), spilling a round that has more
- * games than courts into the next wave. So 12 teams on 3 courts → 6 games/round →
- * 2 waves of 3 concurrent games, using every court.
+ * Lay a single pool across `courts` courts as timed waves (one wave = one time
+ * slot running up to `courts` team-disjoint games at once), using every court.
  *
- * Reffing is wave-crossover: the teams sitting out a wave referee it (the second
- * wave of a round is exactly the teams the first wave benched, and vice-versa),
- * balanced. `courts` is pre-capped by the caller to n/3 so every wave has enough
- * idle teams to referee; if a wave ever leaves nobody free, its refs are null.
+ * Waves are filled to BALANCE each team's wait: at every wave the games whose
+ * teams have waited longest are placed first (a greedy "longest-waiting first"
+ * pack), rather than the raw circle-method round order — which would leave some
+ * teams playing back-to-back while others idle. This keeps every team's rest
+ * between games as even as possible (≈ one game every ⌈n/2⌉/courts waves).
+ *
+ * Reffing is wave-crossover: the teams sitting out a wave referee it, balanced.
+ * `courts` is pre-capped by the caller to n/3 so every wave has enough idle teams
+ * to referee; if a wave ever leaves nobody free, its refs are null.
  */
 function spreadSinglePool(
   pool: LayoutPool,
   courts: number,
 ): ScheduledPoolMatch[] {
-  const waves: { round: number; homeTeamId: TeamId; awayTeamId: TeamId }[][] =
-    [];
-  for (const r of pool.rounds) {
-    for (let i = 0; i < r.pairs.length; i += courts) {
-      waves.push(
-        r.pairs.slice(i, i + courts).map((p) => ({
-          round: r.round,
-          homeTeamId: p.homeTeamId,
-          awayTeamId: p.awayTeamId,
-        })),
-      );
+  type WaveMatch = { round: number; homeTeamId: TeamId; awayTeamId: TeamId };
+  let remaining: WaveMatch[] = pool.rounds.flatMap((r) =>
+    r.pairs.map((p) => ({
+      round: r.round,
+      homeTeamId: p.homeTeamId,
+      awayTeamId: p.awayTeamId,
+    })),
+  );
+
+  const waves: WaveMatch[][] = [];
+  const lastWave = new Map<TeamId, number>(); // last wave a team played (−1 = none)
+  const restOf = (id: TeamId, wave: number) => wave - (lastWave.get(id) ?? -1);
+
+  while (remaining.length > 0) {
+    const wave = waves.length;
+    // Relieve the longest-waiting team first: rank each game by its most-rested
+    // team (max, not min — a game whose one team is fresh shouldn't stall the
+    // other team who has waited). Ties keep the original round order.
+    const order = remaining
+      .map((m, i) => ({
+        m,
+        i,
+        rest: Math.max(restOf(m.homeTeamId, wave), restOf(m.awayTeamId, wave)),
+      }))
+      .sort((a, b) => b.rest - a.rest || a.i - b.i);
+
+    const busy = new Set<TeamId>();
+    const picked = new Set<number>();
+    const thisWave: WaveMatch[] = [];
+    for (const { m, i } of order) {
+      if (thisWave.length >= courts) break;
+      if (busy.has(m.homeTeamId) || busy.has(m.awayTeamId)) continue;
+      thisWave.push(m);
+      picked.add(i);
+      busy.add(m.homeTeamId);
+      busy.add(m.awayTeamId);
     }
+    for (const m of thisWave) {
+      lastWave.set(m.homeTeamId, wave);
+      lastWave.set(m.awayTeamId, wave);
+    }
+    waves.push(thisWave);
+    remaining = remaining.filter((_, i) => !picked.has(i));
   }
 
   const refs = assignWaveRefs(pool.teamIds, waves);
