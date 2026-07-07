@@ -246,6 +246,10 @@ export const competitions = pgTable(
     requireConfirmation: boolean("require_confirmation")
       .notNull()
       .default(false),
+    // Re-seeding playoff bracket: the entrant team ids in seed order (1st = top).
+    // Non-null = the bracket re-seeds each round (highest surviving seed plays
+    // the lowest), built round-by-round; null = a standard fixed-tree bracket.
+    bracketReseedSeeds: jsonb("bracket_reseed_seeds").$type<string[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

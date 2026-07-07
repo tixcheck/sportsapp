@@ -6,6 +6,7 @@ import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
+import { getReseedBracket } from "@/lib/queries/reseed-bracket";
 import { getDropState } from "@/lib/queries/drops";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
 import {
@@ -32,6 +33,7 @@ import {
   BracketTree,
   toBracketScheduleMatch,
 } from "@/components/bracket/bracket-tree";
+import { ReseedBracket } from "@/components/bracket/reseed-bracket";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { DropSelectionCard } from "@/components/tournament/drop-selection-card";
 import { StandingsGroups } from "@/components/standings/standings-table";
@@ -57,16 +59,25 @@ export default async function TournamentPage({
   const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
-  const [origin, poolsView, standings, brackets, dropState, rosters, coOrgs] =
-    await Promise.all([
-      getOrigin(),
-      getPoolsView(tournamentId),
-      getStandings(tournamentId),
-      getBrackets(tournamentId),
-      getDropState(tournamentId),
-      getTeamRosters(tournamentId),
-      getCompetitionAdmins(tournamentId),
-    ]);
+  const [
+    origin,
+    poolsView,
+    standings,
+    brackets,
+    reseedBracket,
+    dropState,
+    rosters,
+    coOrgs,
+  ] = await Promise.all([
+    getOrigin(),
+    getPoolsView(tournamentId),
+    getStandings(tournamentId),
+    getBrackets(tournamentId),
+    getReseedBracket(tournamentId),
+    getDropState(tournamentId),
+    getTeamRosters(tournamentId),
+    getCompetitionAdmins(tournamentId),
+  ]);
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
     poolMatches.length > 0 &&
@@ -361,25 +372,34 @@ export default async function TournamentPage({
               formatTemplate={t.formatTemplate}
               dropsComplete={dropState.complete}
               pools={standings}
-              hasBracket={brackets.length > 0}
+              hasBracket={brackets.length > 0 || !!reseedBracket}
               poolPlayComplete={poolPlayComplete}
               courts={t.courts}
+              allowReseed
             />
-            {brackets.map((b) => (
-              <div key={b.track ?? "single"} className="space-y-3">
-                {b.label && (
-                  <h4 className="font-display text-lg font-semibold">
-                    {b.label}
-                  </h4>
-                )}
-                <BracketTree
-                  bracket={b.view}
-                  editable
-                  timezone={t.timezone}
-                  allMatches={allScheduleMatches}
-                />
-              </div>
-            ))}
+            {reseedBracket ? (
+              <ReseedBracket
+                bracket={reseedBracket}
+                editable
+                timezone={t.timezone}
+              />
+            ) : (
+              brackets.map((b) => (
+                <div key={b.track ?? "single"} className="space-y-3">
+                  {b.label && (
+                    <h4 className="font-display text-lg font-semibold">
+                      {b.label}
+                    </h4>
+                  )}
+                  <BracketTree
+                    bracket={b.view}
+                    editable
+                    timezone={t.timezone}
+                    allMatches={allScheduleMatches}
+                  />
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       )}

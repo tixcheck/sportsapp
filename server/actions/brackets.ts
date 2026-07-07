@@ -14,6 +14,7 @@ import {
 } from "@/lib/scheduler/bracket";
 import { estimateMatchMinutes } from "@/lib/formats";
 import { teamsMissingDrops } from "@/lib/standings/drops";
+import { generateReseedBracket } from "@/lib/bracket/reseed";
 import type { MatchFormat } from "@/lib/db/schema";
 
 type ActionError = { error: string };
@@ -62,6 +63,11 @@ export async function generateBracketAction(
    * resolve to the competition's format, as before.
    */
   bracketFormatOverride?: MatchFormat | null,
+  /**
+   * Re-seeding bracket: each round re-ranks survivors by seed and pairs highest
+   * vs lowest, built round-by-round. Only for a single bracket (not dual).
+   */
+  reseed = false,
 ): Promise<ActionError | { matchCount: number }> {
   const supabase = await createClient();
   const {
@@ -196,6 +202,29 @@ export async function generateBracketAction(
     startDt && startDt.isValid
       ? Math.ceil(startDt.toMillis() / QUARTER) * QUARTER
       : null;
+
+  // Re-seeding bracket (single only): persist the seed order + create round 1;
+  // later rounds are built as each round finishes (advanceReseedBracket).
+  if (reseed) {
+    const res = await generateReseedBracket(
+      supabase,
+      {
+        competitionId,
+        courts: courts.championship,
+        bracketFormat: bracketFormatOverride ?? null,
+        startMs,
+        slotMinutes: bracketSlotMin,
+      },
+      championship,
+    );
+    if ("error" in res) return res;
+    return { matchCount: res.matchCount };
+  }
+  // Fixed tree: make sure any prior re-seed marker is cleared.
+  await supabase
+    .from("competitions")
+    .update({ bracket_reseed_seeds: null })
+    .eq("id", competitionId);
 
   // Stamp each match's court by the top/bottom-half rule, per track (a single
   // bracket uses the championship pair; the final's court is left blank), and an

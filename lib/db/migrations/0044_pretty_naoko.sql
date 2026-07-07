@@ -1,0 +1,1 @@
+ALTER TABLE "competitions" ADD COLUMN "bracket_reseed_seeds" jsonb;

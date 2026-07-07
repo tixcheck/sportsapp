@@ -171,6 +171,7 @@ export function GenerateBracketPanel({
   phaseLabel = "Pool play",
   playoffFormat,
   courts,
+  allowReseed = false,
 }: {
   competitionId: string;
   pools: StandingsGroup[];
@@ -189,12 +190,16 @@ export function GenerateBracketPanel({
   playoffFormat?: { sport: Sport; default: string };
   /** The competition's court count — the bracket defaults to using all of them. */
   courts?: number;
+  /** Offer the re-seeding bracket option (single bracket only). */
+  allowReseed?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   // Bracket match format (league playoffs only). "" = match the season format.
   const [formatId, setFormatId] = useState(playoffFormat?.default ?? "");
+  // Re-seed each round (single bracket only): highest survivor plays lowest.
+  const [reseed, setReseed] = useState(false);
 
   const poolRows = pools.map((g) => g.rows);
   const nameById = new Map(
@@ -282,6 +287,7 @@ export function GenerateBracketPanel({
           consolation: consoCourts,
         },
         bracketFormat,
+        !isDual && reseed,
       );
       if ("error" in res) {
         toast.error(res.error);
@@ -461,6 +467,23 @@ export function GenerateBracketPanel({
             best-of-3 playoffs off a single-set season.
           </p>
         </div>
+      )}
+
+      {allowReseed && !isDual && (
+        <label className="border-border bg-surface flex items-start gap-2 rounded-lg border p-3 text-sm">
+          <input
+            type="checkbox"
+            className="accent-primary mt-0.5 size-4"
+            checked={reseed}
+            onChange={(e) => setReseed(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Re-seed each round.</span> After every
+            round the surviving teams are re-ranked by seed and the highest
+            plays the lowest (1 v 6, 2 v 5, …). Built round-by-round, so later
+            rounds appear as each one finishes.
+          </span>
+        </label>
       )}
 
       <div className="space-y-1.5">

@@ -11,6 +11,7 @@ import {
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
 import { advanceBracketWinner } from "@/lib/bracket/advance";
+import { advanceReseedBracket } from "@/lib/bracket/reseed";
 
 /**
  * Post-completion side effects: advance the bracket if this is a bracket match,
@@ -23,7 +24,18 @@ async function onMatchCompleted(
   bracketPosition: number | null,
 ): Promise<void> {
   if (bracketPosition !== null) {
-    await advanceBracketWinner(supabase, matchId);
+    // Re-seed bracket → build the next round once the round completes; a fixed
+    // bracket → advance the winner into its predetermined slot.
+    const { data: comp } = await supabase
+      .from("competitions")
+      .select("bracket_reseed_seeds")
+      .eq("id", competitionId)
+      .single();
+    if (comp?.bracket_reseed_seeds) {
+      await advanceReseedBracket(supabase, competitionId);
+    } else {
+      await advanceBracketWinner(supabase, matchId);
+    }
   } else {
     await recomputeStandings(supabase, competitionId);
   }
