@@ -26,6 +26,7 @@ import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-te
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { RebalanceRefsButton } from "@/components/tournament/rebalance-refs-button";
 import { ReoptimizeScheduleButton } from "@/components/tournament/reoptimize-schedule-button";
+import { RetimeScheduleDialog } from "@/components/tournament/retime-schedule-dialog";
 import { GenerateBracketPanel } from "@/components/tournament/generate-bracket-panel";
 import {
   BracketTree,
@@ -287,6 +288,10 @@ export default async function TournamentPage({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle>Pool schedule</CardTitle>
                 <div className="flex flex-wrap items-center gap-2">
+                  <RetimeScheduleDialog
+                    competitionId={t.id}
+                    currentMinutes={t.minutesPerGame}
+                  />
                   <ReoptimizeScheduleButton competitionId={t.id} />
                   <RebalanceRefsButton competitionId={t.id} />
                 </div>

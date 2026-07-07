@@ -356,6 +356,80 @@ export async function rebalanceRefsAction(
 }
 
 /**
+ * Re-space the pool schedule to a new per-game length, in place — pairings,
+ * courts, refs, and scores are untouched; only the start times change. Each
+ * distinct start time is a wave; waves keep their order and the earliest start,
+ * and the gap between them becomes `minutesPerGame`. Also saves the new game
+ * length so a later regenerate uses it too.
+ */
+export async function retimePoolScheduleAction(
+  competitionId: string,
+  minutesPerGame: number,
+): Promise<ActionError | { updated: number; waves: number }> {
+  if (
+    !Number.isInteger(minutesPerGame) ||
+    minutesPerGame < 5 ||
+    minutesPerGame > 120
+  ) {
+    return { error: "Enter a game length between 5 and 120 minutes." };
+  }
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can retime the schedule." };
+  }
+
+  await supabase
+    .from("tournament_settings")
+    .update({ minutes_per_game: minutesPerGame })
+    .eq("competition_id", competitionId);
+
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("id, scheduled_at")
+    .eq("competition_id", competitionId)
+    .not("pool_id", "is", null)
+    .not("scheduled_at", "is", null);
+  const rows = (matches ?? []).filter((m) => m.scheduled_at);
+  if (rows.length === 0) {
+    return { error: "No scheduled pool games to retime yet." };
+  }
+
+  // Distinct start times, in order, are the waves. Re-space by rank so the order
+  // and the first game's start are preserved and the interval becomes the new
+  // game length. Group by match id (not time value) so updates never collide.
+  const times = [...new Set(rows.map((m) => m.scheduled_at as string))].sort();
+  const baseMs = new Date(times[0]).getTime();
+  const rankOf = new Map(times.map((t, i) => [t, i]));
+  const step = minutesPerGame * 60_000;
+
+  const idsByRank = new Map<number, string[]>();
+  for (const m of rows) {
+    const rank = rankOf.get(m.scheduled_at as string)!;
+    const list = idsByRank.get(rank) ?? [];
+    list.push(m.id as string);
+    idsByRank.set(rank, list);
+  }
+
+  let updated = 0;
+  for (const [rank, ids] of idsByRank) {
+    const iso = new Date(baseMs + rank * step).toISOString();
+    const { error } = await supabase
+      .from("matches")
+      .update({ scheduled_at: iso })
+      .in("id", ids);
+    if (error) return { error: error.message };
+    updated += ids.length;
+  }
+
+  revalidatePath("/orgs");
+  return { updated, waves: times.length };
+}
+
+/**
  * Non-destructively re-optimize the pool schedule (smart-scheduling slice 3):
  * even out wait times and, when nothing has been played yet, repack courts to
  * cut idle time. Scores are preserved — any in-progress/completed/scored match
