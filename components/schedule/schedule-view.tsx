@@ -9,6 +9,7 @@ import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
 import { MatchCard } from "./match-card";
 import { RescheduleDialog } from "./reschedule-dialog";
+import { ActivityStrip, teamTimeline } from "./team-timeline";
 
 type Group = {
   key: string;
@@ -64,7 +65,7 @@ function groupByDate(matches: ScheduleMatch[], tz: string): Group[] {
  * Group by team: every team's own games (home + away), sorted by time. A match
  * appears under both its teams — this is each team's personal schedule.
  */
-function groupByTeam(matches: ScheduleMatch[]): Group[] {
+function groupByTeam(matches: ScheduleMatch[], pinned: string[]): Group[] {
   const map = new Map<string, { name: string; matches: ScheduleMatch[] }>();
   const add = (id: string | null, name: string | null, m: ScheduleMatch) => {
     if (!id) return;
@@ -75,8 +76,14 @@ function groupByTeam(matches: ScheduleMatch[]): Group[] {
     add(m.homeTeamId, m.homeTeamName, m);
     add(m.awayTeamId, m.awayTeamName, m);
   }
+  const pinnedSet = new Set(pinned);
   return [...map.entries()]
-    .sort((a, b) => a[1].name.localeCompare(b[1].name))
+    .sort(
+      (a, b) =>
+        // Bookmarked / my teams float to the top, then alphabetical.
+        Number(pinnedSet.has(b[0])) - Number(pinnedSet.has(a[0])) ||
+        a[1].name.localeCompare(b[1].name),
+    )
     .map(([id, { name, matches: ms }]) => ({
       key: `team:${id}`,
       heading: name,
@@ -97,66 +104,6 @@ function courtRank(court: string): number {
 function startMillis(m: ScheduleMatch): number {
   return m.scheduledAt ? DateTime.fromISO(m.scheduledAt).toMillis() : Infinity;
 }
-
-type TeamActivity = "play" | "ref" | "off";
-
-interface TimelineRound {
-  round: number;
-  activity: TeamActivity;
-  /** The play or ref match this round (null on an OFF round). */
-  match: ScheduleMatch | null;
-}
-
-/**
- * A team's per-round day: Play (they have a game), Ref (they officiate), or OFF
- * (resting) for each round from their first activity to their last. Trimmed to
- * that window so leading/trailing empties aren't shown — the OFFs that remain
- * are real breaks between duties. Rounds are the shared time slots (teams on
- * different courts share a round), so this reads left-to-right as their day.
- */
-function teamTimeline(
-  teamId: string,
-  matches: ScheduleMatch[],
-): TimelineRound[] {
-  const byRound = new Map<
-    number,
-    { play?: ScheduleMatch; ref?: ScheduleMatch }
-  >();
-  for (const m of matches) {
-    const r = m.round ?? 0;
-    if (r <= 0) continue;
-    const e = byRound.get(r) ?? {};
-    if (m.homeTeamId === teamId || m.awayTeamId === teamId) e.play = m;
-    else if (m.refTeamId === teamId) e.ref = m;
-    byRound.set(r, e);
-  }
-  const ordered = [...byRound.keys()].sort((a, b) => a - b);
-  const active = ordered.filter(
-    (r) => byRound.get(r)?.play || byRound.get(r)?.ref,
-  );
-  if (active.length === 0) return [];
-  const first = active[0];
-  const last = active[active.length - 1];
-  return ordered
-    .filter((r) => r >= first && r <= last)
-    .map((r): TimelineRound => {
-      const e = byRound.get(r);
-      if (e?.play) return { round: r, activity: "play", match: e.play };
-      if (e?.ref) return { round: r, activity: "ref", match: e.ref };
-      return { round: r, activity: "off", match: null };
-    });
-}
-
-const ACTIVITY_STYLE: Record<TeamActivity, string> = {
-  play: "border-primary bg-primary text-primary-foreground",
-  ref: "border-amber-400 bg-amber-100 text-amber-800",
-  off: "border-border bg-muted text-muted-foreground",
-};
-const ACTIVITY_LABEL: Record<TeamActivity, string> = {
-  play: "Play",
-  ref: "Ref",
-  off: "Off",
-};
 
 /** Compact gap label: "back-to-back" | "45 min" | "1h 30m" | "2d 3h". */
 function formatGap(mins: number): string {
@@ -245,7 +192,7 @@ export function ScheduleView({
     effectiveView === "court"
       ? groupByCourt(shown)
       : effectiveView === "team"
-        ? groupByTeam(shown)
+        ? groupByTeam(shown, myTeamIds)
         : effectiveView === "agenda"
           ? groupByDate(shown, timezone)
           : groupByRound(shown, timezone);
@@ -394,8 +341,15 @@ function TeamDay({
   const timeline = teamTimeline(teamId, allMatches);
   const refCount = timeline.filter((t) => t.activity === "ref").length;
   const offCount = timeline.filter((t) => t.activity === "off").length;
+  const pinned = myTeamIds.includes(teamId);
   return (
-    <section className="space-y-3">
+    <section
+      className={cn(
+        "space-y-3",
+        pinned &&
+          "border-primary bg-paper-sunken -mx-2 rounded-lg border px-3 py-3",
+      )}
+    >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h3 className="font-display font-semibold">{name}</h3>
         <span className="text-muted-foreground text-sm">
@@ -406,33 +360,7 @@ function TeamDay({
             : ""}
         </span>
       </div>
-      {timeline.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {timeline.map((t) => (
-            <div
-              key={t.round}
-              className={cn(
-                "flex min-w-[3.25rem] flex-col items-center rounded-md border px-2 py-1 text-center",
-                ACTIVITY_STYLE[t.activity],
-              )}
-            >
-              <span className="text-[0.6rem] font-medium uppercase opacity-75">
-                R{t.round}
-              </span>
-              <span className="text-xs leading-tight font-semibold">
-                {ACTIVITY_LABEL[t.activity]}
-              </span>
-              {t.match?.scheduledAt && (
-                <span className="text-[0.6rem] tabular-nums opacity-80">
-                  {DateTime.fromISO(t.match.scheduledAt, {
-                    zone: timezone,
-                  }).toFormat("h:mm a")}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <ActivityStrip timeline={timeline} timezone={timezone} />
       <div className="grid gap-3 sm:grid-cols-2">
         {games.map((m) => (
           <MatchCard
