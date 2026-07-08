@@ -39,7 +39,7 @@ import { DropSelectionCard } from "@/components/tournament/drop-selection-card";
 import { StandingsGroups } from "@/components/standings/standings-table";
 import { ScheduleMatrix } from "@/components/tournament/schedule-matrix";
 import { TeamManagementList } from "@/components/team/team-management-list";
-import { PublishToggle } from "@/components/league/publish-toggle";
+import { TournamentPublishControls } from "@/components/tournament/tournament-publish-controls";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
@@ -193,11 +193,11 @@ export default async function TournamentPage({
               hasScores={hasScores}
               initial={editInitial}
             />
-            <PublishToggle
+            <TournamentPublishControls
               competitionId={t.id}
-              status={t.status}
               slug={t.slug}
-              kind="tournament"
+              status={t.status}
+              visibility={t.visibility}
             />
           </div>
         </div>

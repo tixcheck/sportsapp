@@ -312,29 +312,43 @@ export async function addTournamentTeamAction(
   return { claimUrl, emailSent: result.sent };
 }
 
+/**
+ * Publish = make the public page live (visibility only). Independent of
+ * registration: an organizer who registered every team can share the schedule
+ * without opening self-registration. A brand-new draft is bumped to "scheduled"
+ * so a live page isn't labeled "draft".
+ */
 export async function publishTournamentAction(
   competitionId: string,
-): Promise<ActionError | { status: "open" }> {
+): Promise<ActionError | { visibility: "public" }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("competitions")
-    .update({ status: "open", visibility: "public" })
+    .update({ visibility: "public" })
     .eq("id", competitionId)
-    .select("slug")
+    .select("slug, status")
     .single();
   if (error || !data) return { error: error?.message ?? "Could not publish." };
+  if (data.status === "draft") {
+    await supabase
+      .from("competitions")
+      .update({ status: "scheduled" })
+      .eq("id", competitionId)
+      .eq("status", "draft");
+  }
   revalidatePath(`/t/${data.slug}`);
   revalidatePath(`/orgs`);
-  return { status: "open" };
+  return { visibility: "public" };
 }
 
+/** Unpublish = take the public page offline (visibility only; status untouched). */
 export async function unpublishTournamentAction(
   competitionId: string,
-): Promise<ActionError | { status: "draft" }> {
+): Promise<ActionError | { visibility: "private" }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("competitions")
-    .update({ status: "draft", visibility: "private" })
+    .update({ visibility: "private" })
     .eq("id", competitionId)
     .select("slug")
     .single();
@@ -342,5 +356,36 @@ export async function unpublishTournamentAction(
     return { error: error?.message ?? "Could not unpublish." };
   revalidatePath(`/t/${data.slug}`);
   revalidatePath(`/orgs`);
-  return { status: "draft" };
+  return { visibility: "private" };
+}
+
+/**
+ * Open or close public self-registration (status only; visibility untouched).
+ * Open = status "open" (the public page shows a register button until the
+ * deadline); closed = "scheduled" (no register button).
+ */
+export async function setTournamentRegistrationAction(
+  competitionId: string,
+  open: boolean,
+): Promise<ActionError | { status: "open" | "scheduled" }> {
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change registration." };
+  }
+  const status = open ? "open" : "scheduled";
+  const { data, error } = await supabase
+    .from("competitions")
+    .update({ status })
+    .eq("id", competitionId)
+    .eq("type", "tournament")
+    .select("slug")
+    .single();
+  if (error || !data)
+    return { error: error?.message ?? "Could not update registration." };
+  revalidatePath(`/t/${data.slug}`);
+  revalidatePath(`/orgs`);
+  return { status };
 }

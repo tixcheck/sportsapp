@@ -37,6 +37,8 @@ export interface TournamentDetail {
   slug: string;
   sport: Sport;
   status: string;
+  /** private | public — whether the public page is live. */
+  visibility: string;
   startDate: string | null;
   endDate: string | null;
   /** Daily window "HH:mm" (local). */
@@ -120,7 +122,7 @@ export async function getTournamentDetail(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, start_time, end_time, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, visibility, start_date, end_date, start_time, end_time, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", tournamentId)
     .eq("type", "tournament")
@@ -165,6 +167,7 @@ export async function getTournamentDetail(
     slug: t.slug,
     sport: t.sport as Sport,
     status: t.status,
+    visibility: (t.visibility as string) ?? "private",
     startDate: t.start_date,
     endDate: t.end_date,
     startTime: t.start_time,
