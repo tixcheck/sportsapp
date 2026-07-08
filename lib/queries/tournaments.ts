@@ -86,6 +86,8 @@ export interface PublicTournament {
   /** Playoff field size for the generic bracket preview. Null = unset. */
   playoffTeams: number | null;
   courts: number;
+  /** Organizer's per-game slot length; null = estimate from the format. */
+  minutesPerGame: number | null;
   /** Bracket match format — drives the preview's duration estimate. */
   matchFormat: MatchFormat;
   /** Pool-play format — drives the standings ranking legend. */
@@ -229,7 +231,9 @@ export async function getPublicTournament(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("registration_deadline, playoff_teams, courts, pool_format")
+    .select(
+      "registration_deadline, playoff_teams, courts, minutes_per_game, pool_format",
+    )
     .eq("competition_id", t.id)
     .single();
 
@@ -260,6 +264,7 @@ export async function getPublicTournament(
     registrationOpen,
     playoffTeams: (settings?.playoff_teams as number | null) ?? null,
     courts: (settings?.courts as number | null) ?? 1,
+    minutesPerGame: (settings?.minutes_per_game as number | null) ?? null,
     matchFormat: t.match_format as MatchFormat,
     poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,
     divisions,

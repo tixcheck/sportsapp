@@ -7,6 +7,7 @@ import type { ScheduleMatch } from "@/lib/queries/leagues";
 import type { PoolsView, PublicTournament } from "@/lib/queries/tournaments";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import type { BracketTrackView } from "@/lib/queries/bracket";
+import { estimateMatchMinutes } from "@/lib/formats";
 import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsGroups } from "@/components/standings/standings-table";
@@ -199,6 +200,10 @@ export function TournamentTabs({
             matches={poolsView!.schedule}
             timezone={poolsView!.timezone}
             myTeamIds={myTeamIds}
+            slotMinutes={
+              tournament.minutesPerGame ??
+              estimateMatchMinutes(tournament.poolFormat)
+            }
           />
         ) : (
           <Placeholder>

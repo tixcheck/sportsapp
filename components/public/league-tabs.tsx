@@ -3,6 +3,7 @@
 import type { PublicLeague } from "@/lib/queries/leagues";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import type { BracketTrackView } from "@/lib/queries/bracket";
+import { estimateMatchMinutes } from "@/lib/formats";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   StandingsTable,
@@ -50,6 +51,7 @@ export function LeagueTabs({
           matches={league.schedule}
           timezone={league.timezone}
           myTeamIds={myTeamIds}
+          slotMinutes={estimateMatchMinutes(league.matchFormat)}
         />
       </TabsContent>
 

@@ -18,6 +18,7 @@ import { getOrigin } from "@/lib/utils/url";
 import {
   SPORTS,
   describeFormat,
+  estimateMatchMinutes,
   findPresetId,
   poolBasePresetId,
 } from "@/lib/formats";
@@ -321,6 +322,9 @@ export default async function TournamentPage({
                 matches={poolsView.schedule}
                 timezone={t.timezone}
                 editable
+                slotMinutes={
+                  t.minutesPerGame ?? estimateMatchMinutes(t.poolFormat)
+                }
               />
             </CardContent>
           </Card>

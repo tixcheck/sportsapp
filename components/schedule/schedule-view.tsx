@@ -98,6 +98,78 @@ function startMillis(m: ScheduleMatch): number {
   return m.scheduledAt ? DateTime.fromISO(m.scheduledAt).toMillis() : Infinity;
 }
 
+type TeamActivity = "play" | "ref" | "off";
+
+interface TimelineRound {
+  round: number;
+  activity: TeamActivity;
+  /** The play or ref match this round (null on an OFF round). */
+  match: ScheduleMatch | null;
+}
+
+/**
+ * A team's per-round day: Play (they have a game), Ref (they officiate), or OFF
+ * (resting) for each round from their first activity to their last. Trimmed to
+ * that window so leading/trailing empties aren't shown — the OFFs that remain
+ * are real breaks between duties. Rounds are the shared time slots (teams on
+ * different courts share a round), so this reads left-to-right as their day.
+ */
+function teamTimeline(
+  teamId: string,
+  matches: ScheduleMatch[],
+): TimelineRound[] {
+  const byRound = new Map<
+    number,
+    { play?: ScheduleMatch; ref?: ScheduleMatch }
+  >();
+  for (const m of matches) {
+    const r = m.round ?? 0;
+    if (r <= 0) continue;
+    const e = byRound.get(r) ?? {};
+    if (m.homeTeamId === teamId || m.awayTeamId === teamId) e.play = m;
+    else if (m.refTeamId === teamId) e.ref = m;
+    byRound.set(r, e);
+  }
+  const ordered = [...byRound.keys()].sort((a, b) => a - b);
+  const active = ordered.filter(
+    (r) => byRound.get(r)?.play || byRound.get(r)?.ref,
+  );
+  if (active.length === 0) return [];
+  const first = active[0];
+  const last = active[active.length - 1];
+  return ordered
+    .filter((r) => r >= first && r <= last)
+    .map((r): TimelineRound => {
+      const e = byRound.get(r);
+      if (e?.play) return { round: r, activity: "play", match: e.play };
+      if (e?.ref) return { round: r, activity: "ref", match: e.ref };
+      return { round: r, activity: "off", match: null };
+    });
+}
+
+const ACTIVITY_STYLE: Record<TeamActivity, string> = {
+  play: "border-primary bg-primary text-primary-foreground",
+  ref: "border-amber-400 bg-amber-100 text-amber-800",
+  off: "border-border bg-muted text-muted-foreground",
+};
+const ACTIVITY_LABEL: Record<TeamActivity, string> = {
+  play: "Play",
+  ref: "Ref",
+  off: "Off",
+};
+
+/** Compact gap label: "back-to-back" | "45 min" | "1h 30m" | "2d 3h". */
+function formatGap(mins: number): string {
+  const r = Math.round(mins);
+  if (r <= 0) return "back-to-back";
+  if (r < 60) return `${r} min`;
+  const days = Math.floor(r / 1440);
+  const hours = Math.floor((r % 1440) / 60);
+  const m = r % 60;
+  if (days > 0) return `${days}d${hours ? ` ${hours}h` : ""}`;
+  return `${hours}h${m ? ` ${m}m` : ""}`;
+}
+
 /** Admin-only: group by court, ordered by start time within each court. */
 function groupByCourt(matches: ScheduleMatch[]): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
@@ -122,11 +194,14 @@ export function ScheduleView({
   timezone,
   editable = false,
   myTeamIds = [],
+  slotMinutes,
 }: {
   matches: ScheduleMatch[];
   timezone: string;
   editable?: boolean;
   myTeamIds?: string[];
+  /** Minutes a game occupies — turns the By-team gaps into real break times. */
+  slotMinutes?: number;
 }) {
   const [view, setView] = useState<"list" | "agenda" | "court" | "team">(
     "list",
@@ -174,6 +249,22 @@ export function ScheduleView({
         : effectiveView === "agenda"
           ? groupByDate(shown, timezone)
           : groupByRound(shown, timezone);
+
+  const renderTrailing = (m: ScheduleMatch) =>
+    editable ? (
+      <span className="flex items-center gap-3">
+        {m.homeTeamId && m.awayTeamId && (
+          <Link
+            href={`/matches/${m.id}`}
+            className="text-claret inline-flex items-center gap-1 font-medium hover:underline"
+          >
+            <SquarePen className="size-3.5" />
+            {m.status === "completed" ? "Edit score" : "Enter score"}
+          </Link>
+        )}
+        <RescheduleDialog match={m} allMatches={matches} timezone={timezone} />
+      </span>
+    ) : undefined;
 
   return (
     <div className="space-y-5">
@@ -233,50 +324,128 @@ export function ScheduleView({
         </div>
       ) : null}
 
-      {groups.map((g) => (
-        <section key={g.key} className="space-y-3">
-          <div className="flex items-baseline gap-2">
-            <h3 className="font-display font-semibold">{g.heading}</h3>
-            {g.sub && (
-              <span className="text-muted-foreground text-sm">{g.sub}</span>
-            )}
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {g.matches.map((m) => (
-              <MatchCard
-                key={m.id}
-                match={m}
-                timezone={timezone}
-                showAbnormal={editable}
-                myTeamIds={myTeamIds}
-                trailing={
-                  editable ? (
-                    <span className="flex items-center gap-3">
-                      {m.homeTeamId && m.awayTeamId && (
-                        <Link
-                          href={`/matches/${m.id}`}
-                          className="text-claret inline-flex items-center gap-1 font-medium hover:underline"
-                        >
-                          <SquarePen className="size-3.5" />
-                          {m.status === "completed"
-                            ? "Edit score"
-                            : "Enter score"}
-                        </Link>
-                      )}
-                      <RescheduleDialog
-                        match={m}
-                        allMatches={matches}
-                        timezone={timezone}
-                      />
-                    </span>
-                  ) : undefined
-                }
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      {groups.map((g) =>
+        effectiveView === "team" ? (
+          <TeamDay
+            key={g.key}
+            teamId={g.key.slice("team:".length)}
+            name={g.heading}
+            games={g.matches}
+            allMatches={shown}
+            timezone={timezone}
+            slotMinutes={slotMinutes}
+            editable={editable}
+            myTeamIds={myTeamIds}
+            renderTrailing={renderTrailing}
+          />
+        ) : (
+          <section key={g.key} className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <h3 className="font-display font-semibold">{g.heading}</h3>
+              {g.sub && (
+                <span className="text-muted-foreground text-sm">{g.sub}</span>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {g.matches.map((m) => (
+                <MatchCard
+                  key={m.id}
+                  match={m}
+                  timezone={timezone}
+                  showAbnormal={editable}
+                  myTeamIds={myTeamIds}
+                  trailing={renderTrailing(m)}
+                />
+              ))}
+            </div>
+          </section>
+        ),
+      )}
     </div>
+  );
+}
+
+/**
+ * One team's day in the By-team view: a Play/Ref/OFF strip across their rounds
+ * (the at-a-glance plan), a summary (games · refs · time off), then the game
+ * cards for detail.
+ */
+function TeamDay({
+  teamId,
+  name,
+  games,
+  allMatches,
+  timezone,
+  slotMinutes,
+  editable,
+  myTeamIds,
+  renderTrailing,
+}: {
+  teamId: string;
+  name: string;
+  games: ScheduleMatch[];
+  allMatches: ScheduleMatch[];
+  timezone: string;
+  slotMinutes?: number;
+  editable: boolean;
+  myTeamIds: string[];
+  renderTrailing: (m: ScheduleMatch) => React.ReactNode;
+}) {
+  const timeline = teamTimeline(teamId, allMatches);
+  const refCount = timeline.filter((t) => t.activity === "ref").length;
+  const offCount = timeline.filter((t) => t.activity === "off").length;
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <h3 className="font-display font-semibold">{name}</h3>
+        <span className="text-muted-foreground text-sm">
+          {games.length} game{games.length === 1 ? "" : "s"}
+          {refCount > 0 ? ` · ${refCount} ref${refCount === 1 ? "" : "s"}` : ""}
+          {offCount > 0 && slotMinutes != null
+            ? ` · ${formatGap(offCount * slotMinutes)} off`
+            : ""}
+        </span>
+      </div>
+      {timeline.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {timeline.map((t) => (
+            <div
+              key={t.round}
+              className={cn(
+                "flex min-w-[3.25rem] flex-col items-center rounded-md border px-2 py-1 text-center",
+                ACTIVITY_STYLE[t.activity],
+              )}
+            >
+              <span className="text-[0.6rem] font-medium uppercase opacity-75">
+                R{t.round}
+              </span>
+              <span className="text-xs leading-tight font-semibold">
+                {ACTIVITY_LABEL[t.activity]}
+              </span>
+              {t.match?.scheduledAt && (
+                <span className="text-[0.6rem] tabular-nums opacity-80">
+                  {DateTime.fromISO(t.match.scheduledAt, {
+                    zone: timezone,
+                  }).toFormat("h:mm a")}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {games.map((m) => (
+          <MatchCard
+            key={m.id}
+            match={m}
+            timezone={timezone}
+            showAbnormal={editable}
+            myTeamIds={myTeamIds}
+            trailing={renderTrailing(m)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

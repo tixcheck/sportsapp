@@ -12,7 +12,7 @@ import {
   removeCompetitionAdminAction,
 } from "@/server/actions/organizers";
 import { getOrigin } from "@/lib/utils/url";
-import { SPORTS, findPresetId } from "@/lib/formats";
+import { SPORTS, estimateMatchMinutes, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { TeamManagementList } from "@/components/team/team-management-list";
@@ -161,6 +161,7 @@ export default async function LeaguePage({
               matches={schedule}
               timezone={league.timezone}
               editable
+              slotMinutes={estimateMatchMinutes(league.matchFormat)}
             />
           </CardContent>
         ) : null}
