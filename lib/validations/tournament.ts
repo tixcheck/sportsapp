@@ -26,6 +26,9 @@ export const createTournamentSchema = z
     formatId: z.string().min(1),
     bracketFormatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
+    // How many pool finishers advance to the playoff bracket (null = decide
+    // later). Drives the generic bracket preview on the public page.
+    playoffTeams: z.number().int().min(2).max(64).nullable(),
     // Pool play: true = a fixed 2-set game (ties allowed); false = the base
     // preset played as-is.
     twoSetRoundRobin: z.boolean(),
@@ -69,6 +72,7 @@ export const editTournamentSchema = z
     formatId: z.string().min(1),
     bracketFormatId: z.string().min(1),
     formatTemplate: z.enum(["single", "champ_consolation", "custom"]),
+    playoffTeams: z.number().int().min(2).max(64).nullable(),
     twoSetRoundRobin: z.boolean(),
   })
   .refine((v) => v.endDate >= v.startDate, {

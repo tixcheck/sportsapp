@@ -288,6 +288,10 @@ export const tournamentSettings = pgTable("tournament_settings", {
   courts: integer("courts").notNull().default(4),
   poolFormat: jsonb("pool_format").$type<MatchFormat>(),
   bracketType: bracketType("bracket_type").notNull().default("single_elim"),
+  // How many pool finishers advance to the playoff bracket. Drives the generic
+  // bracket preview (1v8, 2v7…) shown before pools are played. Null = decide at
+  // bracket time. Rounded up to a power of two for the seed pairing.
+  playoffTeams: integer("playoff_teams"),
   // The named structure the organizer picked at creation (v1).
   formatTemplate: formatTemplate("format_template").notNull().default("single"),
   registrationDeadline: timestamp("registration_deadline", {

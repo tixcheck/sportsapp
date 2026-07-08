@@ -38,7 +38,7 @@ const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
     "minutesPerGame",
   ],
   ["divisions"],
-  ["formatTemplate"],
+  ["formatTemplate", "playoffTeams"],
   ["formatId", "bracketFormatId", "registrationDeadline"],
   [],
 ];
@@ -72,6 +72,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       formatId: defaultPoolPreset("beach2").id,
       bracketFormatId: defaultBracketPreset("beach2").id,
       formatTemplate: "single",
+      playoffTeams: 8,
       twoSetRoundRobin: false,
       registrationDeadline: "",
       divisions: [{ name: "Open" }],
@@ -314,6 +315,22 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                 </button>
               );
             })}
+            <Field label="Playoff teams" error={errors.playoffTeams?.message}>
+              <Input
+                type="number"
+                min={2}
+                max={64}
+                placeholder="Decide later"
+                {...register("playoffTeams", {
+                  setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                })}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                How many pool finishers advance to the bracket. Shown as a
+                generic preview (1v8, 2v7…) on the public page before pools
+                play.
+              </p>
+            </Field>
           </div>
         )}
 

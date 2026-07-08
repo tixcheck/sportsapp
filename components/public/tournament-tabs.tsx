@@ -11,6 +11,7 @@ import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { StandingsGroups } from "@/components/standings/standings-table";
 import { BracketTree } from "@/components/bracket/bracket-tree";
+import { BracketPreview } from "@/components/bracket/bracket-preview";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -217,6 +218,13 @@ export function TournamentTabs({
               />
             </section>
           ))
+        ) : tournament.playoffTeams && tournament.teams.length >= 2 ? (
+          <BracketPreview
+            playoffTeams={tournament.playoffTeams}
+            availableTeams={tournament.teams.length}
+            courts={tournament.courts}
+            matchFormat={tournament.matchFormat}
+          />
         ) : (
           <Placeholder>The bracket appears after pool play.</Placeholder>
         )}

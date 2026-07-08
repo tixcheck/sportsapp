@@ -100,6 +100,101 @@ export function generateBracket(seededTeamIds: TeamId[]): BracketResult {
   return { teamCount, size, rounds };
 }
 
+// --- generic preview (before pools are played) -----------------------------
+
+/** One first-round matchup by seed. A bye = the low slot exceeds the field. */
+export interface GenericSeedMatchup {
+  high: number;
+  /** null when this high seed draws a bye (fewer teams than bracket slots). */
+  low: number | null;
+}
+
+export interface GenericBracketRound {
+  round: number;
+  /** "Round of 16" | "Quarterfinals" | "Semifinals" | "Final". */
+  name: string;
+  matchCount: number;
+  /** First round only: the seed pairings (1v8, 4v5, …). */
+  matchups?: GenericSeedMatchup[];
+}
+
+export interface GenericBracketPreview {
+  /** Playoff field size, clamped to the teams actually available. */
+  teamCount: number;
+  /** Bracket size (next power of two). */
+  size: number;
+  byes: number;
+  rounds: GenericBracketRound[];
+  /** Estimated minutes of bracket play (critical path across courts). */
+  estimatedMinutes: number;
+}
+
+/** Human name for a round given how many matches it holds. */
+export function roundName(matchCount: number): string {
+  if (matchCount === 1) return "Final";
+  if (matchCount === 2) return "Semifinals";
+  if (matchCount === 4) return "Quarterfinals";
+  return `Round of ${matchCount * 2}`;
+}
+
+/**
+ * A generic single-elimination preview from a target playoff field — the seed
+ * matchups (1v8, 4v5, …) and round progression, with no real teams. Shown on the
+ * public Brackets tab before pools are played. `available` clamps the field to
+ * the teams that exist; `courts`/`slotMinutes` drive the duration estimate
+ * (each round runs in ceil(matches/courts) back-to-back waves, rounds are
+ * sequential). Pure — no DB.
+ */
+export function genericBracketPreview(input: {
+  playoffTeams: number;
+  available: number;
+  courts: number;
+  slotMinutes: number;
+}): GenericBracketPreview | null {
+  const teamCount = Math.min(
+    Math.max(0, Math.floor(input.playoffTeams)),
+    Math.max(0, Math.floor(input.available)),
+  );
+  const size = nextPowerOfTwo(teamCount);
+  if (size < 2) return null;
+
+  const order = seedOrder(size);
+  const matchups: GenericSeedMatchup[] = [];
+  for (let i = 0; i < size / 2; i++) {
+    const a = order[2 * i];
+    const b = order[2 * i + 1];
+    const high = Math.min(a, b);
+    const low = Math.max(a, b);
+    matchups.push({ high, low: low <= teamCount ? low : null });
+  }
+
+  const courts = Math.max(1, Math.floor(input.courts));
+  const rounds: GenericBracketRound[] = [];
+  let matchCount = size / 2;
+  let roundNo = 1;
+  let estimatedMinutes = 0;
+  while (matchCount >= 1) {
+    // Round 1 skips bye matches; later rounds always play every slot.
+    const played =
+      roundNo === 1
+        ? matchups.filter((m) => m.low !== null).length
+        : matchCount;
+    const waves = Math.ceil(played / courts);
+    estimatedMinutes += waves * input.slotMinutes;
+    rounds.push({
+      round: roundNo,
+      name: roundName(matchCount),
+      matchCount,
+      ...(roundNo === 1 ? { matchups } : {}),
+    });
+    if (matchCount === 1) break;
+    matchCount /= 2;
+    roundNo += 1;
+  }
+
+  return { teamCount, size, byes: size - teamCount, rounds, estimatedMinutes };
+}
+
 // --- persistence + advancement (Phase 8) -----------------------------------
 
 export interface PersistBracketMatch {

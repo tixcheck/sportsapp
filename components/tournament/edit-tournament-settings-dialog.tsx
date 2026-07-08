@@ -162,6 +162,21 @@ export function EditTournamentSettingsDialog({
             </select>
           </Field>
 
+          <Field label="Playoff teams" error={errors.playoffTeams?.message}>
+            <Input
+              type="number"
+              min={2}
+              max={64}
+              placeholder="Decide later"
+              {...register("playoffTeams", {
+                setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+              })}
+            />
+            <p className="text-muted-foreground mt-1 text-xs">
+              Drives the generic bracket preview on the public page.
+            </p>
+          </Field>
+
           <Field label="Pool format" error={errors.formatId?.message}>
             <select
               className={selectClass}

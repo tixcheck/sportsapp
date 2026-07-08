@@ -1,0 +1,1 @@
+ALTER TABLE "tournament_settings" ADD COLUMN "playoff_teams" integer;

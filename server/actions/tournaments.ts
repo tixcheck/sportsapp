@@ -97,6 +97,7 @@ export async function createTournamentAction(
         : preset.format,
       bracket_type: "single_elim",
       format_template: v.formatTemplate,
+      playoff_teams: v.playoffTeams,
       registration_deadline: deadlineIso,
     });
   if (settingsError) return { error: settingsError.message };
@@ -211,6 +212,7 @@ export async function updateTournamentSettingsAction(
       minutes_per_game: v.minutesPerGame,
       courts: v.courts,
       format_template: v.formatTemplate,
+      playoff_teams: v.playoffTeams,
       pool_format: newPoolFormat,
     })
     .eq("competition_id", competitionId);
