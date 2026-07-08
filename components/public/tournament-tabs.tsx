@@ -14,6 +14,7 @@ import { PoolsDisplay } from "@/components/tournament/pools-display";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   ActivityStrip,
+  teamScheduleEntries,
   teamTimeline,
 } from "@/components/schedule/team-timeline";
 import { StandingsGroups } from "@/components/standings/standings-table";
@@ -42,27 +43,60 @@ function TeamGames({
   schedule: ScheduleMatch[];
   timezone: string;
 }) {
-  const games = schedule
-    .filter((m) => m.homeTeamId === teamId || m.awayTeamId === teamId)
-    .sort(
-      (a, b) =>
-        (a.scheduledAt ? Date.parse(a.scheduledAt) : 0) -
-          (b.scheduledAt ? Date.parse(b.scheduledAt) : 0) ||
-        (a.round ?? 0) - (b.round ?? 0),
-    );
+  const entries = teamScheduleEntries(teamId, schedule);
   const timeline = teamTimeline(teamId, schedule);
+  const playCount = entries.filter((e) => e.kind === "play").length;
+  const refCount = entries.filter((e) => e.kind === "ref").length;
 
   return (
     <div className="border-border bg-surface mt-3 space-y-3 rounded-lg border p-4">
       <p className="font-display text-sm font-semibold">
-        {teamName} — {games.length} game{games.length === 1 ? "" : "s"}
+        {teamName} — {playCount} game{playCount === 1 ? "" : "s"}
+        {refCount > 0 ? ` · ${refCount} ref${refCount === 1 ? "" : "s"}` : ""}
       </p>
       <ActivityStrip timeline={timeline} timezone={timezone} />
-      {games.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="text-muted-foreground text-sm">No games scheduled yet.</p>
       ) : (
         <ol className="divide-border divide-y">
-          {games.map((m) => {
+          {entries.map((e) => {
+            if (e.kind === "off") {
+              return (
+                <li
+                  key={e.key}
+                  className="text-muted-foreground flex items-center gap-2 py-2 text-xs"
+                >
+                  {e.round != null && (
+                    <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
+                      R{e.round}
+                    </span>
+                  )}
+                  Off — rest
+                </li>
+              );
+            }
+            const m = e.match!;
+            const when = m.scheduledAt
+              ? DateTime.fromISO(m.scheduledAt, { zone: timezone }).toFormat(
+                  "LLL d, h:mm a",
+                )
+              : null;
+            if (e.kind === "ref") {
+              return (
+                <li key={e.key} className="min-w-0 py-2 text-sm">
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[0.65rem] font-semibold text-amber-800 uppercase">
+                    Ref
+                  </span>
+                  <span className="ml-2 font-medium">
+                    {m.homeTeamName} vs {m.awayTeamName}
+                  </span>
+                  <span className="text-muted-foreground block text-xs">
+                    {m.court ?? "Court TBD"}
+                    {when ? ` · ${when}` : ""}
+                  </span>
+                </li>
+              );
+            }
             const isHome = m.homeTeamId === teamId;
             const opponent = isHome ? m.awayTeamName : m.homeTeamName;
             const done = m.status === "completed" && m.sets.length > 0;
@@ -72,14 +106,9 @@ function TeamGames({
             const theirs = m.sets.filter((s) =>
               isHome ? s.away > s.home : s.home > s.away,
             ).length;
-            const when = m.scheduledAt
-              ? DateTime.fromISO(m.scheduledAt, { zone: timezone }).toFormat(
-                  "LLL d, h:mm a",
-                )
-              : null;
             return (
               <li
-                key={m.id}
+                key={e.key}
                 className="flex items-center justify-between gap-2 py-2 text-sm"
               >
                 <span className="min-w-0">

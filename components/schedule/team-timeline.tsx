@@ -52,6 +52,48 @@ export function teamTimeline(
     });
 }
 
+export interface TeamEntry {
+  key: string;
+  round: number | null;
+  kind: TeamActivity;
+  /** The match for a Play/Ref entry; null for an OFF round. */
+  match: ScheduleMatch | null;
+}
+
+/**
+ * A team's schedule as an ordered list of entries — Play (their game), Ref
+ * (a game they officiate), and OFF (a rest round) — so the detail list matches
+ * the strip. Built from the trimmed timeline, then any play games with no round
+ * (unscheduled) are appended so nothing a team plays is dropped.
+ */
+export function teamScheduleEntries(
+  teamId: string,
+  matches: ScheduleMatch[],
+): TeamEntry[] {
+  const timeline = teamTimeline(teamId, matches);
+  const entries: TeamEntry[] = timeline.map((t) => ({
+    key: t.match ? t.match.id : `off-${t.round}`,
+    round: t.round,
+    kind: t.activity,
+    match: t.match,
+  }));
+  const covered = new Set(
+    timeline.map((t) => t.match?.id).filter(Boolean) as string[],
+  );
+  for (const m of matches) {
+    const plays = m.homeTeamId === teamId || m.awayTeamId === teamId;
+    if (plays && !covered.has(m.id)) {
+      entries.push({
+        key: m.id,
+        round: m.round ?? null,
+        kind: "play",
+        match: m,
+      });
+    }
+  }
+  return entries;
+}
+
 const ACTIVITY_STYLE: Record<TeamActivity, string> = {
   play: "border-primary bg-primary text-primary-foreground",
   ref: "border-amber-400 bg-amber-100 text-amber-800",

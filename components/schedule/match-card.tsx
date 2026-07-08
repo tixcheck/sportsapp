@@ -5,12 +5,18 @@ import { cn } from "@/lib/utils";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { StatusPill } from "./status-pill";
 
+const ROLE_STYLE = {
+  play: "bg-primary text-primary-foreground",
+  ref: "bg-amber-500 text-white",
+} as const;
+
 export function MatchCard({
   match,
   timezone,
   trailing,
   showAbnormal = false,
   myTeamIds = [],
+  role,
 }: {
   match: ScheduleMatch;
   timezone: string;
@@ -18,10 +24,25 @@ export function MatchCard({
   /** Show the organizer-only "Abnormal result" marker (admin views). */
   showAbnormal?: boolean;
   myTeamIds?: string[];
+  /**
+   * The highlighted team's role in this match — shows a bold Play/Ref tile.
+   * Passed explicitly in the By-team view; otherwise derived from myTeamIds so
+   * a viewer following their team sees at a glance whether they play or ref.
+   */
+  role?: "play" | "ref";
 }) {
   const time = match.scheduledAt
     ? DateTime.fromISO(match.scheduledAt, { zone: timezone }).toFormat("h:mm a")
     : "TBD";
+
+  const derivedRole: "play" | "ref" | null =
+    (match.homeTeamId && myTeamIds.includes(match.homeTeamId)) ||
+    (match.awayTeamId && myTeamIds.includes(match.awayTeamId))
+      ? "play"
+      : match.refTeamId && myTeamIds.includes(match.refTeamId)
+        ? "ref"
+        : null;
+  const shownRole = role ?? derivedRole;
 
   // Show the result inline once a match is completed (derived from its sets).
   const homeWon = match.sets.filter((s) => s.home > s.away).length;
@@ -47,6 +68,16 @@ export function MatchCard({
 
   return (
     <div className="border-border bg-surface rounded-lg border p-4 shadow-sm">
+      {shownRole && (
+        <span
+          className={cn(
+            "mb-2 inline-block rounded px-2 py-0.5 text-[0.7rem] font-bold tracking-wide uppercase",
+            ROLE_STYLE[shownRole],
+          )}
+        >
+          {shownRole === "play" ? "You play" : "You ref"}
+        </span>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className={cn("truncate font-medium", resultColor(homeRes))}>

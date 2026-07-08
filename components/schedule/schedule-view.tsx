@@ -9,7 +9,11 @@ import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
 import { MatchCard } from "./match-card";
 import { RescheduleDialog } from "./reschedule-dialog";
-import { ActivityStrip, teamTimeline } from "./team-timeline";
+import {
+  ActivityStrip,
+  teamScheduleEntries,
+  teamTimeline,
+} from "./team-timeline";
 
 type Group = {
   key: string;
@@ -339,6 +343,7 @@ function TeamDay({
   renderTrailing: (m: ScheduleMatch) => React.ReactNode;
 }) {
   const timeline = teamTimeline(teamId, allMatches);
+  const entries = teamScheduleEntries(teamId, allMatches);
   const refCount = timeline.filter((t) => t.activity === "ref").length;
   const offCount = timeline.filter((t) => t.activity === "off").length;
   const pinned = myTeamIds.includes(teamId);
@@ -361,17 +366,32 @@ function TeamDay({
         </span>
       </div>
       <ActivityStrip timeline={timeline} timezone={timezone} />
-      <div className="grid gap-3 sm:grid-cols-2">
-        {games.map((m) => (
-          <MatchCard
-            key={m.id}
-            match={m}
-            timezone={timezone}
-            showAbnormal={editable}
-            myTeamIds={myTeamIds}
-            trailing={renderTrailing(m)}
-          />
-        ))}
+      <div className="space-y-2">
+        {entries.map((e) =>
+          e.kind === "off" ? (
+            <div
+              key={e.key}
+              className="border-border text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs"
+            >
+              {e.round != null && (
+                <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
+                  R{e.round}
+                </span>
+              )}
+              Off — rest
+            </div>
+          ) : (
+            <MatchCard
+              key={e.key}
+              match={e.match!}
+              timezone={timezone}
+              showAbnormal={editable}
+              myTeamIds={myTeamIds}
+              role={e.kind === "ref" ? "ref" : "play"}
+              trailing={renderTrailing(e.match!)}
+            />
+          ),
+        )}
       </div>
     </section>
   );
