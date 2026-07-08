@@ -350,6 +350,7 @@ export default async function TournamentPage({
               <StandingsGroups
                 groups={standings}
                 showDivision={t.divisions.length > 1}
+                format={t.poolFormat}
               />
             </CardContent>
           </Card>

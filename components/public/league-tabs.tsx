@@ -77,8 +77,14 @@ export function LeagueTabs({
       </TabsContent>
 
       <TabsContent value="standings" className="mt-6 space-y-3">
-        <StandingsTable rows={standings[0]?.rows ?? []} myTeamIds={myTeamIds} />
-        {(standings[0]?.rows.length ?? 0) > 0 && <StandingsLegend />}
+        <StandingsTable
+          rows={standings[0]?.rows ?? []}
+          myTeamIds={myTeamIds}
+          format={league.matchFormat}
+        />
+        {(standings[0]?.rows.length ?? 0) > 0 && (
+          <StandingsLegend format={league.matchFormat} />
+        )}
       </TabsContent>
 
       {hasPlayoffs && (

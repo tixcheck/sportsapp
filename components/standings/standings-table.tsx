@@ -1,4 +1,6 @@
+import type { MatchFormat } from "@/lib/db/schema";
 import type { StandingsGroup, StandingsRowView } from "@/lib/standings/compute";
+import { standingsLegendFlags } from "@/lib/formats";
 import { cn } from "@/lib/utils";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 
@@ -35,9 +37,12 @@ const TIE_COL: StatCol = {
 export function StandingsTable({
   rows,
   myTeamIds = [],
+  format,
 }: {
   rows: StandingsRowView[];
   myTeamIds?: string[];
+  /** When known, the match format drives which columns show (authoritative). */
+  format?: MatchFormat;
 }) {
   if (rows.length === 0) {
     return (
@@ -49,12 +54,14 @@ export function StandingsTable({
 
   // Single-set play (one set per game): a team's sets won/lost always equal its
   // matches won/lost, so the SW/SL columns are redundant — hide them (the game
-  // count lives in GP, and the meaningful tiebreaker is the point ratio). Detect
-  // it from the data so a mixed competition is handled per pool.
+  // count lives in GP, and the meaningful tiebreaker is the point ratio). Prefer
+  // the format when known; otherwise infer from the data (per-pool for a mixed
+  // competition).
   const played = rows.filter((r) => r.mw + r.ml + r.mt > 0);
-  const singleSet =
-    played.length > 0 &&
-    played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
+  const singleSet = format
+    ? standingsLegendFlags(format).singleSet
+    : played.length > 0 &&
+      played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
   const base = singleSet
     ? STAT_COLS.filter((c) => c.key !== "sw" && c.key !== "sl")
     : STAT_COLS;
@@ -167,25 +174,33 @@ export function StandingsTable({
 export function StandingsLegend({
   className,
   singleSet = false,
+  canTie = true,
+  format,
 }: {
   className?: string;
   /** One set per game: drop the set-ratio step and the SW/SL legend. */
   singleSet?: boolean;
+  /** Whether a game can end in a tie (fixed 2-set play). Best-of-N can't. */
+  canTie?: boolean;
+  /** When known, the format is authoritative over the two flags above. */
+  format?: MatchFormat;
 }) {
+  const flags = format ? standingsLegendFlags(format) : { singleSet, canTie };
+  const single = flags.singleSet;
+  const ties = !single && flags.canTie;
+  const unit = single ? "games" : "matches";
   return (
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
       <p>
         <span className="font-semibold">How rankings are calculated:</span> by{" "}
-        {singleSet ? "games" : "matches"} won
-        {singleSet ? "" : " (a tied 2-set game counts as ½ a win)"}, then
+        {unit} won{ties ? " (a tied 2-set game counts as ½ a win)" : ""}, then
         head-to-head among tied teams,
-        {singleSet ? "" : " then set ratio (SW / SL),"} then point ratio (PF /
-        PA).
+        {single ? "" : " then set ratio (SW / SL),"} then point ratio (PF / PA).
       </p>
       <p className="text-ink-3">
-        GP games played / scheduled · MW/ML {singleSet ? "games" : "matches"}{" "}
-        won/lost · T tied ·{singleSet ? "" : " SW/SL sets ·"} PF/PA points ·
-        Ratio = PF / PA
+        GP games played / scheduled · MW/ML {unit} won/lost ·
+        {ties ? " T tied ·" : ""}
+        {single ? "" : " SW/SL sets ·"} PF/PA points · Ratio = PF / PA
       </p>
     </div>
   );
@@ -199,10 +214,13 @@ export function StandingsGroups({
   groups,
   showDivision,
   myTeamIds = [],
+  format,
 }: {
   groups: StandingsGroup[];
   showDivision: boolean;
   myTeamIds?: string[];
+  /** Pool-play format — makes the legend/columns accurate to the format. */
+  format?: MatchFormat;
 }) {
   if (groups.length === 0) {
     return (
@@ -214,9 +232,10 @@ export function StandingsGroups({
   const played = groups.flatMap((g) =>
     g.rows.filter((r) => r.mw + r.ml + r.mt > 0),
   );
-  const singleSet =
-    played.length > 0 &&
-    played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
+  const singleSet = format
+    ? standingsLegendFlags(format).singleSet
+    : played.length > 0 &&
+      played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
   return (
     <div className="space-y-6">
       {groups.map((g) => (
@@ -229,10 +248,10 @@ export function StandingsGroups({
               </span>
             )}
           </h4>
-          <StandingsTable rows={g.rows} myTeamIds={myTeamIds} />
+          <StandingsTable rows={g.rows} myTeamIds={myTeamIds} format={format} />
         </section>
       ))}
-      <StandingsLegend singleSet={singleSet} />
+      <StandingsLegend singleSet={singleSet} format={format} />
     </div>
   );
 }

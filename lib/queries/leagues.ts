@@ -81,6 +81,8 @@ export interface PublicLeague {
   startDate: string | null;
   endDate: string | null;
   timezone: string;
+  /** Match format — drives the standings ranking legend. */
+  matchFormat: MatchFormat;
   teams: { id: string; name: string }[];
   schedule: ScheduleMatch[];
 }
@@ -272,7 +274,9 @@ export async function getPublicLeague(
   const supabase = await createClient();
   const { data: league } = await supabase
     .from("competitions")
-    .select("id, name, slug, sport, venue, start_date, end_date, timezone")
+    .select(
+      "id, name, slug, sport, venue, start_date, end_date, timezone, match_format",
+    )
     .eq("slug", slug)
     .eq("type", "league")
     .single();
@@ -295,6 +299,7 @@ export async function getPublicLeague(
     startDate: league.start_date,
     endDate: league.end_date,
     timezone: league.timezone,
+    matchFormat: league.match_format as MatchFormat,
     teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
     schedule,
   };

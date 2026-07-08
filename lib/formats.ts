@@ -196,6 +196,20 @@ export function findPresetId(sport: Sport, f: MatchFormat): string {
 }
 
 /**
+ * How this format shapes the standings — used to render an accurate ranking
+ * legend instead of a generic one. `bestOf: 1` = one set per game (SW/SL just
+ * mirror MW/ML, so they're redundant and there's no set-ratio step); an even
+ * `bestOf` (a fixed 2-set game) can end 1–1, so a game can tie; an odd
+ * best-of-N (3, 5) is always decisive, so ties are impossible.
+ */
+export function standingsLegendFlags(f: MatchFormat): {
+  singleSet: boolean;
+  canTie: boolean;
+} {
+  return { singleSet: f.bestOf === 1, canTie: f.bestOf % 2 === 0 };
+}
+
+/**
  * A human-readable one-liner for a stored match format, e.g.
  * "Best of 3 (25/25/15), capped 60'" or "2 sets to 21". An even `bestOf` is a
  * fixed-set game (2-set round-robin); `bestOf: 1` is a single set.

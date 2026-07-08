@@ -182,6 +182,7 @@ export function TournamentTabs({
                 groups={standings}
                 showDivision={multiDivision}
                 myTeamIds={myTeamIds}
+                format={tournament.poolFormat}
               />
             </section>
           </>

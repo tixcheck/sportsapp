@@ -88,6 +88,8 @@ export interface PublicTournament {
   courts: number;
   /** Bracket match format — drives the preview's duration estimate. */
   matchFormat: MatchFormat;
+  /** Pool-play format — drives the standings ranking legend. */
+  poolFormat: MatchFormat;
   divisions: Division[];
   teams: { id: string; name: string; divisionId: string | null }[];
 }
@@ -227,7 +229,7 @@ export async function getPublicTournament(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("registration_deadline, playoff_teams, courts")
+    .select("registration_deadline, playoff_teams, courts, pool_format")
     .eq("competition_id", t.id)
     .single();
 
@@ -259,6 +261,7 @@ export async function getPublicTournament(
     playoffTeams: (settings?.playoff_teams as number | null) ?? null,
     courts: (settings?.courts as number | null) ?? 1,
     matchFormat: t.match_format as MatchFormat,
+    poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,
     divisions,
     teams: (teams ?? []).map((tm) => ({
       id: tm.id,

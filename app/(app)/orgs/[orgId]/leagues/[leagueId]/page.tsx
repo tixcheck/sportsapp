@@ -175,8 +175,13 @@ export default async function LeaguePage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <StandingsTable rows={standings[0]?.rows ?? []} />
-          {(standings[0]?.rows.length ?? 0) > 0 && <StandingsLegend />}
+          <StandingsTable
+            rows={standings[0]?.rows ?? []}
+            format={league.matchFormat}
+          />
+          {(standings[0]?.rows.length ?? 0) > 0 && (
+            <StandingsLegend format={league.matchFormat} />
+          )}
         </CardContent>
       </Card>
 

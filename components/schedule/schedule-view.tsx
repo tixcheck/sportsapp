@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { DateTime } from "luxon";
-import { CalendarDays, List, MapPin, SquarePen } from "lucide-react";
+import { CalendarDays, List, MapPin, SquarePen, Users } from "lucide-react";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
@@ -60,6 +60,33 @@ function groupByDate(matches: ScheduleMatch[], tz: string): Group[] {
     }));
 }
 
+/**
+ * Group by team: every team's own games (home + away), sorted by time. A match
+ * appears under both its teams — this is each team's personal schedule.
+ */
+function groupByTeam(matches: ScheduleMatch[]): Group[] {
+  const map = new Map<string, { name: string; matches: ScheduleMatch[] }>();
+  const add = (id: string | null, name: string | null, m: ScheduleMatch) => {
+    if (!id) return;
+    if (!map.has(id)) map.set(id, { name: name ?? "TBD", matches: [] });
+    map.get(id)!.matches.push(m);
+  };
+  for (const m of matches) {
+    add(m.homeTeamId, m.homeTeamName, m);
+    add(m.awayTeamId, m.awayTeamName, m);
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[1].name.localeCompare(b[1].name))
+    .map(([id, { name, matches: ms }]) => ({
+      key: `team:${id}`,
+      heading: name,
+      matches: [...ms].sort(
+        (x, y) =>
+          startMillis(x) - startMillis(y) || (x.round ?? 0) - (y.round ?? 0),
+      ),
+    }));
+}
+
 /** Sort by trailing court number ("Court 2" < "Court 10"); TBD courts last. */
 function courtRank(court: string): number {
   if (court === "tbd") return Number.MAX_SAFE_INTEGER;
@@ -101,9 +128,24 @@ export function ScheduleView({
   editable?: boolean;
   myTeamIds?: string[];
 }) {
-  const [view, setView] = useState<"list" | "agenda" | "court">("list");
+  const [view, setView] = useState<"list" | "agenda" | "court" | "team">(
+    "list",
+  );
   const [mineOnly, setMineOnly] = useState(false);
   const canFilterMine = myTeamIds.length > 0;
+
+  // "By date" only makes sense when play spans more than one calendar day; a
+  // single-day tournament collapses to one date, so hide it and offer By team.
+  const scheduledDates = new Set(
+    matches
+      .filter((m) => m.scheduledAt)
+      .map((m) =>
+        DateTime.fromISO(m.scheduledAt!, { zone: timezone }).toFormat(
+          "yyyy-MM-dd",
+        ),
+      ),
+  );
+  const multiDay = scheduledDates.size > 1;
 
   if (matches.length === 0) {
     return (
@@ -122,30 +164,43 @@ export function ScheduleView({
         )
       : matches;
 
+  // "By date" can be hidden (single-day); fall back to By round if it was set.
+  const effectiveView = view === "agenda" && !multiDay ? "list" : view;
   const groups =
-    view === "court"
+    effectiveView === "court"
       ? groupByCourt(shown)
-      : view === "list"
-        ? groupByRound(shown, timezone)
-        : groupByDate(shown, timezone);
+      : effectiveView === "team"
+        ? groupByTeam(shown)
+        : effectiveView === "agenda"
+          ? groupByDate(shown, timezone)
+          : groupByRound(shown, timezone);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <div className="bg-muted inline-flex rounded-lg p-0.5">
           <ToggleButton
-            active={view === "list"}
+            active={effectiveView === "list"}
             onClick={() => setView("list")}
           >
             <List className="size-4" />
             By round
           </ToggleButton>
+          {multiDay && (
+            <ToggleButton
+              active={view === "agenda"}
+              onClick={() => setView("agenda")}
+            >
+              <CalendarDays className="size-4" />
+              By date
+            </ToggleButton>
+          )}
           <ToggleButton
-            active={view === "agenda"}
-            onClick={() => setView("agenda")}
+            active={view === "team"}
+            onClick={() => setView("team")}
           >
-            <CalendarDays className="size-4" />
-            By date
+            <Users className="size-4" />
+            By team
           </ToggleButton>
           {editable && (
             <ToggleButton
