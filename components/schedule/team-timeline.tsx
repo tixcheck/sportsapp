@@ -42,7 +42,7 @@ export function ActivityStrip({
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {timeline.map((t) => (
         <div
-          key={t.round}
+          key={t.key}
           className={cn(
             "flex min-w-[3.25rem] flex-col items-center rounded-md border px-2 py-1 text-center",
             ACTIVITY_STYLE[t.activity],

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
-import { teamOffRounds, teamTimeline } from "@/lib/schedule/team-timeline";
+import {
+  teamOffRounds,
+  teamScheduleEntries,
+  teamTimeline,
+} from "@/lib/schedule/team-timeline";
 
 /** A minimal round match: `home` vs `away`, officiated by `ref`. */
 function mk(
@@ -9,11 +13,12 @@ function mk(
   home: string,
   away: string,
   ref: string | null,
+  scheduledAt: string | null = null,
 ): ScheduleMatch {
   return {
     id: `r${round}-${home}-${away}`,
     round,
-    scheduledAt: null,
+    scheduledAt,
     court: null,
     status: "scheduled",
     homeTeamId: home,
@@ -65,6 +70,39 @@ describe("teamTimeline — per-round Play/Ref/Off", () => {
     expect(t[0]).toMatchObject({ activity: "play", match: matches[0] });
     expect(t[1]).toMatchObject({ activity: "off", match: null });
     expect(t[2]).toMatchObject({ activity: "ref", match: matches[2] });
+  });
+
+  it("keeps both a ref and a play duty in the same round, ordered by time", () => {
+    // A refs an early game then plays a later one — both in round 2.
+    const refDuty = mk(2, "C", "D", "A", "2026-07-25T11:10:00-04:00");
+    const playDuty = mk(2, "A", "B", "E", "2026-07-25T11:30:00-04:00");
+    const t = teamTimeline("A", [
+      mk(1, "A", "C", "D", "2026-07-25T10:50:00-04:00"), // play
+      playDuty,
+      refDuty,
+    ]);
+    expect(t.map((s) => s.activity)).toEqual(["play", "ref", "play"]);
+    // Round 2's two slots keep their round number but stay distinct.
+    expect(t[1]).toMatchObject({ round: 2, activity: "ref", match: refDuty });
+    expect(t[2]).toMatchObject({ round: 2, activity: "play", match: playDuty });
+    expect(new Set(t.map((s) => s.key)).size).toBe(3); // unique keys
+  });
+});
+
+describe("teamScheduleEntries", () => {
+  it("lists a ref duty even when the team also plays that round", () => {
+    const refDuty = mk(2, "C", "D", "A", "2026-07-25T11:10:00-04:00");
+    const playDuty = mk(2, "A", "B", "E", "2026-07-25T11:30:00-04:00");
+    const entries = teamScheduleEntries("A", [
+      mk(1, "A", "C", "D", "2026-07-25T10:50:00-04:00"),
+      playDuty,
+      refDuty,
+    ]);
+    // The ref duty must not be swallowed by the same-round play.
+    expect(entries.map((e) => e.kind)).toEqual(["play", "ref", "play"]);
+    expect(entries.some((e) => e.kind === "ref" && e.match === refDuty)).toBe(
+      true,
+    );
   });
 });
 
