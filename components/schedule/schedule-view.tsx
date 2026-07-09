@@ -258,11 +258,25 @@ export function ScheduleView({
 
   // "By date" can be hidden (single-day); fall back to By round if it was set.
   const effectiveView = view === "agenda" && !multiDay ? "list" : view;
+
+  // By-team always groups the FULL schedule so each team's day is complete;
+  // the My-team filter then keeps only the followed teams' sections. (Filtering
+  // the matches first would fabricate a partial section for every opponent Raj
+  // meets — with wrong game counts, rest gaps, and role badges.)
+  const teamGroups =
+    effectiveView === "team"
+      ? mineOnly && canFilterMine
+        ? groupByTeam(matches, myTeamIds).filter((g) =>
+            myTeamIds.includes(g.key.slice("team:".length)),
+          )
+        : groupByTeam(matches, myTeamIds)
+      : [];
+
   const groups =
     effectiveView === "court"
       ? groupByCourt(shown)
       : effectiveView === "team"
-        ? groupByTeam(shown, myTeamIds)
+        ? teamGroups
         : effectiveView === "agenda"
           ? groupByDate(shown, timezone)
           : mineOnly && canFilterMine
@@ -350,7 +364,7 @@ export function ScheduleView({
             teamId={g.key.slice("team:".length)}
             name={g.heading}
             games={g.matches}
-            allMatches={shown}
+            allMatches={matches}
             timezone={timezone}
             slotMinutes={slotMinutes}
             editable={editable}
@@ -451,7 +465,10 @@ function TeamDay({
               timezone={timezone}
               showAbnormal={editable}
               myTeamIds={myTeamIds}
-              role={e.kind === "ref" ? "ref" : "play"}
+              // "You play/ref" is the viewer's role — only meaningful in the
+              // followed team's own section. Elsewhere let MatchCard derive it,
+              // so another team's game isn't mislabelled "You play".
+              role={pinned ? (e.kind === "ref" ? "ref" : "play") : undefined}
               trailing={renderTrailing(e.match!)}
             />
           ),
