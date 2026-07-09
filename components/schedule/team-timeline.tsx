@@ -1,98 +1,20 @@
 import { DateTime } from "luxon";
 
-import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
+import type { TeamActivity, TimelineRound } from "@/lib/schedule/team-timeline";
 
-export type TeamActivity = "play" | "ref" | "off";
-
-export interface TimelineRound {
-  round: number;
-  activity: TeamActivity;
-  /** The play or ref match this round (null on an OFF round). */
-  match: ScheduleMatch | null;
-}
-
-/**
- * A team's per-round day: Play (they have a game), Ref (they officiate), or OFF
- * (resting) for each round from their first activity to their last. Trimmed to
- * that window so leading/trailing empties aren't shown — the OFFs that remain
- * are real breaks between duties. Rounds are the shared time slots (teams on
- * different courts share a round), so this reads left-to-right as their day.
- */
-export function teamTimeline(
-  teamId: string,
-  matches: ScheduleMatch[],
-): TimelineRound[] {
-  const byRound = new Map<
-    number,
-    { play?: ScheduleMatch; ref?: ScheduleMatch }
-  >();
-  for (const m of matches) {
-    const r = m.round ?? 0;
-    if (r <= 0) continue;
-    const e = byRound.get(r) ?? {};
-    if (m.homeTeamId === teamId || m.awayTeamId === teamId) e.play = m;
-    else if (m.refTeamId === teamId) e.ref = m;
-    byRound.set(r, e);
-  }
-  const ordered = [...byRound.keys()].sort((a, b) => a - b);
-  const active = ordered.filter(
-    (r) => byRound.get(r)?.play || byRound.get(r)?.ref,
-  );
-  if (active.length === 0) return [];
-  const first = active[0];
-  const last = active[active.length - 1];
-  return ordered
-    .filter((r) => r >= first && r <= last)
-    .map((r): TimelineRound => {
-      const e = byRound.get(r);
-      if (e?.play) return { round: r, activity: "play", match: e.play };
-      if (e?.ref) return { round: r, activity: "ref", match: e.ref };
-      return { round: r, activity: "off", match: null };
-    });
-}
-
-export interface TeamEntry {
-  key: string;
-  round: number | null;
-  kind: TeamActivity;
-  /** The match for a Play/Ref entry; null for an OFF round. */
-  match: ScheduleMatch | null;
-}
-
-/**
- * A team's schedule as an ordered list of entries — Play (their game), Ref
- * (a game they officiate), and OFF (a rest round) — so the detail list matches
- * the strip. Built from the trimmed timeline, then any play games with no round
- * (unscheduled) are appended so nothing a team plays is dropped.
- */
-export function teamScheduleEntries(
-  teamId: string,
-  matches: ScheduleMatch[],
-): TeamEntry[] {
-  const timeline = teamTimeline(teamId, matches);
-  const entries: TeamEntry[] = timeline.map((t) => ({
-    key: t.match ? t.match.id : `off-${t.round}`,
-    round: t.round,
-    kind: t.activity,
-    match: t.match,
-  }));
-  const covered = new Set(
-    timeline.map((t) => t.match?.id).filter(Boolean) as string[],
-  );
-  for (const m of matches) {
-    const plays = m.homeTeamId === teamId || m.awayTeamId === teamId;
-    if (plays && !covered.has(m.id)) {
-      entries.push({
-        key: m.id,
-        round: m.round ?? null,
-        kind: "play",
-        match: m,
-      });
-    }
-  }
-  return entries;
-}
+// Pure timeline logic lives in lib/ so it's unit-testable without a component.
+// Re-exported here so existing "./team-timeline" importers keep working.
+export {
+  teamTimeline,
+  teamScheduleEntries,
+  teamOffRounds,
+} from "@/lib/schedule/team-timeline";
+export type {
+  TeamActivity,
+  TimelineRound,
+  TeamEntry,
+} from "@/lib/schedule/team-timeline";
 
 const ACTIVITY_STYLE: Record<TeamActivity, string> = {
   play: "border-primary bg-primary text-primary-foreground",
@@ -141,6 +63,34 @@ export function ActivityStrip({
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A dashed "rest" card marking a round a team sits out. Used in both the By-team
+ * detail list and the My-team round view so an OFF round reads the same in each.
+ */
+export function OffCard({
+  round,
+  label = "You're off — Hydrate/Rest",
+  teamName,
+}: {
+  /** Shown as an "R{n}" chip when the surrounding view doesn't already head the round. */
+  round?: number | null;
+  label?: string;
+  /** Names the resting team when the view lists more than one followed team. */
+  teamName?: string;
+}) {
+  return (
+    <div className="border-border text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
+      {round != null && (
+        <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
+          R{round}
+        </span>
+      )}
+      {teamName && <span className="font-medium">{teamName}</span>}
+      {label}
     </div>
   );
 }

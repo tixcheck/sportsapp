@@ -11,6 +11,8 @@ import { MatchCard } from "./match-card";
 import { RescheduleDialog } from "./reschedule-dialog";
 import {
   ActivityStrip,
+  OffCard,
+  teamOffRounds,
   teamScheduleEntries,
   teamTimeline,
 } from "./team-timeline";
@@ -20,6 +22,8 @@ type Group = {
   heading: string;
   sub?: string;
   matches: ScheduleMatch[];
+  /** Followed teams sitting out this round — rendered as "off" cards (My-team view). */
+  offTeams?: { teamId: string; name: string }[];
 };
 
 function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
@@ -42,6 +46,68 @@ function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
         matches: ms,
       };
     });
+}
+
+/** Team id → display name, from every team that appears as home or away. */
+function teamNames(matches: ScheduleMatch[]): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const m of matches) {
+    if (m.homeTeamId) names.set(m.homeTeamId, m.homeTeamName);
+    if (m.awayTeamId) names.set(m.awayTeamId, m.awayTeamName);
+  }
+  return names;
+}
+
+/**
+ * By-round groups for the My-team filter, with an "off" marker added for each
+ * round a followed team neither plays nor refs (within its active window). This
+ * keeps the play → off → ref sequence unbroken — without it, an OFF round simply
+ * vanishes from the filtered view and the schedule looks like it skips a round.
+ * Off rounds are derived from the full schedule (`all`), since the filtered set
+ * has no match to hang them on.
+ */
+function groupByRoundWithOff(
+  shown: ScheduleMatch[],
+  all: ScheduleMatch[],
+  myTeamIds: string[],
+  tz: string,
+): Group[] {
+  const byRound = new Map<number, Group>();
+  for (const g of groupByRound(shown, tz))
+    byRound.set(Number(g.key.slice(1)), g);
+
+  // Round → date sub, from the full schedule (off rounds have no shown matches).
+  const roundSub = new Map<number, string | undefined>();
+  for (const m of all) {
+    const r = m.round ?? 0;
+    if (r <= 0 || roundSub.has(r) || !m.scheduledAt) continue;
+    roundSub.set(
+      r,
+      DateTime.fromISO(m.scheduledAt, { zone: tz }).toFormat("cccc, LLL d"),
+    );
+  }
+
+  const names = teamNames(all);
+  for (const teamId of myTeamIds) {
+    for (const round of teamOffRounds(teamId, all)) {
+      let g = byRound.get(round);
+      if (!g) {
+        g = {
+          key: `r${round}`,
+          heading: `Round ${round}`,
+          sub: roundSub.get(round),
+          matches: [],
+        };
+        byRound.set(round, g);
+      }
+      (g.offTeams ??= []).push({
+        teamId,
+        name: names.get(teamId) ?? "Your team",
+      });
+    }
+  }
+
+  return [...byRound.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g);
 }
 
 function groupByDate(matches: ScheduleMatch[], tz: string): Group[] {
@@ -199,7 +265,9 @@ export function ScheduleView({
         ? groupByTeam(shown, myTeamIds)
         : effectiveView === "agenda"
           ? groupByDate(shown, timezone)
-          : groupByRound(shown, timezone);
+          : mineOnly && canFilterMine
+            ? groupByRoundWithOff(shown, matches, myTeamIds, timezone)
+            : groupByRound(shown, timezone);
 
   const renderTrailing = (m: ScheduleMatch) =>
     editable ? (
@@ -309,6 +377,12 @@ export function ScheduleView({
                 />
               ))}
             </div>
+            {g.offTeams?.map((o) => (
+              <OffCard
+                key={`off-${g.key}-${o.teamId}`}
+                teamName={myTeamIds.length > 1 ? o.name : undefined}
+              />
+            ))}
           </section>
         ),
       )}
@@ -369,17 +443,7 @@ function TeamDay({
       <div className="space-y-2">
         {entries.map((e) =>
           e.kind === "off" ? (
-            <div
-              key={e.key}
-              className="border-border text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs"
-            >
-              {e.round != null && (
-                <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
-                  R{e.round}
-                </span>
-              )}
-              Off — rest
-            </div>
+            <OffCard key={e.key} round={e.round} label="Off — Hydrate/Rest" />
           ) : (
             <MatchCard
               key={e.key}
