@@ -8,6 +8,7 @@ import { CalendarDays, List, MapPin, SquarePen, Users } from "lucide-react";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
 import { MatchCard } from "./match-card";
+import { NowPlaying } from "./now-playing";
 import { RescheduleDialog } from "./reschedule-dialog";
 import {
   ActivityStrip,
@@ -301,6 +302,7 @@ export function ScheduleView({
 
   return (
     <div className="space-y-5">
+      <NowPlaying matches={matches} timezone={timezone} />
       <div className="flex flex-wrap items-center gap-2">
         <div className="bg-muted inline-flex rounded-lg p-0.5">
           <ToggleButton
