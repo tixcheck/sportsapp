@@ -7,18 +7,22 @@ import {
   teamTimeline,
 } from "@/lib/schedule/team-timeline";
 
-/** A minimal round match: `home` vs `away`, officiated by `ref`. */
+/** ISO time on the tournament day, in the venue offset. */
+const T = (h: number, m: number): string =>
+  `2026-07-25T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`;
+
+/** A minimal round match: `home` vs `away`, officiated by `ref`, at `time`. */
 function mk(
   round: number,
   home: string,
   away: string,
   ref: string | null,
-  scheduledAt: string | null = null,
+  time: string | null = null,
 ): ScheduleMatch {
   return {
-    id: `r${round}-${home}-${away}`,
+    id: `r${round}-${home}-${away}-${time ?? "tbd"}`,
     round,
-    scheduledAt,
+    scheduledAt: time,
     court: null,
     status: "scheduled",
     homeTeamId: home,
@@ -32,107 +36,93 @@ function mk(
   };
 }
 
-describe("teamTimeline — per-round Play/Ref/Off", () => {
-  it("classifies each round as play, ref, or off", () => {
+describe("teamTimeline — Play/Ref/Off slots", () => {
+  it("marks a skipped game slot as rest between two duties", () => {
     const matches = [
-      mk(1, "A", "B", "C"), // A plays
-      mk(2, "C", "B", "A"), // A refs
-      mk(3, "B", "C", "D"), // A off
-      mk(4, "A", "C", "B"), // A plays
+      mk(1, "A", "B", "C", T(10, 50)), // A plays
+      mk(2, "C", "D", "A", T(11, 10)), // A refs
+      mk(2, "A", "E", "F", T(11, 30)), // A plays
+      mk(3, "G", "H", "I", T(11, 50)), // A not involved — a real grid slot
+      mk(3, "A", "D", "B", T(12, 10)), // A plays
     ];
-    expect(teamTimeline("A", matches).map((t) => t.activity)).toEqual([
+    const t = teamTimeline("A", matches);
+    expect(t.map((s) => s.activity)).toEqual([
       "play",
       "ref",
+      "play",
       "off",
       "play",
     ]);
+    const rest = t.find((s) => s.activity === "off");
+    expect(rest?.at).toBe(T(11, 50)); // the 11:50 slot A sits out
+    expect(rest?.round).toBeNull();
+    expect(rest?.match).toBeNull();
   });
 
-  it("trims leading and trailing off rounds to the active window", () => {
+  it("shows no rest before the first or after the last duty", () => {
     const matches = [
-      mk(1, "B", "C", "D"), // A absent (before it starts)
-      mk(2, "A", "B", "C"), // A plays  ← window start
-      mk(3, "B", "C", "D"), // A off (interior)
-      mk(4, "B", "C", "A"), // A refs   ← window end
-      mk(5, "B", "C", "D"), // A absent (after it finishes)
+      mk(1, "X", "Y", "Z", T(10, 50)), // A absent — before its day starts
+      mk(2, "A", "B", "C", T(11, 10)), // A's first duty
+      mk(3, "A", "D", "E", T(11, 30)), // A's last duty (back-to-back)
+      mk(4, "X", "Y", "Z", T(11, 50)), // A absent — after its day ends
     ];
-    const rounds = teamTimeline("A", matches).map((t) => t.round);
-    expect(rounds).toEqual([2, 3, 4]); // R1 and R5 dropped
-  });
-
-  it("attaches the play/ref match and leaves off rounds matchless", () => {
-    const matches = [
-      mk(1, "A", "B", "C"),
-      mk(2, "B", "C", "D"),
-      mk(3, "C", "B", "A"),
-    ];
-    const t = teamTimeline("A", matches);
-    expect(t[0]).toMatchObject({ activity: "play", match: matches[0] });
-    expect(t[1]).toMatchObject({ activity: "off", match: null });
-    expect(t[2]).toMatchObject({ activity: "ref", match: matches[2] });
-  });
-
-  it("keeps both a ref and a play duty in the same round, ordered by time", () => {
-    // A refs an early game then plays a later one — both in round 2.
-    const refDuty = mk(2, "C", "D", "A", "2026-07-25T11:10:00-04:00");
-    const playDuty = mk(2, "A", "B", "E", "2026-07-25T11:30:00-04:00");
-    const t = teamTimeline("A", [
-      mk(1, "A", "C", "D", "2026-07-25T10:50:00-04:00"), // play
-      playDuty,
-      refDuty,
+    expect(teamTimeline("A", matches).map((s) => s.activity)).toEqual([
+      "play",
+      "play",
     ]);
-    expect(t.map((s) => s.activity)).toEqual(["play", "ref", "play"]);
-    // Round 2's two slots keep their round number but stay distinct.
-    expect(t[1]).toMatchObject({ round: 2, activity: "ref", match: refDuty });
-    expect(t[2]).toMatchObject({ round: 2, activity: "play", match: playDuty });
-    expect(new Set(t.map((s) => s.key)).size).toBe(3); // unique keys
+  });
+
+  it("keeps a same-round ref and play without a phantom rest between them", () => {
+    const matches = [
+      mk(2, "C", "D", "A", T(11, 10)), // A refs
+      mk(2, "A", "B", "E", T(11, 30)), // A plays — next slot, no gap
+    ];
+    expect(teamTimeline("A", matches).map((s) => s.activity)).toEqual([
+      "ref",
+      "play",
+    ]);
   });
 });
 
 describe("teamScheduleEntries", () => {
-  it("lists a ref duty even when the team also plays that round", () => {
-    const refDuty = mk(2, "C", "D", "A", "2026-07-25T11:10:00-04:00");
-    const playDuty = mk(2, "A", "B", "E", "2026-07-25T11:30:00-04:00");
-    const entries = teamScheduleEntries("A", [
-      mk(1, "A", "C", "D", "2026-07-25T10:50:00-04:00"),
-      playDuty,
-      refDuty,
+  it("lists a ref duty and a rest slot the team sits out", () => {
+    const matches = [
+      mk(1, "A", "B", "C", T(10, 50)),
+      mk(2, "C", "D", "A", T(11, 10)), // ref
+      mk(2, "A", "E", "F", T(11, 30)), // play
+      mk(3, "G", "H", "I", T(11, 50)), // A off
+      mk(3, "A", "D", "B", T(12, 10)), // play
+    ];
+    const entries = teamScheduleEntries("A", matches);
+    expect(entries.map((e) => e.kind)).toEqual([
+      "play",
+      "ref",
+      "play",
+      "off",
+      "play",
     ]);
-    // The ref duty must not be swallowed by the same-round play.
-    expect(entries.map((e) => e.kind)).toEqual(["play", "ref", "play"]);
-    expect(entries.some((e) => e.kind === "ref" && e.match === refDuty)).toBe(
-      true,
-    );
+    expect(entries.find((e) => e.kind === "off")?.at).toBe(T(11, 50));
   });
 });
 
-describe("teamOffRounds", () => {
-  it("returns only the interior rounds a team sits out", () => {
+describe("teamOffRounds — whole-round byes", () => {
+  it("returns rounds the team sits out entirely, within its window", () => {
     const matches = [
-      mk(1, "A", "B", "C"), // play
-      mk(2, "C", "B", "A"), // ref
-      mk(3, "B", "C", "D"), // off
-      mk(4, "A", "C", "B"), // play
+      mk(1, "X", "Y", "Z", T(10, 50)), // before A — excluded
+      mk(2, "A", "B", "C", T(11, 10)), // A plays
+      mk(3, "D", "E", "F", T(11, 30)), // R3 exists, A absent → bye
+      mk(4, "B", "C", "A", T(11, 50)), // A refs
+      mk(5, "X", "Y", "Z", T(12, 10)), // after A — excluded
     ];
     expect(teamOffRounds("A", matches)).toEqual([3]);
   });
 
-  it("excludes off rounds outside the active window", () => {
+  it("is empty when the team has a duty every round", () => {
     const matches = [
-      mk(1, "B", "C", "D"), // before A starts — not an off round
-      mk(2, "A", "B", "C"), // play
-      mk(3, "B", "C", "D"), // interior off
-      mk(4, "B", "C", "A"), // ref
-      mk(5, "B", "C", "D"), // after A finishes — not an off round
-    ];
-    expect(teamOffRounds("A", matches)).toEqual([3]);
-  });
-
-  it("is empty when the team plays or refs every round", () => {
-    const matches = [
-      mk(1, "A", "B", "C"),
-      mk(2, "A", "C", "B"),
-      mk(3, "B", "C", "A"),
+      mk(1, "A", "B", "C", T(10, 50)),
+      mk(2, "C", "D", "A", T(11, 10)), // refs R2
+      mk(2, "A", "E", "F", T(11, 30)), // plays R2
+      mk(3, "A", "D", "B", T(12, 10)), // plays R3
     ];
     expect(teamOffRounds("A", matches)).toEqual([]);
   });

@@ -457,7 +457,7 @@ function TeamDay({
       <div className="space-y-2">
         {entries.map((e) =>
           e.kind === "off" ? (
-            <OffCard key={e.key} round={e.round} label="Off — Hydrate/Rest" />
+            <OffCard key={e.key} at={e.at} timezone={timezone} />
           ) : (
             <MatchCard
               key={e.key}

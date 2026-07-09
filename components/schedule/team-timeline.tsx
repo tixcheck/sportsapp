@@ -40,29 +40,31 @@ export function ActivityStrip({
   if (timeline.length === 0) return null;
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
-      {timeline.map((t) => (
-        <div
-          key={t.key}
-          className={cn(
-            "flex min-w-[3.25rem] flex-col items-center rounded-md border px-2 py-1 text-center",
-            ACTIVITY_STYLE[t.activity],
-          )}
-        >
-          <span className="text-[0.6rem] font-medium uppercase opacity-75">
-            R{t.round}
-          </span>
-          <span className="text-xs leading-tight font-semibold">
-            {ACTIVITY_LABEL[t.activity]}
-          </span>
-          {t.match?.scheduledAt && (
-            <span className="text-[0.6rem] tabular-nums opacity-80">
-              {DateTime.fromISO(t.match.scheduledAt, {
-                zone: timezone,
-              }).toFormat("h:mm a")}
+      {timeline.map((t) => {
+        const at = t.match?.scheduledAt ?? t.at;
+        return (
+          <div
+            key={t.key}
+            className={cn(
+              "flex min-w-[3.25rem] flex-col items-center rounded-md border px-2 py-1 text-center",
+              ACTIVITY_STYLE[t.activity],
+            )}
+          >
+            {/* Duties label their round; a rest slot has none, so hold the line. */}
+            <span className="text-[0.6rem] font-medium uppercase opacity-75">
+              {t.round != null ? `R${t.round}` : " "}
             </span>
-          )}
-        </div>
-      ))}
+            <span className="text-xs leading-tight font-semibold">
+              {ACTIVITY_LABEL[t.activity]}
+            </span>
+            {at && (
+              <span className="text-[0.6rem] tabular-nums opacity-80">
+                {DateTime.fromISO(at, { zone: timezone }).toFormat("h:mm a")}
+              </span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -73,21 +75,36 @@ export function ActivityStrip({
  */
 export function OffCard({
   round,
+  at,
+  timezone,
   label = "You're off — Hydrate/Rest",
   teamName,
 }: {
   /** Shown as an "R{n}" chip when the surrounding view doesn't already head the round. */
   round?: number | null;
+  /** Start time of the rest slot (ISO) — shown as a time chip when present. */
+  at?: string;
+  timezone?: string;
   label?: string;
   /** Names the resting team when the view lists more than one followed team. */
   teamName?: string;
 }) {
+  const time =
+    at && timezone
+      ? DateTime.fromISO(at, { zone: timezone }).toFormat("h:mm a")
+      : null;
   return (
     <div className="border-border text-muted-foreground flex items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs">
-      {round != null && (
-        <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
-          R{round}
+      {time ? (
+        <span className="bg-muted rounded px-1.5 py-0.5 font-medium tabular-nums">
+          {time}
         </span>
+      ) : (
+        round != null && (
+          <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
+            R{round}
+          </span>
+        )
       )}
       {teamName && <span className="font-medium">{teamName}</span>}
       {label}

@@ -61,17 +61,20 @@ function TeamGames({
         <ol className="divide-border divide-y">
           {entries.map((e) => {
             if (e.kind === "off") {
+              const restAt = e.at
+                ? DateTime.fromISO(e.at, { zone: timezone }).toFormat("h:mm a")
+                : null;
               return (
                 <li
                   key={e.key}
                   className="text-muted-foreground flex items-center gap-2 py-2 text-xs"
                 >
-                  {e.round != null && (
-                    <span className="bg-muted rounded px-1.5 py-0.5 font-medium">
-                      R{e.round}
+                  {restAt && (
+                    <span className="bg-muted rounded px-1.5 py-0.5 font-medium tabular-nums">
+                      {restAt}
                     </span>
                   )}
-                  Off — rest
+                  You&apos;re off — Hydrate/Rest
                 </li>
               );
             }
