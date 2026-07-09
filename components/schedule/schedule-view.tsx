@@ -13,7 +13,6 @@ import { RescheduleDialog } from "./reschedule-dialog";
 import {
   ActivityStrip,
   OffCard,
-  teamOffRounds,
   teamScheduleEntries,
   teamTimeline,
 } from "./team-timeline";
@@ -23,8 +22,11 @@ type Group = {
   heading: string;
   sub?: string;
   matches: ScheduleMatch[];
-  /** Followed teams sitting out this round — rendered as "off" cards (My-team view). */
-  offTeams?: { teamId: string; name: string }[];
+  /**
+   * Rest slots a followed team sits out after this round's duties — rendered as
+   * "You're off" cards in the My-team view, in time order between the rounds.
+   */
+  offRests?: { key: string; name: string; at?: string }[];
 };
 
 function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
@@ -60,12 +62,11 @@ function teamNames(matches: ScheduleMatch[]): Map<string, string> {
 }
 
 /**
- * By-round groups for the My-team filter, with an "off" marker added for each
- * round a followed team neither plays nor refs (within its active window). This
- * keeps the play → off → ref sequence unbroken — without it, an OFF round simply
- * vanishes from the filtered view and the schedule looks like it skips a round.
- * Off rounds are derived from the full schedule (`all`), since the filtered set
- * has no match to hang them on.
+ * By-round groups for the My-team filter, with each rest slot a followed team
+ * sits out attached to the round of its preceding duty — so the same per-slot
+ * "You're off — Hydrate/Rest" breaks shown in the team-detail views appear here
+ * too, in time order between the rounds. Rests come from the full schedule
+ * (`all`), which is where the empty game slots between the team's duties live.
  */
 function groupByRoundWithOff(
   shown: ScheduleMatch[],
@@ -73,42 +74,31 @@ function groupByRoundWithOff(
   myTeamIds: string[],
   tz: string,
 ): Group[] {
+  const groups = groupByRound(shown, tz);
   const byRound = new Map<number, Group>();
-  for (const g of groupByRound(shown, tz))
-    byRound.set(Number(g.key.slice(1)), g);
-
-  // Round → date sub, from the full schedule (off rounds have no shown matches).
-  const roundSub = new Map<number, string | undefined>();
-  for (const m of all) {
-    const r = m.round ?? 0;
-    if (r <= 0 || roundSub.has(r) || !m.scheduledAt) continue;
-    roundSub.set(
-      r,
-      DateTime.fromISO(m.scheduledAt, { zone: tz }).toFormat("cccc, LLL d"),
-    );
-  }
+  for (const g of groups) byRound.set(Number(g.key.slice(1)), g);
 
   const names = teamNames(all);
   for (const teamId of myTeamIds) {
-    for (const round of teamOffRounds(teamId, all)) {
-      let g = byRound.get(round);
-      if (!g) {
-        g = {
-          key: `r${round}`,
-          heading: `Round ${round}`,
-          sub: roundSub.get(round),
-          matches: [],
-        };
-        byRound.set(round, g);
+    const name = names.get(teamId) ?? "Your team";
+    // Walk the team's day; a rest slot belongs after its preceding duty's round.
+    let prevRound: number | null = null;
+    for (const t of teamTimeline(teamId, all)) {
+      if (t.activity === "off") {
+        const g = prevRound != null ? byRound.get(prevRound) : undefined;
+        if (g)
+          (g.offRests ??= []).push({
+            key: `${teamId}-off-${t.at}`,
+            name,
+            at: t.at,
+          });
+      } else if (t.round != null) {
+        prevRound = t.round;
       }
-      (g.offTeams ??= []).push({
-        teamId,
-        name: names.get(teamId) ?? "Your team",
-      });
     }
   }
 
-  return [...byRound.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g);
+  return groups;
 }
 
 function groupByDate(matches: ScheduleMatch[], tz: string): Group[] {
@@ -393,9 +383,11 @@ export function ScheduleView({
                 />
               ))}
             </div>
-            {g.offTeams?.map((o) => (
+            {g.offRests?.map((o) => (
               <OffCard
-                key={`off-${g.key}-${o.teamId}`}
+                key={o.key}
+                at={o.at}
+                timezone={timezone}
                 teamName={myTeamIds.length > 1 ? o.name : undefined}
               />
             ))}
