@@ -16,11 +16,15 @@ import {
 } from "@/lib/scheduler/pools";
 import { generatePairings } from "@/lib/scheduler/round-robin";
 import {
+  layoutMultiDaySchedule,
+  type DivisionLayoutInput,
+} from "@/lib/scheduler/multi-day";
+import {
   planReoptimize,
   type ReoptInputMatch,
 } from "@/lib/scheduler/reoptimize";
 import { estimateMatchMinutes, toShortPoolFormat } from "@/lib/formats";
-import type { MatchFormat } from "@/lib/db/schema";
+import type { MatchFormat, TournamentDay } from "@/lib/db/schema";
 
 type ActionError = { error: string };
 
@@ -75,7 +79,9 @@ export async function generatePoolsAction(
 
   const { data: settings } = await supabase
     .from("tournament_settings")
-    .select("courts, pool_format, target_games_per_team, minutes_per_game")
+    .select(
+      "courts, pool_format, target_games_per_team, minutes_per_game, days",
+    )
     .eq("competition_id", competitionId)
     .single();
   const courts = settings?.courts ?? 4;
@@ -224,26 +230,102 @@ export async function generatePoolsAction(
     }
   }
 
-  // Lay out the schedule: sequential slots per pool on its court, no overlap.
-  const slots = layoutPoolSchedule(
-    orderedPools.map((p) => p.pool),
-    courts,
-  );
-  if (detectCourtTimeCollisions(slots).length > 0) {
-    return { error: "Scheduling collision detected — please try again." };
-  }
+  // Multi-day / per-division-courts is opt-in: used only when the organizer set
+  // ≥2 playing days or gave a division its own courts. Otherwise the original
+  // single-day global court packing is preserved exactly.
+  const days = (settings?.days ?? null) as TournamentDay[] | null;
+  const perDayTargets =
+    days && days.length ? days.map((d) => d.targetGamesPerTeam) : [];
 
-  const matchRows: MatchInsert[] = slots.map((s) => ({
-    competition_id: competitionId,
-    pool_id: poolIds[s.poolIndex],
-    round: s.round,
-    home_team_id: s.homeTeamId,
-    away_team_id: s.awayTeamId,
-    ref_team_id: s.refTeamId,
-    court: `Court ${s.court}`,
-    status: "scheduled",
-    scheduled_at: base.plus({ minutes: s.slot * slotMin }).toISO(),
-  }));
+  const { data: divRows } = await supabase
+    .from("divisions")
+    .select("id, courts, tier_order")
+    .eq("competition_id", competitionId);
+  const courtsByDiv = new Map<string, number[] | null>(
+    (divRows ?? []).map((d) => [d.id, (d.courts as number[] | null) ?? null]),
+  );
+  const tierByDiv = new Map<string, number>(
+    (divRows ?? []).map((d) => [d.id, d.tier_order ?? 0]),
+  );
+
+  // Regroup the inserted pools by division (local order preserved) so each
+  // match maps back to its pool row.
+  const divPoolIds = new Map<string, string[]>();
+  const divPools = new Map<string, LayoutPool[]>();
+  orderedPools.forEach((op, i) => {
+    if (!divPoolIds.has(op.divisionId)) {
+      divPoolIds.set(op.divisionId, []);
+      divPools.set(op.divisionId, []);
+    }
+    divPoolIds.get(op.divisionId)!.push(poolIds[i]);
+    divPools.get(op.divisionId)!.push(op.pool);
+  });
+  const divisionInputs: DivisionLayoutInput[] = [...divPools.keys()]
+    .sort((a, b) => (tierByDiv.get(a) ?? 0) - (tierByDiv.get(b) ?? 0))
+    .map((divisionId) => ({
+      divisionId,
+      pools: divPools.get(divisionId)!,
+      courts: courtsByDiv.get(divisionId) ?? null,
+    }));
+
+  const useMultiPath =
+    (days != null && days.length >= 2) ||
+    divisionInputs.some((d) => d.courts != null && d.courts.length > 0);
+
+  let matchRows: MatchInsert[];
+  if (useMultiPath) {
+    const slots = layoutMultiDaySchedule(divisionInputs, courts, perDayTargets);
+    // No two matches share a (day, court, slot).
+    const seen = new Set<string>();
+    for (const s of slots) {
+      const key = `${s.day}:${s.court}:${s.slot}`;
+      if (seen.has(key)) {
+        return { error: "Scheduling collision detected — please try again." };
+      }
+      seen.add(key);
+    }
+    // Each day's games start in that day's window; with no days config a single
+    // day falls back to the tournament start date + start time.
+    const dayBase = (day: number): DateTime => {
+      const d = days?.[day];
+      return d
+        ? DateTime.fromISO(`${d.date}T${d.startTime}`, { zone: tz })
+        : base.plus({ days: day });
+    };
+    matchRows = slots.map((s) => ({
+      competition_id: competitionId,
+      pool_id: divPoolIds.get(s.divisionId)![s.poolIndex],
+      round: s.round,
+      home_team_id: s.homeTeamId,
+      away_team_id: s.awayTeamId,
+      ref_team_id: s.refTeamId,
+      court: `Court ${s.court}`,
+      status: "scheduled",
+      scheduled_at: dayBase(s.day)
+        .plus({ minutes: s.slot * slotMin })
+        .toISO(),
+    }));
+  } else {
+    // Original single-day layout: pack all pools globally onto the courts.
+    const slots = layoutPoolSchedule(
+      orderedPools.map((p) => p.pool),
+      courts,
+    );
+    if (detectCourtTimeCollisions(slots).length > 0) {
+      return { error: "Scheduling collision detected — please try again." };
+    }
+    matchRows = slots.map((s) => ({
+      competition_id: competitionId,
+      pool_id: poolIds[s.poolIndex],
+      round: s.round,
+      home_team_id: s.homeTeamId,
+      away_team_id: s.awayTeamId,
+      ref_team_id: s.refTeamId,
+      court: `Court ${s.court}`,
+      status: "scheduled",
+      scheduled_at: base.plus({ minutes: s.slot * slotMin }).toISO(),
+    }));
+  }
 
   if (matchRows.length) {
     const { error: insErr } = await supabase.from("matches").insert(matchRows);

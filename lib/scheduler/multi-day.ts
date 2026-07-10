@@ -28,6 +28,8 @@ export interface DivisionLayoutInput {
 
 export interface MultiDayMatch {
   divisionId: string;
+  /** Index into this division's `pools` array — maps back to the pool row. */
+  poolIndex: number;
   /** 0-based playing day. */
   day: number;
   /** Actual court number (1-based). */
@@ -124,6 +126,7 @@ export function layoutMultiDaySchedule(
           ms.forEach((m, pos) => {
             out.push({
               divisionId: div.divisionId,
+              poolIndex: m.poolIndex,
               day,
               court: courtSet[localCourt - 1],
               slot: offset + pos,
