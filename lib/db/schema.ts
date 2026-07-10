@@ -58,6 +58,24 @@ export type WeeklySlot = {
   courts: number;
 };
 
+/**
+ * One playing day of a multi-day tournament (PRD §7, multi-day). Null/absent
+ * `days` on tournament_settings means a single-day event (legacy behaviour).
+ */
+export type TournamentDay = {
+  /** Calendar date "YYYY-MM-DD" in the competition's venue timezone. */
+  date: string;
+  /** Local window "HH:mm" in the venue timezone; games are packed inside it. */
+  startTime: string;
+  endTime: string;
+  /**
+   * Preferred pool games per team on this day — a soft target the scheduler
+   * aims for and flexes down when courts/time can't fit the exact split. The
+   * last day absorbs the remainder. See lib/scheduler/day-split.ts.
+   */
+  targetGamesPerTeam: number;
+};
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -286,6 +304,9 @@ export const tournamentSettings = pgTable("tournament_settings", {
   // the match format. Lets the organizer set a tighter slot (e.g. 20 min).
   minutesPerGame: integer("minutes_per_game"),
   courts: integer("courts").notNull().default(4),
+  // Multi-day plan: one entry per playing day (date + window + per-day target
+  // games/team). Null/empty = a single-day event scheduled from the start date.
+  days: jsonb("days").$type<TournamentDay[]>(),
   poolFormat: jsonb("pool_format").$type<MatchFormat>(),
   bracketType: bracketType("bracket_type").notNull().default("single_elim"),
   // How many pool finishers advance to the playoff bracket. Drives the generic
@@ -312,6 +333,10 @@ export const divisions = pgTable(
       .references(() => competitions.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     tierOrder: integer("tier_order").notNull().default(0),
+    // Multi-day/multi-court: the specific court numbers this division plays on.
+    // Null/empty = share the tournament's whole court pool (still scheduled as a
+    // contiguous block per division, never interleaved with another division).
+    courts: jsonb("courts").$type<number[]>(),
   },
   (t) => [index("divisions_competition_id_idx").on(t.competitionId)],
 );

@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>mysportsapp — Run your volleyball league or tournament, beautifully</title>
+    <meta
+      name="description"
+      content="Free to start. mysportsapp turns the chaos of spreadsheets, WhatsApp and e-transfers into one calm, volleyball-native tool for Toronto organizers — auto-scheduling, real tiebreakers, live scores, and public pages players love."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&family=Libre+Franklin:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f1e9d9;
+        --paper-raised: #faf5ea;
+        --paper-sunken: #e7dcc6;
+        --ink: #1c1714;
+        --ink-2: #6a5f52;
+        --ink-3: #9b9082;
+        --rule: #d8ccb4;
+        --claret: #8e2c3b;
+        --claret-deep: #6c1f2c;
+        --claret-tint: #f0dcd9;
+        --pine: #2f6b43;
+        --radius: 10px;
+        --wrap: 1080px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Libre Franklin", system-ui, sans-serif;
+        font-size: 17px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      h1,
+      h2,
+      h3,
+      .display {
+        font-family: "Newsreader", Georgia, serif;
+        font-weight: 600;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+        margin: 0;
+      }
+      p {
+        margin: 0 0 1rem;
+        color: var(--ink-2);
+      }
+      a {
+        color: var(--claret);
+      }
+      .wrap {
+        max-width: var(--wrap);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      /* --- top bar --- */
+      .topbar {
+        border-bottom: 1px solid var(--rule);
+        background: color-mix(in srgb, var(--paper) 88%, transparent);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(8px);
+      }
+      .topbar .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 62px;
+      }
+      .wordmark {
+        font-family: "Newsreader", serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 1px;
+      }
+      .wordmark .ball {
+        display: inline-block;
+        width: 0.62em;
+        height: 0.62em;
+        border-radius: 50%;
+        background: var(--claret);
+        position: relative;
+        top: 0.02em;
+      }
+      .nav-cta {
+        font-family: "Libre Franklin", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--paper-raised);
+        background: var(--claret);
+        padding: 9px 18px;
+        border-radius: var(--radius);
+        text-decoration: none;
+      }
+
+      /* --- eyebrow / kicker --- */
+      .kicker {
+        font-family: "Libre Franklin", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--claret);
+        margin: 0 0 14px;
+      }
+
+      /* --- hero --- */
+      .hero {
+        padding: 76px 0 60px;
+        border-bottom: 1px solid var(--rule);
+      }
+      .hero h1 {
+        font-size: clamp(2.6rem, 6vw, 4.3rem);
+        max-width: 15ch;
+      }
+      .hero .lede {
+        font-size: 1.24rem;
+        color: var(--ink-2);
+        max-width: 46ch;
+        margin: 22px 0 30px;
+      }
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .btn {
+        font-family: "Libre Franklin", sans-serif;
+        font-weight: 600;
+        font-size: 1rem;
+        border-radius: var(--radius);
+        padding: 13px 26px;
+        text-decoration: none;
+        display: inline-block;
+        border: 1px solid transparent;
+      }
+      .btn-primary {
+        background: var(--claret);
+        color: var(--paper-raised);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--ink);
+        border-color: var(--rule);
+      }
+      .free-note {
+        font-size: 0.9rem;
+        color: var(--ink-3);
+        margin-top: 14px;
+      }
+      .free-note strong {
+        color: var(--pine);
+      }
+
+      /* --- section rhythm --- */
+      section {
+        padding: 64px 0;
+        border-bottom: 1px solid var(--rule);
+      }
+      .section-head {
+        max-width: 60ch;
+        margin-bottom: 40px;
+      }
+      .section-head h2 {
+        font-size: clamp(1.9rem, 4vw, 2.7rem);
+      }
+      .section-head p {
+        font-size: 1.1rem;
+        margin-top: 14px;
+      }
+
+      /* --- problem strip --- */
+      .chaos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      .chaos span {
+        background: var(--paper-sunken);
+        color: var(--ink-2);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 7px 15px;
+        font-size: 0.9rem;
+        text-decoration: line-through;
+        text-decoration-color: var(--claret);
+      }
+
+      /* --- comparison table --- */
+      .compare {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--paper-raised);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        overflow: hidden;
+        font-size: 0.97rem;
+      }
+      .compare th,
+      .compare td {
+        text-align: left;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+      }
+      .compare thead th {
+        font-family: "Newsreader", serif;
+        font-size: 1.05rem;
+        font-weight: 600;
+        background: var(--paper-sunken);
+      }
+      .compare thead th.us {
+        color: var(--claret-deep);
+        background: var(--claret-tint);
+      }
+      .compare td.feat {
+        font-weight: 600;
+        color: var(--ink);
+        width: 34%;
+      }
+      .compare td.us {
+        color: var(--ink);
+        background: color-mix(in srgb, var(--claret-tint) 45%, transparent);
+      }
+      .compare td.them {
+        color: var(--ink-3);
+      }
+      .compare tr:last-child td {
+        border-bottom: none;
+      }
+      .yes {
+        color: var(--pine);
+        font-weight: 700;
+      }
+      .no {
+        color: var(--ink-3);
+        font-weight: 700;
+      }
+
+      /* --- feature grid --- */
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .card {
+        background: var(--paper-raised);
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 24px;
+        box-shadow: 0 2px 18px rgba(28, 23, 20, 0.05);
+      }
+      .card .ico {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        background: var(--claret-tint);
+        color: var(--claret-deep);
+        font-size: 1.15rem;
+        margin-bottom: 14px;
+      }
+      .card h3 {
+        font-size: 1.22rem;
+        margin-bottom: 8px;
+      }
+      .card p {
+        font-size: 0.95rem;
+        margin: 0;
+      }
+
+      /* --- steps --- */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 22px;
+        counter-reset: step;
+      }
+      .step {
+        position: relative;
+      }
+      .step .num {
+        font-family: "Newsreader", serif;
+        font-size: 2.4rem;
+        font-weight: 700;
+        color: var(--claret);
+        line-height: 1;
+      }
+      .step h3 {
+        font-size: 1.1rem;
+        margin: 10px 0 6px;
+      }
+      .step p {
+        font-size: 0.94rem;
+        margin: 0;
+      }
+
+      /* --- pricing --- */
+      .pricing {
+        background: var(--paper-raised);
+      }
+      .price-grid {
+        display: grid;
+        grid-template-columns: 0.9fr 1.4fr;
+        gap: 22px;
+      }
+      .price-card {
+        border: 1px solid var(--rule);
+        border-radius: var(--radius);
+        padding: 28px;
+        background: var(--paper);
+      }
+      .price-card.free {
+        background: var(--paper-sunken);
+      }
+      .price-card.paid {
+        border-color: var(--claret);
+        background: var(--paper);
+        box-shadow: 0 2px 22px rgba(142, 44, 59, 0.1);
+      }
+      .price-card h3 {
+        font-size: 1.5rem;
+      }
+      .price-tag {
+        font-family: "Newsreader", serif;
+        font-size: 2.6rem;
+        font-weight: 700;
+        color: var(--ink);
+        margin: 6px 0 2px;
+      }
+      .price-tag small {
+        font-size: 0.95rem;
+        font-family: "Libre Franklin", sans-serif;
+        font-weight: 500;
+        color: var(--ink-3);
+      }
+      ul.ticks {
+        list-style: none;
+        padding: 0;
+        margin: 16px 0 0;
+      }
+      ul.ticks li {
+        padding: 6px 0 6px 26px;
+        position: relative;
+        font-size: 0.96rem;
+        color: var(--ink-2);
+      }
+      ul.ticks li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--pine);
+        font-weight: 700;
+      }
+      .tier-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+      }
+      .tier-table th,
+      .tier-table td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--rule);
+        text-align: left;
+        font-size: 0.95rem;
+      }
+      .tier-table th {
+        font-family: "Libre Franklin", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.72rem;
+        color: var(--ink-3);
+        font-weight: 700;
+      }
+      .tier-table td.rate {
+        font-family: "Newsreader", serif;
+        font-weight: 700;
+        color: var(--claret-deep);
+        font-size: 1.15rem;
+      }
+      .price-foot {
+        font-size: 0.88rem;
+        color: var(--ink-3);
+        margin-top: 16px;
+      }
+
+      /* --- quote --- */
+      .quote {
+        text-align: center;
+      }
+      .quote blockquote {
+        font-family: "Newsreader", serif;
+        font-size: clamp(1.5rem, 3.4vw, 2.15rem);
+        font-style: italic;
+        line-height: 1.35;
+        color: var(--ink);
+        max-width: 24ch;
+        margin: 0 auto 18px;
+      }
+      .quote .who {
+        font-size: 0.92rem;
+        color: var(--ink-3);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      /* --- final CTA --- */
+      .final {
+        background: var(--claret-deep);
+        color: var(--paper-raised);
+        text-align: center;
+        border: none;
+      }
+      .final h2 {
+        color: var(--paper-raised);
+        font-size: clamp(2rem, 5vw, 3rem);
+      }
+      .final p {
+        color: color-mix(in srgb, var(--paper-raised) 78%, var(--claret));
+        max-width: 44ch;
+        margin: 16px auto 26px;
+      }
+      .final .btn-primary {
+        background: var(--paper-raised);
+        color: var(--claret-deep);
+      }
+
+      footer {
+        padding: 30px 0 44px;
+        font-size: 0.85rem;
+        color: var(--ink-3);
+      }
+      footer .wrap {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      @media (max-width: 860px) {
+        .features {
+          grid-template-columns: 1fr 1fr;
+        }
+        .steps {
+          grid-template-columns: 1fr 1fr;
+        }
+        .price-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .features {
+          grid-template-columns: 1fr;
+        }
+        .compare td.feat {
+          width: 44%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- top bar -->
+    <div class="topbar">
+      <div class="wrap">
+        <a class="wordmark" href="#top"
+          >mysp<span class="ball"></span>rtsapp</a
+        >
+        <a class="nav-cta" href="#pricing">Start free</a>
+      </div>
+    </div>
+
+    <a id="top"></a>
+
+    <!-- hero -->
+    <header class="hero">
+      <div class="wrap">
+        <p class="kicker">For volleyball organizers · Built in Toronto</p>
+        <h1>Run your league or tournament like it runs itself.</h1>
+        <p class="lede">
+          Auto-scheduling, real standings, live scores, and public pages your
+          players actually love — without the spreadsheet, the group chat, and
+          the day-of chaos. Free to set up. Pay only when you go live.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#pricing">See pricing</a>
+          <a class="btn btn-ghost" href="#features">What it does</a>
+        </div>
+        <p class="free-note">
+          <strong>Free for organizers to build &amp; preview.</strong> No
+          platform fee on your money. Players never pay to view.
+        </p>
+      </div>
+    </header>
+
+    <!-- problem -->
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">The Saturday-morning scramble</p>
+          <h2>You didn’t sign up to be a spreadsheet operator.</h2>
+          <p>
+            Most Toronto organizers are stitching a competition together out of
+            five tools that don’t talk to each other — and hand-fixing
+            standings between games while forty people ask you what court
+            they’re on. mysportsapp replaces the whole pile.
+          </p>
+        </div>
+        <div class="chaos">
+          <span>Google Sheets standings</span>
+          <span>WhatsApp “what court?”</span>
+          <span>Hand-drawn brackets</span>
+          <span>Manual tiebreakers</span>
+          <span>Texting schedule changes</span>
+          <span>“Who refs next?”</span>
+          <span>Paper scoresheets</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- comparison -->
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Why switch</p>
+          <h2>Everything a spreadsheet can’t do.</h2>
+        </div>
+        <table class="compare">
+          <thead>
+            <tr>
+              <th>What running an event needs</th>
+              <th class="us">mysportsapp</th>
+              <th>Excel / WhatsApp</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="feat">Build the whole schedule</td>
+              <td class="us">
+                <span class="yes">Auto</span> — round-robin, pools &amp;
+                brackets in one click
+              </td>
+              <td class="them">Hours by hand, every season</td>
+            </tr>
+            <tr>
+              <td class="feat">Standings &amp; tiebreakers</td>
+              <td class="us">
+                <span class="yes">Live &amp; correct</span> — full OVA
+                hierarchy, tap to see the math
+              </td>
+              <td class="them">Manual, and usually wrong on ties</td>
+            </tr>
+            <tr>
+              <td class="feat">Referee assignments</td>
+              <td class="us">
+                <span class="yes">Balanced automatically</span>, shown on every
+                card
+              </td>
+              <td class="them">“Whoever’s free,” argued on the day</td>
+            </tr>
+            <tr>
+              <td class="feat">Score entry</td>
+              <td class="us">
+                <span class="yes">From any phone</span> — captains submit,
+                opponent confirms
+              </td>
+              <td class="them">One person, one laptop, all day</td>
+            </tr>
+            <tr>
+              <td class="feat">Players find their next game</td>
+              <td class="us">
+                <span class="yes">Own page</span> — court, time, opponent,
+                ref, rest breaks
+              </td>
+              <td class="them">They ask you. Repeatedly.</td>
+            </tr>
+            <tr>
+              <td class="feat">Schedule changes</td>
+              <td class="us">
+                <span class="yes">Edit once</span>, everyone sees it instantly
+              </td>
+              <td class="them">Retype, re-send, hope they saw it</td>
+            </tr>
+            <tr>
+              <td class="feat">Looks like your event</td>
+              <td class="us">
+                <span class="yes">Clean public page</span>, no login to view
+              </td>
+              <td class="them">A shared link to a grid</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- features -->
+    <section id="features">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Built for the sport, not “events”</p>
+          <h2>Volleyball-native, from pools to point ratio.</h2>
+          <p>
+            Indoor 6s, beach 2s, and co-ed 4s — with the real formats, the real
+            language, and the details that only matter if you’ve actually run a
+            Saturday.
+          </p>
+        </div>
+        <div class="features">
+          <div class="card">
+            <div class="ico">📅</div>
+            <h3>One-click scheduling</h3>
+            <p>
+              Round-robin leagues (circle method), snake-drafted tournament
+              pools, and single-elim brackets — generated, court-balanced, and
+              time-capped for you. Re-time a day and everything re-spaces.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">🏆</div>
+            <h3>Standings that don’t cheat</h3>
+            <p>
+              The full OVA tiebreaker hierarchy — match wins, head-to-head, set
+              ratio, point ratio — recomputed live. Tap any position to see
+              exactly which step broke the tie.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">🔴</div>
+            <h3>Live on game day</h3>
+            <p>
+              A “Now playing” board shows the current game on every court, and
+              advances the moment a score goes in. Captains enter set scores
+              from their phone; the opponent confirms.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">🙋</div>
+            <h3>Every player’s own day</h3>
+            <p>
+              A personal Play / Ref / Off strip so anyone can see when they
+              play, when they referee, and when they get a
+              “Hydrate/Rest” break — no more crowding the printout.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">🥇</div>
+            <h3>Pools, brackets &amp; more</h3>
+            <p>
+              Championship + consolation tracks, auto-seeded from pool finish,
+              plus King-of-the-Court formats. Drop-a-game handling when a pool
+              runs short — done right, per team.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">🔗</div>
+            <h3>A public page players love</h3>
+            <p>
+              Pools, schedule, brackets and teams on one clean, mobile-first
+              link — no login to view. Players bookmark their team and land on
+              their schedule in a tap.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">✉️</div>
+            <h3>Reminders on autopilot</h3>
+            <p>
+              Weekly “your matches this week,” confirm-your-score nudges, and
+              schedule-change notices go out for you — so you stop being the
+              group chat.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">📱</div>
+            <h3>Works on any phone</h3>
+            <p>
+              Installable, fast, and readable in the sun. Light, airy, and
+              tuned for a 375px screen because that’s where your players
+              actually are.
+            </p>
+          </div>
+          <div class="card">
+            <div class="ico">🔒</div>
+            <h3>Your money stays yours</h3>
+            <p>
+              We don’t sit between you and your players’ payments and we don’t
+              take a cut of registrations. You keep e-transfers exactly the way
+              you run them today.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- how it works -->
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Set up in an evening</p>
+          <h2>From empty page to public link in four steps.</h2>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="num">1</div>
+            <h3>Create it</h3>
+            <p>
+              Pick league or tournament, choose your sport and format, set
+              dates, venue and courts.
+            </p>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <h3>Add teams</h3>
+            <p>
+              Add them yourself or open a public registration link. Captains
+              claim their roster by email.
+            </p>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <h3>Generate</h3>
+            <p>
+              One click builds pools, the schedule, referees and — after pools
+              — the bracket.
+            </p>
+          </div>
+          <div class="step">
+            <div class="num">4</div>
+            <h3>Publish</h3>
+            <p>
+              Share the link. Scores roll in, standings settle themselves, the
+              bracket fills out live.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- pricing -->
+    <section id="pricing" class="pricing">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="kicker">Freemium — start free, pay when it’s real</p>
+          <h2>Simple pricing that scales with your event.</h2>
+          <p>
+            Set up, schedule, and preview everything for free. When you publish
+            a live event, it’s a flat rate per team — and the bigger your
+            event, the less each team costs.
+          </p>
+        </div>
+        <div class="price-grid">
+          <div class="price-card free">
+            <h3>Free</h3>
+            <div class="price-tag">$0</div>
+            <p style="margin: 0; color: var(--ink-2)">Forever, to build.</p>
+            <ul class="ticks">
+              <li>Create leagues &amp; tournaments</li>
+              <li>Full auto-scheduling &amp; seeding preview</li>
+              <li>Public page &amp; standings preview</li>
+              <li>Run one small event free (up to 6 teams)</li>
+              <li>Unlimited spectators, always</li>
+            </ul>
+          </div>
+          <div class="price-card paid">
+            <h3>Season / Tournament pass</h3>
+            <div class="price-tag">
+              $5–$15 <small>/ team, per season or tournament</small>
+            </div>
+            <p style="margin: 0; color: var(--ink-2)">
+              One flat charge to publish and run it, live. Bigger events pay
+              less per team.
+            </p>
+            <table class="tier-table">
+              <thead>
+                <tr>
+                  <th>Event size</th>
+                  <th>Per team</th>
+                  <th>Typical example</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Small · up to 8 teams</td>
+                  <td class="rate">$15</td>
+                  <td style="color: var(--ink-3)">6-team beach 2s → $90</td>
+                </tr>
+                <tr>
+                  <td>Medium · 9–24 teams</td>
+                  <td class="rate">$10</td>
+                  <td style="color: var(--ink-3)">16-team co-ed 4s → $160</td>
+                </tr>
+                <tr>
+                  <td>Large · 25+ teams</td>
+                  <td class="rate">$5</td>
+                  <td style="color: var(--ink-3)">32-team indoor 6s → $160</td>
+                </tr>
+              </tbody>
+            </table>
+            <ul class="ticks">
+              <li>Everything in Free, unlocked and published</li>
+              <li>Live scores, brackets, referee assignments</li>
+              <li>Automatic email reminders to your players</li>
+              <li>No per-registration fee. No cut of your payments.</li>
+            </ul>
+            <p class="price-foot">
+              That’s roughly the price of one coffee per team for a whole
+              season — and less than the hours you’d spend rebuilding a
+              spreadsheet. Pay per event; nothing recurring.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- quote -->
+    <section class="quote">
+      <div class="wrap">
+        <blockquote>
+          “I set up my whole Saturday tournament in one evening — and spent the
+          day actually playing.”
+        </blockquote>
+        <div class="who">— A Toronto organizer, the way it should feel</div>
+      </div>
+    </section>
+
+    <!-- final CTA -->
+    <section class="final">
+      <div class="wrap">
+        <h2>Give your players the tournament they deserve.</h2>
+        <p>
+          Free to build, quick to launch, and priced so any event can afford
+          it. Start your league or tournament today.
+        </p>
+        <a class="btn btn-primary" href="https://mysportsapp.ca">Start free →</a>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <span
+          >mysp<span
+            style="
+              display: inline-block;
+              width: 0.5em;
+              height: 0.5em;
+              border-radius: 50%;
+              background: var(--claret);
+            "
+          ></span
+          >rtsapp — volleyball, organized. Made in Toronto.</span
+        >
+        <span>mysportsapp.ca</span>
+      </div>
+    </footer>
+  </body>
+</html>
