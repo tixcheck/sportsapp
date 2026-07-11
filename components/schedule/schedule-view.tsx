@@ -215,20 +215,22 @@ export function ScheduleView({
     "list",
   );
   const [mineOnly, setMineOnly] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const canFilterMine = myTeamIds.length > 0;
 
-  // "By date" only makes sense when play spans more than one calendar day; a
-  // single-day tournament collapses to one date, so hide it and offer By team.
-  const scheduledDates = new Set(
-    matches
-      .filter((m) => m.scheduledAt)
-      .map((m) =>
-        DateTime.fromISO(m.scheduledAt!, { zone: timezone }).toFormat(
+  const dayOf = (m: ScheduleMatch) =>
+    m.scheduledAt
+      ? DateTime.fromISO(m.scheduledAt, { zone: timezone }).toFormat(
           "yyyy-MM-dd",
-        ),
-      ),
-  );
-  const multiDay = scheduledDates.size > 1;
+        )
+      : null;
+
+  // Distinct playing days (sorted). "By date" and the Day tabs only appear when
+  // play spans more than one calendar day.
+  const dayDates = [
+    ...new Set(matches.map(dayOf).filter((d): d is string => d != null)),
+  ].sort();
+  const multiDay = dayDates.length > 1;
 
   if (matches.length === 0) {
     return (
@@ -238,29 +240,36 @@ export function ScheduleView({
     );
   }
 
+  // A selected Day tab scopes every view to that day; "All days" (null) shows all.
+  const activeDay =
+    selectedDay && dayDates.includes(selectedDay) ? selectedDay : null;
+  const dayScoped = activeDay
+    ? matches.filter((m) => dayOf(m) === activeDay)
+    : matches;
+
   const shown =
     mineOnly && canFilterMine
-      ? matches.filter((m) =>
+      ? dayScoped.filter((m) =>
           [m.homeTeamId, m.awayTeamId, m.refTeamId].some(
             (id) => id && myTeamIds.includes(id),
           ),
         )
-      : matches;
+      : dayScoped;
 
   // "By date" can be hidden (single-day); fall back to By round if it was set.
   const effectiveView = view === "agenda" && !multiDay ? "list" : view;
 
-  // By-team always groups the FULL schedule so each team's day is complete;
+  // By-team always groups the day-scoped schedule so each team's day is complete;
   // the My-team filter then keeps only the followed teams' sections. (Filtering
   // the matches first would fabricate a partial section for every opponent Raj
   // meets — with wrong game counts, rest gaps, and role badges.)
   const teamGroups =
     effectiveView === "team"
       ? mineOnly && canFilterMine
-        ? groupByTeam(matches, myTeamIds).filter((g) =>
+        ? groupByTeam(dayScoped, myTeamIds).filter((g) =>
             myTeamIds.includes(g.key.slice("team:".length)),
           )
-        : groupByTeam(matches, myTeamIds)
+        : groupByTeam(dayScoped, myTeamIds)
       : [];
 
   const groups =
@@ -271,7 +280,7 @@ export function ScheduleView({
         : effectiveView === "agenda"
           ? groupByDate(shown, timezone)
           : mineOnly && canFilterMine
-            ? groupByRoundWithOff(shown, matches, myTeamIds, timezone)
+            ? groupByRoundWithOff(shown, dayScoped, myTeamIds, timezone)
             : groupByRound(shown, timezone);
 
   const renderTrailing = (m: ScheduleMatch) =>
@@ -293,6 +302,29 @@ export function ScheduleView({
   return (
     <div className="space-y-5">
       <NowPlaying matches={matches} timezone={timezone} />
+      {multiDay && (
+        <div className="border-border flex flex-wrap gap-1.5 border-b pb-3">
+          <DayTab
+            active={activeDay === null}
+            onClick={() => setSelectedDay(null)}
+          >
+            All days
+          </DayTab>
+          {dayDates.map((date, i) => (
+            <DayTab
+              key={date}
+              active={activeDay === date}
+              onClick={() => setSelectedDay(date)}
+            >
+              Day {i + 1}
+              <span className="opacity-70">
+                {" · "}
+                {DateTime.fromISO(date, { zone: timezone }).toFormat("LLL d")}
+              </span>
+            </DayTab>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="bg-muted inline-flex rounded-lg p-0.5">
           <ToggleButton
@@ -469,6 +501,32 @@ function TeamDay({
         )}
       </div>
     </section>
+  );
+}
+
+/** A Day 1 / Day 2 filter pill (multi-day tournaments). */
+function DayTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
