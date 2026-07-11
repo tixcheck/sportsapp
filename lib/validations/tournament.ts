@@ -84,6 +84,30 @@ export const editTournamentSchema = z
     path: ["endTime"],
   });
 
+/**
+ * Multi-day plan + per-division courts (organizer setup). Fewer than 2 days is
+ * treated as a single-day event server-side. Courts null = the division shares
+ * the whole pool.
+ */
+export const multiDayConfigSchema = z.object({
+  days: z
+    .array(
+      z.object({
+        date: z.string().regex(DATE_RE, "Pick a date."),
+        startTime: z.string().regex(TIME_RE, "Pick a start time."),
+        endTime: z.string().regex(TIME_RE, "Pick an end time."),
+        targetGamesPerTeam: z.number().int().min(0).max(20),
+      }),
+    )
+    .max(14),
+  divisionCourts: z.array(
+    z.object({
+      divisionId: z.string().min(1),
+      courts: z.array(z.number().int().min(1).max(40)).nullable(),
+    }),
+  ),
+});
+
 export const registerTeamSchema = z.object({
   teamName: z.string().trim().min(2, "Team name is too short.").max(80),
   divisionId: z.string().min(1, "Pick a division."),
@@ -94,4 +118,5 @@ export const registerTeamSchema = z.object({
 
 export type CreateTournamentInput = z.infer<typeof createTournamentSchema>;
 export type EditTournamentInput = z.infer<typeof editTournamentSchema>;
+export type MultiDayConfigInput = z.infer<typeof multiDayConfigSchema>;
 export type RegisterTeamInput = z.infer<typeof registerTeamSchema>;

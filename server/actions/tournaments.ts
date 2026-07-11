@@ -15,9 +15,11 @@ import { addTeamSchema, type AddTeamInput } from "@/lib/validations/league";
 import {
   createTournamentSchema,
   editTournamentSchema,
+  multiDayConfigSchema,
   registerTeamSchema,
   type CreateTournamentInput,
   type EditTournamentInput,
+  type MultiDayConfigInput,
   type RegisterTeamInput,
 } from "@/lib/validations/tournament";
 
@@ -217,6 +219,50 @@ export async function updateTournamentSettingsAction(
     })
     .eq("competition_id", competitionId);
   if (setErr) return { error: setErr.message };
+
+  revalidatePath("/orgs");
+  return { success: true };
+}
+
+/**
+ * Save the multi-day plan (days) and each division's court allocation. Fewer
+ * than 2 days clears the plan (single-day event); empty courts share the pool.
+ * Applies the next time pools are drawn.
+ */
+export async function updateMultiDayConfigAction(
+  competitionId: string,
+  values: MultiDayConfigInput,
+): Promise<ActionError | { success: true }> {
+  const parsed = multiDayConfigSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: "Please check the days and court settings." };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can edit settings." };
+  }
+
+  const days = v.days.length >= 2 ? v.days : null;
+  const { error: setErr } = await supabase
+    .from("tournament_settings")
+    .update({ days })
+    .eq("competition_id", competitionId);
+  if (setErr) return { error: setErr.message };
+
+  for (const dc of v.divisionCourts) {
+    const courts = dc.courts && dc.courts.length > 0 ? dc.courts : null;
+    const { error } = await supabase
+      .from("divisions")
+      .update({ courts })
+      .eq("id", dc.divisionId)
+      .eq("competition_id", competitionId);
+    if (error) return { error: error.message };
+  }
 
   revalidatePath("/orgs");
   return { success: true };

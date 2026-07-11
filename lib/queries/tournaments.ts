@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { MatchFormat } from "@/lib/db/schema";
+import type { MatchFormat, TournamentDay } from "@/lib/db/schema";
 import type { Sport } from "@/lib/formats";
 import type { FormatTemplate } from "@/lib/tournament-formats";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
@@ -18,6 +18,8 @@ export interface Division {
   id: string;
   name: string;
   tierOrder: number;
+  /** Courts this division plays on (multi-court); null/empty = shared pool. */
+  courts: number[] | null;
 }
 
 export interface TournamentTeam {
@@ -60,6 +62,8 @@ export interface TournamentDetail {
   /** Bracket / base match format. */
   matchFormat: MatchFormat;
   registrationDeadline: string | null;
+  /** Multi-day plan (date + window + per-day target). Null/empty = single day. */
+  days: TournamentDay[] | null;
   scoring: {
     allowCaptainEntry: boolean;
     allowRefEntry: boolean;
@@ -115,13 +119,14 @@ async function loadDivisions(
 ): Promise<Division[]> {
   const { data } = await supabase
     .from("divisions")
-    .select("id, name, tier_order")
+    .select("id, name, tier_order, courts")
     .eq("competition_id", competitionId)
     .order("tier_order", { ascending: true });
   return (data ?? []).map((d) => ({
     id: d.id,
     name: d.name,
     tierOrder: d.tier_order,
+    courts: (d.courts as number[] | null) ?? null,
   }));
 }
 
@@ -143,7 +148,7 @@ export async function getTournamentDetail(
   const { data: settings } = await supabase
     .from("tournament_settings")
     .select(
-      "pool_size, target_games_per_team, minutes_per_game, courts, pool_format, format_template, playoff_teams, registration_deadline",
+      "pool_size, target_games_per_team, minutes_per_game, courts, pool_format, format_template, playoff_teams, registration_deadline, days",
     )
     .eq("competition_id", tournamentId)
     .single();
@@ -195,6 +200,7 @@ export async function getTournamentDetail(
     poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,
     matchFormat: t.match_format as MatchFormat,
     registrationDeadline: settings?.registration_deadline ?? null,
+    days: (settings?.days as TournamentDay[] | null) ?? null,
     scoring: {
       allowCaptainEntry: t.allow_captain_entry,
       allowRefEntry: t.allow_ref_entry,

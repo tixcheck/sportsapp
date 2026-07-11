@@ -24,6 +24,7 @@ import {
 } from "@/lib/formats";
 import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
+import { MultiDaySetupCard } from "@/components/tournament/multi-day-setup-card";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
 import { RebalanceRefsButton } from "@/components/tournament/rebalance-refs-button";
@@ -245,6 +246,32 @@ export default async function TournamentPage({
               </div>
             ))}
           </dl>
+        </CardContent>
+      </Card>
+
+      {/* Days & courts */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Days &amp; courts</CardTitle>
+          <CardDescription>
+            Split pool play across days and give each division its courts. Takes
+            effect the next time you draw pools.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MultiDaySetupCard
+            competitionId={t.id}
+            startDate={t.startDate}
+            endDate={t.endDate}
+            window={{
+              startTime: t.startTime ?? "09:00",
+              endTime: t.endTime ?? "17:00",
+            }}
+            gamesPerTeam={t.gamesPerTeam}
+            totalCourts={t.courts}
+            divisions={t.divisions}
+            initialDays={t.days}
+          />
         </CardContent>
       </Card>
 
