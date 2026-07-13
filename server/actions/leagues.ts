@@ -104,6 +104,7 @@ export async function createLeagueAction(
       weekly_slots: weeklySlots,
       rounds_per_team: v.roundsPerTeam,
       games_per_team: v.gamesPerTeam,
+      tiebreaker: v.tiebreaker,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
       promotion_relegation: false,
     });
@@ -202,6 +203,7 @@ export async function updateLeagueSettingsAction(
       weekly_slots: weeklySlots,
       rounds_per_team: v.roundsPerTeam,
       games_per_team: v.gamesPerTeam,
+      tiebreaker: v.tiebreaker,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
     })
     .eq("competition_id", competitionId);

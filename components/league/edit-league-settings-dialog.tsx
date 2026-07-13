@@ -203,6 +203,21 @@ export function EditLeagueSettingsDialog({
             </select>
           </Field>
 
+          <Field
+            label="Standings tiebreaker"
+            error={errors.tiebreaker?.message}
+            hint="How teams tied on match wins are separated."
+          >
+            <select className={selectClass} {...register("tiebreaker")}>
+              <option value="ova">
+                OVA — match wins → head-to-head → set ratio → point ratio
+              </option>
+              <option value="differential">
+                Point differential — match wins → head-to-head → PF − PA
+              </option>
+            </select>
+          </Field>
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

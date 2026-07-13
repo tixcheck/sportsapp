@@ -288,6 +288,10 @@ export const leagueSettings = pgTable("league_settings", {
   gamesPerTeam: integer("games_per_team"),
   blackoutDates: date("blackout_dates").array(),
   promotionRelegation: boolean("promotion_relegation").notNull().default(false),
+  // Standings tiebreaker hierarchy (lib/scheduler/tiebreakers.ts RankMode):
+  // "ova" = match wins → head-to-head → set ratio → point ratio (default);
+  // "differential" = match wins → head-to-head → point differential (PF−PA).
+  tiebreaker: text("tiebreaker").notNull().default("ova"),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */

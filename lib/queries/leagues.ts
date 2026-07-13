@@ -41,6 +41,8 @@ export interface LeagueDetail {
   matchFormat: MatchFormat;
   roundsPerTeam: number;
   gamesPerTeam: number | null;
+  /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
+  tiebreaker: "ova" | "differential";
   courts: number;
   slotDayOfWeek: number;
   slotStartTime: string;
@@ -126,7 +128,9 @@ export async function getLeagueDetail(
 
   const { data: settings } = await supabase
     .from("league_settings")
-    .select("weekly_slots, rounds_per_team, games_per_team, blackout_dates")
+    .select(
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker",
+    )
     .eq("competition_id", leagueId)
     .maybeSingle();
   const slot = (settings?.weekly_slots as WeeklySlot[] | null)?.[0];
@@ -176,6 +180,8 @@ export async function getLeagueDetail(
     matchFormat: league.match_format as MatchFormat,
     roundsPerTeam: settings?.rounds_per_team ?? 1,
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
+    tiebreaker:
+      settings?.tiebreaker === "differential" ? "differential" : "ova",
     courts: slot?.courts ?? 2,
     slotDayOfWeek: slot?.dayOfWeek ?? 2,
     slotStartTime: slot?.startTime ?? "19:00",

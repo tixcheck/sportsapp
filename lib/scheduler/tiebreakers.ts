@@ -69,6 +69,15 @@ export interface TeamStats {
 
 export type TiebreakerStep = 1 | 2 | 3 | 4 | 5;
 
+/**
+ * Which hierarchy to rank by:
+ *  - "ova": match wins → head-to-head → set ratio → point ratio (the default).
+ *  - "differential": match wins → head-to-head → point differential (PF − PA);
+ *    steps 3 and 4 both use point differential, so a further tie is unresolved.
+ *    Used by leagues whose rules rank on point differential rather than ratios.
+ */
+export type RankMode = "ova" | "differential";
+
 export interface StandingRow extends TeamStats {
   position: number;
   /** Step (1–5) that resolved this team's position vs the teams it tied with. */
@@ -272,6 +281,7 @@ type Ranked = {
 
 function valuerFor(
   step: TiebreakerStep,
+  mode: RankMode,
   group: TeamId[],
   stats: Map<TeamId, TeamStats>,
   matches: MatchResult[],
@@ -289,6 +299,8 @@ function valuerFor(
   return (id) => {
     const s = stats.get(id)!;
     if (step === 1) return s.mw + 0.5 * s.mt; // wins + half per tie
+    // Differential mode uses point differential (PF − PA) for steps 3 and 4.
+    if (mode === "differential") return s.pf - s.pa;
     if (step === 3) return s.setRatio;
     return s.pointRatio; // step 4
   };
@@ -297,6 +309,7 @@ function valuerFor(
 function resolveGroup(
   group: TeamId[],
   fromStep: TiebreakerStep,
+  mode: RankMode,
   stats: Map<TeamId, TeamStats>,
   matches: MatchResult[],
   droppedByTeam?: DroppedByTeam,
@@ -304,6 +317,7 @@ function resolveGroup(
   if (group.length === 1) {
     const value = valuerFor(
       fromStep,
+      mode,
       group,
       stats,
       matches,
@@ -314,7 +328,7 @@ function resolveGroup(
 
   for (let s = fromStep; s <= 4; s++) {
     const step = s as TiebreakerStep;
-    const valueOf = valuerFor(step, group, stats, matches, droppedByTeam);
+    const valueOf = valuerFor(step, mode, group, stats, matches, droppedByTeam);
     const sorted = [...group].sort((a, b) =>
       compareDesc(valueOf(a), valueOf(b)),
     );
@@ -345,6 +359,7 @@ function resolveGroup(
             ...resolveGroup(
               b.teams,
               (s + 1) as TiebreakerStep,
+              mode,
               stats,
               matches,
               droppedByTeam,
@@ -369,16 +384,26 @@ function formatRatio(value: number): string {
   return Number.isFinite(value) ? String(value) : "∞";
 }
 
-function explain(step: TiebreakerStep, value: number, s: TeamStats): string {
+function explain(
+  step: TiebreakerStep,
+  mode: RankMode,
+  value: number,
+  s: TeamStats,
+): string {
   switch (step) {
     case 1:
       return `Match wins: ${s.mw + 0.5 * s.mt}`;
     case 2:
       return `Head-to-head among tied teams: ${formatRatio(value)}`;
     case 3:
-      return `Set ratio ${s.sw}/${s.sl} = ${formatRatio(s.setRatio)}`;
     case 4:
-      return `Point ratio ${s.pf}/${s.pa} = ${formatRatio(s.pointRatio)}`;
+      if (mode === "differential") {
+        const diff = s.pf - s.pa;
+        return `Point differential ${s.pf}−${s.pa} = ${diff >= 0 ? "+" : ""}${diff}`;
+      }
+      return step === 3
+        ? `Set ratio ${s.sw}/${s.sl} = ${formatRatio(s.setRatio)}`
+        : `Point ratio ${s.pf}/${s.pa} = ${formatRatio(s.pointRatio)}`;
     case 5:
       return "Unresolved — coin flip / organizer decision (TBD)";
   }
@@ -393,9 +418,10 @@ export function rankStandings(
   teamIds: TeamId[],
   matches: MatchResult[],
   droppedByTeam?: DroppedByTeam,
+  mode: RankMode = "ova",
 ): StandingRow[] {
   const stats = computeStats(teamIds, matches, droppedByTeam);
-  const ranked = resolveGroup(teamIds, 1, stats, matches, droppedByTeam);
+  const ranked = resolveGroup(teamIds, 1, mode, stats, matches, droppedByTeam);
 
   return ranked.map((r, i) => {
     const s = stats.get(r.teamId)!;
@@ -405,7 +431,7 @@ export function rankStandings(
       tiebreakerStep: r.step,
       tiebreakerValue: r.value,
       tiedWith: r.tiedWith,
-      explanation: explain(r.step, r.value, s),
+      explanation: explain(r.step, mode, r.value, s),
     };
   });
 }

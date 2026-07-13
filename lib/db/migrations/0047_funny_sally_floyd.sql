@@ -1,0 +1,1 @@
+ALTER TABLE "league_settings" ADD COLUMN "tiebreaker" text DEFAULT 'ova' NOT NULL;

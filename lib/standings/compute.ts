@@ -18,6 +18,7 @@ import {
   rankStandings,
   type DroppedByTeam,
   type MatchResult,
+  type RankMode,
   type StandingRow,
 } from "@/lib/scheduler/tiebreakers";
 
@@ -179,6 +180,17 @@ export async function loadStandings(
     .single();
   if (!comp) return [];
 
+  // Leagues may rank by point differential instead of the OVA ratios.
+  let mode: RankMode = "ova";
+  if (comp.type === "league") {
+    const { data: ls } = await supabase
+      .from("league_settings")
+      .select("tiebreaker")
+      .eq("competition_id", competitionId)
+      .single();
+    if (ls?.tiebreaker === "differential") mode = "differential";
+  }
+
   const { data: teamsData } = await supabase
     .from("teams")
     .select("id, name, status, pool_id, division_id, dropped_match_id")
@@ -263,7 +275,7 @@ export async function loadStandings(
     results: MatchResult[],
     scheduledByTeam: Map<string, number>,
   ): StandingsRowView[] => {
-    const ranked = rankStandings(teamIds, results, droppedByTeam);
+    const ranked = rankStandings(teamIds, results, droppedByTeam, mode);
     return ranked.map((r) => ({
       ...r,
       teamName: teamName.get(r.teamId) ?? "—",

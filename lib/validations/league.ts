@@ -23,6 +23,8 @@ export const createLeagueSchema = z
       }),
     // Cap each team at this many games (partial round robin). Null = full RR.
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
+    // Standings tiebreaker hierarchy (see RankMode). Default OVA ratios.
+    tiebreaker: z.enum(["ova", "differential"]),
     // Single weekly slot in v0 (DESIGN/scope decision).
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
@@ -57,6 +59,7 @@ export const editLeagueSchema = z
       .int()
       .refine((n) => [1, 2].includes(n), { message: "Choose 1× or 2×." }),
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
+    tiebreaker: z.enum(["ova", "differential"]),
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
     formatId: z.string().min(1),
