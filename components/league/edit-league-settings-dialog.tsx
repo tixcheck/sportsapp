@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Pencil, TriangleAlert } from "lucide-react";
+import { Pencil, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+
+import type { LeagueCourt } from "@/lib/db/schema";
 
 import { updateLeagueSettingsAction } from "@/server/actions/leagues";
 import {
@@ -49,6 +51,10 @@ export function EditLeagueSettingsDialog({
   const [blackoutText, setBlackoutText] = useState(
     initial.blackoutDates.join(", "),
   );
+  const [courts, setCourtsState] = useState<LeagueCourt[]>(
+    initial.courtList ?? [],
+  );
+  const [rangeText, setRangeText] = useState("");
   const {
     register,
     handleSubmit,
@@ -59,6 +65,32 @@ export function EditLeagueSettingsDialog({
     resolver: zodResolver(editLeagueSchema),
     defaultValues: initial,
   });
+
+  // Keep the form's courtList in sync with the editor (null when empty = default).
+  function setCourts(next: LeagueCourt[]) {
+    setCourtsState(next);
+    setValue("courtList", next.length ? next : null);
+  }
+  function addRange(raw: string) {
+    // "9-12, 14, 16-18" → individual court labels.
+    const labels: string[] = [];
+    for (const part of raw.split(/[,\s]+/).filter(Boolean)) {
+      const m = part.match(/^(\d+)-(\d+)$/);
+      if (m) {
+        const [a, b] = [Number(m[1]), Number(m[2])];
+        for (let n = Math.min(a, b); n <= Math.max(a, b); n++) {
+          labels.push(String(n));
+        }
+      } else {
+        labels.push(part);
+      }
+    }
+    const existing = new Set(courts.map((c) => c.label));
+    const added = labels
+      .filter((l) => !existing.has(l))
+      .map((label) => ({ label, prime: false }));
+    if (added.length) setCourts([...courts, ...added]);
+  }
 
   function parseBlackouts(raw: string) {
     setBlackoutText(raw);
@@ -92,6 +124,8 @@ export function EditLeagueSettingsDialog({
         if (o) {
           reset(initial);
           setBlackoutText(initial.blackoutDates.join(", "));
+          setCourtsState(initial.courtList ?? []);
+          setRangeText("");
         }
       }}
     >
@@ -180,6 +214,72 @@ export function EditLeagueSettingsDialog({
               />
             </Field>
           </div>
+
+          <Field
+            label="Custom courts (optional)"
+            hint="Name the exact courts you play on and flag the prime ones. Prime-court games are shared evenly across teams. Leave empty to number courts 1–N."
+          >
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. 9-12, 14, 16-18"
+                value={rangeText}
+                onChange={(e) => setRangeText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addRange(rangeText);
+                    setRangeText("");
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  addRange(rangeText);
+                  setRangeText("");
+                }}
+              >
+                <Plus className="size-4" /> Add
+              </Button>
+            </div>
+            {courts.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {courts.map((c, i) => (
+                  <div
+                    key={`${c.label}-${i}`}
+                    className="border-border bg-surface flex items-center gap-2 rounded-md border px-2 py-1 text-sm"
+                  >
+                    <span className="font-medium tabular-nums">{c.label}</span>
+                    <label className="text-muted-foreground flex items-center gap-1 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={c.prime}
+                        onChange={(e) =>
+                          setCourts(
+                            courts.map((x, k) =>
+                              k === i ? { ...x, prime: e.target.checked } : x,
+                            ),
+                          )
+                        }
+                      />
+                      Prime
+                    </label>
+                    <button
+                      type="button"
+                      aria-label={`Remove court ${c.label}`}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        setCourts(courts.filter((_, k) => k !== i))
+                      }
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Field>
 
           <Field label="Blackout dates" error={errors.blackoutDates?.message}>
             <Input

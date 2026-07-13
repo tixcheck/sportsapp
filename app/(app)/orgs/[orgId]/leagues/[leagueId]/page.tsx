@@ -78,6 +78,7 @@ export default async function LeaguePage({
     roundsPerTeam: league.roundsPerTeam,
     gamesPerTeam: league.gamesPerTeam,
     tiebreaker: league.tiebreaker,
+    courtList: league.courtList,
     slotDayOfWeek: league.slotDayOfWeek,
     slotStartTime: league.slotStartTime,
     formatId: findPresetId(league.sport, league.matchFormat),

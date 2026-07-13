@@ -25,6 +25,17 @@ export const createLeagueSchema = z
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
     // Standings tiebreaker hierarchy (see RankMode). Default OVA ratios.
     tiebreaker: z.enum(["ova", "differential"]),
+    // The league's specific courts + which are "prime" (better conditions,
+    // balanced evenly across teams). Null/empty = plain 1…N court numbering.
+    courtList: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1, "Court label required.").max(12),
+          prime: z.boolean(),
+        }),
+      )
+      .max(40)
+      .nullable(),
     // Single weekly slot in v0 (DESIGN/scope decision).
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
@@ -60,6 +71,17 @@ export const editLeagueSchema = z
       .refine((n) => [1, 2].includes(n), { message: "Choose 1× or 2×." }),
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
     tiebreaker: z.enum(["ova", "differential"]),
+    // The league's specific courts + which are "prime" (better conditions,
+    // balanced evenly across teams). Null/empty = plain 1…N court numbering.
+    courtList: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1, "Court label required.").max(12),
+          prime: z.boolean(),
+        }),
+      )
+      .max(40)
+      .nullable(),
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
     formatId: z.string().min(1),

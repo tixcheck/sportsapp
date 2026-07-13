@@ -58,6 +58,7 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
       roundsPerTeam: 1,
       gamesPerTeam: null,
       tiebreaker: "ova",
+      courtList: null,
       slotDayOfWeek: 2,
       slotStartTime: "19:00",
       formatId: defaultPreset("indoor6").id,

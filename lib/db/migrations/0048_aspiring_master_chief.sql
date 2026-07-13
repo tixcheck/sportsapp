@@ -1,0 +1,1 @@
+ALTER TABLE "league_settings" ADD COLUMN "court_list" jsonb;

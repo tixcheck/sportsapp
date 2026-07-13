@@ -59,6 +59,18 @@ export type WeeklySlot = {
 };
 
 /**
+ * A specific court a league plays on (custom-courts feature). Null/empty
+ * `court_list` on league_settings means the plain 1…N numbering from
+ * WeeklySlot.courts. `prime` courts (better conditions) are balanced evenly
+ * across teams — see lib/scheduler/court-assign.ts.
+ */
+export type LeagueCourt = {
+  /** Display label, e.g. "9" or "Court A". */
+  label: string;
+  prime: boolean;
+};
+
+/**
  * One playing day of a multi-day tournament (PRD §7, multi-day). Null/absent
  * `days` on tournament_settings means a single-day event (legacy behaviour).
  */
@@ -292,6 +304,9 @@ export const leagueSettings = pgTable("league_settings", {
   // "ova" = match wins → head-to-head → set ratio → point ratio (default);
   // "differential" = match wins → head-to-head → point differential (PF−PA).
   tiebreaker: text("tiebreaker").notNull().default("ova"),
+  // The league's specific courts (custom-courts feature). Null/empty = plain
+  // 1…N numbering from the weekly slot's court count.
+  courtList: jsonb("court_list").$type<LeagueCourt[]>(),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */
