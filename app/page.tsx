@@ -21,11 +21,11 @@ export default async function HomePage() {
     <div className="bg-background text-foreground flex min-h-svh flex-col overflow-x-clip">
       <header className="border-rule bg-background/85 sticky top-0 z-20 border-b backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-5 py-4">
-          {/* eslint-disable-next-line @next/next/no-img-element -- marketing logo, fixed height */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- marketing logo (crisp SVG wordmark) */}
           <img
-            src="/logo.png"
+            src="/mysportsapp-logo.svg"
             alt="MySportsApp"
-            className="h-7 w-auto max-w-[9.5rem] shrink object-contain sm:h-8 sm:max-w-[12rem]"
+            className="h-8 w-auto shrink-0 sm:h-9"
           />
           <nav className="flex shrink-0 items-center gap-2">
             <Button asChild variant="ghost" size="sm">

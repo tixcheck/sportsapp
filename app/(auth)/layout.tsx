@@ -10,7 +10,11 @@ export default function AuthLayout({
       <div className="w-full max-w-sm">
         <Link href="/" className="mb-8 flex items-center justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
-          <img src="/logo.png" alt="MySportsApp" className="h-9 w-auto" />
+          <img
+            src="/mysportsapp-logo.svg"
+            alt="MySportsApp"
+            className="h-9 w-auto"
+          />
         </Link>
         {children}
       </div>

@@ -175,7 +175,11 @@ export default async function PublicKotcPage({
         <div className="mx-auto max-w-3xl px-4 py-8">
           <Link href="/" className="inline-flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- brand logo */}
-            <img src="/logo.png" alt="MySportsApp" className="h-6 w-auto" />
+            <img
+              src="/mysportsapp-logo.svg"
+              alt="MySportsApp"
+              className="h-6 w-auto"
+            />
           </Link>
           <p className="text-primary mt-5 inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase">
             <Crown className="size-3.5" /> King of the Court · beach 2s

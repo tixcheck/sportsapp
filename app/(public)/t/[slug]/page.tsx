@@ -61,7 +61,11 @@ export default async function PublicTournamentPage({
         <div className="mx-auto max-w-4xl px-4 py-8">
           <Link href="/" className="inline-flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
-            <img src="/logo.png" alt="MySportsApp" className="h-6 w-auto" />
+            <img
+              src="/mysportsapp-logo.svg"
+              alt="MySportsApp"
+              className="h-6 w-auto"
+            />
           </Link>
           <p className="text-primary mt-5 text-xs font-semibold tracking-wide uppercase">
             {sportLabel} tournament

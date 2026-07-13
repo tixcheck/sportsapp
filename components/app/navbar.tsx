@@ -28,7 +28,11 @@ export async function Navbar() {
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
-            <img src="/logo.png" alt="MySportsApp" className="h-7 w-auto" />
+            <img
+              src="/mysportsapp-logo.svg"
+              alt="MySportsApp"
+              className="h-7 w-auto"
+            />
           </Link>
           <OrgSwitcher orgs={orgs} currentOrgId={currentOrgId} />
         </div>

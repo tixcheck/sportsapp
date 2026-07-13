@@ -45,6 +45,9 @@
         font-size: 17px;
         line-height: 1.6;
         -webkit-font-smoothing: antialiased;
+        /* Keep the cream/claret backgrounds when printed to PDF. */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
       }
       h1,
       h2,
@@ -479,6 +482,39 @@
         }
         .compare td.feat {
           width: 44%;
+        }
+      }
+
+      /* --- PDF / print --- */
+      @page {
+        margin: 12mm;
+      }
+      @media print {
+        html,
+        body {
+          background: var(--paper) !important;
+        }
+        .topbar {
+          position: static;
+        }
+        .nav-cta {
+          display: none;
+        }
+        section {
+          padding: 40px 0;
+        }
+        /* Don't split these small blocks across a page break. */
+        .card,
+        .price-card,
+        .step,
+        .quote,
+        .final,
+        .compare tr {
+          break-inside: avoid;
+        }
+        a {
+          color: inherit;
+          text-decoration: none;
         }
       }
     </style>
