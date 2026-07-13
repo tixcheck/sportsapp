@@ -15,6 +15,7 @@ export function MatchCard({
   timezone,
   trailing,
   showAbnormal = false,
+  showDate = false,
   myTeamIds = [],
   role,
 }: {
@@ -23,6 +24,11 @@ export function MatchCard({
   trailing?: React.ReactNode;
   /** Show the organizer-only "Abnormal result" marker (admin views). */
   showAbnormal?: boolean;
+  /**
+   * Show the match date. On for lists not already grouped by date (the By-team
+   * view spans weeks), off where a date header already heads the group.
+   */
+  showDate?: boolean;
   myTeamIds?: string[];
   /**
    * The highlighted team's role in this match — shows a bold Play/Ref tile.
@@ -31,9 +37,11 @@ export function MatchCard({
    */
   role?: "play" | "ref";
 }) {
-  const time = match.scheduledAt
-    ? DateTime.fromISO(match.scheduledAt, { zone: timezone }).toFormat("h:mm a")
-    : "TBD";
+  const dt = match.scheduledAt
+    ? DateTime.fromISO(match.scheduledAt, { zone: timezone })
+    : null;
+  const time = dt ? dt.toFormat("h:mm a") : "TBD";
+  const date = dt ? dt.toFormat("EEE, LLL d") : null;
 
   const derivedRole: "play" | "ref" | null =
     (match.homeTeamId && myTeamIds.includes(match.homeTeamId)) ||
@@ -101,6 +109,11 @@ export function MatchCard({
           </p>
         </div>
         <div className="shrink-0 text-right">
+          {showDate && date && (
+            <p className="text-muted-foreground mb-1 text-xs font-medium">
+              {date}
+            </p>
+          )}
           <StatusPill status={match.status} />
           {showAbnormal && match.isAbnormal && (
             <span className="bg-claret-tint text-claret-deep mt-1 block rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">

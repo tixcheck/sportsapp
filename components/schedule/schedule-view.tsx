@@ -490,6 +490,7 @@ function TeamDay({
               match={e.match!}
               timezone={timezone}
               showAbnormal={editable}
+              showDate
               myTeamIds={myTeamIds}
               // "You play/ref" is the viewer's role — only meaningful in the
               // followed team's own section. Elsewhere let MatchCard derive it,

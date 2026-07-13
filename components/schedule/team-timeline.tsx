@@ -38,10 +38,22 @@ export function ActivityStrip({
   className?: string;
 }) {
   if (timeline.length === 0) return null;
+
+  // Show the date on each pill only when the strip spans more than one day (a
+  // multi-week league or multi-day event); on a single day it would just repeat.
+  const days = new Set(
+    timeline
+      .map((t) => t.match?.scheduledAt ?? t.at)
+      .filter(Boolean)
+      .map((iso) => DateTime.fromISO(iso!, { zone: timezone }).toISODate()),
+  );
+  const showDate = days.size > 1;
+
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {timeline.map((t) => {
         const at = t.match?.scheduledAt ?? t.at;
+        const dt = at ? DateTime.fromISO(at, { zone: timezone }) : null;
         return (
           <div
             key={t.key}
@@ -54,12 +66,20 @@ export function ActivityStrip({
             <span className="text-[0.6rem] font-medium uppercase opacity-75">
               {t.round != null ? `R${t.round}` : " "}
             </span>
-            <span className="text-xs leading-tight font-semibold">
-              {ACTIVITY_LABEL[t.activity]}
-            </span>
-            {at && (
+            {/* Play is obvious from the fill; only spell out Ref/Off. */}
+            {t.activity !== "play" && (
+              <span className="text-xs leading-tight font-semibold">
+                {ACTIVITY_LABEL[t.activity]}
+              </span>
+            )}
+            {showDate && dt && (
+              <span className="text-[0.65rem] leading-tight font-semibold">
+                {dt.toFormat("LLL d")}
+              </span>
+            )}
+            {dt && (
               <span className="text-[0.6rem] tabular-nums opacity-80">
-                {DateTime.fromISO(at, { zone: timezone }).toFormat("h:mm a")}
+                {dt.toFormat("h:mm a")}
               </span>
             )}
           </div>
