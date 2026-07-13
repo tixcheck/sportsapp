@@ -33,3 +33,33 @@ export async function updateScoringSettingsAction(
   revalidatePath("/orgs");
   return { success: true };
 }
+
+/**
+ * Mark a competition finished (or reopen it), admin only. Completing drops it
+ * off players' dashboards and My Matches even if some games were never scored —
+ * the organizer's call that the event is over. Reopening restores it to the
+ * published ("open") state.
+ */
+export async function setCompetitionCompletedAction(
+  competitionId: string,
+  completed: boolean,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change this." };
+  }
+
+  const { error } = await supabase
+    .from("competitions")
+    .update({ status: completed ? "completed" : "open" })
+    .eq("id", competitionId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  revalidatePath("/dashboard");
+  revalidatePath("/my-matches");
+  return { success: true };
+}

@@ -106,7 +106,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
     supabase
       .from("competitions")
       .select(
-        "id, name, type, slug, timezone, match_format, allow_captain_entry, allow_ref_entry, require_confirmation",
+        "id, name, type, slug, timezone, match_format, allow_captain_entry, allow_ref_entry, require_confirmation, status",
       )
       .in("id", compIds),
     supabase.from("teams").select("id, name").in("id", teamIds),
@@ -132,6 +132,12 @@ export async function getMyMatches(): Promise<MyMatch[]> {
   ]);
 
   const compById = new Map((comps ?? []).map((c) => [c.id as string, c]));
+  // A competition the organizer marked completed (or cancelled) drops off My
+  // Matches entirely — even games that were never scored.
+  const liveMatches = matches.filter((m) => {
+    const s = compById.get(m.competition_id)?.status;
+    return s !== "completed" && s !== "cancelled";
+  });
   const poolFormatById = new Map(
     (pools ?? []).map((p) => [
       p.id as string,
@@ -164,7 +170,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       latestSubmitter.set(c.match_id, c.captain_user_id);
   }
 
-  const result: MyMatch[] = matches.map((m) => {
+  const result: MyMatch[] = liveMatches.map((m) => {
     const c = compById.get(m.competition_id)!;
     const isPlaying =
       (m.home_team_id && playTeamIds.has(m.home_team_id)) ||

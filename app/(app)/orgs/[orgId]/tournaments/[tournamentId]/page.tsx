@@ -24,6 +24,7 @@ import {
 } from "@/lib/formats";
 import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
+import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { MultiDaySetupCard } from "@/components/tournament/multi-day-setup-card";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
@@ -202,6 +203,7 @@ export default async function TournamentPage({
               status={t.status}
               visibility={t.visibility}
             />
+            <CompleteToggle competitionId={t.id} status={t.status} />
           </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
