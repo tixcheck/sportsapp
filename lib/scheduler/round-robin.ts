@@ -19,12 +19,20 @@ export interface RoundRobinInput {
   /** How many times each pair meets (1× or 2×). Default 1. */
   roundsPerTeam?: number;
   /**
-   * Cap each team at this many games (a partial round robin). The circle method
-   * emits a distinct, evenly-spread opponent per round, so taking the first N
-   * rounds gives every team N different opponents with no repeats. Null/omitted
-   * or a value ≥ a full round robin means play the full schedule.
+   * How many games each team plays. The circle method emits a distinct,
+   * evenly-spread opponent per round, so the first N rounds give every team N
+   * different opponents with no repeats. If N exceeds a single full round robin
+   * (e.g. 12 games among 12 teams, where everyone-once is only 11), the extra
+   * games are added as randomized rematch rounds — each a valid full round that
+   * avoids pairing teams who just played the previous round. Null/omitted plays
+   * the full single round robin.
    */
   gamesPerTeam?: number | null;
+  /**
+   * Seeds the randomized rematch rounds (see `gamesPerTeam`). Deterministic per
+   * seed, so regenerating a league yields the same rematch. Default 1.
+   */
+  seed?: number;
   /** Courts available per slot (≥1). */
   courts: number;
   /** First slot date, "YYYY-MM-DD". */
@@ -72,6 +80,63 @@ function rotate(slots: number[]): void {
   for (let i = 1; i < slots.length; i++) slots[i] = rest[i - 1];
 }
 
+/** Small deterministic PRNG (mulberry32) — a seed in, a [0,1) stream out. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** In-place Fisher–Yates shuffle driven by `rng`. */
+function shuffle<T>(arr: T[], rng: () => number): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+/** Unordered pair key so {a,b} and {b,a} collide. */
+function pairKey(a: TeamId, b: TeamId): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
+/**
+ * A random perfect matching of an even set of teams into pairs, avoiding any
+ * pair in `avoid` (e.g. the fixtures they just played). Rejection-samples a
+ * shuffle; for realistic sizes a clean draw comes almost immediately, and the
+ * bounded fallback pairs sequentially so a matching is always returned.
+ */
+function randomMatching(
+  teamIds: TeamId[],
+  avoid: Set<string>,
+  rng: () => number,
+): PairingRound["pairs"] {
+  const n = teamIds.length;
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const order = [...teamIds];
+    shuffle(order, rng);
+    const pairs: PairingRound["pairs"] = [];
+    let ok = true;
+    for (let i = 0; i < n; i += 2) {
+      if (avoid.has(pairKey(order[i], order[i + 1]))) {
+        ok = false;
+        break;
+      }
+      pairs.push({ homeTeamId: order[i], awayTeamId: order[i + 1] });
+    }
+    if (ok) return pairs;
+  }
+  const pairs: PairingRound["pairs"] = [];
+  for (let i = 0; i < n; i += 2) {
+    pairs.push({ homeTeamId: teamIds[i], awayTeamId: teamIds[i + 1] });
+  }
+  return pairs;
+}
+
 /**
  * Generate the round-robin pairings. Every pair of teams meets `roundsPerTeam`
  * times; odd counts get a rotating bye each round; home/away alternates for
@@ -81,6 +146,7 @@ export function generatePairings(
   teamIds: TeamId[],
   roundsPerTeam = 1,
   gamesPerTeam?: number | null,
+  seed = 1,
 ): PairingRound[] {
   const result: PairingRound[] = [];
   if (teamIds.length < 2) return result;
@@ -119,18 +185,32 @@ export function generatePairings(
     }
   }
 
+  if (gamesPerTeam == null || gamesPerTeam < 1) return result;
+
   // Partial round robin: keep only the first `gamesPerTeam` rounds. Each round is
   // one game per team (the byed team in an odd pool plays one fewer), so N rounds
   // ⇒ N games each, with distinct opponents while N ≤ a single full cycle.
-  if (
-    gamesPerTeam != null &&
-    gamesPerTeam >= 1 &&
-    gamesPerTeam < result.length
-  ) {
+  if (gamesPerTeam <= roundsPerCycle) {
     return result.slice(0, gamesPerTeam);
   }
 
-  return result;
+  // More games than everyone-once (e.g. 12 games among 12 teams). Keep the full
+  // distinct-opponent cycle, then top up with randomized rematch rounds — each a
+  // valid full round that avoids repeating the immediately preceding fixtures.
+  // Rematch rounds need a clean perfect matching, which we only guarantee for an
+  // even team count; odd pools fall back to the full-cycle prefix.
+  if (teamIds.length % 2 === 1) return result.slice(0, roundsPerCycle);
+
+  const rounds = result.slice(0, roundsPerCycle);
+  const rng = mulberry32(seed);
+  let prev = rounds[rounds.length - 1]?.pairs ?? [];
+  while (rounds.length < gamesPerTeam) {
+    const avoid = new Set(prev.map((p) => pairKey(p.homeTeamId, p.awayTeamId)));
+    const pairs = randomMatching(teamIds, avoid, rng);
+    rounds.push({ round: rounds.length + 1, pairs, byeTeamId: null });
+    prev = pairs;
+  }
+  return rounds;
 }
 
 // --- calendar helpers ------------------------------------------------------
@@ -161,6 +241,7 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
     input.teamIds,
     input.roundsPerTeam ?? 1,
     input.gamesPerTeam,
+    input.seed ?? 1,
   );
 
   let cursor = parseDate(input.startDate);
