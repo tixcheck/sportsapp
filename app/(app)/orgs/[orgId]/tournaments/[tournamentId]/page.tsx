@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
-import { CalendarDays, Clock, MapPin } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Printer } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
@@ -26,6 +26,7 @@ import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { endDatePassed } from "@/lib/competition/completion";
+import { Button } from "@/components/ui/button";
 import { MultiDaySetupCard } from "@/components/tournament/multi-day-setup-card";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
@@ -346,6 +347,12 @@ export default async function TournamentPage({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle>Pool schedule</CardTitle>
                 <div className="flex flex-wrap items-center gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/print/schedule/${t.id}`} target="_blank">
+                      <Printer className="size-4" />
+                      Print
+                    </Link>
+                  </Button>
                   <RetimeScheduleDialog
                     competitionId={t.id}
                     currentMinutes={t.minutesPerGame}

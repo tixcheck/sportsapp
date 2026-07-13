@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin } from "lucide-react";
+import { CalendarDays, MapPin, Printer } from "lucide-react";
 
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
@@ -17,6 +17,7 @@ import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { endDatePassed } from "@/lib/competition/completion";
+import { Button } from "@/components/ui/button";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
@@ -154,10 +155,20 @@ export default async function LeaguePage({
                 : "No matches yet."}
             </CardDescription>
           </div>
-          <GenerateScheduleButton
-            competitionId={league.id}
-            hasSchedule={league.matchCount > 0}
-          />
+          <div className="flex items-center gap-2">
+            {league.matchCount > 0 && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/print/schedule/${league.id}`} target="_blank">
+                  <Printer className="size-4" />
+                  Print
+                </Link>
+              </Button>
+            )}
+            <GenerateScheduleButton
+              competitionId={league.id}
+              hasSchedule={league.matchCount > 0}
+            />
+          </div>
         </CardHeader>
         {league.teams.length < 2 ? (
           <CardContent>
