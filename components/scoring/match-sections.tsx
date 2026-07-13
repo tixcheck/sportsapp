@@ -44,11 +44,14 @@ export function MatchSections({
   matches: MyMatch[];
   projections?: PlayoffProjection[];
 }) {
-  // Up Next: the earliest non-final game the viewer plays (not one they ref).
-  const upNext = [
-    ...matches.filter((m) => m.state !== "final" && m.role === "play"),
-  ].sort(byTime)[0];
-  const rest = matches.filter((m) => m.id !== upNext?.id);
+  // My Matches is an action list: show only games still to play or confirm.
+  // Final games — and thus any fully-completed competition, like a wrapped-up
+  // tournament — drop off here; results live in each competition's standings.
+  const actionable = matches.filter((m) => m.state !== "final");
+
+  // Up Next: the earliest upcoming game the viewer plays (not one they ref).
+  const upNext = actionable.filter((m) => m.role === "play").sort(byTime)[0];
+  const rest = actionable.filter((m) => m.id !== upNext?.id);
   const playing = rest.filter((m) => m.role === "play");
   const reffing = rest.filter((m) => m.role === "ref").sort(byTime);
   const roundRobin = playing
@@ -60,7 +63,22 @@ export function MatchSections({
   const bracket = playing.filter((m) => m.phase === "bracket").sort(byTime);
   const hasPlayoff = bracket.length > 0 || projections.length > 0;
 
-  if (matches.length === 0 && projections.length === 0) return null;
+  const nothingToShow =
+    !upNext &&
+    roundRobin.length === 0 &&
+    leagueGames.length === 0 &&
+    !hasPlayoff &&
+    reffing.length === 0;
+
+  if (nothingToShow) {
+    if (matches.length === 0 && projections.length === 0) return null;
+    return (
+      <div className="border-border bg-surface text-muted-foreground rounded-lg border p-10 text-center text-sm">
+        You&apos;re all caught up — no upcoming matches. Past results live in
+        each competition&apos;s standings.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

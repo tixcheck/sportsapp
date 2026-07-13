@@ -41,11 +41,11 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
   const decided = match.state === "final" && hasScore && homeWon !== awayWon;
   const homeResult = decided ? (homeWon > awayWon ? "win" : "loss") : null;
   const awayResult = decided ? (awayWon > homeWon ? "win" : "loss") : null;
-  const time = match.scheduledAt
-    ? DateTime.fromISO(match.scheduledAt, { zone: match.timezone }).toFormat(
-        "h:mm a",
-      )
+  const when = match.scheduledAt
+    ? DateTime.fromISO(match.scheduledAt, { zone: match.timezone })
     : null;
+  const time = when?.toFormat("h:mm a") ?? null;
+  const date = when?.toFormat("EEE, LLL d") ?? null;
   const pill = STATE_PILL[match.state];
 
   function act(
@@ -96,19 +96,22 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
             result={awayResult}
           />
         </div>
-        {hasScore ? (
-          <p className="text-muted-foreground shrink-0 text-right text-xs tabular-nums">
-            {match.sets.map((s, i) => (
-              <span key={i} className="ml-1">
-                {s.home}–{s.away}
-              </span>
-            ))}
-          </p>
-        ) : (
-          time && (
-            <p className="font-display shrink-0 text-lg tabular-nums">{time}</p>
-          )
-        )}
+        <div className="shrink-0 text-right">
+          {date && (
+            <p className="text-muted-foreground text-xs font-medium">{date}</p>
+          )}
+          {hasScore ? (
+            <p className="text-muted-foreground text-right text-xs tabular-nums">
+              {match.sets.map((s, i) => (
+                <span key={i} className="ml-1">
+                  {s.home}–{s.away}
+                </span>
+              ))}
+            </p>
+          ) : (
+            time && <p className="font-display text-lg tabular-nums">{time}</p>
+          )}
+        </div>
       </div>
 
       <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
