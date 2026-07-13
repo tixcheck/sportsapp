@@ -25,6 +25,7 @@ import {
 import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
+import { endDatePassed } from "@/lib/competition/completion";
 import { MultiDaySetupCard } from "@/components/tournament/multi-day-setup-card";
 import { AddTournamentTeamForm } from "@/components/tournament/add-tournament-team-form";
 import { GeneratePoolsPanel } from "@/components/tournament/generate-pools-panel";
@@ -112,6 +113,17 @@ export default async function TournamentPage({
   }));
 
   const sportLabel = SPORTS.find((s) => s.value === t.sport)?.label;
+  // The tournament's final day — max of the configured days, else its end/start
+  // date — gates when it can be marked completed.
+  const lastTournamentDay =
+    (t.days?.length
+      ? [...t.days]
+          .map((d) => d.date)
+          .sort()
+          .at(-1)
+      : null) ??
+    t.endDate ??
+    t.startDate;
   const fmtTime = (hhmm: string) =>
     DateTime.fromFormat(hhmm, "HH:mm").toFormat("h:mm a");
   const windowText =
@@ -203,7 +215,11 @@ export default async function TournamentPage({
               status={t.status}
               visibility={t.visibility}
             />
-            <CompleteToggle competitionId={t.id} status={t.status} />
+            <CompleteToggle
+              competitionId={t.id}
+              status={t.status}
+              completable={endDatePassed(lastTournamentDay, t.timezone)}
+            />
           </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">

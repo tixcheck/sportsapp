@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { endDatePassed } from "@/lib/competition/completion";
 import {
   scoringSettingsSchema,
   type ScoringSettingsInput,
@@ -50,6 +51,38 @@ export async function setCompetitionCompletedAction(
   });
   if (isAdmin !== true) {
     return { error: "Only the organizer can change this." };
+  }
+
+  // Completing is gated until the event's last date has passed (reopening isn't).
+  if (completed) {
+    const { data: comp } = await supabase
+      .from("competitions")
+      .select("type, start_date, end_date, timezone")
+      .eq("id", competitionId)
+      .single();
+    if (!comp) return { error: "Competition not found." };
+
+    let lastDay = comp.end_date ?? comp.start_date;
+    if (comp.type === "tournament") {
+      const { data: ts } = await supabase
+        .from("tournament_settings")
+        .select("days")
+        .eq("competition_id", competitionId)
+        .single();
+      const days = (ts?.days as { date: string }[] | null) ?? null;
+      if (days?.length) {
+        lastDay =
+          [...days]
+            .map((d) => d.date)
+            .sort()
+            .at(-1) ?? lastDay;
+      }
+    }
+    if (!endDatePassed(lastDay, comp.timezone)) {
+      return {
+        error: "You can mark this completed once its last date has passed.",
+      };
+    }
   }
 
   const { error } = await supabase

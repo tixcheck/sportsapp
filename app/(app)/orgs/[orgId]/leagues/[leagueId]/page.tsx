@@ -16,6 +16,7 @@ import { SPORTS, estimateMatchMinutes, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
+import { endDatePassed } from "@/lib/competition/completion";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
@@ -118,7 +119,11 @@ export default async function LeaguePage({
               status={league.status}
               slug={league.slug}
             />
-            <CompleteToggle competitionId={league.id} status={league.status} />
+            <CompleteToggle
+              competitionId={league.id}
+              status={league.status}
+              completable={endDatePassed(league.endDate, league.timezone)}
+            />
           </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">

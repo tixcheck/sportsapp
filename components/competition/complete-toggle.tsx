@@ -16,13 +16,18 @@ import { Button } from "@/components/ui/button";
 export function CompleteToggle({
   competitionId,
   status,
+  completable,
 }: {
   competitionId: string;
   status: string;
+  /** True once the event's last date has passed — before that it's locked. */
+  completable: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const completed = status === "completed";
+  // Locked until the event is over; a completed event can always be reopened.
+  const locked = !completed && !completable;
 
   function toggle() {
     startTransition(async () => {
@@ -44,7 +49,17 @@ export function CompleteToggle({
   }
 
   return (
-    <Button onClick={toggle} disabled={pending} variant="outline" size="sm">
+    <Button
+      onClick={toggle}
+      disabled={pending || locked}
+      variant="outline"
+      size="sm"
+      title={
+        locked
+          ? "You can mark this completed once its last date has passed."
+          : undefined
+      }
+    >
       {completed ? <RotateCcw /> : <CheckCircle2 />}
       {pending ? "…" : completed ? "Reopen" : "Mark completed"}
     </Button>
