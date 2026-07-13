@@ -127,3 +127,40 @@ describe("teamOffRounds — whole-round byes", () => {
     expect(teamOffRounds("A", matches)).toEqual([]);
   });
 });
+
+describe("teamTimeline — same-day rest gate", () => {
+  const tz = "America/Toronto";
+  const at = (day: number, h: number, m: number): string =>
+    `2026-07-${String(day).padStart(2, "0")}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`;
+  const hasOff = (t: { activity: string }[]) =>
+    t.some((s) => s.activity === "off");
+
+  it("shows a rest for a gap within the same day", () => {
+    // A plays 18:00 and 19:30 the same night; the 18:45 slot (B vs C) is a sit-out.
+    const matches = [
+      mk(1, "A", "X", null, at(25, 18, 0)),
+      mk(1, "B", "C", null, at(25, 18, 45)),
+      mk(2, "A", "Y", null, at(25, 19, 30)),
+    ];
+    expect(hasOff(teamTimeline("A", matches, tz))).toBe(true);
+  });
+
+  it("hides the gap when the next duty is on a later day", () => {
+    // A plays this week (Jul 25) then next week (Aug 1) — a weekly-league gap.
+    const matches = [
+      mk(1, "A", "X", null, at(25, 18, 0)),
+      mk(1, "B", "C", null, at(25, 18, 45)), // same-night sit-out, but...
+      mk(2, "A", "Y", null, "2026-08-01T18:00:00-04:00"), // next game is next week
+    ];
+    expect(hasOff(teamTimeline("A", matches, tz))).toBe(false);
+  });
+
+  it("treats every gap as rest without a timezone (legacy)", () => {
+    const matches = [
+      mk(1, "A", "X", null, at(25, 18, 0)),
+      mk(1, "B", "C", null, at(25, 18, 45)),
+      mk(2, "A", "Y", null, "2026-08-01T18:00:00-04:00"),
+    ];
+    expect(hasOff(teamTimeline("A", matches))).toBe(true);
+  });
+});

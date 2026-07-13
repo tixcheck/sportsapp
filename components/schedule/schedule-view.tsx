@@ -83,7 +83,7 @@ function groupByRoundWithOff(
     const name = names.get(teamId) ?? "Your team";
     // Walk the team's day; a rest slot belongs after its preceding duty's round.
     let prevRound: number | null = null;
-    for (const t of teamTimeline(teamId, all)) {
+    for (const t of teamTimeline(teamId, all, tz)) {
       if (t.activity === "off") {
         const g = prevRound != null ? byRound.get(prevRound) : undefined;
         if (g)
@@ -456,8 +456,8 @@ function TeamDay({
   myTeamIds: string[];
   renderTrailing: (m: ScheduleMatch) => React.ReactNode;
 }) {
-  const timeline = teamTimeline(teamId, allMatches);
-  const entries = teamScheduleEntries(teamId, allMatches);
+  const timeline = teamTimeline(teamId, allMatches, timezone);
+  const entries = teamScheduleEntries(teamId, allMatches, timezone);
   const refCount = timeline.filter((t) => t.activity === "ref").length;
   const offCount = timeline.filter((t) => t.activity === "off").length;
   const pinned = myTeamIds.includes(teamId);

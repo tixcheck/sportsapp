@@ -339,6 +339,11 @@ export async function generateLeagueScheduleAction(
   // Stagger a night's games by the game length so a team never plays two at once.
   const gameMinutes = estimateMatchMinutes(league.match_format as MatchFormat);
 
+  // Seed the randomized rematch rounds (games beyond everyone-once) from the
+  // competition id so a league's schedule is stable across regenerations.
+  let seed = 0;
+  for (const ch of competitionId) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+
   const schedule = generateRoundRobin({
     teamIds: teams.map((t) => t.id),
     roundsPerTeam: settings.rounds_per_team ?? 1,
@@ -347,6 +352,7 @@ export async function generateLeagueScheduleAction(
     startDate,
     intervalDays: 7,
     gamesPerWeek,
+    seed: seed >>> 0,
     blackoutDates: (settings.blackout_dates as string[] | null) ?? [],
   });
 

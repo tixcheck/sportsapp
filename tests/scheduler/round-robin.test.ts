@@ -134,10 +134,50 @@ describe("generatePairings — partial round robin (gamesPerTeam)", () => {
     expect(partial).toEqual(full.slice(0, 6));
   });
 
-  it("a cap ≥ the full round robin plays the whole schedule", () => {
+  it("a cap equal to the full round robin plays the whole schedule", () => {
     const full = generatePairings(teams(8), 1);
-    expect(generatePairings(teams(8), 1, 99)).toEqual(full); // full = 7 rounds
-    expect(generatePairings(teams(8), 1, 7)).toEqual(full);
+    expect(generatePairings(teams(8), 1, 7)).toEqual(full); // full = 7 rounds
+  });
+
+  it("12 teams, 12 games: 11 everyone-once + 1 randomized rematch round", () => {
+    const rounds = generatePairings(teams(12), 1, 12);
+    expect(rounds).toHaveLength(12);
+    rounds.forEach((r) => expect(r.pairs).toHaveLength(6));
+
+    // First 11 rounds are the untouched full-cycle prefix (distinct opponents).
+    expect(rounds.slice(0, 11)).toEqual(generatePairings(teams(12), 1));
+
+    const opp = opponentsByTeam(rounds);
+    for (const list of opp.values()) {
+      expect(list).toHaveLength(12); // 12 games each
+      // Everyone-once means exactly one opponent repeats — the rematch.
+      expect(new Set(list).size).toBe(11);
+    }
+  });
+
+  it("the rematch round never repeats the fixtures teams just played", () => {
+    const rounds = generatePairings(teams(12), 1, 12);
+    const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+    const lastCycle = new Set(
+      rounds[10].pairs.map((p) => key(p.homeTeamId, p.awayTeamId)),
+    );
+    for (const p of rounds[11].pairs) {
+      expect(lastCycle.has(key(p.homeTeamId, p.awayTeamId))).toBe(false);
+    }
+  });
+
+  it("is deterministic per seed and varies across seeds", () => {
+    const a = generatePairings(teams(12), 1, 12, 7);
+    const b = generatePairings(teams(12), 1, 12, 7);
+    const c = generatePairings(teams(12), 1, 12, 99);
+    expect(a).toEqual(b);
+    expect(a[11].pairs).not.toEqual(c[11].pairs);
+  });
+
+  it("odd team counts fall back to the everyone-once prefix", () => {
+    // No clean perfect-matching rematch for an odd pool — cap at the full cycle.
+    const rounds = generatePairings(teams(11), 1, 20);
+    expect(rounds).toEqual(generatePairings(teams(11), 1));
   });
 
   it("null/omitted cap plays the full round robin", () => {

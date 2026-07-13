@@ -43,8 +43,8 @@ function TeamGames({
   schedule: ScheduleMatch[];
   timezone: string;
 }) {
-  const entries = teamScheduleEntries(teamId, schedule);
-  const timeline = teamTimeline(teamId, schedule);
+  const entries = teamScheduleEntries(teamId, schedule, timezone);
+  const timeline = teamTimeline(teamId, schedule, timezone);
   const playCount = entries.filter((e) => e.kind === "play").length;
   const refCount = entries.filter((e) => e.kind === "ref").length;
 
