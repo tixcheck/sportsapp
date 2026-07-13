@@ -18,12 +18,16 @@ export default async function HomePage() {
   if (user) redirect("/dashboard");
 
   return (
-    <div className="bg-background text-foreground flex min-h-svh flex-col">
+    <div className="bg-background text-foreground flex min-h-svh flex-col overflow-x-clip">
       <header className="border-rule bg-background/85 sticky top-0 z-20 border-b backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-5 py-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- marketing logo, fixed height */}
-          <img src="/logo.png" alt="MySportsApp" className="h-8 w-auto" />
-          <nav className="flex items-center gap-2">
+          <img
+            src="/logo.png"
+            alt="MySportsApp"
+            className="h-7 w-auto max-w-[9.5rem] shrink object-contain sm:h-8 sm:max-w-[12rem]"
+          />
+          <nav className="flex shrink-0 items-center gap-2">
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">Log in</Link>
             </Button>
