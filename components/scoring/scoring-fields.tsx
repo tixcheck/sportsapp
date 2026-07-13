@@ -9,7 +9,7 @@ export type ScoringValue = ScoringSettingsInput;
 
 const PRESETS: { label: string; value: ScoringValue }[] = [
   {
-    label: "Captains confirm",
+    label: "Teams confirm",
     value: {
       allowCaptainEntry: true,
       allowRefEntry: false,
@@ -112,8 +112,8 @@ export function ScoringFields({
       <div className="grid gap-2">
         <p className="text-sm font-medium">Who can enter a score?</p>
         <Toggle
-          label="Captains"
-          desc="Either playing team's captain"
+          label="Playing teams"
+          desc="Any member of either playing team"
           checked={value.allowCaptainEntry}
           onChange={(v) => set({ allowCaptainEntry: v })}
         />

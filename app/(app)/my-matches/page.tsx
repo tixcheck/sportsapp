@@ -18,8 +18,8 @@ export default async function MyMatchesPage() {
 
       {matches.length === 0 && projections.length === 0 ? (
         <div className="border-border bg-surface text-muted-foreground rounded-lg border p-10 text-center text-sm">
-          No matches yet. When you captain a team — or your team is assigned to
-          ref — your matches show up here.
+          No matches yet. When you&apos;re on a team&apos;s roster — or your
+          team is assigned to ref — your matches show up here.
         </div>
       ) : (
         <MatchSections matches={matches} projections={projections} />

@@ -33,9 +33,10 @@ export interface MyMatch {
 }
 
 /**
- * Matches the current user can act on — as a captain of a playing team, or as a
- * member of a match's reffing team. Sorted "what's next" by round → court
- * (scheduled times are estimates), completed last.
+ * Matches the current user can act on — as a member of a playing team (any
+ * roster member, not just the captain), or as a member of a match's reffing
+ * team. Sorted "what's next" by round → court (scheduled times are estimates),
+ * completed last.
  */
 export async function getMyMatches(): Promise<MyMatch[]> {
   const supabase = await createClient();
@@ -48,9 +49,6 @@ export async function getMyMatches(): Promise<MyMatch[]> {
     .from("teams")
     .select("id")
     .eq("captain_user_id", user.id);
-  const captainTeamIds = new Set(
-    (captainTeams ?? []).map((t) => t.id as string),
-  );
 
   const { data: memberTeams } = await supabase
     .from("team_members")
@@ -60,11 +58,18 @@ export async function getMyMatches(): Promise<MyMatch[]> {
     (memberTeams ?? []).map((m) => m.team_id as string),
   );
 
+  // Teams the user plays for: any roster membership, plus a captain row in case
+  // a legacy captain has no team_members entry. Scoring is open to any member.
+  const playTeamIds = new Set<string>([
+    ...(captainTeams ?? []).map((t) => t.id as string),
+    ...memberTeamIds,
+  ]);
+
   const ors: string[] = [];
-  const capList = [...captainTeamIds].join(",");
+  const playList = [...playTeamIds].join(",");
   const memList = [...memberTeamIds].join(",");
-  if (captainTeamIds.size) {
-    ors.push(`home_team_id.in.(${capList})`, `away_team_id.in.(${capList})`);
+  if (playTeamIds.size) {
+    ors.push(`home_team_id.in.(${playList})`, `away_team_id.in.(${playList})`);
   }
   if (memberTeamIds.size) ors.push(`ref_team_id.in.(${memList})`);
   if (ors.length === 0) return [];
@@ -161,13 +166,13 @@ export async function getMyMatches(): Promise<MyMatch[]> {
 
   const result: MyMatch[] = matches.map((m) => {
     const c = compById.get(m.competition_id)!;
-    const isCaptainPlaying =
-      (m.home_team_id && captainTeamIds.has(m.home_team_id)) ||
-      (m.away_team_id && captainTeamIds.has(m.away_team_id));
+    const isPlaying =
+      (m.home_team_id && playTeamIds.has(m.home_team_id)) ||
+      (m.away_team_id && playTeamIds.has(m.away_team_id));
     const isRefMember = !!m.ref_team_id && memberTeamIds.has(m.ref_team_id);
 
     const canEnter =
-      (c.allow_captain_entry && !!isCaptainPlaying) ||
+      (c.allow_captain_entry && !!isPlaying) ||
       (c.allow_ref_entry && isRefMember);
 
     let state: ConfirmationState = "none";
@@ -212,7 +217,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       sets: setsByMatch.get(m.id) ?? [],
       status: m.status,
       state,
-      role: isCaptainPlaying ? "play" : "ref",
+      role: isPlaying ? "play" : "ref",
       phase: m.bracket_position != null ? "bracket" : "pool",
       canEnter,
       canConfirm,
