@@ -294,6 +294,9 @@ export const leagueSettings = pgTable("league_settings", {
     .references(() => competitions.id, { onDelete: "cascade" }),
   weeklySlots: jsonb("weekly_slots").$type<WeeklySlot[]>().notNull(),
   roundsPerTeam: integer("rounds_per_team").notNull().default(1),
+  // Games each team plays per week/slot (default 1). >1 packs that many games
+  // onto the same night, staggered by game length — see round-robin.ts.
+  gamesPerWeek: integer("games_per_week").notNull().default(1),
   // Cap each team at this many round-robin games (a partial round robin: the
   // first N rotations of the circle method, so opponents are distinct and even).
   // Null = a full round robin (everyone plays everyone).

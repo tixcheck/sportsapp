@@ -1,0 +1,1 @@
+ALTER TABLE "league_settings" ADD COLUMN "games_per_week" integer DEFAULT 1 NOT NULL;

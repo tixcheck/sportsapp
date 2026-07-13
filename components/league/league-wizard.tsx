@@ -57,6 +57,7 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
       courts: 2,
       roundsPerTeam: 1,
       gamesPerTeam: null,
+      gamesPerWeek: 1,
       tiebreaker: "ova",
       courtList: null,
       slotDayOfWeek: 2,
@@ -228,6 +229,18 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
                     )
                   }
                   className="border-border bg-surface h-9 w-full rounded-md border px-3 text-sm tabular-nums"
+                />
+              </Field>
+              <Field
+                label="Games per week"
+                error={errors.gamesPerWeek?.message}
+                hint="Games each team plays per night. 2 packs two games onto the same day (staggered) — a 12-game season then runs 6 weeks instead of 12."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={7}
+                  {...register("gamesPerWeek", { valueAsNumber: true })}
                 />
               </Field>
             </div>

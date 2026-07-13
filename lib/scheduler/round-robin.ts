@@ -31,6 +31,13 @@ export interface RoundRobinInput {
   startDate: string;
   /** Days between slots. Default 7 (weekly). */
   intervalDays?: number;
+  /**
+   * Games each team plays per slot/week. Default 1. With N, the first N rounds
+   * share the first date, the next N the second date, etc. — so a 12-game season
+   * at 2/week runs 6 weeks instead of 12. Games in the same week are staggered by
+   * time (the `wave` index below), so a team never plays two at once.
+   */
+  gamesPerWeek?: number;
   /** Dates to skip, "YYYY-MM-DD". */
   blackoutDates?: string[];
 }
@@ -46,6 +53,8 @@ export interface ScheduledMatch {
 export interface ScheduledRound {
   round: number;
   date: string;
+  /** 0-based game-of-the-week — 0 = first game that night, 1 = second, … */
+  wave: number;
   byeTeamId: TeamId | null;
   matches: ScheduledMatch[];
 }
@@ -146,6 +155,7 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
   if (input.courts < 1) throw new Error("courts must be at least 1");
 
   const intervalDays = input.intervalDays ?? 7;
+  const gamesPerWeek = Math.max(1, Math.floor(input.gamesPerWeek ?? 1));
   const blackout = new Set(input.blackoutDates ?? []);
   const pairings = generatePairings(
     input.teamIds,
@@ -154,10 +164,19 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
   );
 
   let cursor = parseDate(input.startDate);
-  const rounds: ScheduledRound[] = pairings.map((pr) => {
+  const skipBlackouts = () => {
     while (blackout.has(formatDate(cursor))) cursor += intervalDays * DAY_MS;
+  };
+  skipBlackouts();
+
+  const rounds: ScheduledRound[] = pairings.map((pr, idx) => {
+    const wave = idx % gamesPerWeek;
+    // Advance to the next playable date at the start of each new week's games.
+    if (idx > 0 && wave === 0) {
+      cursor += intervalDays * DAY_MS;
+      skipBlackouts();
+    }
     const date = formatDate(cursor);
-    cursor += intervalDays * DAY_MS;
 
     const matches: ScheduledMatch[] = pr.pairs.map((p, i) => ({
       round: pr.round,
@@ -167,7 +186,7 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
       awayTeamId: p.awayTeamId,
     }));
 
-    return { round: pr.round, date, byeTeamId: pr.byeTeamId, matches };
+    return { round: pr.round, date, wave, byeTeamId: pr.byeTeamId, matches };
   });
 
   return { rounds };

@@ -24,6 +24,8 @@ export const createLeagueSchema = z
     // Cap each team at this many games (partial round robin). Null = full RR.
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
     // Standings tiebreaker hierarchy (see RankMode). Default OVA ratios.
+    // Games each team plays per week (default 1). 2 = two games a night.
+    gamesPerWeek: z.number().int().min(1).max(7),
     tiebreaker: z.enum(["ova", "differential"]),
     // The league's specific courts + which are "prime" (better conditions,
     // balanced evenly across teams). Null/empty = plain 1…N court numbering.
@@ -70,6 +72,8 @@ export const editLeagueSchema = z
       .int()
       .refine((n) => [1, 2].includes(n), { message: "Choose 1× or 2×." }),
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
+    // Games each team plays per week (default 1). 2 = two games a night.
+    gamesPerWeek: z.number().int().min(1).max(7),
     tiebreaker: z.enum(["ova", "differential"]),
     // The league's specific courts + which are "prime" (better conditions,
     // balanced evenly across teams). Null/empty = plain 1…N court numbering.

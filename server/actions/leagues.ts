@@ -9,7 +9,12 @@ import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { formatDateRange } from "@/lib/utils/dates";
-import { findPreset, toTwoSetFormat, type Sport } from "@/lib/formats";
+import {
+  estimateMatchMinutes,
+  findPreset,
+  toTwoSetFormat,
+  type Sport,
+} from "@/lib/formats";
 import { sendCaptainInvite } from "@/lib/email/send";
 import { generateRoundRobin } from "@/lib/scheduler/round-robin";
 import { assignCourts } from "@/lib/scheduler/court-assign";
@@ -21,7 +26,7 @@ import {
   type CreateLeagueInput,
   type EditLeagueInput,
 } from "@/lib/validations/league";
-import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
+import type { LeagueCourt, MatchFormat, WeeklySlot } from "@/lib/db/schema";
 
 const DEFAULT_TIMEZONE = "America/Toronto";
 const INVITE_TTL_DAYS = 14;
@@ -105,6 +110,7 @@ export async function createLeagueAction(
       weekly_slots: weeklySlots,
       rounds_per_team: v.roundsPerTeam,
       games_per_team: v.gamesPerTeam,
+      games_per_week: v.gamesPerWeek,
       tiebreaker: v.tiebreaker,
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
@@ -205,6 +211,7 @@ export async function updateLeagueSettingsAction(
       weekly_slots: weeklySlots,
       rounds_per_team: v.roundsPerTeam,
       games_per_team: v.gamesPerTeam,
+      games_per_week: v.gamesPerWeek,
       tiebreaker: v.tiebreaker,
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
@@ -297,7 +304,7 @@ export async function generateLeagueScheduleAction(
 
   const { data: league, error: lErr } = await supabase
     .from("competitions")
-    .select("start_date, timezone")
+    .select("start_date, timezone, match_format")
     .eq("id", competitionId)
     .single();
   if (lErr || !league) return { error: "League not found." };
@@ -306,7 +313,7 @@ export async function generateLeagueScheduleAction(
   const { data: settings, error: sErr } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week",
     )
     .eq("competition_id", competitionId)
     .single();
@@ -328,6 +335,9 @@ export async function generateLeagueScheduleAction(
 
   const courtList = (settings.court_list as LeagueCourt[] | null) ?? null;
   const hasCourtList = courtList != null && courtList.length > 0;
+  const gamesPerWeek = (settings.games_per_week as number | null) ?? 1;
+  // Stagger a night's games by the game length so a team never plays two at once.
+  const gameMinutes = estimateMatchMinutes(league.match_format as MatchFormat);
 
   const schedule = generateRoundRobin({
     teamIds: teams.map((t) => t.id),
@@ -336,6 +346,7 @@ export async function generateLeagueScheduleAction(
     courts: hasCourtList ? courtList.length : slot.courts,
     startDate,
     intervalDays: 7,
+    gamesPerWeek,
     blackoutDates: (settings.blackout_dates as string[] | null) ?? [],
   });
 
@@ -367,7 +378,9 @@ export async function generateLeagueScheduleAction(
       status: "scheduled" as const,
       scheduled_at: DateTime.fromISO(`${mt.date}T${slot.startTime}`, {
         zone: tz,
-      }).toISO(),
+      })
+        .plus({ minutes: round.wave * gameMinutes })
+        .toISO(),
     })),
   );
 

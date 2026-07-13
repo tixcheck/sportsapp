@@ -213,6 +213,18 @@ export function EditLeagueSettingsDialog({
                 })}
               />
             </Field>
+            <Field
+              label="Games per week"
+              error={errors.gamesPerWeek?.message}
+              hint="Games each team plays per night. 2 packs two games onto the same Tuesday (staggered), so a 12-game season runs 6 weeks instead of 12."
+            >
+              <Input
+                type="number"
+                min={1}
+                max={7}
+                {...register("gamesPerWeek", { valueAsNumber: true })}
+              />
+            </Field>
           </div>
 
           <Field
