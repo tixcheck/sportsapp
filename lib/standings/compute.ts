@@ -12,6 +12,8 @@
  * recomputeStandings() additionally upserts the cache on score commit, which is
  * what the Phase 8 bracket seeding reads.
  */
+import { DateTime } from "luxon";
+
 import { createClient } from "@/lib/supabase/server";
 import {
   headToHeadTable,
@@ -21,6 +23,11 @@ import {
   type RankMode,
   type StandingRow,
 } from "@/lib/scheduler/tiebreakers";
+import {
+  weeklyTallies,
+  type MatchOutcome,
+  type WeekTally,
+} from "@/lib/standings/weekly";
 
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 
@@ -45,6 +52,8 @@ export interface StandingsRowView extends StandingRow {
   /** Total pool-play / season games scheduled for this team (any status). */
   gamesScheduled: number;
   explainer: TiebreakerExplainer;
+  /** Per-night win/loss breakdown (leagues only; empty for tournaments). */
+  weekly: WeekTally[];
 }
 
 function fmtRatio(value: number): string {
@@ -149,6 +158,8 @@ type MatchRow = {
   pool_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
+  scheduled_at: string | null;
+  bracket_position: number | null;
 };
 type ScheduledRow = {
   pool_id: string | null;
@@ -175,7 +186,7 @@ export async function loadStandings(
 ): Promise<StandingsGroup[]> {
   const { data: comp } = await supabase
     .from("competitions")
-    .select("type")
+    .select("type, timezone")
     .eq("id", competitionId)
     .single();
   if (!comp) return [];
@@ -200,7 +211,9 @@ export async function loadStandings(
 
   const { data: matchesData } = await supabase
     .from("matches")
-    .select("id, pool_id, home_team_id, away_team_id")
+    .select(
+      "id, pool_id, home_team_id, away_team_id, scheduled_at, bracket_position",
+    )
     .eq("competition_id", competitionId)
     .eq("status", "completed");
   const matches = (matchesData ?? []) as MatchRow[];
@@ -282,7 +295,22 @@ export async function loadStandings(
       withdrawn: isWithdrawn.get(r.teamId) ?? false,
       gamesScheduled: scheduledByTeam.get(r.teamId) ?? 0,
       explainer: buildExplainer(r, ranked, results, teamName, droppedByTeam),
+      weekly: [] as WeekTally[],
     }));
+  };
+
+  // A team's outcome in one completed match, from its recorded sets.
+  const outcomeFor = (teamId: string, m: MatchRow): MatchOutcome => {
+    let homeSets = 0;
+    let awaySets = 0;
+    for (const s of setsByMatch.get(m.id) ?? []) {
+      if (s.home > s.away) homeSets += 1;
+      else if (s.away > s.home) awaySets += 1;
+    }
+    const isHome = m.home_team_id === teamId;
+    const mine = isHome ? homeSets : awaySets;
+    const theirs = isHome ? awaySets : homeSets;
+    return mine > theirs ? "win" : mine < theirs ? "loss" : "tie";
   };
 
   if (comp.type === "league") {
@@ -292,13 +320,37 @@ export async function loadStandings(
       .filter((r): r is MatchResult => r !== null);
     // Season games only (exclude the playoff bracket).
     const scheduled = countScheduled((m) => m.bracket_position === null);
+
+    // Per-night win/loss breakdown for each team — the week-over-week line.
+    const entriesByTeam = new Map<
+      string,
+      { date: string; outcome: MatchOutcome }[]
+    >();
+    for (const m of matches) {
+      if (m.bracket_position !== null) continue; // season only
+      if (!m.scheduled_at || !m.home_team_id || !m.away_team_id) continue;
+      const date = DateTime.fromISO(m.scheduled_at, {
+        zone: comp.timezone,
+      }).toISODate();
+      if (!date) continue;
+      for (const teamId of [m.home_team_id, m.away_team_id]) {
+        const list = entriesByTeam.get(teamId) ?? [];
+        list.push({ date, outcome: outcomeFor(teamId, m) });
+        entriesByTeam.set(teamId, list);
+      }
+    }
+
+    const rows = rank(teamIds, results, scheduled).map((r) => ({
+      ...r,
+      weekly: weeklyTallies(entriesByTeam.get(r.teamId) ?? []),
+    }));
     return [
       {
         poolId: null,
         poolName: null,
         divisionId: null,
         divisionName: null,
-        rows: rank(teamIds, results, scheduled),
+        rows,
       },
     ];
   }

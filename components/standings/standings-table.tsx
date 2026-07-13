@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 import type { MatchFormat } from "@/lib/db/schema";
 import type { StandingsGroup, StandingsRowView } from "@/lib/standings/compute";
 import { standingsLegendFlags } from "@/lib/formats";
@@ -72,6 +74,13 @@ export function StandingsTable({
     ? [base[0], TIE_COL, ...base.slice(1)]
     : base;
 
+  // Week-over-week: the ordered league nights any team played (leagues attach
+  // per-night W/L; tournaments don't, so these columns simply don't appear).
+  const weekDates = [
+    ...new Set(rows.flatMap((r) => r.weekly.map((w) => w.date))),
+  ].sort();
+  const weekLabel = (d: string) => DateTime.fromISO(d).toFormat("LLL d");
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[34rem] text-sm tabular-nums">
@@ -100,67 +109,99 @@ export function StandingsTable({
             >
               Ratio
             </th>
+            {weekDates.map((d) => (
+              <th
+                key={d}
+                title="Won / lost that night"
+                className="px-2 pb-2 text-center font-bold whitespace-nowrap"
+              >
+                {weekLabel(d)}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr
-              key={r.teamId}
-              className={cn(
-                "border-rule h-12 border-b last:border-0",
-                myTeamIds.includes(r.teamId) && "bg-paper-sunken",
-              )}
-            >
-              <td
+          {rows.map((r) => {
+            const byDate = new Map(r.weekly.map((w) => [w.date, w]));
+            return (
+              <tr
+                key={r.teamId}
                 className={cn(
-                  "text-center",
-                  // The leader's rank is the one claret note (§6.1).
-                  r.position === 1 ? "text-claret" : "text-ink-2",
+                  "border-rule h-12 border-b last:border-0",
+                  myTeamIds.includes(r.teamId) && "bg-paper-sunken",
                 )}
               >
-                <div className="flex justify-center">
-                  <PositionPill
-                    position={r.position}
-                    teamName={r.teamName}
-                    explainer={r.explainer}
-                  />
-                </div>
-              </td>
-              <td className="px-3">
-                <span
+                <td
                   className={cn(
-                    "font-semibold",
-                    r.withdrawn && "text-ink-3 line-through",
+                    "text-center",
+                    // The leader's rank is the one claret note (§6.1).
+                    r.position === 1 ? "text-claret" : "text-ink-2",
                   )}
                 >
-                  {r.teamName}
-                </span>
-                {r.withdrawn && (
-                  <span className="bg-paper-sunken text-ink-2 ml-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
-                    Withdrawn
-                  </span>
-                )}
-                {myTeamIds.includes(r.teamId) && (
-                  <MyTeamBadge className="ml-2" />
-                )}
-              </td>
-              <td className="text-ink-2 px-2 text-center">
-                {r.mw + r.ml + r.mt}
-                <span className="text-ink-3">/{r.gamesScheduled}</span>
-              </td>
-              {cols.map((c) => (
-                <td
-                  key={c.key as string}
-                  className={cn("px-2 text-center", c.cell)}
-                >
-                  {r[c.key] as number}
+                  <div className="flex justify-center">
+                    <PositionPill
+                      position={r.position}
+                      teamName={r.teamName}
+                      explainer={r.explainer}
+                    />
+                  </div>
                 </td>
-              ))}
-              <td className="text-ink px-3 text-right font-semibold">
-                {fmt(r.pointRatio)}
-              </td>
-            </tr>
-          ))}
+                <td className="px-3">
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      r.withdrawn && "text-ink-3 line-through",
+                    )}
+                  >
+                    {r.teamName}
+                  </span>
+                  {r.withdrawn && (
+                    <span className="bg-paper-sunken text-ink-2 ml-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+                      Withdrawn
+                    </span>
+                  )}
+                  {myTeamIds.includes(r.teamId) && (
+                    <MyTeamBadge className="ml-2" />
+                  )}
+                </td>
+                <td className="text-ink-2 px-2 text-center">
+                  {r.mw + r.ml + r.mt}
+                  <span className="text-ink-3">/{r.gamesScheduled}</span>
+                </td>
+                {cols.map((c) => (
+                  <td
+                    key={c.key as string}
+                    className={cn("px-2 text-center", c.cell)}
+                  >
+                    {r[c.key] as number}
+                  </td>
+                ))}
+                <td className="text-ink px-3 text-right font-semibold">
+                  {fmt(r.pointRatio)}
+                </td>
+                {weekDates.map((d) => {
+                  const w = byDate.get(d);
+                  return (
+                    <td
+                      key={d}
+                      className="px-2 text-center whitespace-nowrap tabular-nums"
+                    >
+                      {w ? (
+                        <>
+                          <span className="text-ink font-semibold">
+                            {w.won}
+                          </span>
+                          <span className="text-ink-3">/{w.lost}</span>
+                        </>
+                      ) : (
+                        <span className="text-ink-3">–</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
