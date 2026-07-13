@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 
 export type TeamActivity = "play" | "ref" | "off";
@@ -56,10 +58,17 @@ function teamDuties(teamId: string, matches: ScheduleMatch[]): Duty[] {
  * that falls between two of the team's duties, is an OFF break (e.g. sitting out
  * the 11:50 slot between an 11:30 game and a 12:10 game). Nothing is shown
  * before the first duty or after the last — those aren't rest.
+ *
+ * Rest is only shown between two duties on the SAME calendar day (a genuine
+ * hydrate/rest break when a team plays more than once that day). A gap across
+ * days — a weekly league, or overnight between tournament days — is not "rest"
+ * and shows nothing. `timezone` decides the day boundary; without it, every
+ * between-duties gap is treated as rest (legacy).
  */
 export function teamTimeline(
   teamId: string,
   matches: ScheduleMatch[],
+  timezone?: string,
 ): TimelineRound[] {
   const duties = teamDuties(teamId, matches);
   if (duties.length === 0) return [];
@@ -68,6 +77,12 @@ export function teamTimeline(
   const dutyTimes = new Set(
     duties.map((d) => d.match.scheduledAt).filter(Boolean) as string[],
   );
+  const sameDay = (a: string, b: string) =>
+    !timezone ||
+    DateTime.fromISO(a, { zone: timezone }).hasSame(
+      DateTime.fromISO(b, { zone: timezone }),
+      "day",
+    );
 
   const out: TimelineRound[] = [];
   for (let i = 0; i < duties.length; i++) {
@@ -79,11 +94,12 @@ export function teamTimeline(
       match: d.match,
     });
 
-    // Fill rest for each empty grid slot strictly between this duty and the next.
+    // Fill rest for each empty grid slot between this duty and the next — but
+    // only within the same day (a real mid-day break, not a weekly/overnight gap).
     const next = duties[i + 1];
     const from = d.match.scheduledAt;
     const to = next?.match.scheduledAt;
-    if (!next || !from || !to) continue;
+    if (!next || !from || !to || !sameDay(from, to)) continue;
     for (const slot of grid) {
       if (slot > from && slot < to && !dutyTimes.has(slot)) {
         out.push({
@@ -117,8 +133,9 @@ export interface TeamEntry {
 export function teamScheduleEntries(
   teamId: string,
   matches: ScheduleMatch[],
+  timezone?: string,
 ): TeamEntry[] {
-  const timeline = teamTimeline(teamId, matches);
+  const timeline = teamTimeline(teamId, matches, timezone);
   const entries: TeamEntry[] = timeline.map((t) => ({
     key: t.key,
     round: t.round,
