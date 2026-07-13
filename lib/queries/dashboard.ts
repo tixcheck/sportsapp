@@ -21,6 +21,9 @@ export interface MyCompetition {
   memberRole: "captain" | "player";
   teamStatus: "active" | "withdrawn";
   nextMatch: MyCompetitionMatch | null;
+  /** Whether the team has any scheduled matches — distinguishes "run's over"
+   * (has matches, none upcoming) from "no schedule yet" (no matches). */
+  hasMatches: boolean;
 }
 
 export interface PendingInvite {
@@ -61,8 +64,19 @@ export async function getMyCompetitions(): Promise<MyCompetition[]> {
             awayName: (r.next_away_name as string | null) ?? null,
           }
         : null,
+      hasMatches: (r.has_matches as boolean | null) ?? false,
     }),
   );
+}
+
+/**
+ * Whether the user's run in a competition is over: their team has played its
+ * matches with none left, or the competition itself is finished. Used to hide
+ * wrapped-up competitions from the dashboard's active list.
+ */
+export function isCompetitionDone(c: MyCompetition): boolean {
+  if (c.status === "completed" || c.status === "cancelled") return true;
+  return c.hasMatches && c.nextMatch === null;
 }
 
 /** Pending invites addressed to the signed-in user's email (server-matched). */

@@ -6,6 +6,7 @@ import {
   competitionPath,
   getMyCompetitions,
   getMyPendingInvites,
+  isCompetitionDone,
   type MyCompetition,
 } from "@/lib/queries/dashboard";
 import { getAccessState } from "@/lib/queries/access";
@@ -42,6 +43,9 @@ export default async function DashboardPage() {
     getHelperCompetitions(),
   ]);
   const canCreateOrg = access.organizerStatus === "approved";
+  // A finished competition (team's run over) drops off the active "you play in"
+  // list — the full record still lives on the competition's own pages.
+  const activeComps = comps.filter((c) => !isCompetitionDone(c));
 
   return (
     <div className="space-y-10">
@@ -62,13 +66,13 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {comps.length > 0 && (
+      {activeComps.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold">
             Competitions you play in
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {comps.map((c) => {
+            {activeComps.map((c) => {
               const next = nextMatchLine(c);
               return (
                 <Card
