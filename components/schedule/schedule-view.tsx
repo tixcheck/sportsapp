@@ -3,11 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import { DateTime } from "luxon";
-import { CalendarDays, List, MapPin, SquarePen, Users } from "lucide-react";
+import {
+  CalendarDays,
+  Grid3x3,
+  List,
+  MapPin,
+  SquarePen,
+  Users,
+} from "lucide-react";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
 import { MatchCard } from "./match-card";
+import { MatchupMatrix } from "./matchup-matrix";
 import { NowPlaying } from "./now-playing";
 import { RescheduleDialog } from "./reschedule-dialog";
 import {
@@ -211,9 +219,9 @@ export function ScheduleView({
   /** Minutes a game occupies — turns the By-team gaps into real break times. */
   slotMinutes?: number;
 }) {
-  const [view, setView] = useState<"list" | "agenda" | "court" | "team">(
-    "list",
-  );
+  const [view, setView] = useState<
+    "list" | "agenda" | "court" | "team" | "matrix"
+  >("list");
   const [mineOnly, setMineOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const canFilterMine = myTeamIds.length > 0;
@@ -359,6 +367,15 @@ export function ScheduleView({
               By court
             </ToggleButton>
           )}
+          {editable && (
+            <ToggleButton
+              active={view === "matrix"}
+              onClick={() => setView("matrix")}
+            >
+              <Grid3x3 className="size-4" />
+              Matrix
+            </ToggleButton>
+          )}
         </div>
         {canFilterMine && (
           <button
@@ -375,57 +392,60 @@ export function ScheduleView({
           </button>
         )}
       </div>
-      {shown.length === 0 ? (
+      {effectiveView === "matrix" && <MatchupMatrix matches={matches} />}
+
+      {effectiveView !== "matrix" && shown.length === 0 ? (
         <div className="border-border bg-surface text-muted-foreground rounded-lg border p-8 text-center text-sm">
           No matches for your team yet.
         </div>
       ) : null}
 
-      {groups.map((g) =>
-        effectiveView === "team" ? (
-          <TeamDay
-            key={g.key}
-            teamId={g.key.slice("team:".length)}
-            name={g.heading}
-            games={g.matches}
-            allMatches={matches}
-            timezone={timezone}
-            slotMinutes={slotMinutes}
-            editable={editable}
-            myTeamIds={myTeamIds}
-            renderTrailing={renderTrailing}
-          />
-        ) : (
-          <section key={g.key} className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <h3 className="font-display font-semibold">{g.heading}</h3>
-              {g.sub && (
-                <span className="text-muted-foreground text-sm">{g.sub}</span>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {g.matches.map((m) => (
-                <MatchCard
-                  key={m.id}
-                  match={m}
+      {effectiveView !== "matrix" &&
+        groups.map((g) =>
+          effectiveView === "team" ? (
+            <TeamDay
+              key={g.key}
+              teamId={g.key.slice("team:".length)}
+              name={g.heading}
+              games={g.matches}
+              allMatches={matches}
+              timezone={timezone}
+              slotMinutes={slotMinutes}
+              editable={editable}
+              myTeamIds={myTeamIds}
+              renderTrailing={renderTrailing}
+            />
+          ) : (
+            <section key={g.key} className="space-y-3">
+              <div className="flex items-baseline gap-2">
+                <h3 className="font-display font-semibold">{g.heading}</h3>
+                {g.sub && (
+                  <span className="text-muted-foreground text-sm">{g.sub}</span>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {g.matches.map((m) => (
+                  <MatchCard
+                    key={m.id}
+                    match={m}
+                    timezone={timezone}
+                    showAbnormal={editable}
+                    myTeamIds={myTeamIds}
+                    trailing={renderTrailing(m)}
+                  />
+                ))}
+              </div>
+              {g.offRests?.map((o) => (
+                <OffCard
+                  key={o.key}
+                  at={o.at}
                   timezone={timezone}
-                  showAbnormal={editable}
-                  myTeamIds={myTeamIds}
-                  trailing={renderTrailing(m)}
+                  teamName={myTeamIds.length > 1 ? o.name : undefined}
                 />
               ))}
-            </div>
-            {g.offRests?.map((o) => (
-              <OffCard
-                key={o.key}
-                at={o.at}
-                timezone={timezone}
-                teamName={myTeamIds.length > 1 ? o.name : undefined}
-              />
-            ))}
-          </section>
-        ),
-      )}
+            </section>
+          ),
+        )}
     </div>
   );
 }
