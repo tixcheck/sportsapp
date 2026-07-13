@@ -63,12 +63,20 @@ export function MatchSections({
   const bracket = playing.filter((m) => m.phase === "bracket").sort(byTime);
   const hasPlayoff = bracket.length > 0 || projections.length > 0;
 
+  // A short "Recent results" tail — the viewer's last few completed games, most
+  // recent first. Capped so it stays a glance, not a second schedule.
+  const recentResults = matches
+    .filter((m) => m.state === "final" && m.role === "play")
+    .sort((a, b) => timeMs(b) - timeMs(a))
+    .slice(0, 5);
+
   const nothingToShow =
     !upNext &&
     roundRobin.length === 0 &&
     leagueGames.length === 0 &&
     !hasPlayoff &&
-    reffing.length === 0;
+    reffing.length === 0 &&
+    recentResults.length === 0;
 
   if (nothingToShow) {
     if (matches.length === 0 && projections.length === 0) return null;
@@ -118,6 +126,14 @@ export function MatchSections({
       {reffing.length > 0 && (
         <Section title="Reffing">
           {reffing.map((m) => (
+            <MyMatchCard key={m.id} match={m} />
+          ))}
+        </Section>
+      )}
+
+      {recentResults.length > 0 && (
+        <Section title="Recent results">
+          {recentResults.map((m) => (
             <MyMatchCard key={m.id} match={m} />
           ))}
         </Section>
