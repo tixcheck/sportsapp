@@ -3,6 +3,11 @@
 -- "no schedule yet" (no matches at all). Competition.status is unreliable for
 -- this — a mid-tournament competition can still read 'scheduled'/'open' — so we
 -- key off the team's own matches instead.
+--
+-- Adding a column changes the function's return type, which `create or replace`
+-- can't do — drop it first.
+drop function if exists public.my_competitions();
+--> statement-breakpoint
 
 create or replace function public.my_competitions()
 returns table (
