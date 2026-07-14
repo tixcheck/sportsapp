@@ -111,6 +111,15 @@ export default async function DashboardPage() {
                     <Button asChild variant="outline" size="sm">
                       <Link href={`/teams/${c.teamId}`}>My team</Link>
                     </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        href={`${competitionPath(c.type, c.slug)}?tab=${
+                          c.type === "tournament" ? "pools" : "standings"
+                        }`}
+                      >
+                        Standings
+                      </Link>
+                    </Button>
                     {c.memberRole === "captain" &&
                       c.teamStatus !== "withdrawn" && (
                         <InviteTeammateDialog

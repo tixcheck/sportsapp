@@ -32,10 +32,13 @@ export async function generateMetadata({
 
 export default async function PublicTournamentPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { slug } = await params;
+  const { tab } = await searchParams;
   const [tournament, user] = await Promise.all([
     getPublicTournament(slug),
     getUser(),
@@ -136,6 +139,7 @@ export default async function PublicTournamentPage({
           standings={standings}
           brackets={brackets}
           myTeamIds={myTeamIds}
+          initialTab={tab}
         />
       </main>
     </div>

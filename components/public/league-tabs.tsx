@@ -25,15 +25,26 @@ export function LeagueTabs({
   standings,
   brackets = [],
   myTeamIds = [],
+  initialTab,
 }: {
   league: PublicLeague;
   standings: StandingsGroup[];
   brackets?: BracketTrackView[];
   myTeamIds?: string[];
+  /** Tab to open on load (e.g. "standings" via ?tab=standings). */
+  initialTab?: string;
 }) {
   const hasPlayoffs = brackets.length > 0;
+  const allowed = new Set([
+    "schedule",
+    "teams",
+    "standings",
+    ...(hasPlayoffs ? ["playoffs"] : []),
+  ]);
+  const defaultTab =
+    initialTab && allowed.has(initialTab) ? initialTab : "schedule";
   return (
-    <Tabs defaultValue="schedule">
+    <Tabs defaultValue={defaultTab}>
       <div className="bg-background/90 sticky top-0 z-30 -mx-4 space-y-2 border-b px-4 py-2 backdrop-blur">
         <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
           {league.name}
