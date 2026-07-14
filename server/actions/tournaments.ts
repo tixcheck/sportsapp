@@ -329,6 +329,9 @@ export async function addTournamentTeamAction(
   });
   if (inviteError) return { error: inviteError.message };
 
+  // Link an already-registered invitee immediately (no "accept" step).
+  await supabase.rpc("autolink_team_invites", { _team_id: team.id });
+
   const origin = await getOrigin();
   const claimUrl = `${origin}/claim/${token}`;
 

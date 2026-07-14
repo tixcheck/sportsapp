@@ -38,6 +38,17 @@ export interface PendingInvite {
   competitionType: "league" | "tournament";
 }
 
+/**
+ * Auto-accept any team invites addressed to the signed-in user's email — so a
+ * new sign-up (or an existing user just added by an organizer) sees their
+ * leagues/tournaments immediately, with no separate "accept" step. Idempotent
+ * and a no-op when there's nothing pending.
+ */
+export async function acceptPendingInvites(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.rpc("accept_pending_invites");
+}
+
 /** Competitions the signed-in user plays in (any team_members role). */
 export async function getMyCompetitions(): Promise<MyCompetition[]> {
   const supabase = await createClient();

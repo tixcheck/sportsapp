@@ -263,6 +263,10 @@ export async function addTeamAction(
   });
   if (inviteError) return { error: inviteError.message };
 
+  // If that email already has an account, link them now (they see the league
+  // immediately, no "accept" step). Best-effort — the email link still works.
+  await supabase.rpc("autolink_team_invites", { _team_id: team.id });
+
   const origin = await getOrigin();
   const claimUrl = `${origin}/claim/${token}`;
 

@@ -140,6 +140,9 @@ export async function editTeamInviteAction(
     if (error) return { error: error.message };
   }
 
+  // Link the new email now if it already has an account (no "accept" step).
+  await supabase.rpc("autolink_team_invites", { _team_id: teamId });
+
   const origin = await getOrigin();
   const claimUrl = `${origin}/claim/${token}`;
 
@@ -222,6 +225,9 @@ export async function inviteTeammateAction(
     expires_at: expiresAt,
   });
   if (error) return { error: error.message };
+
+  // Link the teammate now if they already have an account (no "accept" step).
+  await supabase.rpc("autolink_team_invites", { _team_id: teamId });
 
   const origin = await getOrigin();
   const claimUrl = `${origin}/claim/${token}`;

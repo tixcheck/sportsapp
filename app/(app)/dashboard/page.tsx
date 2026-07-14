@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 
 import { getUserOrgs } from "@/lib/auth/user";
 import {
+  acceptPendingInvites,
   competitionPath,
   getMyCompetitions,
   getMyPendingInvites,
@@ -35,6 +36,10 @@ function nextMatchLine(c: MyCompetition): string | null {
 }
 
 export default async function DashboardPage() {
+  // Accept invites addressed to this user's email first, so the competitions
+  // they were added to show up in the lists below without an "accept" step.
+  await acceptPendingInvites();
+
   const [orgs, comps, invites, access, helperComps] = await Promise.all([
     getUserOrgs(),
     getMyCompetitions(),
