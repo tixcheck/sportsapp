@@ -83,9 +83,13 @@ export function LeagueTabs({
           rows={standings[0]?.rows ?? []}
           myTeamIds={myTeamIds}
           format={league.matchFormat}
+          differential={league.tiebreaker === "differential"}
         />
         {(standings[0]?.rows.length ?? 0) > 0 && (
-          <StandingsLegend format={league.matchFormat} />
+          <StandingsLegend
+            format={league.matchFormat}
+            differential={league.tiebreaker === "differential"}
+          />
         )}
       </TabsContent>
 

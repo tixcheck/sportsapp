@@ -34,6 +34,7 @@ export default async function TeamPage({
     projections,
     teamSchedule,
     standingsGroup,
+    differential,
     roster,
   } = view;
 
@@ -90,8 +91,9 @@ export default async function TeamPage({
               <StandingsTable
                 rows={standingsGroup.rows}
                 myTeamIds={[team.id]}
+                differential={differential}
               />
-              <StandingsLegend />
+              <StandingsLegend differential={differential} />
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">

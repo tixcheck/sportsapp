@@ -91,6 +91,8 @@ export interface PublicLeague {
   timezone: string;
   /** Match format — drives the standings ranking legend. */
   matchFormat: MatchFormat;
+  /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
+  tiebreaker: "ova" | "differential";
   teams: { id: string; name: string }[];
   schedule: ScheduleMatch[];
 }
@@ -297,11 +299,18 @@ export async function getPublicLeague(
     .single();
   if (!league) return null; // not found, or private (RLS hides drafts)
 
-  const { data: teams } = await supabase
-    .from("teams")
-    .select("id, name")
-    .eq("competition_id", league.id)
-    .order("name", { ascending: true });
+  const [{ data: teams }, { data: settings }] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name")
+      .eq("competition_id", league.id)
+      .order("name", { ascending: true }),
+    supabase
+      .from("league_settings")
+      .select("tiebreaker")
+      .eq("competition_id", league.id)
+      .single(),
+  ]);
 
   const schedule = await loadSchedule(supabase, league.id);
 
@@ -315,6 +324,8 @@ export async function getPublicLeague(
     endDate: league.end_date,
     timezone: league.timezone,
     matchFormat: league.match_format as MatchFormat,
+    tiebreaker:
+      settings?.tiebreaker === "differential" ? "differential" : "ova",
     teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
     schedule,
   };

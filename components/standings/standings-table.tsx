@@ -36,15 +36,24 @@ const TIE_COL: StatCol = {
   cell: "",
 };
 
+/** Signed differential, e.g. +5 / -3 / 0. */
+function fmtDiff(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
+}
+
 export function StandingsTable({
   rows,
   myTeamIds = [],
   format,
+  differential = false,
 }: {
   rows: StandingsRowView[];
   myTeamIds?: string[];
   /** When known, the match format drives which columns show (authoritative). */
   format?: MatchFormat;
+  /** Point-differential tiebreaker: rank by PF − PA, not the OVA set/point
+   * ratios — so the columns/legend match the organizer's chosen setting. */
+  differential?: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -64,7 +73,10 @@ export function StandingsTable({
     ? standingsLegendFlags(format).singleSet
     : played.length > 0 &&
       played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
-  const base = singleSet
+  // Point-differential ranking doesn't use set ratio, so drop SW/SL there too —
+  // the table should only show what actually decides the order.
+  const dropSets = singleSet || differential;
+  const base = dropSets
     ? STAT_COLS.filter((c) => c.key !== "sw" && c.key !== "sl")
     : STAT_COLS;
 
@@ -104,10 +116,14 @@ export function StandingsTable({
               </th>
             ))}
             <th
-              title="Point ratio (PF / PA)"
+              title={
+                differential
+                  ? "Point differential (PF − PA)"
+                  : "Point ratio (PF / PA)"
+              }
               className="px-3 pb-2 text-right font-bold"
             >
-              Ratio
+              {differential ? "Diff" : "Ratio"}
             </th>
             {weekDates.map((d) => (
               <th
@@ -177,7 +193,7 @@ export function StandingsTable({
                   </td>
                 ))}
                 <td className="text-ink px-3 text-right font-semibold">
-                  {fmt(r.pointRatio)}
+                  {differential ? fmtDiff(r.pf - r.pa) : fmt(r.pointRatio)}
                 </td>
                 {weekDates.map((d) => {
                   const w = byDate.get(d);
@@ -217,6 +233,7 @@ export function StandingsLegend({
   singleSet = false,
   canTie = true,
   format,
+  differential = false,
 }: {
   className?: string;
   /** One set per game: drop the set-ratio step and the SW/SL legend. */
@@ -225,23 +242,30 @@ export function StandingsLegend({
   canTie?: boolean;
   /** When known, the format is authoritative over the two flags above. */
   format?: MatchFormat;
+  /** Point-differential tiebreaker: final step is PF − PA, no set-ratio step. */
+  differential?: boolean;
 }) {
   const flags = format ? standingsLegendFlags(format) : { singleSet, canTie };
   const single = flags.singleSet;
   const ties = !single && flags.canTie;
   const unit = single ? "games" : "matches";
+  // In differential mode set ratio is not a tiebreaker — hide the SW/SL step.
+  const showSets = !single && !differential;
   return (
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
       <p>
         <span className="font-semibold">How rankings are calculated:</span> by{" "}
         {unit} won{ties ? " (a tied 2-set game counts as ½ a win)" : ""}, then
         head-to-head among tied teams,
-        {single ? "" : " then set ratio (SW / SL),"} then point ratio (PF / PA).
+        {differential
+          ? " then point differential (PF − PA)."
+          : `${showSets ? " then set ratio (SW / SL)," : ""} then point ratio (PF / PA).`}
       </p>
       <p className="text-ink-3">
         GP games played / scheduled · MW/ML {unit} won/lost ·
         {ties ? " T tied ·" : ""}
-        {single ? "" : " SW/SL sets ·"} PF/PA points · Ratio = PF / PA
+        {showSets ? " SW/SL sets ·" : ""} PF/PA points ·{" "}
+        {differential ? "Diff = PF − PA" : "Ratio = PF / PA"}
       </p>
     </div>
   );

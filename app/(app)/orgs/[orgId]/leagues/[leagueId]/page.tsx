@@ -201,9 +201,13 @@ export default async function LeaguePage({
           <StandingsTable
             rows={standings[0]?.rows ?? []}
             format={league.matchFormat}
+            differential={league.tiebreaker === "differential"}
           />
           {(standings[0]?.rows.length ?? 0) > 0 && (
-            <StandingsLegend format={league.matchFormat} />
+            <StandingsLegend
+              format={league.matchFormat}
+              differential={league.tiebreaker === "differential"}
+            />
           )}
         </CardContent>
       </Card>
