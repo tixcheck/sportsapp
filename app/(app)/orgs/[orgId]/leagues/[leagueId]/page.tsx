@@ -6,12 +6,12 @@ import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getTeamRosters } from "@/lib/queries/roster";
+import { getTeamInvites } from "@/lib/queries/team-invites";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
 import {
   addCompetitionAdminAction,
   removeCompetitionAdminAction,
 } from "@/server/actions/organizers";
-import { getOrigin } from "@/lib/utils/url";
 import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
@@ -50,12 +50,12 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [origin, schedule, standings, rosters, coOrgs, brackets] =
+  const [schedule, standings, rosters, teamInvites, coOrgs, brackets] =
     await Promise.all([
-      getOrigin(),
       getLeagueSchedule(leagueId),
       getStandings(leagueId),
       getTeamRosters(leagueId),
+      getTeamInvites(leagueId),
       getCompetitionAdmins(leagueId),
       getBrackets(leagueId),
     ]);
@@ -270,15 +270,13 @@ export default async function LeaguePage({
           <AddTeamForm competitionId={league.id} />
 
           <TeamManagementList
-            origin={origin}
             teams={league.teams.map((t) => ({
               id: t.id,
               name: t.name,
               status: t.status,
               claimed: !!t.captain_user_id,
-              invite: t.invite
-                ? { token: t.invite.token, email: t.invite.email }
-                : null,
+              captainInvite: teamInvites[t.id]?.captain ?? null,
+              partnerInvites: teamInvites[t.id]?.partners ?? [],
               members: rosters[t.id] ?? [],
             }))}
           />

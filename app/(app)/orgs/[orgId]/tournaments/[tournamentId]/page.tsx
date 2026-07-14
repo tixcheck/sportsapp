@@ -14,7 +14,7 @@ import {
   removeCompetitionAdminAction,
 } from "@/server/actions/organizers";
 import { getTeamRosters } from "@/lib/queries/roster";
-import { getOrigin } from "@/lib/utils/url";
+import { getTeamInvites } from "@/lib/queries/team-invites";
 import {
   SPORTS,
   describeFormat,
@@ -66,22 +66,22 @@ export default async function TournamentPage({
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
   const [
-    origin,
     poolsView,
     standings,
     brackets,
     reseedBracket,
     dropState,
     rosters,
+    teamInvites,
     coOrgs,
   ] = await Promise.all([
-    getOrigin(),
     getPoolsView(tournamentId),
     getStandings(tournamentId),
     getBrackets(tournamentId),
     getReseedBracket(tournamentId),
     getDropState(tournamentId),
     getTeamRosters(tournamentId),
+    getTeamInvites(tournamentId),
     getCompetitionAdmins(tournamentId),
   ]);
   const poolMatches = poolsView?.schedule ?? [];
@@ -482,7 +482,6 @@ export default async function TournamentPage({
           <AddTournamentTeamForm competitionId={t.id} divisions={t.divisions} />
 
           <TeamManagementList
-            origin={origin}
             teams={t.teams.map((team) => ({
               id: team.id,
               name: team.name,
@@ -492,7 +491,8 @@ export default async function TournamentPage({
                   : null,
               status: team.status,
               claimed: !!team.captainUserId,
-              invite: team.invite,
+              captainInvite: teamInvites[team.id]?.captain ?? null,
+              partnerInvites: teamInvites[team.id]?.partners ?? [],
               members: rosters[team.id] ?? [],
               refCount: poolsView?.hasPools
                 ? (refCountByTeam.get(team.id) ?? 0)

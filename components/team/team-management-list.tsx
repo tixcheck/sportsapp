@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
-  editTeamInviteAction,
+  editInviteEmailAction,
+  removeInviteAction,
   removeTeamAction,
   renameTeamAction,
   withdrawTeamAction,
 } from "@/server/actions/teams";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/league/copy-button";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogClose,
@@ -27,42 +28,54 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+export interface ManagedTeamInvite {
+  id: string;
+  email: string;
+  token: string;
+}
+
 export interface ManagedTeam {
   id: string;
   name: string;
   divisionName?: string | null;
   status: "active" | "withdrawn";
   claimed: boolean;
-  invite: { token: string; email: string } | null;
-  members?: { name: string; role: "captain" | "player" }[];
+  /** Pending captain invite (null once they've joined). */
+  captainInvite: ManagedTeamInvite | null;
+  /** Pending partner/teammate invites. */
+  partnerInvites: ManagedTeamInvite[];
+  members?: { name: string; role: "captain" | "player"; email: string }[];
   /** Pool matches this team referees (undefined until pools are drawn). */
   refCount?: number;
 }
 
-function EditInviteDialog({
-  team,
-  origin,
+/** Edit the email on a pending invite (captain or partner) by id. */
+function EditEmailDialog({
+  inviteId,
+  email,
+  label,
   onDone,
 }: {
-  team: ManagedTeam;
-  origin: string;
+  inviteId: string;
+  email: string;
+  label: string;
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState(team.invite?.email ?? "");
+  const [value, setValue] = useState(email);
   const [pending, start] = useTransition();
 
   function save() {
     start(async () => {
-      const res = await editTeamInviteAction(team.id, email.trim());
+      const res = await editInviteEmailAction(inviteId, value.trim());
       if ("error" in res) {
         toast.error(res.error);
         return;
       }
       toast.success(
         res.emailSent
-          ? "Invite re-sent to the new email."
-          : "Invite updated — copy the link to share it.",
+          ? "Email updated — a fresh invite was sent."
+          : "Email updated — copy the link to share it.",
       );
       setOpen(false);
       onDone();
@@ -70,37 +83,37 @@ function EditInviteDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setValue(email);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
-          Edit email
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2">
+          Edit
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit captain email & resend</DialogTitle>
+          <DialogTitle>Edit {label.toLowerCase()} email</DialogTitle>
           <DialogDescription>
-            Sends a fresh invite to {team.name}&apos;s captain and regenerates
-            the claim link (any old link stops working).
+            Sends a fresh invite to the new address (any old claim link stops
+            working). If they already have an account, they&apos;re added right
+            away.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
-          <Label htmlFor={`email-${team.id}`}>Captain email</Label>
+          <Label htmlFor={`email-${inviteId}`}>Email</Label>
           <Input
-            id={`email-${team.id}`}
+            id={`email-${inviteId}`}
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="captain@example.com"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="name@email.com"
+            autoFocus
           />
-          {team.invite && (
-            <div className="mt-2">
-              <CopyButton
-                value={`${origin}/claim/${team.invite.token}`}
-                label="Copy current link"
-              />
-            </div>
-          )}
         </div>
         <DialogFooter>
           <DialogClose asChild>
@@ -108,12 +121,147 @@ function EditInviteDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button onClick={save} disabled={pending || !email.trim()}>
-            {pending ? "Sending…" : "Save & resend"}
+          <Button
+            onClick={save}
+            disabled={pending || !value.trim() || value.trim() === email}
+          >
+            {pending ? "Saving…" : "Save email"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** One captain/partner line: their email, joined/pending state, and controls. */
+function ContactLine({
+  label,
+  email,
+  joined,
+  inviteId,
+  removable,
+  onDone,
+}: {
+  label: string;
+  email: string;
+  joined: boolean;
+  inviteId?: string;
+  removable?: boolean;
+  onDone: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      <span className="text-muted-foreground w-16 shrink-0 font-medium">
+        {label}
+      </span>
+      <span className="text-foreground break-all">{email || "—"}</span>
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+          joined
+            ? "bg-claret-tint text-claret-deep"
+            : "bg-paper-sunken text-ink-2",
+        )}
+      >
+        {joined ? "Joined" : "Pending"}
+      </span>
+      {inviteId && (
+        <EditEmailDialog
+          inviteId={inviteId}
+          email={email}
+          label={label}
+          onDone={onDone}
+        />
+      )}
+      {inviteId && removable && (
+        <ConfirmDialog
+          title="Remove this invite?"
+          description={`Removes the pending invite for ${email}. You can re-invite anytime.`}
+          confirmLabel="Remove invite"
+          onConfirm={async () => {
+            const res = await removeInviteAction(inviteId);
+            if ("error" in res) {
+              toast.error(res.error);
+              return;
+            }
+            toast.success("Invite removed.");
+            onDone();
+          }}
+          trigger={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-7 px-2"
+            >
+              Remove
+            </Button>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+/** The captain + partner emails for a team (joined members and pending invites). */
+function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
+  const members = team.members ?? [];
+  const captain = members.find((m) => m.role === "captain");
+  const players = members.filter((m) => m.role === "player");
+
+  const hasAny =
+    captain ||
+    players.length > 0 ||
+    team.captainInvite ||
+    team.partnerInvites.length > 0;
+  if (!hasAny) {
+    return (
+      <p className="text-muted-foreground text-xs">No captain added yet.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {/* Captain: the joined captain, else the pending captain invite. */}
+      {captain ? (
+        <ContactLine
+          label="Captain"
+          email={captain.email}
+          joined
+          onDone={onDone}
+        />
+      ) : team.captainInvite ? (
+        <ContactLine
+          label="Captain"
+          email={team.captainInvite.email}
+          joined={false}
+          inviteId={team.captainInvite.id}
+          onDone={onDone}
+        />
+      ) : null}
+
+      {/* Partners: joined players, then any pending partner invites. */}
+      {players.map((m, i) => (
+        <ContactLine
+          key={`m-${i}`}
+          label="Partner"
+          email={m.email}
+          joined
+          onDone={onDone}
+        />
+      ))}
+      {team.partnerInvites.map((inv) => (
+        <ContactLine
+          key={inv.id}
+          label="Partner"
+          email={inv.email}
+          joined={false}
+          inviteId={inv.id}
+          removable
+          onDone={onDone}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -304,13 +452,7 @@ function WithdrawDialog({
   );
 }
 
-export function TeamManagementList({
-  teams,
-  origin,
-}: {
-  teams: ManagedTeam[];
-  origin: string;
-}) {
+export function TeamManagementList({ teams }: { teams: ManagedTeam[] }) {
   const router = useRouter();
   const refresh = () => router.refresh();
 
@@ -322,78 +464,48 @@ export function TeamManagementList({
         const withdrawn = team.status === "withdrawn";
         return (
           <li key={team.id} className="space-y-2 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <span
-                  className={cn(
-                    "font-medium",
-                    withdrawn && "text-muted-foreground line-through",
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span
+                    className={cn(
+                      "font-medium",
+                      withdrawn && "text-muted-foreground line-through",
+                    )}
+                  >
+                    {team.name}
+                  </span>
+                  {team.divisionName && (
+                    <span className="text-muted-foreground text-xs">
+                      {team.divisionName}
+                    </span>
                   )}
-                >
-                  {team.name}
-                </span>
-                {team.divisionName && (
-                  <span className="text-muted-foreground ml-2 text-xs">
-                    {team.divisionName}
-                  </span>
-                )}
-                {team.refCount != null && (
-                  <span className="text-muted-foreground ml-2 text-xs tabular-nums">
-                    · refs {team.refCount}
-                  </span>
-                )}
+                  {team.refCount != null && (
+                    <span className="text-muted-foreground text-xs tabular-nums">
+                      · refs {team.refCount}
+                    </span>
+                  )}
+                  {withdrawn && (
+                    <span className="bg-paper-sunken text-ink-2 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+                      Withdrawn
+                    </span>
+                  )}
+                </div>
+                <Contacts team={team} onDone={refresh} />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                    withdrawn
-                      ? "bg-paper-sunken text-ink-2"
-                      : team.claimed
-                        ? "bg-claret-tint text-claret-deep"
-                        : "bg-paper-sunken text-ink-2",
-                  )}
-                >
-                  {withdrawn
-                    ? "Withdrawn"
-                    : team.claimed
-                      ? "Captain joined"
-                      : team.invite
-                        ? `Invite pending · ${team.invite.email}`
-                        : "No captain"}
-                </span>
-
-                {!withdrawn && !team.claimed && (
-                  <EditInviteDialog
-                    team={team}
-                    origin={origin}
-                    onDone={refresh}
+              {!withdrawn && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <EditNameDialog team={team} onDone={refresh} />
+                  <InviteTeammateDialog
+                    teamId={team.id}
+                    teamName={team.name}
+                    variant="ghost"
                   />
-                )}
-                {!withdrawn && (
-                  <>
-                    <EditNameDialog team={team} onDone={refresh} />
-                    <InviteTeammateDialog
-                      teamId={team.id}
-                      teamName={team.name}
-                      variant="ghost"
-                    />
-                    <RemoveDialog team={team} onDone={refresh} />
-                    <WithdrawDialog team={team} onDone={refresh} />
-                  </>
-                )}
-              </div>
+                  <RemoveDialog team={team} onDone={refresh} />
+                  <WithdrawDialog team={team} onDone={refresh} />
+                </div>
+              )}
             </div>
-            {team.members && team.members.length > 0 && (
-              <p className="text-muted-foreground text-xs">
-                Roster:{" "}
-                {team.members
-                  .map((m) =>
-                    m.role === "captain" ? `${m.name} (captain)` : m.name,
-                  )
-                  .join(", ")}
-              </p>
-            )}
           </li>
         );
       })}

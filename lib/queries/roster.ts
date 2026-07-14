@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 export interface RosterMember {
   name: string;
   role: "captain" | "player";
+  /** The member's account email — shown to organizers managing the roster. */
+  email: string;
+  userId: string;
 }
 
 /**
@@ -40,12 +43,17 @@ export async function getTeamRosters(
   const nameById = new Map(
     (users ?? []).map((u) => [u.id as string, u.display_name || u.email]),
   );
+  const emailById = new Map(
+    (users ?? []).map((u) => [u.id as string, u.email as string]),
+  );
 
   const out: Record<string, RosterMember[]> = {};
   for (const m of members ?? []) {
     (out[m.team_id] ??= []).push({
       name: nameById.get(m.user_id) ?? "Member",
       role: m.role as "captain" | "player",
+      email: emailById.get(m.user_id) ?? "",
+      userId: m.user_id,
     });
   }
   // Captains first, then players.

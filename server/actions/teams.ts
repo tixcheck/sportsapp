@@ -175,6 +175,120 @@ export async function editTeamInviteAction(
 }
 
 /**
+ * Change the email on a specific pending invite (captain or partner), by id.
+ * Organizer only. Regenerates the claim token, re-links if the new email already
+ * has an account (autolink), and re-sends the right invite email. Fixing a
+ * mistyped/wrong address without removing and re-adding the team.
+ */
+export async function editInviteEmailAction(
+  inviteId: string,
+  email: string,
+): Promise<ActionError | { claimUrl: string; emailSent: boolean }> {
+  const parsed = emailSchema.safeParse(email.trim());
+  if (!parsed.success) return { error: "Enter a valid email address." };
+
+  const supabase = await createClient();
+  const { data: invite } = await supabase
+    .from("team_invites")
+    .select("id, team_id, role")
+    .eq("id", inviteId)
+    .single();
+  if (!invite) return { error: "Invite not found." };
+
+  const guard = await assertTeamAdmin(supabase, invite.team_id);
+  if ("error" in guard) return guard;
+  const { team } = guard;
+
+  const token = generateToken();
+  const expiresAt = new Date(
+    Date.now() + INVITE_TTL_DAYS * 86_400_000,
+  ).toISOString();
+  const { error } = await supabase
+    .from("team_invites")
+    .update({
+      email: parsed.data,
+      token,
+      status: "pending",
+      accepted_by_user_id: null,
+      expires_at: expiresAt,
+    })
+    .eq("id", inviteId);
+  if (error) return { error: error.message };
+
+  // Link immediately if the new address already has an account.
+  await supabase.rpc("autolink_team_invites", { _team_id: invite.team_id });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const origin = await getOrigin();
+  const claimUrl = `${origin}/claim/${token}`;
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("name")
+    .eq("id", team.competitionId)
+    .single();
+  const { data: profile } = user
+    ? await supabase
+        .from("users")
+        .select("display_name, email")
+        .eq("id", user.id)
+        .single()
+    : { data: null };
+
+  const result =
+    invite.role === "captain"
+      ? await sendCaptainInvite(
+          parsed.data,
+          {
+            teamName: team.name,
+            leagueName: comp?.name ?? "the competition",
+            organizerName: profile?.display_name ?? "Your organizer",
+            claimUrl,
+          },
+          profile?.email ?? undefined,
+        )
+      : await sendTeammateInvite(
+          parsed.data,
+          {
+            teamName: team.name,
+            competitionName: comp?.name ?? "the competition",
+            inviterName: profile?.display_name ?? "Your organizer",
+            claimUrl,
+          },
+          profile?.email ?? undefined,
+        );
+
+  revalidatePath("/orgs");
+  return { claimUrl, emailSent: result.sent };
+}
+
+/** Remove a pending invite (organizer only) — e.g. a wrong/duplicate address. */
+export async function removeInviteAction(
+  inviteId: string,
+): Promise<ActionError | { removed: true }> {
+  const supabase = await createClient();
+  const { data: invite } = await supabase
+    .from("team_invites")
+    .select("id, team_id")
+    .eq("id", inviteId)
+    .single();
+  if (!invite) return { error: "Invite not found." };
+
+  const guard = await assertTeamAdmin(supabase, invite.team_id);
+  if ("error" in guard) return guard;
+
+  const { error } = await supabase
+    .from("team_invites")
+    .delete()
+    .eq("id", inviteId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  return { removed: true };
+}
+
+/**
  * Invite a teammate (non-captain player) to a team. Authorized for the team's
  * captain OR a competition admin. Creates a role='player' invite; claiming it
  * adds the user to the roster as a player (never a scorer). Best-effort email +
