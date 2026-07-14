@@ -1,3 +1,5 @@
+import { DateTime } from "luxon";
+
 import type { MyMatch, PlayoffProjection } from "@/lib/queries/my-matches";
 import { MyMatchCard } from "@/components/scoring/my-match-card";
 import { PotentialPlayoffCard } from "@/components/tournament/potential-playoff-card";
@@ -6,6 +8,13 @@ function timeMs(m: MyMatch): number {
   return m.scheduledAt
     ? new Date(m.scheduledAt).getTime()
     : Number.MAX_SAFE_INTEGER;
+}
+
+/** The match's calendar day in its venue timezone, or null if unscheduled. */
+function dayOf(m: MyMatch): string | null {
+  return m.scheduledAt
+    ? DateTime.fromISO(m.scheduledAt, { zone: m.timezone }).toISODate()
+    : null;
 }
 
 /** Earliest start first (unscheduled last), then round. */
@@ -49,9 +58,19 @@ export function MatchSections({
   // tournament — drop off here; results live in each competition's standings.
   const actionable = matches.filter((m) => m.state !== "final");
 
-  // Up Next: the earliest upcoming game the viewer plays (not one they ref).
-  const upNext = actionable.filter((m) => m.role === "play").sort(byTime)[0];
-  const rest = actionable.filter((m) => m.id !== upNext?.id);
+  // Up Next: the viewer's games on their next game-day. When that day has more
+  // than one game (e.g. two on the same league night), Up next shows them all,
+  // in time order — not just the first.
+  const playable = actionable.filter((m) => m.role === "play").sort(byTime);
+  const first = playable[0];
+  const firstDay = first ? dayOf(first) : null;
+  const upNextGames = first
+    ? firstDay
+      ? playable.filter((m) => dayOf(m) === firstDay)
+      : [first]
+    : [];
+  const upNextIds = new Set(upNextGames.map((m) => m.id));
+  const rest = actionable.filter((m) => !upNextIds.has(m.id));
   const playing = rest.filter((m) => m.role === "play");
   const reffing = rest.filter((m) => m.role === "ref").sort(byTime);
   const roundRobin = playing
@@ -71,7 +90,7 @@ export function MatchSections({
     .slice(0, 5);
 
   const nothingToShow =
-    !upNext &&
+    upNextGames.length === 0 &&
     roundRobin.length === 0 &&
     leagueGames.length === 0 &&
     !hasPlayoff &&
@@ -90,9 +109,11 @@ export function MatchSections({
 
   return (
     <div className="space-y-6">
-      {upNext && (
+      {upNextGames.length > 0 && (
         <Section title="Up next">
-          <MyMatchCard match={upNext} />
+          {upNextGames.map((m) => (
+            <MyMatchCard key={m.id} match={m} />
+          ))}
         </Section>
       )}
 
