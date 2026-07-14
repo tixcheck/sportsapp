@@ -15,6 +15,7 @@ import {
   unpublishTournamentAction,
 } from "@/server/actions/tournaments";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function PublishToggle({
   competitionId,
@@ -33,32 +34,30 @@ export function PublishToggle({
   const isTournament = kind === "tournament";
   const basePath = isTournament ? "/t" : "/l";
 
-  function toggle() {
-    startTransition(async () => {
-      const publish = isTournament
-        ? publishTournamentAction
-        : publishLeagueAction;
-      const unpublish = isTournament
-        ? unpublishTournamentAction
-        : unpublishLeagueAction;
-      const result = published
-        ? await unpublish(competitionId)
-        : await publish(competitionId);
-      if ("error" in result) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(
-        published
-          ? isTournament
-            ? "Registration closed — public page is offline."
-            : "Unpublished — public page is offline."
-          : isTournament
-            ? "Registration open — the public page is live."
-            : "Published — the public page is live.",
-      );
-      router.refresh();
-    });
+  async function run() {
+    const publish = isTournament
+      ? publishTournamentAction
+      : publishLeagueAction;
+    const unpublish = isTournament
+      ? unpublishTournamentAction
+      : unpublishLeagueAction;
+    const result = published
+      ? await unpublish(competitionId)
+      : await publish(competitionId);
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(
+      published
+        ? isTournament
+          ? "Registration closed — public page is offline."
+          : "Unpublished — public page is offline."
+        : isTournament
+          ? "Registration open — the public page is live."
+          : "Published — the public page is live.",
+    );
+    router.refresh();
   }
 
   const publishLabel = isTournament ? "Open registration" : "Publish";
@@ -74,14 +73,33 @@ export function PublishToggle({
           </Link>
         </Button>
       )}
-      <Button
-        onClick={toggle}
-        disabled={pending}
-        variant={published ? "outline" : "default"}
-      >
-        {published ? <EyeOff /> : <Globe />}
-        {pending ? "…" : published ? unpublishLabel : publishLabel}
-      </Button>
+      {published ? (
+        // Taking the public page offline is guarded — a stray click by a
+        // co-organizer shouldn't pull the league down.
+        <ConfirmDialog
+          title={
+            isTournament ? "Close registration?" : "Unpublish this league?"
+          }
+          description={
+            isTournament
+              ? "The public registration/schedule page goes offline and teams can no longer sign up. You can reopen it anytime."
+              : "The public schedule/standings page goes offline for players. You can publish it again anytime."
+          }
+          confirmLabel={unpublishLabel}
+          onConfirm={run}
+          trigger={
+            <Button variant="outline" disabled={pending}>
+              <EyeOff />
+              {unpublishLabel}
+            </Button>
+          }
+        />
+      ) : (
+        <Button onClick={() => startTransition(run)} disabled={pending}>
+          <Globe />
+          {pending ? "…" : publishLabel}
+        </Button>
+      )}
     </div>
   );
 }
