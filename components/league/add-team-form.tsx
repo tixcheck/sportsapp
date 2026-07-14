@@ -16,7 +16,7 @@ export function AddTeamForm({ competitionId }: { competitionId: string }) {
   const [pending, startTransition] = useTransition();
   const form = useForm<AddTeamInput>({
     resolver: zodResolver(addTeamSchema),
-    defaultValues: { name: "", captainEmail: "" },
+    defaultValues: { name: "", captainEmail: "", partnerEmail: "" },
   });
   const { register, handleSubmit, reset, formState } = form;
 
@@ -38,11 +38,8 @@ export function AddTeamForm({ competitionId }: { competitionId: string }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-3 sm:flex-row sm:items-start"
-    >
-      <div className="flex-1">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+      <div>
         <Input placeholder="Team name" {...register("name")} />
         {formState.errors.name && (
           <p className="text-destructive mt-1 text-sm">
@@ -50,18 +47,36 @@ export function AddTeamForm({ competitionId }: { competitionId: string }) {
           </p>
         )}
       </div>
-      <div className="flex-1">
-        <Input
-          type="email"
-          placeholder="captain@email.com"
-          {...register("captainEmail")}
-        />
-        {formState.errors.captainEmail && (
-          <p className="text-destructive mt-1 text-sm">
-            {formState.errors.captainEmail.message}
-          </p>
-        )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Input
+            type="email"
+            placeholder="captain@email.com"
+            {...register("captainEmail")}
+          />
+          {formState.errors.captainEmail && (
+            <p className="text-destructive mt-1 text-sm">
+              {formState.errors.captainEmail.message}
+            </p>
+          )}
+        </div>
+        <div>
+          <Input
+            type="email"
+            placeholder="partner@email.com (optional)"
+            {...register("partnerEmail")}
+          />
+          {formState.errors.partnerEmail && (
+            <p className="text-destructive mt-1 text-sm">
+              {formState.errors.partnerEmail.message}
+            </p>
+          )}
+        </div>
       </div>
+      <p className="text-muted-foreground text-xs">
+        Add both partners&apos; emails so each sees the schedule and can enter
+        scores. The partner is optional — the captain can add them later.
+      </p>
       <Button type="submit" disabled={pending}>
         {pending ? "Adding…" : "Add team"}
       </Button>

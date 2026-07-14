@@ -104,6 +104,11 @@ export const editLeagueSchema = z
 export const addTeamSchema = z.object({
   name: z.string().trim().min(2, "Team name is too short.").max(80),
   captainEmail: z.string().trim().email("Enter a valid email."),
+  // Optional second partner (beach 2s): added to the roster so both see the
+  // schedule and can enter scores, not just the captain.
+  partnerEmail: z
+    .union([z.string().trim().email("Enter a valid email."), z.literal("")])
+    .optional(),
 });
 
 export type CreateLeagueInput = z.infer<typeof createLeagueSchema>;

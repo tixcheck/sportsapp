@@ -15,7 +15,7 @@ import {
   toTwoSetFormat,
   type Sport,
 } from "@/lib/formats";
-import { sendCaptainInvite } from "@/lib/email/send";
+import { sendCaptainInvite, sendTeammateInvite } from "@/lib/email/send";
 import { generateRoundRobin } from "@/lib/scheduler/round-robin";
 import { assignCourts } from "@/lib/scheduler/court-assign";
 import {
@@ -236,6 +236,7 @@ export async function addTeamAction(
   const parsed = addTeamSchema.safeParse(values);
   if (!parsed.success) return { error: "Please check the form." };
   const { name, captainEmail } = parsed.data;
+  const partnerEmail = parsed.data.partnerEmail?.trim();
 
   const supabase = await createClient();
   const {
@@ -294,6 +295,37 @@ export async function addTeamAction(
     },
     profile?.email ?? undefined,
   );
+
+  // Optional partner (2s): invite them as a roster teammate so both partners
+  // see the schedule and can enter scores — linked immediately if they already
+  // have an account, else auto-accepted when they sign up.
+  if (
+    partnerEmail &&
+    partnerEmail.toLowerCase() !== captainEmail.toLowerCase()
+  ) {
+    const partnerToken = generateToken();
+    const { error: partnerErr } = await supabase.from("team_invites").insert({
+      team_id: team.id,
+      email: partnerEmail,
+      token: partnerToken,
+      role: "player",
+      invited_by_user_id: user.id,
+      expires_at: expiresAt,
+    });
+    if (!partnerErr) {
+      await supabase.rpc("autolink_team_invites", { _team_id: team.id });
+      await sendTeammateInvite(
+        partnerEmail,
+        {
+          teamName: name,
+          competitionName: league?.name ?? "your league",
+          inviterName: profile?.display_name ?? "Your organizer",
+          claimUrl: `${origin}/claim/${partnerToken}`,
+        },
+        profile?.email ?? undefined,
+      );
+    }
+  }
 
   revalidatePath(`/orgs`);
   return {
