@@ -16,6 +16,7 @@ import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
+import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
 import { endDatePassed } from "@/lib/competition/completion";
 import { Button } from "@/components/ui/button";
 import { TeamManagementList } from "@/components/team/team-management-list";
@@ -309,6 +310,29 @@ export default async function LeaguePage({
               addAction={addCompetitionAdminAction.bind(null, league.id)}
               removeAction={removeCompetitionAdminAction.bind(null, league.id)}
               emptyText="No competition organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {coOrgs.canManage && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-destructive text-base">
+              Danger zone
+            </CardTitle>
+            <CardDescription>
+              Permanently delete this league and everything in it. Useful for a
+              test league or one that never launched — this can&apos;t be
+              undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeleteCompetitionDialog
+              competitionId={league.id}
+              name={league.name}
+              orgId={orgId}
+              kind="league"
             />
           </CardContent>
         </Card>

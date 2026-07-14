@@ -96,3 +96,29 @@ export async function setCompetitionCompletedAction(
   revalidatePath("/my-matches");
   return { success: true };
 }
+
+/**
+ * Permanently delete a competition and everything under it (teams, schedule,
+ * scores, pools, settings — all via FK cascade). Org owner/admin only; the RPC
+ * re-checks. For cleaning up test events, ones that never launched, or
+ * cancellations.
+ */
+export async function deleteCompetitionAction(
+  competitionId: string,
+): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_competition", {
+    _competition_id: competitionId,
+  });
+  if (error) {
+    return {
+      error: error.message.includes("not authorized")
+        ? "Only the organization's owner or admin can delete a competition."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/orgs");
+  revalidatePath("/dashboard");
+  return { success: true };
+}

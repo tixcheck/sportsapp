@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   editTeamInviteAction,
   removeTeamAction,
+  renameTeamAction,
   withdrawTeamAction,
 } from "@/server/actions/teams";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,79 @@ function EditInviteDialog({
           </DialogClose>
           <Button onClick={save} disabled={pending || !email.trim()}>
             {pending ? "Sending…" : "Save & resend"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditNameDialog({
+  team,
+  onDone,
+}: {
+  team: ManagedTeam;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(team.name);
+  const [pending, start] = useTransition();
+
+  function save() {
+    start(async () => {
+      const res = await renameTeamAction(team.id, name);
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Team name updated.");
+      setOpen(false);
+      onDone();
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setName(team.name);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="ghost" size="sm">
+          Edit name
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rename team</DialogTitle>
+          <DialogDescription>
+            Updates the team&apos;s name everywhere — schedule, standings, and
+            players&apos; match lists.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`name-${team.id}`}>Team name</Label>
+          <Input
+            id={`name-${team.id}`}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Team name"
+            autoFocus
+          />
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost" disabled={pending}>
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            onClick={save}
+            disabled={pending || !name.trim() || name.trim() === team.name}
+          >
+            {pending ? "Saving…" : "Save name"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -298,6 +372,7 @@ export function TeamManagementList({
                 )}
                 {!withdrawn && (
                   <>
+                    <EditNameDialog team={team} onDone={refresh} />
                     <InviteTeammateDialog
                       teamId={team.id}
                       teamName={team.name}

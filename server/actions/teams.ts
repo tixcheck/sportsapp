@@ -333,3 +333,34 @@ export async function withdrawTeamAction(
   revalidatePath("/orgs");
   return { withdrawn: true };
 }
+
+const teamNameSchema = z.string().trim().min(1).max(80);
+
+/**
+ * Rename a team (organizer only). Names aren't denormalized — the schedule,
+ * standings, and My-matches all resolve team names by id — so the new name
+ * shows everywhere automatically.
+ */
+export async function renameTeamAction(
+  teamId: string,
+  name: string,
+): Promise<ActionError | { success: true; name: string }> {
+  const parsed = teamNameSchema.safeParse(name);
+  if (!parsed.success) {
+    return { error: "Enter a team name (1–80 characters)." };
+  }
+
+  const supabase = await createClient();
+  const guard = await assertTeamAdmin(supabase, teamId);
+  if ("error" in guard) return guard;
+
+  const { error } = await supabase
+    .from("teams")
+    .update({ name: parsed.data })
+    .eq("id", guard.team.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  revalidatePath("/dashboard");
+  return { success: true, name: parsed.data };
+}

@@ -25,6 +25,7 @@ import {
 import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
+import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
 import { endDatePassed } from "@/lib/competition/completion";
 import { Button } from "@/components/ui/button";
 import { MultiDaySetupCard } from "@/components/tournament/multi-day-setup-card";
@@ -523,6 +524,29 @@ export default async function TournamentPage({
               addAction={addCompetitionAdminAction.bind(null, t.id)}
               removeAction={removeCompetitionAdminAction.bind(null, t.id)}
               emptyText="No competition organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {coOrgs.canManage && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-destructive text-base">
+              Danger zone
+            </CardTitle>
+            <CardDescription>
+              Permanently delete this tournament and everything in it. Useful
+              for a test event or one that never launched — this can&apos;t be
+              undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeleteCompetitionDialog
+              competitionId={t.id}
+              name={t.name}
+              orgId={orgId}
+              kind="tournament"
             />
           </CardContent>
         </Card>
