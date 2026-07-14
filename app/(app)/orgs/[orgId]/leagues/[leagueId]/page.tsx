@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin, Printer } from "lucide-react";
+import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
@@ -127,6 +127,12 @@ export default async function LeaguePage({
               status={league.status}
               completable={endDatePassed(league.endDate, league.timezone)}
             />
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/print/qr/${league.id}`} target="_blank">
+                <QrCode className="size-4" />
+                QR poster
+              </Link>
+            </Button>
           </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { ClipboardList } from "lucide-react";
 
 import { getProfile, getUserOrgs } from "@/lib/auth/user";
 import {
@@ -37,6 +38,13 @@ export async function Navbar() {
           <OrgSwitcher orgs={orgs} currentOrgId={currentOrgId} />
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/my-matches"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm font-medium"
+          >
+            <ClipboardList className="size-4" />
+            <span className="hidden sm:inline">My matches</span>
+          </Link>
           {access.isPlatformAdmin && (
             <Link
               href="/admin"

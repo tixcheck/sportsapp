@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
-import { CalendarDays, Clock, MapPin, Printer } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
@@ -222,6 +222,12 @@ export default async function TournamentPage({
               status={t.status}
               completable={endDatePassed(lastTournamentDay, t.timezone)}
             />
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/print/qr/${t.id}`} target="_blank">
+                <QrCode className="size-4" />
+                QR poster
+              </Link>
+            </Button>
           </div>
         </div>
         <p className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
