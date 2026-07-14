@@ -297,6 +297,9 @@ export const leagueSettings = pgTable("league_settings", {
   // Games each team plays per week/slot (default 1). >1 packs that many games
   // onto the same night, staggered by game length — see round-robin.ts.
   gamesPerWeek: integer("games_per_week").notNull().default(1),
+  // Minutes each game occupies — spaces same-night games and drives the rest
+  // gaps in the schedule view. Default 45 (a rec-league game); editable.
+  minutesPerGame: integer("minutes_per_game").notNull().default(45),
   // Cap each team at this many round-robin games (a partial round robin: the
   // first N rotations of the circle method, so opponents are distinct and even).
   // Null = a full round robin (everyone plays everyone).

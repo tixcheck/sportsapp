@@ -225,6 +225,19 @@ export function EditLeagueSettingsDialog({
                 {...register("gamesPerWeek", { valueAsNumber: true })}
               />
             </Field>
+            <Field
+              label="Minutes per game"
+              error={errors.minutesPerGame?.message}
+              hint="How long each game runs — spaces a night's games apart (e.g. 45 = 6:30 then 7:15). Regenerate the schedule to apply."
+            >
+              <Input
+                type="number"
+                min={15}
+                max={180}
+                step={5}
+                {...register("minutesPerGame", { valueAsNumber: true })}
+              />
+            </Field>
           </div>
 
           <Field

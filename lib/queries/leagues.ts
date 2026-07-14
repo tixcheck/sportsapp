@@ -43,6 +43,8 @@ export interface LeagueDetail {
   gamesPerTeam: number | null;
   /** Games each team plays per week (default 1; 2 = two games a night). */
   gamesPerWeek: number;
+  /** Minutes each game occupies — spacing + rest gaps (default 45). */
+  minutesPerGame: number;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: "ova" | "differential";
   /** The league's specific courts (+ prime flags); null = plain 1…N numbering. */
@@ -133,7 +135,7 @@ export async function getLeagueDetail(
   const { data: settings } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game",
     )
     .eq("competition_id", leagueId)
     .maybeSingle();
@@ -185,6 +187,7 @@ export async function getLeagueDetail(
     roundsPerTeam: settings?.rounds_per_team ?? 1,
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
     gamesPerWeek: (settings?.games_per_week as number | null) ?? 1,
+    minutesPerGame: (settings?.minutes_per_game as number | null) ?? 45,
     tiebreaker:
       settings?.tiebreaker === "differential" ? "differential" : "ova",
     courtList: (settings?.court_list as LeagueCourt[] | null) ?? null,

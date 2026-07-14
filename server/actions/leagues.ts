@@ -111,6 +111,7 @@ export async function createLeagueAction(
       rounds_per_team: v.roundsPerTeam,
       games_per_team: v.gamesPerTeam,
       games_per_week: v.gamesPerWeek,
+      minutes_per_game: v.minutesPerGame,
       tiebreaker: v.tiebreaker,
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
@@ -212,6 +213,7 @@ export async function updateLeagueSettingsAction(
       rounds_per_team: v.roundsPerTeam,
       games_per_team: v.gamesPerTeam,
       games_per_week: v.gamesPerWeek,
+      minutes_per_game: v.minutesPerGame,
       tiebreaker: v.tiebreaker,
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
@@ -313,7 +315,7 @@ export async function generateLeagueScheduleAction(
   const { data: settings, error: sErr } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week, minutes_per_game",
     )
     .eq("competition_id", competitionId)
     .single();
@@ -337,7 +339,10 @@ export async function generateLeagueScheduleAction(
   const hasCourtList = courtList != null && courtList.length > 0;
   const gamesPerWeek = (settings.games_per_week as number | null) ?? 1;
   // Stagger a night's games by the game length so a team never plays two at once.
-  const gameMinutes = estimateMatchMinutes(league.match_format as MatchFormat);
+  // Prefer the configured minutes-per-game; fall back to the format estimate.
+  const gameMinutes =
+    (settings.minutes_per_game as number | null) ??
+    estimateMatchMinutes(league.match_format as MatchFormat);
 
   // Seed the randomized rematch rounds (games beyond everyone-once) from the
   // competition id so a league's schedule is stable across regenerations.

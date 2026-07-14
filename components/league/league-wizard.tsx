@@ -58,6 +58,7 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
       roundsPerTeam: 1,
       gamesPerTeam: null,
       gamesPerWeek: 1,
+      minutesPerGame: 45,
       tiebreaker: "ova",
       courtList: null,
       slotDayOfWeek: 2,
@@ -241,6 +242,19 @@ export function LeagueWizard({ orgId }: { orgId: string }) {
                   min={1}
                   max={7}
                   {...register("gamesPerWeek", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Minutes per game"
+                error={errors.minutesPerGame?.message}
+                hint="How long each game runs — spaces a night's games apart (e.g. 45 = 6:30 then 7:15)."
+              >
+                <Input
+                  type="number"
+                  min={15}
+                  max={180}
+                  step={5}
+                  {...register("minutesPerGame", { valueAsNumber: true })}
                 />
               </Field>
             </div>

@@ -26,6 +26,8 @@ export const createLeagueSchema = z
     // Standings tiebreaker hierarchy (see RankMode). Default OVA ratios.
     // Games each team plays per week (default 1). 2 = two games a night.
     gamesPerWeek: z.number().int().min(1).max(7),
+    // Minutes each game occupies (spacing + rest gaps). Default 45.
+    minutesPerGame: z.number().int().min(15).max(180),
     tiebreaker: z.enum(["ova", "differential"]),
     // The league's specific courts + which are "prime" (better conditions,
     // balanced evenly across teams). Null/empty = plain 1…N court numbering.
@@ -74,6 +76,8 @@ export const editLeagueSchema = z
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
     // Games each team plays per week (default 1). 2 = two games a night.
     gamesPerWeek: z.number().int().min(1).max(7),
+    // Minutes each game occupies (spacing + rest gaps). Default 45.
+    minutesPerGame: z.number().int().min(15).max(180),
     tiebreaker: z.enum(["ova", "differential"]),
     // The league's specific courts + which are "prime" (better conditions,
     // balanced evenly across teams). Null/empty = plain 1…N court numbering.

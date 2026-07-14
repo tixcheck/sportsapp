@@ -12,7 +12,7 @@ import {
   removeCompetitionAdminAction,
 } from "@/server/actions/organizers";
 import { getOrigin } from "@/lib/utils/url";
-import { SPORTS, estimateMatchMinutes, findPresetId } from "@/lib/formats";
+import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
@@ -81,6 +81,7 @@ export default async function LeaguePage({
     roundsPerTeam: league.roundsPerTeam,
     gamesPerTeam: league.gamesPerTeam,
     gamesPerWeek: league.gamesPerWeek,
+    minutesPerGame: league.minutesPerGame,
     tiebreaker: league.tiebreaker,
     courtList: league.courtList,
     slotDayOfWeek: league.slotDayOfWeek,
@@ -182,7 +183,7 @@ export default async function LeaguePage({
               matches={schedule}
               timezone={league.timezone}
               editable
-              slotMinutes={estimateMatchMinutes(league.matchFormat)}
+              slotMinutes={league.minutesPerGame}
             />
           </CardContent>
         ) : null}
