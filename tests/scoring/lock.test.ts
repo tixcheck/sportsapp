@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isFutureMatch } from "@/lib/scoring/lock";
+import { canClearResult, isFutureMatch } from "@/lib/scoring/lock";
 
 describe("isFutureMatch", () => {
   const tz = "America/Toronto";
@@ -15,5 +15,25 @@ describe("isFutureMatch", () => {
 
   it("does not lock an unscheduled game", () => {
     expect(isFutureMatch(null, tz)).toBe(false);
+  });
+});
+
+describe("canClearResult", () => {
+  it("lets an organizer clear a pool/league match", () => {
+    expect(canClearResult({ isAdmin: true, bracketPosition: null })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("refuses a non-organizer", () => {
+    const r = canClearResult({ isAdmin: false, bracketPosition: null });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/organizer/i);
+  });
+
+  it("refuses a playoff (bracket) match even for an organizer", () => {
+    const r = canClearResult({ isAdmin: true, bracketPosition: 0 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toMatch(/bracket/i);
   });
 });

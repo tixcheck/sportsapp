@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getMatchForEntry } from "@/lib/queries/my-matches";
+import { canClearResult } from "@/lib/scoring/lock";
 import { ScoreEntryForm } from "@/components/scoring/score-entry-form";
+import { ClearResultButton } from "@/components/scoring/clear-result-button";
 import { ConfirmBar } from "@/components/scoring/confirm-bar";
 import {
   Card,
@@ -26,6 +28,16 @@ export default async function MatchEntryPage({
   const showEntry =
     match.canEnter &&
     (match.isAdmin || (match.state !== "final" && !match.canConfirm));
+
+  // Organizers can undo a result that's been entered (or a match left mid-entry)
+  // — but not for playoff matches, where it would desync the bracket.
+  const hasResult = match.sets.length > 0 || match.status !== "scheduled";
+  const showClear =
+    hasResult &&
+    canClearResult({
+      isAdmin: match.isAdmin,
+      bracketPosition: match.bracketPosition,
+    }).ok;
 
   return (
     <div className="mx-auto max-w-md">
@@ -110,6 +122,11 @@ export default async function MatchEntryPage({
                 </p>
               )}
             </>
+          )}
+          {showClear && (
+            <div className="border-border border-t pt-4">
+              <ClearResultButton matchId={match.id} />
+            </div>
           )}
         </CardContent>
       </Card>
