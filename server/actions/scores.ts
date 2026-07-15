@@ -10,7 +10,7 @@ import {
 } from "@/lib/scoring/validation";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
-import { isFutureMatch } from "@/lib/scoring/lock";
+import { canClearResult, isFutureMatch } from "@/lib/scoring/lock";
 import { advanceBracketWinner } from "@/lib/bracket/advance";
 import { advanceReseedBracket } from "@/lib/bracket/reseed";
 
@@ -303,6 +303,64 @@ export async function saveDraftSetsAction(
   if (rows.length) {
     const { error } = await supabase.from("sets").insert(rows);
     if (error) return { error: error.message };
+  }
+  return { success: true };
+}
+
+/**
+ * Organizer-only: wipe a match's result and return it to "not played yet".
+ * Deletes the sets and the submission/confirmation history, resets status to
+ * "scheduled", and recomputes standings. Used to undo scores entered by mistake
+ * (e.g. captains who filled in future weeks) — once cleared, the date-based
+ * future-lock keeps players out until game day. Playoff matches are refused to
+ * avoid desyncing the bracket.
+ */
+export async function clearScoreAction(
+  matchId: string,
+): Promise<ActionError | { success: true }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+
+  const { data: match } = await supabase
+    .from("matches")
+    .select("competition_id, bracket_position")
+    .eq("id", matchId)
+    .single();
+  if (!match) return { error: "Match not found." };
+
+  const { data: isAdminData } = await supabase.rpc("is_competition_admin", {
+    _competition_id: match.competition_id,
+  });
+  const guard = canClearResult({
+    isAdmin: isAdminData === true,
+    bracketPosition: match.bracket_position,
+  });
+  if (!guard.ok) return { error: guard.reason };
+
+  // Wipe sets + submission/confirmation history, then return to unplayed.
+  await supabase.from("sets").delete().eq("match_id", matchId);
+  await supabase.from("match_confirmations").delete().eq("match_id", matchId);
+  const { error: updErr } = await supabase
+    .from("matches")
+    .update({ status: "scheduled", is_abnormal: false })
+    .eq("id", matchId);
+  if (updErr) return { error: updErr.message };
+
+  await recomputeStandings(supabase, match.competition_id);
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("slug")
+    .eq("id", match.competition_id)
+    .single();
+  revalidatePath("/my-matches");
+  revalidatePath(`/matches/${matchId}`);
+  if (comp?.slug) {
+    revalidatePath(`/t/${comp.slug}`);
+    revalidatePath(`/l/${comp.slug}`);
   }
   return { success: true };
 }
