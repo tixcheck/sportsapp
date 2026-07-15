@@ -10,6 +10,7 @@ import {
 } from "@/lib/scoring/validation";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
+import { isFutureMatch } from "@/lib/scoring/lock";
 import { advanceBracketWinner } from "@/lib/bracket/advance";
 import { advanceReseedBracket } from "@/lib/bracket/reseed";
 
@@ -54,6 +55,32 @@ async function canEnter(
     _match_id: matchId,
   });
   return data === true;
+}
+
+/**
+ * True when a non-admin is trying to score a future-dated game — locked until
+ * game day. Organizers (competition admins) are exempt.
+ */
+async function scoringLockedForFuture(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matchId: string,
+): Promise<boolean> {
+  const { data: m } = await supabase
+    .from("matches")
+    .select("competition_id, scheduled_at")
+    .eq("id", matchId)
+    .single();
+  if (!m) return false;
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("timezone")
+    .eq("id", m.competition_id)
+    .single();
+  if (!comp || !isFutureMatch(m.scheduled_at, comp.timezone)) return false;
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: m.competition_id,
+  });
+  return isAdmin !== true;
 }
 
 /**
@@ -115,7 +142,7 @@ export async function submitScoreAction(
   const { data: match } = await supabase
     .from("matches")
     .select(
-      "competition_id, status, home_team_id, away_team_id, pool_id, bracket_position, match_format",
+      "competition_id, status, scheduled_at, home_team_id, away_team_id, pool_id, bracket_position, match_format",
     )
     .eq("id", matchId)
     .single();
@@ -133,10 +160,18 @@ export async function submitScoreAction(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("name, slug, match_format, require_confirmation")
+    .select("name, slug, timezone, match_format, require_confirmation")
     .eq("id", match.competition_id)
     .single();
   if (!comp) return { error: "Competition not found." };
+
+  // A future-dated game can't be scored until game day — organizers excepted.
+  if (!isAdmin && isFutureMatch(match.scheduled_at, comp.timezone)) {
+    return {
+      error:
+        "This game hasn't happened yet — you can enter the score on game day.",
+    };
+  }
 
   // Pool matches use, in precedence order: the pool's explicit override, the
   // tournament's chosen pool format, then the competition base.
@@ -248,6 +283,12 @@ export async function saveDraftSetsAction(
   if (!user) return { error: "You must be signed in." };
   if (!(await canEnter(supabase, matchId))) {
     return { error: "You're not allowed to enter the score for this match." };
+  }
+  if (await scoringLockedForFuture(supabase, matchId)) {
+    return {
+      error:
+        "This game hasn't happened yet — you can enter the score on game day.",
+    };
   }
 
   await supabase.from("sets").delete().eq("match_id", matchId);

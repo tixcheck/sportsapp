@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { getBracketPreview } from "@/lib/queries/bracket";
+import { isFutureMatch } from "@/lib/scoring/lock";
 import type { MatchFormat } from "@/lib/db/schema";
 
 export type ConfirmationState = "none" | "pending" | "disputed" | "final";
@@ -30,6 +31,8 @@ export interface MyMatch {
   phase: "pool" | "bracket";
   canEnter: boolean;
   canConfirm: boolean;
+  /** Eligible to score, but the game is in the future — locked until game day. */
+  lockedFuture: boolean;
 }
 
 /**
@@ -177,9 +180,13 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       (m.away_team_id && playTeamIds.has(m.away_team_id));
     const isRefMember = !!m.ref_team_id && memberTeamIds.has(m.ref_team_id);
 
-    const canEnter =
+    const eligible =
       (c.allow_captain_entry && !!isPlaying) ||
       (c.allow_ref_entry && isRefMember);
+    // A future-dated game can't be scored until game day.
+    const future = isFutureMatch(m.scheduled_at, c.timezone);
+    const canEnter = eligible && !future;
+    const lockedFuture = eligible && future;
 
     let state: ConfirmationState = "none";
     if (m.status === "completed") state = "final";
@@ -227,6 +234,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       phase: m.bracket_position != null ? "bracket" : "pool",
       canEnter,
       canConfirm,
+      lockedFuture,
     };
   });
 
@@ -260,6 +268,8 @@ export interface MatchEntryData {
   isAdmin: boolean;
   /** Recorded via the organizer override (abandoned/injury). */
   isAbnormal: boolean;
+  /** Future-dated game a non-admin can't score yet — locked until game day. */
+  futureLocked: boolean;
 }
 
 /** Single match for the score-entry page (null if not found / not viewable). */
@@ -275,7 +285,7 @@ export async function getMatchForEntry(
   const { data: m } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal, match_format",
+      "id, competition_id, status, scheduled_at, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal, match_format",
     )
     .eq("id", matchId)
     .single();
@@ -349,8 +359,10 @@ export async function getMatchForEntry(
   const lastSubmitter = [...(confs ?? [])]
     .reverse()
     .find((c) => c.action === "submitted")?.captain_user_id;
-  const canEnter = canEnterData === true;
   const isAdmin = isAdminData === true;
+  // A future-dated game is locked for non-admins until game day.
+  const futureLocked = !isAdmin && isFutureMatch(m.scheduled_at, comp.timezone);
+  const canEnter = canEnterData === true && !futureLocked;
   // An organizer's entry is authoritative — no confirmation step, and they can
   // edit a final score. Captains still go through require_confirmation.
   const requireConfirmation = comp.require_confirmation === true && !isAdmin;
@@ -389,6 +401,7 @@ export async function getMatchForEntry(
     canConfirm,
     isAdmin,
     isAbnormal: m.is_abnormal === true,
+    futureLocked,
   };
 }
 

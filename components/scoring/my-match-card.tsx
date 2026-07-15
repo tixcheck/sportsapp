@@ -149,6 +149,10 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
                 {match.state === "pending" ? "View" : "Enter score"}
               </Link>
             </Button>
+          ) : match.lockedFuture ? (
+            <span className="text-muted-foreground text-xs">
+              Scores open on game day
+            </span>
           ) : match.state === "pending" ? (
             <span>Awaiting confirmation</span>
           ) : null}

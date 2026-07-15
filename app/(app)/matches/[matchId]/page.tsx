@@ -73,6 +73,12 @@ export default async function MatchEntryPage({
             />
           ) : (
             <>
+              {match.futureLocked && (
+                <p className="text-muted-foreground text-sm">
+                  This game hasn&apos;t been played yet — scores open on game
+                  day.
+                </p>
+              )}
               {match.sets.length > 0 ? (
                 <ul className="divide-border divide-y text-sm">
                   {match.sets.map((s, i) => (
