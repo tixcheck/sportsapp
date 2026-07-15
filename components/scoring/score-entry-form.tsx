@@ -110,6 +110,33 @@ export function ScoreEntryForm({
     [sets],
   );
   const decision = recordedDecision(recorded, matchFormat.bestOf);
+
+  // Per-set flags computed IN ORDER, so sets behave like a real match:
+  //  - greyed: the match is already decided by the sets BEFORE this one, so it
+  //    isn't needed (never greys an earlier, still-blank set — that's the bug
+  //    where recording sets 2+3 locked set 1).
+  //  - orderLocked: an earlier set isn't recorded yet, so this one can't be
+  //    recorded until the prior sets are filled in.
+  const setFlags = useMemo(() => {
+    const flags: { greyed: boolean; orderLocked: boolean }[] = [];
+    const prior: SetScoreInput[] = [];
+    let priorsAllRecorded = true;
+    for (const s of sets) {
+      const isRecorded = s.recorded !== null;
+      const decidedByPrior = recordedDecision(
+        prior,
+        matchFormat.bestOf,
+      ).decided;
+      flags.push({
+        greyed: decidedByPrior && !isRecorded,
+        orderLocked: !priorsAllRecorded && !isRecorded,
+      });
+      if (isRecorded) prior.push(s.recorded!);
+      else priorsAllRecorded = false;
+    }
+    return flags;
+  }, [sets, matchFormat.bestOf]);
+
   const submitV = validateScore(matchFormat, recorded);
   const submitReason = submitV.errors[0] ?? submitV.blocks[0] ?? null;
   const canOverride =
@@ -184,9 +211,10 @@ export function ScoreEntryForm({
         {sets.map((s, i) => {
           const target = setTarget(matchFormat, i);
           const isRecorded = s.recorded !== null;
-          // Once the match is decided by other recorded sets, this unrecorded
-          // row isn't needed — grey it out (reactive, recomputed each render).
-          const greyed = decision.decided && !isRecorded;
+          // Greyed once the match is decided by the sets BEFORE this one;
+          // orderLocked until every earlier set is recorded (see setFlags).
+          const greyed = setFlags[i].greyed;
+          const orderLocked = setFlags[i].orderLocked;
           const h = parse(s.home);
           const a = parse(s.away);
           const entered = s.home !== "" || s.away !== "";
@@ -244,12 +272,17 @@ export function ScoreEntryForm({
                       {s.note.message}
                     </span>
                   )}
+                  {!s.note && orderLocked && (
+                    <span className="text-muted-foreground">
+                      Record the earlier set first.
+                    </span>
+                  )}
                 </span>
                 <Button
                   type="button"
                   variant={isRecorded ? "outline" : "default"}
                   size="sm"
-                  disabled={greyed || !entered}
+                  disabled={greyed || orderLocked || !entered}
                   onClick={() => record(i)}
                 >
                   {isRecorded ? "Re-record" : "Record"}
