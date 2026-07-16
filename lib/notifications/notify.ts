@@ -8,7 +8,11 @@ import { DateTime } from "luxon";
 
 import type { createClient } from "@/lib/supabase/server";
 import { getOrigin } from "@/lib/utils/url";
-import { sendResult, sendScheduleChanged } from "@/lib/email/send";
+import {
+  sendResult,
+  sendScheduleChanged,
+  sendSchedulePushed,
+} from "@/lib/email/send";
 import { matchWinner } from "@/lib/scheduler/tiebreakers";
 
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
@@ -174,6 +178,68 @@ export async function notifyScheduleChanged(
       competitionName: comp.name,
       matchSummary: summary,
       detail,
+      url,
+    });
+  }
+}
+
+/**
+ * Digest for a bulk schedule push (opt-out: notify_schedule_changes). One email
+ * per person — looping `notifyScheduleChanged` over a shifted season would mail
+ * every player once per moved game for a single organizer decision.
+ */
+export async function notifySchedulePushed(
+  supabase: SupabaseServer,
+  opts: {
+    competitionId: string;
+    teamIds: string[];
+    weeks: number;
+    reason?: string | null;
+    /** Each team's earliest upcoming match after the shift, as a UTC ISO. */
+    nextGameByTeam: Map<string, string>;
+  },
+): Promise<void> {
+  if (opts.teamIds.length === 0) return;
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("name, slug, type, timezone")
+    .eq("id", opts.competitionId)
+    .single();
+  if (!comp) return;
+
+  const recipients = await recipientsFor(
+    supabase,
+    opts.teamIds,
+    "notify_schedule_changes",
+  );
+  if (recipients.length === 0) return;
+
+  const origin = await getOrigin();
+  const url = `${origin}/${comp.type === "tournament" ? "t" : "l"}/${comp.slug}`;
+  const zone = comp.timezone ?? "America/Toronto";
+  const shiftLabel = opts.weeks === 1 ? "1 week" : `${opts.weeks} weeks`;
+
+  // Collapse to one message per address: someone rostered on two teams in the
+  // same league should get a single digest, showing their earliest next game.
+  const nextByEmail = new Map<string, string | null>();
+  for (const r of recipients) {
+    const iso = opts.nextGameByTeam.get(r.teamId) ?? null;
+    if (!nextByEmail.has(r.email)) {
+      nextByEmail.set(r.email, iso);
+      continue;
+    }
+    const prev = nextByEmail.get(r.email) ?? null;
+    if (iso && (!prev || iso < prev)) nextByEmail.set(r.email, iso);
+  }
+
+  for (const [email, iso] of nextByEmail) {
+    const when = iso ? DateTime.fromISO(iso, { zone }) : null;
+    await sendSchedulePushed(email, {
+      competitionName: comp.name,
+      shiftLabel,
+      reason: opts.reason ?? null,
+      nextGame: when?.isValid ? when.toFormat("ccc, LLL d · h:mm a") : null,
       url,
     });
   }

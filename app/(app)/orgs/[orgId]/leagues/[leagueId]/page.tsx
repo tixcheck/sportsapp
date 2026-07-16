@@ -21,6 +21,7 @@ import { endDatePassed } from "@/lib/competition/completion";
 import { Button } from "@/components/ui/button";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
+import { PushScheduleDialog } from "@/components/league/push-schedule-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
@@ -171,6 +172,12 @@ export default async function LeaguePage({
                   Print
                 </Link>
               </Button>
+            )}
+            {league.matchCount > 0 && (
+              <PushScheduleDialog
+                competitionId={league.id}
+                timezone={league.timezone}
+              />
             )}
             <GenerateScheduleButton
               competitionId={league.id}
