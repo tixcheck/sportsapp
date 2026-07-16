@@ -16,6 +16,10 @@ import {
   MatchReminderEmail,
   type MatchReminderEmailProps,
 } from "./templates/match-reminder";
+import {
+  SchedulePushedEmail,
+  type SchedulePushedEmailProps,
+} from "./templates/schedule-pushed";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -150,6 +154,17 @@ export function sendScheduleChanged(
     to,
     subject: `Rescheduled · ${props.competitionName}`,
     react: ScheduleChangedEmail(props),
+  });
+}
+
+export function sendSchedulePushed(
+  to: string,
+  props: SchedulePushedEmailProps,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: `Schedule moved · ${props.competitionName}`,
+    react: SchedulePushedEmail(props),
   });
 }
 

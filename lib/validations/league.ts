@@ -111,9 +111,21 @@ export const addTeamSchema = z.object({
     .optional(),
 });
 
+/**
+ * Pushing a season back by whole weeks. Capped at 8: past that an organizer
+ * is really rescheduling the season, not absorbing a cancellation.
+ */
+export const shiftScheduleSchema = z.object({
+  competitionId: z.string().uuid(),
+  fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a valid date."),
+  weeks: z.number().int().min(1, "Push by at least one week.").max(8),
+  reason: z.string().trim().max(200).optional(),
+});
+
 export type CreateLeagueInput = z.infer<typeof createLeagueSchema>;
 export type EditLeagueInput = z.infer<typeof editLeagueSchema>;
 export type AddTeamInput = z.infer<typeof addTeamSchema>;
+export type ShiftScheduleInput = z.infer<typeof shiftScheduleSchema>;
 
 export const DAY_LABELS = [
   "Sunday",
