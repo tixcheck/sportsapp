@@ -122,6 +122,17 @@ export const shiftScheduleSchema = z.object({
   reason: z.string().trim().max(200).optional(),
 });
 
+/**
+ * Adding teams to a league already in progress. Mode A gives the new pairs as
+ * many games as the remaining weeks allow; mode B tops them up to the target
+ * with catch-up games among themselves.
+ */
+export const addTeamsMidSeasonSchema = z.object({
+  competitionId: z.string().uuid(),
+  mode: z.enum(["A", "B"]),
+});
+
+export type AddTeamsMidSeasonInput = z.infer<typeof addTeamsMidSeasonSchema>;
 export type CreateLeagueInput = z.infer<typeof createLeagueSchema>;
 export type EditLeagueInput = z.infer<typeof editLeagueSchema>;
 export type AddTeamInput = z.infer<typeof addTeamSchema>;
