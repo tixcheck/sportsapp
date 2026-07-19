@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { PushScheduleDialog } from "@/components/league/push-schedule-dialog";
+import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
@@ -62,6 +63,14 @@ export default async function LeaguePage({
     ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
+  // Teams that were added after the schedule was generated have no matches yet —
+  // the "add teams mid-season" flow schedules them into the unplayed weeks.
+  const scheduledTeamIds = new Set(
+    schedule.flatMap((m) => [m.homeTeamId, m.awayTeamId]).filter(Boolean),
+  );
+  const hasUnscheduledTeams = league.teams.some(
+    (t) => !scheduledTeamIds.has(t.id),
+  );
   // Regular season done → playoff seeds are final. Pool+bracket matches feed the
   // bracket reschedule dialog's conflict check.
   const seasonComplete =
@@ -172,6 +181,12 @@ export default async function LeaguePage({
                   Print
                 </Link>
               </Button>
+            )}
+            {league.matchCount > 0 && hasUnscheduledTeams && (
+              <AddTeamsMidSeasonDialog
+                competitionId={league.id}
+                timezone={league.timezone}
+              />
             )}
             {league.matchCount > 0 && (
               <PushScheduleDialog
