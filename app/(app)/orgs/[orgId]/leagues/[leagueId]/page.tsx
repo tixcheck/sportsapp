@@ -23,6 +23,7 @@ import { TeamManagementList } from "@/components/team/team-management-list";
 import { GenerateScheduleButton } from "@/components/league/generate-schedule-button";
 import { PushScheduleDialog } from "@/components/league/push-schedule-dialog";
 import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason-dialog";
+import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { ScheduleView } from "@/components/schedule/schedule-view";
@@ -186,6 +187,12 @@ export default async function LeaguePage({
               <AddTeamsMidSeasonDialog
                 competitionId={league.id}
                 timezone={league.timezone}
+              />
+            )}
+            {league.matchCount > 0 && (
+              <ApplyCourtsDialog
+                competitionId={league.id}
+                currentCourts={league.courts}
               />
             )}
             {league.matchCount > 0 && (
