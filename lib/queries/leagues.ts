@@ -47,6 +47,8 @@ export interface LeagueDetail {
   minutesPerGame: number;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: "ova" | "differential";
+  /** Pro-rate short-handed (mid-season) teams to the full slate for ranking. */
+  projectShortTeams: boolean;
   /** The league's specific courts (+ prime flags); null = plain 1…N numbering. */
   courtList: LeagueCourt[] | null;
   courts: number;
@@ -190,8 +192,14 @@ export async function getLeagueDetail(
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
     gamesPerWeek: (settings?.games_per_week as number | null) ?? 1,
     minutesPerGame: (settings?.minutes_per_game as number | null) ?? 45,
-    tiebreaker:
-      settings?.tiebreaker === "differential" ? "differential" : "ova",
+    tiebreaker: ((settings?.tiebreaker as string | null) ?? "").startsWith(
+      "differential",
+    )
+      ? "differential"
+      : "ova",
+    projectShortTeams: ((settings?.tiebreaker as string | null) ?? "").endsWith(
+      "_projected",
+    ),
     courtList: (settings?.court_list as LeagueCourt[] | null) ?? null,
     courts: slot?.courts ?? 2,
     slotDayOfWeek: slot?.dayOfWeek ?? 2,
@@ -324,8 +332,11 @@ export async function getPublicLeague(
     endDate: league.end_date,
     timezone: league.timezone,
     matchFormat: league.match_format as MatchFormat,
-    tiebreaker:
-      settings?.tiebreaker === "differential" ? "differential" : "ova",
+    tiebreaker: ((settings?.tiebreaker as string | null) ?? "").startsWith(
+      "differential",
+    )
+      ? "differential"
+      : "ova",
     teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
     schedule,
   };

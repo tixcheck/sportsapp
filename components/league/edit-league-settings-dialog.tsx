@@ -343,6 +343,22 @@ export function EditLeagueSettingsDialog({
             </select>
           </Field>
 
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              {...register("projectShortTeams")}
+            />
+            <span>
+              Project short-handed teams to the full game count for ranking
+              <span className="text-muted-foreground block text-xs">
+                Teams that joined mid-season and have played fewer games are
+                ranked on their pace over a full slate (their actual W–L still
+                shows, marked with *). Existing teams are unaffected.
+              </span>
+            </span>
+          </label>
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

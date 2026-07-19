@@ -29,6 +29,9 @@ export const createLeagueSchema = z
     // Minutes each game occupies (spacing + rest gaps). Default 45.
     minutesPerGame: z.number().int().min(15).max(180),
     tiebreaker: z.enum(["ova", "differential"]),
+    // Pro-rate teams that have played fewer games (mid-season joiners) up to the
+    // full slate for ranking only. Stored encoded on `tiebreaker` (no migration).
+    projectShortTeams: z.boolean().optional(),
     // The league's specific courts + which are "prime" (better conditions,
     // balanced evenly across teams). Null/empty = plain 1…N court numbering.
     courtList: z
@@ -79,6 +82,9 @@ export const editLeagueSchema = z
     // Minutes each game occupies (spacing + rest gaps). Default 45.
     minutesPerGame: z.number().int().min(15).max(180),
     tiebreaker: z.enum(["ova", "differential"]),
+    // Pro-rate teams that have played fewer games (mid-season joiners) up to the
+    // full slate for ranking only. Stored encoded on `tiebreaker` (no migration).
+    projectShortTeams: z.boolean().optional(),
     // The league's specific courts + which are "prime" (better conditions,
     // balanced evenly across teams). Null/empty = plain 1…N court numbering.
     courtList: z

@@ -42,6 +42,7 @@ function row(
     setRatio,
     pointRatio,
     position,
+    projected: false,
     tiebreakerStep: step,
     tiebreakerValue: 0,
     tiedWith,
