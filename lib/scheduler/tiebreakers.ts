@@ -78,8 +78,26 @@ export type TiebreakerStep = 1 | 2 | 3 | 4 | 5;
  */
 export type RankMode = "ova" | "differential";
 
+/**
+ * Optional normalization for teams that have played fewer games than the rest
+ * (e.g. a pair that joined mid-season). When set, a team below `targetGames` has
+ * its ranking values (match wins, and point differential in differential mode)
+ * pro-rated up to `targetGames` — so it's compared on the same slate length as
+ * everyone else. It only takes effect once a team has played `minGames`, so an
+ * early hot start (1–0 → projected 12–0) can't distort the table. Ratios (set /
+ * point ratio) are already per-game, so they're never pro-rated. This changes
+ * ranking only; the row's actual mw/ml/etc. are untouched, and `projected`
+ * flags which rows were normalized.
+ */
+export interface RankProjection {
+  targetGames: number;
+  minGames: number;
+}
+
 export interface StandingRow extends TeamStats {
   position: number;
+  /** True when this team's ranking values were pro-rated (see RankProjection). */
+  projected: boolean;
   /** Step (1–5) that resolved this team's position vs the teams it tied with. */
   tiebreakerStep: TiebreakerStep;
   /** The numeric value used at the resolving step (mw, h2h ratio, etc.). */
@@ -279,6 +297,24 @@ type Ranked = {
   tiedWith: TeamId[];
 };
 
+function gamesPlayed(s: TeamStats): number {
+  return s.mw + s.ml + s.mt;
+}
+
+/**
+ * Factor to pro-rate a team's totals up to the full slate. 1 (no change) unless
+ * projection is on and the team has played at least `minGames` but fewer than
+ * `targetGames` — then targetGames / gamesPlayed.
+ */
+function projectionFactor(s: TeamStats, projection?: RankProjection): number {
+  if (!projection) return 1;
+  const g = gamesPlayed(s);
+  if (g >= projection.minGames && g > 0 && g < projection.targetGames) {
+    return projection.targetGames / g;
+  }
+  return 1;
+}
+
 function valuerFor(
   step: TiebreakerStep,
   mode: RankMode,
@@ -286,6 +322,7 @@ function valuerFor(
   stats: Map<TeamId, TeamStats>,
   matches: MatchResult[],
   droppedByTeam?: DroppedByTeam,
+  projection?: RankProjection,
 ): (id: TeamId) => number {
   if (step === 2) {
     const table = new Map(
@@ -298,9 +335,13 @@ function valuerFor(
   }
   return (id) => {
     const s = stats.get(id)!;
-    if (step === 1) return s.mw + 0.5 * s.mt; // wins + half per tie
-    // Differential mode uses point differential (PF − PA) for steps 3 and 4.
-    if (mode === "differential") return s.pf - s.pa;
+    // Match wins and point differential are totals, so a short-handed team is
+    // pro-rated up to the full slate; ratios are already per-game.
+    if (step === 1)
+      return projectionFactor(s, projection) * (s.mw + 0.5 * s.mt);
+    if (mode === "differential") {
+      return projectionFactor(s, projection) * (s.pf - s.pa);
+    }
     if (step === 3) return s.setRatio;
     return s.pointRatio; // step 4
   };
@@ -313,6 +354,7 @@ function resolveGroup(
   stats: Map<TeamId, TeamStats>,
   matches: MatchResult[],
   droppedByTeam?: DroppedByTeam,
+  projection?: RankProjection,
 ): Ranked[] {
   if (group.length === 1) {
     const value = valuerFor(
@@ -322,13 +364,22 @@ function resolveGroup(
       stats,
       matches,
       droppedByTeam,
+      projection,
     )(group[0]);
     return [{ teamId: group[0], step: fromStep, value, tiedWith: [group[0]] }];
   }
 
   for (let s = fromStep; s <= 4; s++) {
     const step = s as TiebreakerStep;
-    const valueOf = valuerFor(step, mode, group, stats, matches, droppedByTeam);
+    const valueOf = valuerFor(
+      step,
+      mode,
+      group,
+      stats,
+      matches,
+      droppedByTeam,
+      projection,
+    );
     const sorted = [...group].sort((a, b) =>
       compareDesc(valueOf(a), valueOf(b)),
     );
@@ -363,6 +414,7 @@ function resolveGroup(
               stats,
               matches,
               droppedByTeam,
+              projection,
             ),
           );
         }
@@ -419,15 +471,25 @@ export function rankStandings(
   matches: MatchResult[],
   droppedByTeam?: DroppedByTeam,
   mode: RankMode = "ova",
+  projection?: RankProjection,
 ): StandingRow[] {
   const stats = computeStats(teamIds, matches, droppedByTeam);
-  const ranked = resolveGroup(teamIds, 1, mode, stats, matches, droppedByTeam);
+  const ranked = resolveGroup(
+    teamIds,
+    1,
+    mode,
+    stats,
+    matches,
+    droppedByTeam,
+    projection,
+  );
 
   return ranked.map((r, i) => {
     const s = stats.get(r.teamId)!;
     return {
       ...s,
       position: i + 1,
+      projected: projectionFactor(s, projection) !== 1,
       tiebreakerStep: r.step,
       tiebreakerValue: r.value,
       tiedWith: r.tiedWith,

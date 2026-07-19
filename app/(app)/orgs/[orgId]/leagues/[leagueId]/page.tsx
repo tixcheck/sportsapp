@@ -95,6 +95,7 @@ export default async function LeaguePage({
     gamesPerWeek: league.gamesPerWeek,
     minutesPerGame: league.minutesPerGame,
     tiebreaker: league.tiebreaker,
+    projectShortTeams: league.projectShortTeams,
     courtList: league.courtList,
     slotDayOfWeek: league.slotDayOfWeek,
     slotStartTime: league.slotStartTime,

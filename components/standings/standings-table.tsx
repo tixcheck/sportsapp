@@ -170,6 +170,14 @@ export function StandingsTable({
                     )}
                   >
                     {r.teamName}
+                    {r.projected && (
+                      <span
+                        className="text-ink-3"
+                        title="Ranked on projected pace over the full game count"
+                      >
+                        {" *"}
+                      </span>
+                    )}
                   </span>
                   {r.withdrawn && (
                     <span className="bg-paper-sunken text-ink-2 ml-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
@@ -220,6 +228,12 @@ export function StandingsTable({
           })}
         </tbody>
       </table>
+      {rows.some((r) => r.projected) && (
+        <p className="text-ink-3 mt-2 text-[0.7rem]">
+          * Joined mid-season — ranked on their projected pace over the full
+          game count. Actual W–L shown.
+        </p>
+      )}
     </div>
   );
 }

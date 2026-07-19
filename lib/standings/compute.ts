@@ -21,6 +21,7 @@ import {
   type DroppedByTeam,
   type MatchResult,
   type RankMode,
+  type RankProjection,
   type StandingRow,
 } from "@/lib/scheduler/tiebreakers";
 import {
@@ -191,15 +192,22 @@ export async function loadStandings(
     .single();
   if (!comp) return [];
 
-  // Leagues may rank by point differential instead of the OVA ratios.
+  // Leagues may rank by point differential instead of the OVA ratios, and may
+  // opt to pro-rate short-handed teams to the full slate (a "_projected" suffix
+  // on the stored tiebreaker — kept on that field to avoid a schema migration).
   let mode: RankMode = "ova";
+  let projectShortTeams = false;
+  let targetGamesSetting: number | null = null;
   if (comp.type === "league") {
     const { data: ls } = await supabase
       .from("league_settings")
-      .select("tiebreaker")
+      .select("tiebreaker, games_per_team")
       .eq("competition_id", competitionId)
       .single();
-    if (ls?.tiebreaker === "differential") mode = "differential";
+    const raw = ls?.tiebreaker ?? "ova";
+    projectShortTeams = raw.endsWith("_projected");
+    if (raw.replace("_projected", "") === "differential") mode = "differential";
+    targetGamesSetting = (ls?.games_per_team as number | null) ?? null;
   }
 
   const { data: teamsData } = await supabase
@@ -287,8 +295,15 @@ export async function loadStandings(
     teamIds: string[],
     results: MatchResult[],
     scheduledByTeam: Map<string, number>,
+    projection?: RankProjection,
   ): StandingsRowView[] => {
-    const ranked = rankStandings(teamIds, results, droppedByTeam, mode);
+    const ranked = rankStandings(
+      teamIds,
+      results,
+      droppedByTeam,
+      mode,
+      projection,
+    );
     return ranked.map((r) => ({
       ...r,
       teamName: teamName.get(r.teamId) ?? "—",
@@ -321,6 +336,28 @@ export async function loadStandings(
     // Season games only (exclude the playoff bracket).
     const scheduled = countScheduled((m) => m.bracket_position === null);
 
+    // Pro-rate short-handed teams (mid-season joiners) to the full slate when
+    // the league opted in. Target = the configured games-per-team, else the most
+    // games any team has actually played. Min games before projecting scales
+    // with the target so an early hot start can't top the table.
+    let projection: RankProjection | undefined;
+    if (projectShortTeams) {
+      const played = new Map<string, number>();
+      for (const r of results) {
+        played.set(r.homeTeamId, (played.get(r.homeTeamId) ?? 0) + 1);
+        played.set(r.awayTeamId, (played.get(r.awayTeamId) ?? 0) + 1);
+      }
+      const counts = [...played.values()];
+      const maxPlayed = counts.length ? Math.max(...counts) : 0;
+      const target = targetGamesSetting ?? maxPlayed;
+      if (target > 0) {
+        projection = {
+          targetGames: target,
+          minGames: Math.max(1, Math.ceil(target / 3)),
+        };
+      }
+    }
+
     // Per-night win/loss breakdown for each team — the week-over-week line.
     const entriesByTeam = new Map<
       string,
@@ -340,7 +377,7 @@ export async function loadStandings(
       }
     }
 
-    const rows = rank(teamIds, results, scheduled).map((r) => ({
+    const rows = rank(teamIds, results, scheduled, projection).map((r) => ({
       ...r,
       weekly: weeklyTallies(entriesByTeam.get(r.teamId) ?? []),
     }));

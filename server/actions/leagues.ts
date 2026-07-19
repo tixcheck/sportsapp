@@ -112,7 +112,11 @@ export async function createLeagueAction(
       games_per_team: v.gamesPerTeam,
       games_per_week: v.gamesPerWeek,
       minutes_per_game: v.minutesPerGame,
-      tiebreaker: v.tiebreaker,
+      // Projection opt-in rides on the tiebreaker string ("<mode>_projected") so
+      // no schema column is needed. compute.ts / getLeagueDetail decode it.
+      tiebreaker: v.projectShortTeams
+        ? `${v.tiebreaker}_projected`
+        : v.tiebreaker,
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
       promotion_relegation: false,
@@ -212,7 +216,11 @@ export async function updateLeagueSettingsAction(
       games_per_team: v.gamesPerTeam,
       games_per_week: v.gamesPerWeek,
       minutes_per_game: v.minutesPerGame,
-      tiebreaker: v.tiebreaker,
+      // Projection opt-in rides on the tiebreaker string ("<mode>_projected") so
+      // no schema column is needed. compute.ts / getLeagueDetail decode it.
+      tiebreaker: v.projectShortTeams
+        ? `${v.tiebreaker}_projected`
+        : v.tiebreaker,
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
     })

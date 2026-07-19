@@ -22,6 +22,7 @@ function row(teamId: string, position: number, ratio = 1): StandingRow {
     setRatio: ratio,
     pointRatio: ratio,
     position,
+    projected: false,
     tiebreakerStep: 1,
     tiebreakerValue: 0,
     tiedWith: [teamId],
