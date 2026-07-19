@@ -172,19 +172,17 @@ export async function updateLeagueSettingsAction(
     .single();
   if (!comp) return { error: "League not found." };
 
-  const preset = findPreset(comp.sport as Sport, v.formatId);
-  const newFormat = v.twoSetRoundRobin
-    ? toTwoSetFormat(preset.format)
-    : preset.format;
-
-  // Guard: once scores exist, the format + sets are frozen.
-  const formatChanged =
-    JSON.stringify(comp.match_format) !== JSON.stringify(newFormat);
-  if (formatChanged && (await leagueHasScores(supabase, competitionId))) {
-    return {
-      error:
-        "Scores have been entered — the match format can't be changed. Edit the other fields and leave the format as is.",
-    };
+  // Once scores exist the format + sets are frozen, and the edit form disables
+  // those inputs — a disabled field submits no value, so recomputing the format
+  // from the form would look like a change and wrongly block the save. Keep the
+  // stored format verbatim in that case; only recompute when scores are absent.
+  const hasScores = await leagueHasScores(supabase, competitionId);
+  let newFormat = comp.match_format as MatchFormat;
+  if (!hasScores) {
+    const preset = findPreset(comp.sport as Sport, v.formatId);
+    newFormat = v.twoSetRoundRobin
+      ? toTwoSetFormat(preset.format)
+      : preset.format;
   }
 
   const { error: compErr } = await supabase
