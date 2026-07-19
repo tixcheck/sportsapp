@@ -289,6 +289,101 @@ export async function removeInviteAction(
 }
 
 /**
+ * Remove a joined member from a team (organizer only). If they were the captain,
+ * the team's captain pointer is cleared so the organizer can promote someone
+ * else or re-invite. The accepted invite is dropped too, so the same email can
+ * be re-invited cleanly and the roster line disappears.
+ */
+export async function removeMemberAction(
+  teamId: string,
+  userId: string,
+): Promise<ActionError | { removed: true; wasCaptain: boolean }> {
+  const supabase = await createClient();
+  const guard = await assertTeamAdmin(supabase, teamId);
+  if ("error" in guard) return guard;
+
+  const wasCaptain = guard.team.captainUserId === userId;
+
+  const { error } = await supabase
+    .from("team_members")
+    .delete()
+    .eq("team_id", teamId)
+    .eq("user_id", userId);
+  if (error) return { error: error.message };
+
+  if (wasCaptain) {
+    await supabase
+      .from("teams")
+      .update({ captain_user_id: null })
+      .eq("id", teamId);
+  }
+
+  // Clear the accepted invite so the "Joined" line goes away and re-invites work.
+  await supabase
+    .from("team_invites")
+    .delete()
+    .eq("team_id", teamId)
+    .eq("accepted_by_user_id", userId);
+
+  revalidatePath("/orgs");
+  revalidatePath("/my-matches");
+  revalidatePath("/dashboard");
+  return { removed: true, wasCaptain };
+}
+
+/**
+ * Make an already-joined member the team captain (organizer only). Promotes the
+ * chosen member to captain (they become the scorer/manager) and demotes the
+ * previous captain to a regular player. The new captain must already be on the
+ * roster — you can't hand the captaincy to someone who hasn't joined.
+ */
+export async function setCaptainAction(
+  teamId: string,
+  userId: string,
+): Promise<ActionError | { captainUserId: string }> {
+  const supabase = await createClient();
+  const guard = await assertTeamAdmin(supabase, teamId);
+  if ("error" in guard) return guard;
+
+  const { data: member } = await supabase
+    .from("team_members")
+    .select("user_id")
+    .eq("team_id", teamId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!member) return { error: "That person hasn't joined the team yet." };
+
+  const current = guard.team.captainUserId;
+  if (current === userId) return { captainUserId: userId };
+
+  if (current) {
+    await supabase
+      .from("team_members")
+      .update({ role: "player" })
+      .eq("team_id", teamId)
+      .eq("user_id", current);
+  }
+
+  const { error: roleErr } = await supabase
+    .from("team_members")
+    .update({ role: "captain" })
+    .eq("team_id", teamId)
+    .eq("user_id", userId);
+  if (roleErr) return { error: roleErr.message };
+
+  const { error: capErr } = await supabase
+    .from("teams")
+    .update({ captain_user_id: userId })
+    .eq("id", teamId);
+  if (capErr) return { error: capErr.message };
+
+  revalidatePath("/orgs");
+  revalidatePath("/my-matches");
+  revalidatePath("/dashboard");
+  return { captainUserId: userId };
+}
+
+/**
  * Invite a teammate (non-captain player) to a team. Authorized for the team's
  * captain OR a competition admin. Creates a role='player' invite; claiming it
  * adds the user to the roster as a player (never a scorer). Best-effort email +

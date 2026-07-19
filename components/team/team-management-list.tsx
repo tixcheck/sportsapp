@@ -7,8 +7,10 @@ import { toast } from "sonner";
 import {
   editInviteEmailAction,
   removeInviteAction,
+  removeMemberAction,
   removeTeamAction,
   renameTeamAction,
+  setCaptainAction,
   withdrawTeamAction,
 } from "@/server/actions/teams";
 import { cn } from "@/lib/utils";
@@ -44,7 +46,12 @@ export interface ManagedTeam {
   captainInvite: ManagedTeamInvite | null;
   /** Pending partner/teammate invites. */
   partnerInvites: ManagedTeamInvite[];
-  members?: { name: string; role: "captain" | "player"; email: string }[];
+  members?: {
+    name: string;
+    role: "captain" | "player";
+    email: string;
+    userId: string;
+  }[];
   /** Pool matches this team referees (undefined until pools are drawn). */
   refCount?: number;
 }
@@ -133,6 +140,9 @@ function EditEmailDialog({
   );
 }
 
+/** A joined roster member, for the organizer's member controls. */
+type JoinedMember = { teamId: string; userId: string; isCaptain: boolean };
+
 /** One captain/partner line: their email, joined/pending state, and controls. */
 function ContactLine({
   label,
@@ -140,6 +150,7 @@ function ContactLine({
   joined,
   inviteId,
   removable,
+  member,
   onDone,
 }: {
   label: string;
@@ -147,6 +158,8 @@ function ContactLine({
   joined: boolean;
   inviteId?: string;
   removable?: boolean;
+  /** Present for a joined roster member — enables promote/remove controls. */
+  member?: JoinedMember;
   onDone: () => void;
 }) {
   return (
@@ -199,6 +212,63 @@ function ContactLine({
           }
         />
       )}
+
+      {member && !member.isCaptain && (
+        <ConfirmDialog
+          title="Make this member the captain?"
+          description={`${email} becomes the team captain (the scorer and manager). The current captain becomes a regular player.`}
+          confirmLabel="Make captain"
+          onConfirm={async () => {
+            const res = await setCaptainAction(member.teamId, member.userId);
+            if ("error" in res) {
+              toast.error(res.error);
+              return;
+            }
+            toast.success("Captain updated.");
+            onDone();
+          }}
+          trigger={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2"
+            >
+              Make captain
+            </Button>
+          }
+        />
+      )}
+      {member && (
+        <ConfirmDialog
+          title="Remove this member?"
+          description={
+            member.isCaptain
+              ? `Removes ${email} from the team. They're the captain, so the team will have no captain until you promote a partner or re-invite one.`
+              : `Removes ${email} from the team. You can re-invite them anytime.`
+          }
+          confirmLabel="Remove member"
+          onConfirm={async () => {
+            const res = await removeMemberAction(member.teamId, member.userId);
+            if ("error" in res) {
+              toast.error(res.error);
+              return;
+            }
+            toast.success("Member removed.");
+            onDone();
+          }}
+          trigger={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-7 px-2"
+            >
+              Remove
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }
@@ -228,6 +298,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           label="Captain"
           email={captain.email}
           joined
+          member={{ teamId: team.id, userId: captain.userId, isCaptain: true }}
           onDone={onDone}
         />
       ) : team.captainInvite ? (
@@ -247,6 +318,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           label="Partner"
           email={m.email}
           joined
+          member={{ teamId: team.id, userId: m.userId, isCaptain: false }}
           onDone={onDone}
         />
       ))}
