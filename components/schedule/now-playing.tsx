@@ -1,11 +1,16 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { DateTime } from "luxon";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { currentGames } from "@/lib/schedule/current-games";
 
 /**
- * "Now playing" — the current game on each court, derived from score entry.
- * Shown at the top of the schedule in both the organizer and public views.
+ * "Now playing" — the current game on each court for the day being played.
+ * Time-gated: appears 30 min before the day's first game and clears once the
+ * day's games are done. Ticks each minute so the window opens without a manual
+ * refresh. Shown at the top of the schedule in both organizer and public views.
  */
 export function NowPlaying({
   matches,
@@ -14,7 +19,18 @@ export function NowPlaying({
   matches: ScheduleMatch[];
   timezone: string;
 }) {
-  const games = currentGames(matches);
+  // Only evaluate after mount: the server can't know the viewer's current time,
+  // so rendering nothing on the server (and first client paint) avoids a
+  // hydration mismatch; the minute tick then keeps the window current.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  if (!now) return null;
+
+  const games = currentGames(matches, now, timezone);
   if (games.length === 0) return null;
 
   return (
