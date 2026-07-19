@@ -38,9 +38,27 @@ type Group = {
 };
 
 function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
+  // Matches added mid-season may have no round number. Rather than dumping them
+  // all into one "Unscheduled" pile, synthesize a round from each distinct start
+  // time (one wave = one round), numbered after the real rounds — so they show
+  // as proper "Round N" blocks in time order. No-op when every match has a round.
+  const maxRound = matches.reduce((mx, m) => Math.max(mx, m.round ?? 0), 0);
+  const synthetic = new Map<string, number>();
+  for (const t of [
+    ...new Set(
+      matches
+        .filter((m) => m.round == null && m.scheduledAt)
+        .map((m) => m.scheduledAt as string),
+    ),
+  ].sort()) {
+    synthetic.set(t, maxRound + 1 + synthetic.size);
+  }
+  const roundOf = (m: ScheduleMatch): number =>
+    m.round ?? (m.scheduledAt ? synthetic.get(m.scheduledAt)! : 0);
+
   const map = new Map<number, ScheduleMatch[]>();
   for (const m of matches) {
-    const r = m.round ?? 0;
+    const r = roundOf(m);
     if (!map.has(r)) map.set(r, []);
     map.get(r)!.push(m);
   }

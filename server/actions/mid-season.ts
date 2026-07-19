@@ -49,6 +49,7 @@ type LoadedContext = {
   remainingWeekDates: string[];
   unplayedMatchIds: string[];
   playedFrozen: number;
+  firstNewRound: number;
   plan: ReturnType<typeof planMidSeasonSchedule>;
 };
 
@@ -84,7 +85,7 @@ async function loadContext(
         .eq("competition_id", args.competitionId),
       supabase
         .from("matches")
-        .select("id, scheduled_at, status, home_team_id, away_team_id")
+        .select("id, scheduled_at, status, home_team_id, away_team_id, round")
         .eq("competition_id", args.competitionId),
     ]);
 
@@ -105,6 +106,14 @@ async function loadContext(
   const matches = rows ?? [];
   const played = matches.filter((m) => SETTLED.has(m.status as string));
   const unplayed = matches.filter((m) => !SETTLED.has(m.status as string));
+
+  // New games continue the round numbering after the played weeks, so they
+  // group under real "Round N" headings (not "Unscheduled") in the by-round view.
+  const firstNewRound =
+    played.reduce(
+      (max, m) => Math.max(max, (m.round as number | null) ?? 0),
+      0,
+    ) + 1;
 
   // New teams are the ones with no matches at all (just added to the roster).
   const teamsInSchedule = new Set<string>();
@@ -179,6 +188,7 @@ async function loadContext(
     remainingWeekDates,
     unplayedMatchIds: unplayed.map((m) => m.id as string),
     playedFrozen: played.length,
+    firstNewRound,
     plan,
   };
 }
@@ -247,6 +257,9 @@ export async function addTeamsMidSeasonAction(
       home_team_id: m.homeTeamId,
       away_team_id: m.awayTeamId,
       status: "scheduled" as const,
+      // Each slot is one round; continue numbering after the played weeks so the
+      // games group under real "Round N" headings, not "Unscheduled".
+      round: ctx.firstNewRound + m.slot,
       court: `Court ${(i % courts) + 1}`,
       scheduled_at: at.toUTC().toISO(),
     };
