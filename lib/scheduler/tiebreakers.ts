@@ -474,8 +474,17 @@ export function rankStandings(
   projection?: RankProjection,
 ): StandingRow[] {
   const stats = computeStats(teamIds, matches, droppedByTeam);
+
+  // A team that hasn't played yet ranks below every team that has. Otherwise a
+  // neutral record (0 wins, 0 point differential) would outrank a team that
+  // competed and earned a *negative* differential — so unplayed teams would
+  // float above teams that played and lost. Rank only the played teams through
+  // the hierarchy; append the unplayed ones (indistinguishable) at the bottom.
+  const played = teamIds.filter((id) => gamesPlayed(stats.get(id)!) > 0);
+  const unplayed = teamIds.filter((id) => gamesPlayed(stats.get(id)!) === 0);
+
   const ranked = resolveGroup(
-    teamIds,
+    played,
     1,
     mode,
     stats,
@@ -483,8 +492,14 @@ export function rankStandings(
     droppedByTeam,
     projection,
   );
+  const rankedUnplayed: Ranked[] = unplayed.map((id) => ({
+    teamId: id,
+    step: 1,
+    value: 0,
+    tiedWith: unplayed.length > 1 ? [...unplayed] : [id],
+  }));
 
-  return ranked.map((r, i) => {
+  return [...ranked, ...rankedUnplayed].map((r, i) => {
     const s = stats.get(r.teamId)!;
     return {
       ...s,
