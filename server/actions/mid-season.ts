@@ -10,7 +10,8 @@ import {
   type PlannedMatch,
 } from "@/lib/scheduler/mid-season";
 import { addTeamsMidSeasonSchema } from "@/lib/validations/league";
-import type { WeeklySlot } from "@/lib/db/schema";
+import { numberedCourts } from "@/lib/scheduler/court-respread";
+import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
 
 const DEFAULT_TIMEZONE = "America/Toronto";
 
@@ -42,7 +43,8 @@ type LoadedContext = {
   timezone: string;
   slot: WeeklySlot;
   gameMinutes: number;
-  courts: number;
+  /** Real court labels — the league's custom court names, else "Court 1..N". */
+  courtLabels: string[];
   targetGames: number;
   teamName: Map<string, string>;
   newTeamIds: string[];
@@ -97,8 +99,13 @@ async function loadContext(
   const timezone = comp.timezone ?? DEFAULT_TIMEZONE;
   const gamesPerWeek = (settings.games_per_week as number | null) ?? 1;
   const gameMinutes = (settings.minutes_per_game as number | null) ?? 45;
-  const courtList = settings.court_list as { name: string }[] | null;
-  const courts = courtList?.length || slot.courts || 1;
+  // Use the league's custom court names when set, else plain "Court 1..N" —
+  // matching the original generator so mid-season games land on real courts.
+  const courtList = (settings.court_list as LeagueCourt[] | null) ?? [];
+  const courtLabels =
+    courtList.length > 0
+      ? courtList.map((c) => c.label)
+      : numberedCourts(slot.courts || 1);
   const teamName = new Map(
     teams.map((t) => [t.id as string, t.name as string]),
   );
@@ -181,7 +188,7 @@ async function loadContext(
     timezone,
     slot,
     gameMinutes,
-    courts,
+    courtLabels,
     targetGames,
     teamName,
     newTeamIds,
@@ -242,16 +249,21 @@ export async function addTeamsMidSeasonAction(
 
   const ctx = await loadContext(parsed.data);
   if ("error" in ctx) return ctx;
-  const { supabase, plan, slot, timezone, gameMinutes, courts } = ctx;
+  const { supabase, plan, slot, timezone, gameMinutes, courtLabels } = ctx;
 
   if (plan.matches.length === 0) {
     return { error: "Nothing to schedule for the new teams." };
   }
 
-  const rows = plan.matches.map((m, i) => {
+  // Games sharing a slot are simultaneous, so each takes a distinct court label
+  // (the league's real courts) — reset the court cursor at each new slot.
+  const courtCursor = new Map<number, number>();
+  const rows = plan.matches.map((m) => {
     const at = DateTime.fromISO(`${m.weekDate}T${slot.startTime}`, {
       zone: timezone,
     }).plus({ minutes: m.wave * gameMinutes });
+    const idx = courtCursor.get(m.slot) ?? 0;
+    courtCursor.set(m.slot, idx + 1);
     return {
       competition_id: parsed.data.competitionId,
       home_team_id: m.homeTeamId,
@@ -260,7 +272,7 @@ export async function addTeamsMidSeasonAction(
       // Each slot is one round; continue numbering after the played weeks so the
       // games group under real "Round N" headings, not "Unscheduled".
       round: ctx.firstNewRound + m.slot,
-      court: `Court ${(i % courts) + 1}`,
+      court: courtLabels[idx % courtLabels.length],
       scheduled_at: at.toUTC().toISO(),
     };
   });
