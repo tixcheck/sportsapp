@@ -21,6 +21,8 @@ export type ApplyCourtsPreview = {
   targetCourts: number;
   /** Custom named courts, if the league uses them (then `courts` is ignored). */
   usesCustomCourts: boolean;
+  /** The actual courts games will land on, prime flagged — shown for confidence. */
+  courts: { label: string; prime: boolean }[];
   reassigned: number;
   playedUntouched: number;
   waves: number;
@@ -133,6 +135,7 @@ export async function previewApplyCourtsAction(
     currentCourts: ctx.currentCourts,
     targetCourts: ctx.targetCourts,
     usesCustomCourts: ctx.usesCustomCourts,
+    courts: ctx.courtDefs,
     reassigned: res.assignments.length,
     playedUntouched: ctx.playedCount,
     waves: res.waves,

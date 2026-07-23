@@ -134,6 +134,22 @@ export function ApplyCourtsDialog({
               <p className="font-medium">
                 {preview.currentCourts} → {preview.targetCourts} courts
               </p>
+              <div className="flex flex-wrap gap-1.5">
+                {preview.courts.map((c) => (
+                  <span
+                    key={c.label}
+                    className={
+                      c.prime
+                        ? "bg-claret-tint text-claret-deep rounded-full px-2 py-0.5 text-xs font-semibold"
+                        : "bg-paper-sunken text-ink-2 rounded-full px-2 py-0.5 text-xs font-medium"
+                    }
+                    title={c.prime ? "Prime court" : undefined}
+                  >
+                    {c.label}
+                    {c.prime ? " ★" : ""}
+                  </span>
+                ))}
+              </div>
               <p className="text-muted-foreground">
                 {preview.reassigned} upcoming games re-spread across{" "}
                 {preview.waves} time slots.{" "}
@@ -142,7 +158,10 @@ export function ApplyCourtsDialog({
                 </span>
               </p>
               <p className="text-muted-foreground">
-                Busiest slot has {preview.maxGamesPerWave} games.
+                Busiest slot has {preview.maxGamesPerWave} games.{" "}
+                {preview.courts.some((c) => c.prime)
+                  ? "★ = prime, balanced across teams."
+                  : ""}
               </p>
             </div>
           )}
