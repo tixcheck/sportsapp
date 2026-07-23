@@ -28,6 +28,17 @@ registration fee $1–2 baked into the price. Stripe Connect for payouts."*
 
 ## Architecture: Stripe Connect
 
+> **Open decision — processor: Stripe Connect vs Square.** The owner has a Square
+> membership. Rates are comparable (~2.9% + $0.30 online, Canada), so this isn't a
+> price call — it's about the *marketplace* model. Stripe Connect is purpose-built
+> for routing to many third-party organizer accounts with automated payouts +
+> platform fees; Square can do it via Square-for-Platforms OAuth but its multi-
+> seller tooling is less mature (more custom work). **Recommendation: Stripe
+> Connect for the platform-wide flow.** Square remains fine if a single organizer
+> (e.g. the owner's own org) wants to process their own events. Confirm the owner's
+> intent — own-org vs platform-wide engine — before committing. The rest of this
+> doc assumes Stripe Connect.
+
 Because money must reach **many different organizers** (not one platform bank
 account), the standard tool is **Stripe Connect**:
 
