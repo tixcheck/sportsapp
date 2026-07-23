@@ -25,7 +25,8 @@ Teams pay the registration fee online at registration via **Stripe Connect**;
 money routes to the organizer's own bank, with an optional $1–2 platform fee.
 The win is **collecting at registration** (kills e-transfer chasing), offered
 *alongside* cash/e-transfer, not instead. Covers the fee model (pass-through
-gross-up so organizers net their target), payout timing, refunds, and a
-test-mode Phase 1 slice. A **v1** feature (PRD §14). The plan doc lists exactly
+gross-up so organizers net their target), payout timing, refunds, **split
+payments** (captain splits the fee across the roster; team confirmed only when
+all shares are paid), and a test-mode Phase 1 slice. A **v1** feature (PRD §14). The plan doc lists exactly
 what the owner must provide to proceed (Stripe account + keys, fee/refund/account-
 type decisions, tax stance).
