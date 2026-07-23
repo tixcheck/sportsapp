@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import {
   respreadCourts,
   numberedCourts,
-  type RespreadMatch,
+  type RespreadGame,
 } from "@/lib/scheduler/court-respread";
+import type { Court } from "@/lib/scheduler/court-assign";
 import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
 
 /** Statuses that mean a game has been played — its court is left alone. */
@@ -31,11 +32,12 @@ export type ApplyCourtsPreview = {
 type Loaded = {
   supabase: Awaited<ReturnType<typeof createClient>>;
   slots: WeeklySlot[];
-  courtLabels: string[];
+  courtDefs: Court[];
+  primeLedger: Map<string, number>;
   usesCustomCourts: boolean;
   currentCourts: number;
   targetCourts: number;
-  unplayed: RespreadMatch[];
+  unplayed: RespreadGame[];
   playedCount: number;
 };
 
@@ -62,7 +64,7 @@ async function load(
       .single(),
     supabase
       .from("matches")
-      .select("id, scheduled_at, status")
+      .select("id, scheduled_at, status, home_team_id, away_team_id, court")
       .eq("competition_id", args.competitionId),
   ]);
   if (!settings) return { error: "League settings not found." };
@@ -75,27 +77,47 @@ async function load(
     ? courtList.length
     : (slots[0]?.courts ?? 1);
   const targetCourts = usesCustomCourts ? courtList.length : args.courts;
-  const courtLabels = usesCustomCourts
-    ? courtList.map((c) => c.label)
-    : numberedCourts(targetCourts);
+  // Court definitions with prime flags — custom courts keep their prime marks;
+  // plain numbered courts have none, so assignment is a simple even spread.
+  const courtDefs: Court[] = usesCustomCourts
+    ? courtList.map((c) => ({ label: c.label, prime: c.prime }))
+    : numberedCourts(targetCourts).map((label) => ({ label, prime: false }));
 
   const matches = rows ?? [];
+  const played = matches.filter((m) => SETTLED.has(m.status as string));
   const unplayed = matches
     .filter((m) => !SETTLED.has(m.status as string))
     .map((m) => ({
       id: m.id as string,
       scheduledAt: m.scheduled_at as string | null,
+      homeTeamId: m.home_team_id as string | null,
+      awayTeamId: m.away_team_id as string | null,
     }));
+
+  // Seed the prime-fairness ledger from played games on prime courts, so the
+  // re-spread balances prime courts across the whole season, not just the future.
+  const primeSet = new Set(
+    courtDefs.filter((c) => c.prime).map((c) => c.label),
+  );
+  const primeLedger = new Map<string, number>();
+  for (const m of played) {
+    if (!m.court || !primeSet.has(m.court as string)) continue;
+    for (const t of [m.home_team_id, m.away_team_id]) {
+      if (t)
+        primeLedger.set(t as string, (primeLedger.get(t as string) ?? 0) + 1);
+    }
+  }
 
   return {
     supabase,
     slots,
-    courtLabels,
+    courtDefs,
+    primeLedger,
     usesCustomCourts,
     currentCourts,
     targetCourts,
     unplayed,
-    playedCount: matches.length - unplayed.length,
+    playedCount: played.length,
   };
 }
 
@@ -105,7 +127,7 @@ export async function previewApplyCourtsAction(
   const ctx = await load(args);
   if ("error" in ctx) return ctx;
 
-  const res = respreadCourts(ctx.unplayed, ctx.courtLabels);
+  const res = respreadCourts(ctx.unplayed, ctx.courtDefs, ctx.primeLedger);
 
   return {
     currentCourts: ctx.currentCourts,
@@ -126,7 +148,7 @@ export async function applyCourtsToUpcomingAction(
   if ("error" in ctx) return ctx;
 
   const { supabase } = ctx;
-  const res = respreadCourts(ctx.unplayed, ctx.courtLabels);
+  const res = respreadCourts(ctx.unplayed, ctx.courtDefs, ctx.primeLedger);
   if (res.assignments.length === 0) {
     return { error: "No upcoming games to reassign." };
   }

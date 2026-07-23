@@ -6,13 +6,18 @@
  * full wave can play at once), we don't want to regenerate the schedule — that
  * would wipe played results. Instead we keep every game's date/time/opponents
  * and only reassign which court each one is on, so that the games sharing a time
- * slot (a "wave") land on distinct courts.
+ * slot (a "wave") land on distinct courts — with prime courts balanced fairly
+ * across teams, seeded from the games already played.
  */
 
-export interface RespreadMatch {
+import { assignCourts, type Court } from "./court-assign";
+
+export interface RespreadGame {
   id: string;
   /** UTC ISO instant; games sharing it are one simultaneous wave. */
   scheduledAt: string | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
 }
 
 export interface CourtRespreadResult {
@@ -26,15 +31,16 @@ export interface CourtRespreadResult {
 }
 
 /**
- * Assign each match a court label so that, within every wave (same instant),
- * courts are handed out distinctly in order. `courtLabels` is the available
- * courts (e.g. ["Court 1", … , "Court 7"]); a wave larger than the court count
- * wraps and is reported as over-capacity rather than silently hidden.
- * Time-TBD games (no instant) are left unassigned.
+ * Assign each game a court so that, within every wave (same instant), courts are
+ * distinct, and prime courts are shared fairly across teams. `initialPrimeGames`
+ * seeds the fairness ledger from the played weeks, so a team that already had
+ * more prime courts is steered off them. Time-TBD games (no instant) are left
+ * unassigned; a wave larger than the court count is reported as over-capacity.
  */
 export function respreadCourts(
-  matches: RespreadMatch[],
-  courtLabels: string[],
+  games: RespreadGame[],
+  courts: Court[],
+  initialPrimeGames?: ReadonlyMap<string, number>,
 ): CourtRespreadResult {
   const empty: CourtRespreadResult = {
     assignments: [],
@@ -42,33 +48,49 @@ export function respreadCourts(
     maxGamesPerWave: 0,
     overCapacityWaves: 0,
   };
-  if (courtLabels.length === 0) return empty;
+  if (courts.length === 0) return empty;
 
-  const byWave = new Map<string, RespreadMatch[]>();
-  for (const m of matches) {
-    if (!m.scheduledAt) continue;
-    const list = byWave.get(m.scheduledAt) ?? [];
-    list.push(m);
-    byWave.set(m.scheduledAt, list);
+  const byWave = new Map<string, RespreadGame[]>();
+  for (const g of games) {
+    if (!g.scheduledAt) continue;
+    const list = byWave.get(g.scheduledAt);
+    if (list) list.push(g);
+    else byWave.set(g.scheduledAt, [g]);
   }
 
-  const assignments: { id: string; court: string }[] = [];
+  // Waves in time order; games within a wave in a stable order (by id).
+  const instants = [...byWave.keys()].sort();
+  for (const iso of instants) {
+    byWave.get(iso)!.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  }
+
   let maxGamesPerWave = 0;
   let overCapacityWaves = 0;
-
-  for (const [, games] of byWave) {
-    // Stable order within the wave so assignment is deterministic.
-    games.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    maxGamesPerWave = Math.max(maxGamesPerWave, games.length);
-    if (games.length > courtLabels.length) overCapacityWaves += 1;
-
-    games.forEach((g, i) => {
-      assignments.push({
-        id: g.id,
-        court: courtLabels[i % courtLabels.length],
-      });
-    });
+  for (const iso of instants) {
+    const n = byWave.get(iso)!.length;
+    maxGamesPerWave = Math.max(maxGamesPerWave, n);
+    if (n > courts.length) overCapacityWaves += 1;
   }
+
+  const assigned = assignCourts(
+    instants.map((iso, round) => ({
+      round,
+      byeTeamId: null,
+      pairs: byWave.get(iso)!.map((g) => ({
+        homeTeamId: g.homeTeamId ?? g.id,
+        awayTeamId: g.awayTeamId ?? g.id,
+      })),
+    })),
+    courts,
+    initialPrimeGames,
+  );
+
+  const assignments: { id: string; court: string }[] = [];
+  instants.forEach((iso, i) => {
+    byWave.get(iso)!.forEach((g, j) => {
+      assignments.push({ id: g.id, court: assigned[i].courts[j] });
+    });
+  });
 
   return {
     assignments,
