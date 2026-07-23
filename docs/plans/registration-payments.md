@@ -86,6 +86,47 @@ Make absorb-vs-pass-through a per-competition setting; default pass-through.
 Even the free 2-day path beats chasing e-transfers for weeks; instant is there for
 those who want it. Exact windows/fees are Stripe's current terms — confirm at build.
 
+## Split payments (captain splits the fee across the team)
+
+The captain shouldn't have to front the whole fee. Optional split: the captain
+divides the total across the roster and each teammate pays their own share; the
+**team is only fully registered once the shares sum to the full fee.**
+
+**Model (destination charges, no escrow by us):**
+- Captain chooses **pay in full** (default) or **split** — even (fee ÷ roster) or
+  custom amounts per player. Shares must sum to the total.
+- Each teammate pays their share via **their own Checkout** (a "pay your share"
+  link, emailed / shown when they log in). Each share is a separate charge landing
+  in the organizer's connected account immediately.
+- Team registration status is **`pending` until `collected ≥ total`, then
+  `confirmed`.** A progress indicator shows "$45 of $60 · 3 of 4 paid." This status
+  is a flag in our DB, **not** money we hold — the organizer already has the
+  partial funds (see the incomplete-team case below).
+
+**Two wrinkles to design around:**
+
+1. **Splitting costs more in fixed fees.** Stripe's $0.30-per-charge applies to
+   *each* share, so splitting a $60 fee 4 ways incurs 4 × $0.30 = $1.20 vs $0.30
+   for one charge (the 2.9% is unchanged). With pass-through each player covers
+   their own fee, so the team just pays a bit more in aggregate — surface this in
+   the UI ("splitting adds ~$0.30 per person in card fees") so it's not a surprise.
+   (A pool-then-single-charge model would avoid it but requires holding funds,
+   which Connect doesn't do simply — not worth it.)
+
+2. **Incomplete team = partial money already with the organizer.** Because each
+   share settles immediately, a team that never completes (a teammate never pays,
+   or the deadline passes at "$45 of $60") leaves partial payments in the
+   organizer's account. The refund policy must cover this explicitly: e.g.
+   *"if a team doesn't complete payment by the deadline, paid shares are refunded
+   (minus non-refundable card fees), or the captain may cover the remainder to
+   confirm."* Give the captain a **"cover the rest"** action and the organizer a
+   **"refund the partial payers"** action.
+
+**Data:** `registration_payments` becomes one row **per payer** (team, payer
+email/user, share amount, status, stripe ids), and the team's confirmed status is
+derived from `sum(paid shares) ≥ total`. Lands in **Phase 3** (the core single-payer
+flow ships first in Phases 1–2).
+
 ## Phasing (test-mode slice first, widen later)
 
 - **Phase 1 (thin slice, Stripe test mode):** Express Connect onboarding for ONE
@@ -95,9 +136,11 @@ those who want it. Exact windows/fees are Stripe's current terms — confirm at 
 - **Phase 2:** Refunds (organizer-initiated + drop-out flow, honoring the refund
   policy setting), the organizer **payments dashboard** (who paid, totals, payout
   status), and webhooks hardened (idempotent, signature-verified).
-- **Phase 3:** Leagues (currently no registration flow at all — see below), the
-  cash/e-transfer "mark as paid manually" option alongside card, and go-live
-  (real keys, real Connect onboarding, TOS/refund copy).
+- **Phase 3:** **Split payments** (captain splits the fee, per-payer shares, team
+  confirmed when shares sum to the total — see above), leagues (currently no
+  registration flow at all — see below), the cash/e-transfer "mark as paid
+  manually" option alongside card, and go-live (real keys, real Connect
+  onboarding, TOS/refund copy).
 
 ## Prerequisites in the app
 
@@ -129,7 +172,10 @@ those who want it. Exact windows/fees are Stripe's current terms — confirm at 
    it a per-competition choice or platform-wide?
 5. **Connect account type:** Express (recommended) vs Standard.
 6. **Refund policy default:** e.g. "full refund before schedule generated, none
-   after"; is the processing fee refundable? Who can issue refunds?
+   after"; is the processing fee refundable? Who can issue refunds? **Include the
+   split-payment incomplete-team case:** if a team never completes payment by the
+   deadline, are paid shares auto-refunded, or does the captain get to cover the
+   rest first?
 7. **Currency:** CAD confirmed? Any multi-currency need?
 8. **Pricing granularity:** per-**team** or per-**player**? (Tournaments are
    team-registered today, so per-team is the natural fit.)
