@@ -41,6 +41,12 @@ function rotate<T>(arr: T[], by: number): T[] {
 export function assignCourts(
   pairings: PairingRound[],
   courts: Court[],
+  /**
+   * Prime games already played, per team — seeds the fairness ledger so a
+   * mid-season continuation keeps balancing against week 1 rather than starting
+   * fresh. Omit for a full-season generation (everyone starts at zero).
+   */
+  initialPrimeGames?: ReadonlyMap<TeamId, number>,
 ): RoundCourts[] {
   if (courts.length === 0) {
     return pairings.map((r) => ({
@@ -53,7 +59,7 @@ export function assignCourts(
   const nonPrimeLabelsAll = courts.filter((c) => !c.prime).map((c) => c.label);
 
   // Prime games played so far, per team — the fairness ledger.
-  const primeGames = new Map<TeamId, number>();
+  const primeGames = new Map<TeamId, number>(initialPrimeGames ?? []);
   const primeOf = (id: TeamId) => primeGames.get(id) ?? 0;
 
   return pairings.map((r, roundIdx) => {

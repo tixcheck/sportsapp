@@ -11,6 +11,7 @@ import {
 } from "@/lib/scheduler/mid-season";
 import { addTeamsMidSeasonSchema } from "@/lib/validations/league";
 import { numberedCourts } from "@/lib/scheduler/court-respread";
+import { assignCourts, type Court } from "@/lib/scheduler/court-assign";
 import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
 
 const DEFAULT_TIMEZONE = "America/Toronto";
@@ -43,8 +44,10 @@ type LoadedContext = {
   timezone: string;
   slot: WeeklySlot;
   gameMinutes: number;
-  /** Real court labels — the league's custom court names, else "Court 1..N". */
-  courtLabels: string[];
+  /** The league's courts (custom names + prime flags), else plain "Court 1..N". */
+  courtDefs: Court[];
+  /** Prime games each team already had (from played weeks) — the fairness seed. */
+  primeLedger: Map<string, number>;
   targetGames: number;
   teamName: Map<string, string>;
   newTeamIds: string[];
@@ -87,7 +90,9 @@ async function loadContext(
         .eq("competition_id", args.competitionId),
       supabase
         .from("matches")
-        .select("id, scheduled_at, status, home_team_id, away_team_id, round")
+        .select(
+          "id, scheduled_at, status, home_team_id, away_team_id, round, court",
+        )
         .eq("competition_id", args.competitionId),
     ]);
 
@@ -99,13 +104,23 @@ async function loadContext(
   const timezone = comp.timezone ?? DEFAULT_TIMEZONE;
   const gamesPerWeek = (settings.games_per_week as number | null) ?? 1;
   const gameMinutes = (settings.minutes_per_game as number | null) ?? 45;
-  // Use the league's custom court names when set, else plain "Court 1..N" —
-  // matching the original generator so mid-season games land on real courts.
+  // Use the league's custom courts (labels + prime flags) when set, else plain
+  // "Court 1..N" — matching the original generator so mid-season games land on
+  // real courts and prime courts stay balanced.
   const courtList = (settings.court_list as LeagueCourt[] | null) ?? [];
-  const courtLabels =
+  const courtDefs: Court[] =
     courtList.length > 0
-      ? courtList.map((c) => c.label)
-      : numberedCourts(slot.courts || 1);
+      ? courtList.map((c) => ({ label: c.label, prime: c.prime }))
+      : numberedCourts(slot.courts || 1).map((label) => ({
+          label,
+          prime: false,
+        }));
+
+  // Seed the prime-fairness ledger from games already played: a team that got
+  // more prime courts in the played weeks is owed fewer going forward.
+  const primeLabels = new Set(
+    courtDefs.filter((c) => c.prime).map((c) => c.label),
+  );
   const teamName = new Map(
     teams.map((t) => [t.id as string, t.name as string]),
   );
@@ -113,6 +128,15 @@ async function loadContext(
   const matches = rows ?? [];
   const played = matches.filter((m) => SETTLED.has(m.status as string));
   const unplayed = matches.filter((m) => !SETTLED.has(m.status as string));
+
+  const primeLedger = new Map<string, number>();
+  for (const m of played) {
+    if (!m.court || !primeLabels.has(m.court as string)) continue;
+    for (const t of [m.home_team_id, m.away_team_id]) {
+      if (t)
+        primeLedger.set(t as string, (primeLedger.get(t as string) ?? 0) + 1);
+    }
+  }
 
   // New games continue the round numbering after the played weeks, so they
   // group under real "Round N" headings (not "Unscheduled") in the by-round view.
@@ -188,7 +212,8 @@ async function loadContext(
     timezone,
     slot,
     gameMinutes,
-    courtLabels,
+    courtDefs,
+    primeLedger,
     targetGames,
     teamName,
     newTeamIds,
@@ -249,33 +274,59 @@ export async function addTeamsMidSeasonAction(
 
   const ctx = await loadContext(parsed.data);
   if ("error" in ctx) return ctx;
-  const { supabase, plan, slot, timezone, gameMinutes, courtLabels } = ctx;
+  const { supabase, plan, slot, timezone, gameMinutes, courtDefs } = ctx;
 
   if (plan.matches.length === 0) {
     return { error: "Nothing to schedule for the new teams." };
   }
 
-  // Games sharing a slot are simultaneous, so each takes a distinct court label
-  // (the league's real courts) — reset the court cursor at each new slot.
-  const courtCursor = new Map<number, number>();
-  const rows = plan.matches.map((m) => {
-    const at = DateTime.fromISO(`${m.weekDate}T${slot.startTime}`, {
+  const atOf = (m: PlannedMatch) =>
+    DateTime.fromISO(`${m.weekDate}T${slot.startTime}`, {
       zone: timezone,
     }).plus({ minutes: m.wave * gameMinutes });
-    const idx = courtCursor.get(m.slot) ?? 0;
-    courtCursor.set(m.slot, idx + 1);
-    return {
-      competition_id: parsed.data.competitionId,
-      home_team_id: m.homeTeamId,
-      away_team_id: m.awayTeamId,
-      status: "scheduled" as const,
-      // Each slot is one round; continue numbering after the played weeks so the
-      // games group under real "Round N" headings, not "Unscheduled".
-      round: ctx.firstNewRound + m.slot,
-      court: courtLabels[idx % courtLabels.length],
-      scheduled_at: at.toUTC().toISO(),
-    };
+
+  // Group the new games by their actual instant — games at the same time are one
+  // wave and must land on distinct courts. Then assign courts with prime-court
+  // fairness, seeded from the played weeks, so the new games keep the balance
+  // (not just distinct courts). This mirrors the original season generator.
+  const byInstant = new Map<string, PlannedMatch[]>();
+  for (const m of plan.matches) {
+    const iso = atOf(m).toUTC().toISO()!;
+    const list = byInstant.get(iso);
+    if (list) list.push(m);
+    else byInstant.set(iso, [m]);
+  }
+  const instants = [...byInstant.keys()].sort();
+  const assigned = assignCourts(
+    instants.map((iso, round) => ({
+      round,
+      byeTeamId: null,
+      pairs: byInstant.get(iso)!.map((m) => ({
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+      })),
+    })),
+    courtDefs,
+    ctx.primeLedger,
+  );
+  const courtByMatch = new Map<PlannedMatch, string>();
+  instants.forEach((iso, i) => {
+    byInstant.get(iso)!.forEach((m, j) => {
+      courtByMatch.set(m, assigned[i].courts[j]);
+    });
   });
+
+  const rows = plan.matches.map((m) => ({
+    competition_id: parsed.data.competitionId,
+    home_team_id: m.homeTeamId,
+    away_team_id: m.awayTeamId,
+    status: "scheduled" as const,
+    // Each slot is one round; continue numbering after the played weeks so the
+    // games group under real "Round N" headings, not "Unscheduled".
+    round: ctx.firstNewRound + m.slot,
+    court: courtByMatch.get(m)!,
+    scheduled_at: atOf(m).toUTC().toISO(),
+  }));
 
   // Replace only the unplayed games; every settled game is left untouched.
   if (ctx.unplayedMatchIds.length > 0) {
