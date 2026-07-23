@@ -80,6 +80,18 @@ account), the standard tool is **Stripe Connect**:
 4. Stripe pays out to the organizer's bank on a schedule; refunds flow back through
    the same rails.
 
+**Organizers can be individuals — no registered business required.** This matters:
+most rec organizers are individuals, not companies. An individual onboards as a
+Stripe **"individual / sole proprietor"** account with personal details (legal
+name, DOB, address, SIN or part of it) + a **personal bank account** — no business
+number, incorporation, or business bank account needed. Identity verification (KYC)
+still applies to everyone (anti-fraud/AML law), business or not. Payouts land in
+their personal account. Tax note (confirm w/ accountant): registration income is
+the organizer's **personal taxable income**, and GST/HST only applies once they
+cross the **~$30k/yr small-supplier threshold** — most small organizers are under
+it. (Only the **platform** account — mysportsapp — must itself register as a
+business or individual with Stripe; that's separate from each organizer.)
+
 **Connect account type — a required decision.** Express (Stripe-hosted onboarding
 + dashboard, Stripe handles disputes/tax forms; simplest for us) vs Standard
 (organizer has a full Stripe account) vs Custom (we build everything; most work).
