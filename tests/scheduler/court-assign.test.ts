@@ -88,4 +88,28 @@ describe("assignCourts", () => {
     });
     expect(primePerTeam(pairings, assigned, []).size).toBe(0);
   });
+
+  it("seeds the prime ledger so a mid-season continuation stays balanced", () => {
+    // T1 already banked 3 prime games (from played weeks); everyone else 0.
+    // The new games should steer prime courts AWAY from T1 to even it out.
+    const pairings = generatePairings(teams(4), 1); // 3 rounds, 2 games each
+    const cts = courts(["P", "N"], ["P"]); // one prime, one not
+    const seed = new Map<string, number>([["T1", 3]]);
+
+    const assigned = assignCourts(pairings, cts, seed);
+    const fresh = primePerTeam(pairings, assigned, ["P"]);
+    // Over 3 rounds T1 should get few/no new prime games while others catch up.
+    expect(fresh.get("T1") ?? 0).toBeLessThanOrEqual(1);
+    for (const t of ["T2", "T3", "T4"]) {
+      expect(fresh.get(t) ?? 0).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("is unchanged when the seed ledger is empty (back-compat)", () => {
+    const pairings = generatePairings(teams(6), 1);
+    const cts = courts(["1", "2", "3"], ["1"]);
+    const withEmpty = assignCourts(pairings, cts, new Map());
+    const without = assignCourts(pairings, cts);
+    expect(withEmpty).toEqual(without);
+  });
 });
