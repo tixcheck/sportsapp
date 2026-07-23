@@ -28,16 +28,28 @@ registration fee $1–2 baked into the price. Stripe Connect for payouts."*
 
 ## Architecture: Stripe Connect
 
-> **Open decision — processor: Stripe Connect vs Square.** The owner has a Square
-> membership. Rates are comparable (~2.9% + $0.30 online, Canada), so this isn't a
-> price call — it's about the *marketplace* model. Stripe Connect is purpose-built
-> for routing to many third-party organizer accounts with automated payouts +
-> platform fees; Square can do it via Square-for-Platforms OAuth but its multi-
-> seller tooling is less mature (more custom work). **Recommendation: Stripe
-> Connect for the platform-wide flow.** Square remains fine if a single organizer
-> (e.g. the owner's own org) wants to process their own events. Confirm the owner's
-> intent — own-org vs platform-wide engine — before committing. The rest of this
-> doc assumes Stripe Connect.
+> **Open decision — payment processor.** The requirement narrows the field: we
+> need **multi-party payouts** (route to many organizers' banks), not single-
+> merchant collection. Rates are comparable across all of them (~2.9% + $0.30
+> online, Canada), so this is a **fit-and-effort** call, not a price one:
+>
+> - **Stripe Connect** — most mature, self-serve organizer onboarding, best docs,
+>   good in Canada. **Recommended default.**
+> - **PayPal / Braintree (Commerce Platform / marketplaces)** — genuine
+>   alternative; trusted brand with players; slightly more setup friction.
+> - **Square for Platforms** — the owner already has Square; possible via OAuth,
+>   but multi-seller tooling is less built-out (more custom work).
+> - **Adyen for Platforms** — enterprise-grade, overkill at this stage (contracts/
+>   minimums).
+> - **Platform-holds-funds (any basic processor incl. plain Square/Moneris/Helcim)**
+>   — everyone pays into the platform account, manual payouts to organizers.
+>   Simplest to build but the platform holds everyone's money → bookkeeping +
+>   money-handling/regulatory weight. Avoid unless single-org.
+>
+> Realistically **Stripe Connect vs PayPal/Braintree**, Stripe edging it. Confirm
+> the owner's intent — own-org only vs platform-wide engine — before committing.
+> The rest of this doc assumes Stripe Connect; the design (Checkout, webhooks,
+> per-payer split rows) ports to the others with processor-specific glue.
 
 Because money must reach **many different organizers** (not one platform bank
 account), the standard tool is **Stripe Connect**:
