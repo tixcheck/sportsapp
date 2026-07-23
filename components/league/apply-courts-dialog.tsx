@@ -92,8 +92,9 @@ export function ApplyCourtsDialog({
         <DialogHeader>
           <DialogTitle>Apply courts to upcoming weeks</DialogTitle>
           <DialogDescription>
-            Re-spreads the unplayed games across the courts. Pairings, times,
-            and played results stay exactly as they are.
+            Re-spreads the unplayed games across the courts, keeping prime
+            courts balanced across teams. Pairings, times, and played results
+            stay exactly as they are.
           </DialogDescription>
         </DialogHeader>
 
