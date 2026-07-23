@@ -51,6 +51,23 @@ registration fee $1–2 baked into the price. Stripe Connect for payouts."*
 > The rest of this doc assumes Stripe Connect; the design (Checkout, webhooks,
 > per-payer split rows) ports to the others with processor-specific glue.
 
+### Stripe vs PayPal — side-by-side (marketplace use case)
+
+| Dimension | Stripe (Connect) | PayPal (Commerce Platform / Braintree) | Edge |
+|---|---|---|---|
+| Payout to many organizers | Purpose-built (Express); minutes to onboard; Stripe owns KYC/tax/disputes | Supported, but seller onboarding historically clunkier | **Stripe** |
+| Organizer onboarding effort | Hosted, fast, self-serve | More friction to set up sub-merchants | **Stripe** |
+| Build effort / DX | Best-in-class docs + APIs | Workable, rougher | **Stripe** |
+| Split payments (per-payer) | Clean multi-party primitives | Doable, more plumbing | **Stripe** |
+| Player checkout options | Cards + Apple/Google Pay | + PayPal balance, Pay Later, (Venmo US) | **PayPal** |
+| Payer trust signal | Embedded/invisible | Recognizable button reassures some | **PayPal** |
+| Fees (Canada, online) | ~2.9% + $0.30, predictable | ~2.9% + $0.30, watch cross-border/currency surcharges | ~tie |
+| Payout timing | ~2-day rolling; 7–14d first-payout hold; Instant ~1.5% | Fast to PayPal balance, 1–3d to bank; instant options | ~tie |
+
+**Verdict:** Stripe Connect as the engine (less work, smoother organizer
+experience). If player conversion needs it, add PayPal as a *second* checkout
+option later. All fee figures are current-terms estimates — confirm at build.
+
 Because money must reach **many different organizers** (not one platform bank
 account), the standard tool is **Stripe Connect**:
 
