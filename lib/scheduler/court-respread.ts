@@ -50,33 +50,40 @@ export function respreadCourts(
   };
   if (courts.length === 0) return empty;
 
-  const byWave = new Map<string, RespreadGame[]>();
+  // Key waves on the parsed instant (epoch ms), not the raw string: the app
+  // writes scheduled_at in more than one textual form (zone-offset from the
+  // generator, `…Z` from push/mid-season, client-verbatim from reschedule), so
+  // two simultaneous games can carry byte-different strings. Grouping by instant
+  // avoids handing the same court to two games that are actually at once.
+  const byWave = new Map<number, RespreadGame[]>();
   for (const g of games) {
     if (!g.scheduledAt) continue;
-    const list = byWave.get(g.scheduledAt);
+    const ms = new Date(g.scheduledAt).getTime();
+    if (Number.isNaN(ms)) continue;
+    const list = byWave.get(ms);
     if (list) list.push(g);
-    else byWave.set(g.scheduledAt, [g]);
+    else byWave.set(ms, [g]);
   }
 
   // Waves in time order; games within a wave in a stable order (by id).
-  const instants = [...byWave.keys()].sort();
-  for (const iso of instants) {
-    byWave.get(iso)!.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const instants = [...byWave.keys()].sort((a, b) => a - b);
+  for (const ms of instants) {
+    byWave.get(ms)!.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   }
 
   let maxGamesPerWave = 0;
   let overCapacityWaves = 0;
-  for (const iso of instants) {
-    const n = byWave.get(iso)!.length;
+  for (const ms of instants) {
+    const n = byWave.get(ms)!.length;
     maxGamesPerWave = Math.max(maxGamesPerWave, n);
     if (n > courts.length) overCapacityWaves += 1;
   }
 
   const assigned = assignCourts(
-    instants.map((iso, round) => ({
+    instants.map((ms, round) => ({
       round,
       byeTeamId: null,
-      pairs: byWave.get(iso)!.map((g) => ({
+      pairs: byWave.get(ms)!.map((g) => ({
         homeTeamId: g.homeTeamId ?? g.id,
         awayTeamId: g.awayTeamId ?? g.id,
       })),
@@ -86,8 +93,8 @@ export function respreadCourts(
   );
 
   const assignments: { id: string; court: string }[] = [];
-  instants.forEach((iso, i) => {
-    byWave.get(iso)!.forEach((g, j) => {
+  instants.forEach((ms, i) => {
+    byWave.get(ms)!.forEach((g, j) => {
       assignments.push({ id: g.id, court: assigned[i].courts[j] });
     });
   });
