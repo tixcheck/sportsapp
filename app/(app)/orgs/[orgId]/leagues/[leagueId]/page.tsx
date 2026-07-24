@@ -26,6 +26,7 @@ import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason
 import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
+import { OrganizerLeagueTabs } from "@/components/league/organizer-league-tabs";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   BracketTree,
@@ -104,6 +105,217 @@ export default async function LeaguePage({
     blackoutDates: league.blackoutDates,
   };
 
+  const scheduleTab = (
+    <Card id="schedule" className="scroll-mt-4">
+      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle>Schedule</CardTitle>
+          <CardDescription>
+            {league.matchCount > 0
+              ? `${league.matchCount} matches generated.`
+              : "No matches yet."}
+          </CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {league.matchCount > 0 && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/print/schedule/${league.id}`} target="_blank">
+                <Printer className="size-4" />
+                Print
+              </Link>
+            </Button>
+          )}
+          {league.matchCount > 0 && hasUnscheduledTeams && (
+            <AddTeamsMidSeasonDialog
+              competitionId={league.id}
+              timezone={league.timezone}
+            />
+          )}
+          {league.matchCount > 0 && (
+            <ApplyCourtsDialog
+              competitionId={league.id}
+              currentCourts={league.courts}
+            />
+          )}
+          {league.matchCount > 0 && (
+            <PushScheduleDialog
+              competitionId={league.id}
+              timezone={league.timezone}
+            />
+          )}
+          <GenerateScheduleButton
+            competitionId={league.id}
+            hasSchedule={league.matchCount > 0}
+          />
+        </div>
+      </CardHeader>
+      {league.teams.length < 2 ? (
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            Add at least 2 teams to generate a round-robin schedule.
+          </p>
+        </CardContent>
+      ) : schedule.length > 0 ? (
+        <CardContent>
+          <ScheduleView
+            matches={schedule}
+            timezone={league.timezone}
+            editable
+            slotMinutes={league.minutesPerGame}
+          />
+        </CardContent>
+      ) : null}
+    </Card>
+  );
+
+  const standingsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Standings</CardTitle>
+        <CardDescription>
+          Live from confirmed scores — the OVA tiebreaker order.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <StandingsTable
+          rows={standings[0]?.rows ?? []}
+          format={league.matchFormat}
+          differential={league.tiebreaker === "differential"}
+        />
+        {(standings[0]?.rows.length ?? 0) > 0 && (
+          <StandingsLegend
+            format={league.matchFormat}
+            differential={league.tiebreaker === "differential"}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const playoffsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Playoffs</CardTitle>
+        <CardDescription>
+          Seed a playoff bracket from the final standings — single elimination,
+          or a Championship + Consolation split.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <LeaguePlayoffPanel
+          competitionId={league.id}
+          sport={league.sport}
+          standings={standings}
+          hasBracket={brackets.length > 0}
+          seasonComplete={seasonComplete}
+          courts={league.courts}
+        />
+        {brackets.map((b) => (
+          <div key={b.track ?? "single"} className="space-y-3">
+            {b.label && (
+              <h4 className="font-display text-lg font-semibold">{b.label}</h4>
+            )}
+            <BracketTree
+              bracket={b.view}
+              editable
+              timezone={league.timezone}
+              allMatches={allScheduleMatches}
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+
+  const teamsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Teams</CardTitle>
+        <CardDescription>
+          Add a team with its captain&apos;s email — they get a link to claim it
+          and join.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <AddTeamForm competitionId={league.id} />
+
+        <TeamManagementList
+          teams={league.teams.map((t) => ({
+            id: t.id,
+            name: t.name,
+            status: t.status,
+            claimed: !!t.captain_user_id,
+            captainInvite: teamInvites[t.id]?.captain ?? null,
+            partnerInvites: teamInvites[t.id]?.partners ?? [],
+            members: rosters[t.id] ?? [],
+          }))}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  const settingsTab = (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Scoring</CardTitle>
+          <CardDescription>
+            Who can enter scores, and whether they need confirming.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScoringSettingsCard
+            competitionId={league.id}
+            initial={league.scoring}
+          />
+        </CardContent>
+      </Card>
+
+      {coOrgs.canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organizers</CardTitle>
+            <CardDescription>
+              Add a helper to co-run this league only — full access here, no
+              access to the rest of the organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrganizerManager
+              rows={coOrgs.admins}
+              addAction={addCompetitionAdminAction.bind(null, league.id)}
+              removeAction={removeCompetitionAdminAction.bind(null, league.id)}
+              emptyText="No competition organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {coOrgs.canManage && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-destructive text-base">
+              Danger zone
+            </CardTitle>
+            <CardDescription>
+              Permanently delete this league and everything in it. Useful for a
+              test league or one that never launched — this can&apos;t be
+              undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeleteCompetitionDialog
+              competitionId={league.id}
+              name={league.name}
+              orgId={orgId}
+              kind="league"
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -164,213 +376,17 @@ export default async function LeaguePage({
         </p>
       </div>
 
-      {/* Schedule */}
-      <Card id="schedule" className="scroll-mt-4">
-        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
-          <div>
-            <CardTitle>Schedule</CardTitle>
-            <CardDescription>
-              {league.matchCount > 0
-                ? `${league.matchCount} matches generated.`
-                : "No matches yet."}
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            {league.matchCount > 0 && (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/print/schedule/${league.id}`} target="_blank">
-                  <Printer className="size-4" />
-                  Print
-                </Link>
-              </Button>
-            )}
-            {league.matchCount > 0 && hasUnscheduledTeams && (
-              <AddTeamsMidSeasonDialog
-                competitionId={league.id}
-                timezone={league.timezone}
-              />
-            )}
-            {league.matchCount > 0 && (
-              <ApplyCourtsDialog
-                competitionId={league.id}
-                currentCourts={league.courts}
-              />
-            )}
-            {league.matchCount > 0 && (
-              <PushScheduleDialog
-                competitionId={league.id}
-                timezone={league.timezone}
-              />
-            )}
-            <GenerateScheduleButton
-              competitionId={league.id}
-              hasSchedule={league.matchCount > 0}
-            />
-          </div>
-        </CardHeader>
-        {league.teams.length < 2 ? (
-          <CardContent>
-            <p className="text-muted-foreground text-sm">
-              Add at least 2 teams to generate a round-robin schedule.
-            </p>
-          </CardContent>
-        ) : schedule.length > 0 ? (
-          <CardContent>
-            <ScheduleView
-              matches={schedule}
-              timezone={league.timezone}
-              editable
-              slotMinutes={league.minutesPerGame}
-            />
-          </CardContent>
-        ) : null}
-      </Card>
-
-      {/* Standings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Standings</CardTitle>
-          <CardDescription>
-            Live from confirmed scores — the OVA tiebreaker order.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <StandingsTable
-            rows={standings[0]?.rows ?? []}
-            format={league.matchFormat}
-            differential={league.tiebreaker === "differential"}
-          />
-          {(standings[0]?.rows.length ?? 0) > 0 && (
-            <StandingsLegend
-              format={league.matchFormat}
-              differential={league.tiebreaker === "differential"}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Playoffs */}
-      {league.teams.length >= 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Playoffs</CardTitle>
-            <CardDescription>
-              Seed a playoff bracket from the final standings — single
-              elimination, or a Championship + Consolation split.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <LeaguePlayoffPanel
-              competitionId={league.id}
-              sport={league.sport}
-              standings={standings}
-              hasBracket={brackets.length > 0}
-              seasonComplete={seasonComplete}
-              courts={league.courts}
-            />
-            {brackets.map((b) => (
-              <div key={b.track ?? "single"} className="space-y-3">
-                {b.label && (
-                  <h4 className="font-display text-lg font-semibold">
-                    {b.label}
-                  </h4>
-                )}
-                <BracketTree
-                  bracket={b.view}
-                  editable
-                  timezone={league.timezone}
-                  allMatches={allScheduleMatches}
-                />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Teams */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Teams</CardTitle>
-          <CardDescription>
-            Add a team with its captain&apos;s email — they get a link to claim
-            it and join.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <AddTeamForm competitionId={league.id} />
-
-          <TeamManagementList
-            teams={league.teams.map((t) => ({
-              id: t.id,
-              name: t.name,
-              status: t.status,
-              claimed: !!t.captain_user_id,
-              captainInvite: teamInvites[t.id]?.captain ?? null,
-              partnerInvites: teamInvites[t.id]?.partners ?? [],
-              members: rosters[t.id] ?? [],
-            }))}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Scoring */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Scoring</CardTitle>
-          <CardDescription>
-            Who can enter scores, and whether they need confirming.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScoringSettingsCard
-            competitionId={league.id}
-            initial={league.scoring}
-          />
-        </CardContent>
-      </Card>
-
-      {coOrgs.canManage && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Organizers</CardTitle>
-            <CardDescription>
-              Add a helper to co-run this league only — full access here, no
-              access to the rest of the organization.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <OrganizerManager
-              rows={coOrgs.admins}
-              addAction={addCompetitionAdminAction.bind(null, league.id)}
-              removeAction={removeCompetitionAdminAction.bind(null, league.id)}
-              emptyText="No competition organizers yet. Add one by email."
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {coOrgs.canManage && (
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="text-destructive text-base">
-              Danger zone
-            </CardTitle>
-            <CardDescription>
-              Permanently delete this league and everything in it. Useful for a
-              test league or one that never launched — this can&apos;t be
-              undone.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DeleteCompetitionDialog
-              competitionId={league.id}
-              name={league.name}
-              orgId={orgId}
-              kind="league"
-            />
-          </CardContent>
-        </Card>
-      )}
+      <OrganizerLeagueTabs
+        tabs={[
+          { value: "schedule", label: "Schedule", content: scheduleTab },
+          { value: "standings", label: "Standings", content: standingsTab },
+          ...(league.teams.length >= 2
+            ? [{ value: "playoffs", label: "Playoffs", content: playoffsTab }]
+            : []),
+          { value: "teams", label: "Teams", content: teamsTab },
+          { value: "settings", label: "Settings", content: settingsTab },
+        ]}
+      />
     </div>
   );
 }
