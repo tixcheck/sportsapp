@@ -116,7 +116,7 @@ export default async function LeaguePage({
               : "No matches yet."}
           </CardDescription>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {league.matchCount > 0 && (
             <Button asChild variant="outline" size="sm">
               <Link href={`/print/schedule/${league.id}`} target="_blank">
