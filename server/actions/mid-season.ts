@@ -91,7 +91,7 @@ async function loadContext(
       supabase
         .from("matches")
         .select(
-          "id, scheduled_at, status, home_team_id, away_team_id, round, court",
+          "id, scheduled_at, status, home_team_id, away_team_id, round, court, bracket_position",
         )
         .eq("competition_id", args.competitionId),
     ]);
@@ -126,8 +126,15 @@ async function loadContext(
   );
 
   const matches = rows ?? [];
-  const played = matches.filter((m) => SETTLED.has(m.status as string));
-  const unplayed = matches.filter((m) => !SETTLED.has(m.status as string));
+  // Season (round-robin) matches only — a seeded playoff bracket lives in the
+  // same table with bracket_position set. Mid-season regeneration must NEVER
+  // touch the bracket (it deletes unplayed matches), so scope everything here to
+  // bracket_position === null, mirroring lib/standings/compute.ts.
+  const seasonMatches = matches.filter((m) => m.bracket_position === null);
+  const played = seasonMatches.filter((m) => SETTLED.has(m.status as string));
+  const unplayed = seasonMatches.filter(
+    (m) => !SETTLED.has(m.status as string),
+  );
 
   const primeLedger = new Map<string, number>();
   for (const m of played) {
@@ -175,7 +182,7 @@ async function loadContext(
   // Target games per team: the league's configured cap, else inferred from the
   // full week span (distinct dates across every match × games/week).
   const allDates = new Set(
-    matches
+    seasonMatches
       .map((m) => localDate(m.scheduled_at as string | null))
       .filter(Boolean),
   );
@@ -309,10 +316,16 @@ export async function addTeamsMidSeasonAction(
     courtDefs,
     ctx.primeLedger,
   );
+  // Number rounds by distinct instant, not by plan slot: mode-B make-up games
+  // get an extra wave whose slot can equal a later week's standard slot, so
+  // slot-based numbering would give two different-day games the same round and
+  // merge them in the by-round view. One instant = one round keeps it coherent.
   const courtByMatch = new Map<PlannedMatch, string>();
+  const roundByMatch = new Map<PlannedMatch, number>();
   instants.forEach((iso, i) => {
     byInstant.get(iso)!.forEach((m, j) => {
       courtByMatch.set(m, assigned[i].courts[j]);
+      roundByMatch.set(m, ctx.firstNewRound + i);
     });
   });
 
@@ -321,9 +334,7 @@ export async function addTeamsMidSeasonAction(
     home_team_id: m.homeTeamId,
     away_team_id: m.awayTeamId,
     status: "scheduled" as const,
-    // Each slot is one round; continue numbering after the played weeks so the
-    // games group under real "Round N" headings, not "Unscheduled".
-    round: ctx.firstNewRound + m.slot,
+    round: roundByMatch.get(m)!,
     court: courtByMatch.get(m)!,
     scheduled_at: atOf(m).toUTC().toISO(),
   }));

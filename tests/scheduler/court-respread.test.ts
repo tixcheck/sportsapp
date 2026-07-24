@@ -119,6 +119,29 @@ describe("respreadCourts", () => {
     expect(courtOf("g3")).toBe("N");
   });
 
+  it("groups simultaneous games written in different timestamp formats into one wave", () => {
+    // Same instant, two textual forms: zone-offset (generator) and Z (push).
+    // They must share a wave and get DISTINCT courts, not the same one.
+    const games: RespreadGame[] = [
+      {
+        id: "a",
+        scheduledAt: "2026-07-23T19:00:00.000-04:00",
+        homeTeamId: "a1",
+        awayTeamId: "a2",
+      },
+      {
+        id: "b",
+        scheduledAt: "2026-07-23T23:00:00.000Z", // same instant as above
+        homeTeamId: "b1",
+        awayTeamId: "b2",
+      },
+    ];
+    const res = respreadCourts(games, plain(numberedCourts(4)));
+    expect(res.waves).toBe(1);
+    const courts = res.assignments.map((x) => x.court);
+    expect(new Set(courts).size).toBe(2); // distinct — no double-book
+  });
+
   it("numberedCourts builds Court 1..N", () => {
     expect(numberedCourts(3)).toEqual(["Court 1", "Court 2", "Court 3"]);
     expect(numberedCourts(0)).toEqual([]);
