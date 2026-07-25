@@ -26,6 +26,7 @@ import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
+import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 import { endDatePassed } from "@/lib/competition/completion";
 import { Button } from "@/components/ui/button";
 import { MultiDaySetupCard } from "@/components/tournament/multi-day-setup-card";
@@ -56,6 +57,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { OrganizerTab } from "@/components/competition/organizer-tabs";
 
 export default async function TournamentPage({
   params,
@@ -84,6 +86,7 @@ export default async function TournamentPage({
     getTeamInvites(tournamentId),
     getCompetitionAdmins(tournamentId),
   ]);
+  const hasPools = poolsView?.hasPools ?? false;
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
     poolMatches.length > 0 &&
@@ -186,6 +189,329 @@ export default async function TournamentPage({
     },
   ];
 
+  const setupTab = (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Format &amp; setup</CardTitle>
+          <CardDescription>{structure.description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+            {setupItems.map((it) => (
+              <div key={it.label} className="flex flex-col">
+                <dt className="text-ink-2 text-[0.66rem] font-bold tracking-[0.1em] uppercase">
+                  {it.label}
+                </dt>
+                <dd className="text-ink mt-0.5">{it.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Days &amp; courts</CardTitle>
+          <CardDescription>
+            Split pool play across days and give each division its courts. Takes
+            effect the next time you draw pools.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MultiDaySetupCard
+            competitionId={t.id}
+            startDate={t.startDate}
+            endDate={t.endDate}
+            window={{
+              startTime: t.startTime ?? "09:00",
+              endTime: t.endTime ?? "17:00",
+            }}
+            gamesPerTeam={t.gamesPerTeam}
+            totalCourts={t.courts}
+            divisions={t.divisions}
+            initialDays={t.days}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pools</CardTitle>
+          <CardDescription>
+            Seed teams, choose the pool structure, then draw — auto snake-drafts
+            by seed (short pools play a double round-robin).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <GeneratePoolsPanel
+            competitionId={t.id}
+            divisions={divisionsWithTeams}
+            hasPools={hasPools}
+            defaultStartTime={t.startTime ?? "09:00"}
+            gamesPerTeam={t.gamesPerTeam}
+          />
+        </CardContent>
+      </Card>
+
+      {hasPools && poolsView && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pool draw</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PoolsDisplay
+              divisions={poolsView.divisions}
+              showDivisionHeadings={t.divisions.length > 1}
+              editable
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {hasPools && dropState.teams.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Drop a game</CardTitle>
+            <CardDescription>
+              Each team in a flagged pool drops one game from its own standings.
+              The result still counts for the opponent.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DropSelectionCard teams={dropState.teams} />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  const scheduleTab = poolsView && (
+    <div className="space-y-6">
+      <Card id="schedule" className="scroll-mt-4">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Pool schedule</CardTitle>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/print/schedule/${t.id}`} target="_blank">
+                  <Printer className="size-4" />
+                  Print
+                </Link>
+              </Button>
+              <RetimeScheduleDialog
+                competitionId={t.id}
+                currentMinutes={t.minutesPerGame}
+              />
+              <ReoptimizeScheduleButton competitionId={t.id} />
+              <RebalanceRefsButton competitionId={t.id} />
+            </div>
+          </div>
+          <CardDescription>
+            Edit a match to change its time or court. Re-optimizing evens out
+            wait times (and repacks courts before play starts), moving only
+            not-yet-played games; scores are preserved. Rebalancing refs evens
+            out who referees only — times, courts, and scores stay put.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScheduleView
+            matches={poolsView.schedule}
+            timezone={t.timezone}
+            editable
+            slotMinutes={t.minutesPerGame ?? estimateMatchMinutes(t.poolFormat)}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Matchup grid</CardTitle>
+          <CardDescription>
+            Who plays whom — a ✓ marks a scheduled game. GP is each team&apos;s
+            game count.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScheduleMatrix
+            divisions={poolsView.divisions}
+            showDivisionHeadings={t.divisions.length > 1}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const standingsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Standings</CardTitle>
+        <CardDescription>
+          Live from confirmed scores — the OVA tiebreaker order.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <StandingsGroups
+          groups={standings}
+          showDivision={t.divisions.length > 1}
+          format={t.poolFormat}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  const bracketTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Bracket</CardTitle>
+        <CardDescription>
+          {t.formatTemplate === "champ_consolation"
+            ? "Seed teams into the Championship + Consolation brackets."
+            : "Seed teams out of pools into a single-elimination bracket."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <GenerateBracketPanel
+          competitionId={t.id}
+          formatTemplate={t.formatTemplate}
+          dropsComplete={dropState.complete}
+          pools={standings}
+          hasBracket={brackets.length > 0 || !!reseedBracket}
+          poolPlayComplete={poolPlayComplete}
+          courts={t.courts}
+          allowReseed
+        />
+        {reseedBracket ? (
+          <ReseedBracket
+            bracket={reseedBracket}
+            editable
+            timezone={t.timezone}
+          />
+        ) : (
+          brackets.map((b) => (
+            <div key={b.track ?? "single"} className="space-y-3">
+              {b.label && (
+                <h4 className="font-display text-lg font-semibold">
+                  {b.label}
+                </h4>
+              )}
+              <BracketTree
+                bracket={b.view}
+                editable
+                timezone={t.timezone}
+                allMatches={allScheduleMatches}
+              />
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const teamsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Teams ({t.teams.length})</CardTitle>
+        <CardDescription>
+          Teams register at the public page, or add one manually with a
+          captain&apos;s email.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <AddTournamentTeamForm competitionId={t.id} divisions={t.divisions} />
+
+        <TeamManagementList
+          teams={t.teams.map((team) => ({
+            id: team.id,
+            name: team.name,
+            divisionName:
+              team.divisionId && t.divisions.length > 1
+                ? (divisionName.get(team.divisionId) ?? null)
+                : null,
+            status: team.status,
+            claimed: !!team.captainUserId,
+            captainInvite: teamInvites[team.id]?.captain ?? null,
+            partnerInvites: teamInvites[team.id]?.partners ?? [],
+            members: rosters[team.id] ?? [],
+            refCount: hasPools ? (refCountByTeam.get(team.id) ?? 0) : undefined,
+          }))}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  const settingsTab = (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Scoring</CardTitle>
+          <CardDescription>
+            Who can enter scores, and whether they need confirming.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScoringSettingsCard competitionId={t.id} initial={t.scoring} />
+        </CardContent>
+      </Card>
+
+      {coOrgs.canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organizers</CardTitle>
+            <CardDescription>
+              Add a helper to co-run this tournament only — full access here, no
+              access to the rest of the organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrganizerManager
+              rows={coOrgs.admins}
+              addAction={addCompetitionAdminAction.bind(null, t.id)}
+              removeAction={removeCompetitionAdminAction.bind(null, t.id)}
+              emptyText="No competition organizers yet. Add one by email."
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {coOrgs.canManage && (
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-destructive text-base">
+              Danger zone
+            </CardTitle>
+            <CardDescription>
+              Permanently delete this tournament and everything in it. Useful
+              for a test event or one that never launched — this can&apos;t be
+              undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DeleteCompetitionDialog
+              competitionId={t.id}
+              name={t.name}
+              orgId={orgId}
+              kind="tournament"
+            />
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+
+  const tabs: OrganizerTab[] = [
+    { value: "setup", label: "Setup", content: setupTab },
+    ...(hasPools
+      ? [
+          { value: "schedule", label: "Schedule", content: scheduleTab },
+          { value: "standings", label: "Standings", content: standingsTab },
+          { value: "bracket", label: "Bracket", content: bracketTab },
+        ]
+      : []),
+    { value: "teams", label: "Teams", content: teamsTab },
+    { value: "settings", label: "Settings", content: settingsTab },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -255,308 +581,10 @@ export default async function TournamentPage({
         </p>
       </div>
 
-      {/* Format & setup — what the organizer chose at creation */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Format &amp; setup</CardTitle>
-          <CardDescription>{structure.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
-            {setupItems.map((it) => (
-              <div key={it.label} className="flex flex-col">
-                <dt className="text-ink-2 text-[0.66rem] font-bold tracking-[0.1em] uppercase">
-                  {it.label}
-                </dt>
-                <dd className="text-ink mt-0.5">{it.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
-
-      {/* Days & courts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Days &amp; courts</CardTitle>
-          <CardDescription>
-            Split pool play across days and give each division its courts. Takes
-            effect the next time you draw pools.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MultiDaySetupCard
-            competitionId={t.id}
-            startDate={t.startDate}
-            endDate={t.endDate}
-            window={{
-              startTime: t.startTime ?? "09:00",
-              endTime: t.endTime ?? "17:00",
-            }}
-            gamesPerTeam={t.gamesPerTeam}
-            totalCourts={t.courts}
-            divisions={t.divisions}
-            initialDays={t.days}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Pools */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pools</CardTitle>
-          <CardDescription>
-            Seed teams, choose the pool structure, then draw — auto snake-drafts
-            by seed (short pools play a double round-robin).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <GeneratePoolsPanel
-            competitionId={t.id}
-            divisions={divisionsWithTeams}
-            hasPools={poolsView?.hasPools ?? false}
-            defaultStartTime={t.startTime ?? "09:00"}
-            gamesPerTeam={t.gamesPerTeam}
-          />
-        </CardContent>
-      </Card>
-
-      {poolsView?.hasPools && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Pool draw</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PoolsDisplay
-                divisions={poolsView.divisions}
-                showDivisionHeadings={t.divisions.length > 1}
-                editable
-              />
-            </CardContent>
-          </Card>
-          {dropState.teams.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Drop a game</CardTitle>
-                <CardDescription>
-                  Each team in a flagged pool drops one game from its own
-                  standings. The result still counts for the opponent.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DropSelectionCard teams={dropState.teams} />
-              </CardContent>
-            </Card>
-          )}
-          <Card id="schedule" className="scroll-mt-4">
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle>Pool schedule</CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/print/schedule/${t.id}`} target="_blank">
-                      <Printer className="size-4" />
-                      Print
-                    </Link>
-                  </Button>
-                  <RetimeScheduleDialog
-                    competitionId={t.id}
-                    currentMinutes={t.minutesPerGame}
-                  />
-                  <ReoptimizeScheduleButton competitionId={t.id} />
-                  <RebalanceRefsButton competitionId={t.id} />
-                </div>
-              </div>
-              <CardDescription>
-                Edit a match to change its time or court. Re-optimizing evens
-                out wait times (and repacks courts before play starts), moving
-                only not-yet-played games; scores are preserved. Rebalancing
-                refs evens out who referees only — times, courts, and scores
-                stay put.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScheduleView
-                matches={poolsView.schedule}
-                timezone={t.timezone}
-                editable
-                slotMinutes={
-                  t.minutesPerGame ?? estimateMatchMinutes(t.poolFormat)
-                }
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Matchup grid</CardTitle>
-              <CardDescription>
-                Who plays whom — a ✓ marks a scheduled game. GP is each
-                team&apos;s game count.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScheduleMatrix
-                divisions={poolsView.divisions}
-                showDivisionHeadings={t.divisions.length > 1}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Standings</CardTitle>
-              <CardDescription>
-                Live from confirmed scores — the OVA tiebreaker order.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StandingsGroups
-                groups={standings}
-                showDivision={t.divisions.length > 1}
-                format={t.poolFormat}
-              />
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {/* Bracket */}
-      {poolsView?.hasPools && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Bracket</CardTitle>
-            <CardDescription>
-              {t.formatTemplate === "champ_consolation"
-                ? "Seed teams into the Championship + Consolation brackets."
-                : "Seed teams out of pools into a single-elimination bracket."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <GenerateBracketPanel
-              competitionId={t.id}
-              formatTemplate={t.formatTemplate}
-              dropsComplete={dropState.complete}
-              pools={standings}
-              hasBracket={brackets.length > 0 || !!reseedBracket}
-              poolPlayComplete={poolPlayComplete}
-              courts={t.courts}
-              allowReseed
-            />
-            {reseedBracket ? (
-              <ReseedBracket
-                bracket={reseedBracket}
-                editable
-                timezone={t.timezone}
-              />
-            ) : (
-              brackets.map((b) => (
-                <div key={b.track ?? "single"} className="space-y-3">
-                  {b.label && (
-                    <h4 className="font-display text-lg font-semibold">
-                      {b.label}
-                    </h4>
-                  )}
-                  <BracketTree
-                    bracket={b.view}
-                    editable
-                    timezone={t.timezone}
-                    allMatches={allScheduleMatches}
-                  />
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Teams */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Teams ({t.teams.length})</CardTitle>
-          <CardDescription>
-            Teams register at the public page, or add one manually with a
-            captain&apos;s email.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <AddTournamentTeamForm competitionId={t.id} divisions={t.divisions} />
-
-          <TeamManagementList
-            teams={t.teams.map((team) => ({
-              id: team.id,
-              name: team.name,
-              divisionName:
-                team.divisionId && t.divisions.length > 1
-                  ? (divisionName.get(team.divisionId) ?? null)
-                  : null,
-              status: team.status,
-              claimed: !!team.captainUserId,
-              captainInvite: teamInvites[team.id]?.captain ?? null,
-              partnerInvites: teamInvites[team.id]?.partners ?? [],
-              members: rosters[team.id] ?? [],
-              refCount: poolsView?.hasPools
-                ? (refCountByTeam.get(team.id) ?? 0)
-                : undefined,
-            }))}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Scoring */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Scoring</CardTitle>
-          <CardDescription>
-            Who can enter scores, and whether they need confirming.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ScoringSettingsCard competitionId={t.id} initial={t.scoring} />
-        </CardContent>
-      </Card>
-
-      {coOrgs.canManage && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Organizers</CardTitle>
-            <CardDescription>
-              Add a helper to co-run this tournament only — full access here, no
-              access to the rest of the organization.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <OrganizerManager
-              rows={coOrgs.admins}
-              addAction={addCompetitionAdminAction.bind(null, t.id)}
-              removeAction={removeCompetitionAdminAction.bind(null, t.id)}
-              emptyText="No competition organizers yet. Add one by email."
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {coOrgs.canManage && (
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="text-destructive text-base">
-              Danger zone
-            </CardTitle>
-            <CardDescription>
-              Permanently delete this tournament and everything in it. Useful
-              for a test event or one that never launched — this can&apos;t be
-              undone.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DeleteCompetitionDialog
-              competitionId={t.id}
-              name={t.name}
-              orgId={orgId}
-              kind="tournament"
-            />
-          </CardContent>
-        </Card>
-      )}
+      <OrganizerTabs
+        tabs={tabs}
+        defaultValue={hasPools ? "schedule" : "setup"}
+      />
     </div>
   );
 }

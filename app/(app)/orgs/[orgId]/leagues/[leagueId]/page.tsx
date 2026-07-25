@@ -26,7 +26,7 @@ import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason
 import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
-import { OrganizerLeagueTabs } from "@/components/league/organizer-league-tabs";
+import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   BracketTree,
@@ -376,7 +376,7 @@ export default async function LeaguePage({
         </p>
       </div>
 
-      <OrganizerLeagueTabs
+      <OrganizerTabs
         tabs={[
           { value: "schedule", label: "Schedule", content: scheduleTab },
           { value: "standings", label: "Standings", content: standingsTab },
