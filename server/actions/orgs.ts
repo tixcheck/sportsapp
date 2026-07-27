@@ -69,5 +69,7 @@ export async function setCurrentOrgAction(orgId: string): Promise<void> {
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 365,
   });
-  revalidatePath("/dashboard");
+  // Switching org takes you to that org's page — otherwise selecting one only
+  // moved the checkmark (nothing reads the cookie except the switcher itself).
+  redirect(`/orgs/${orgId}`);
 }
