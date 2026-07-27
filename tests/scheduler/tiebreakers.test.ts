@@ -113,28 +113,7 @@ describe("rankStandings — step 1 (match wins)", () => {
   });
 });
 
-describe("rankStandings — step 2 (head-to-head)", () => {
-  it("breaks a two-way tie by who won head-to-head", () => {
-    // A,B tied at 2 wins; A beat B; D=1, C=0 (unique → step 1).
-    const rows = rankStandings(
-      ["A", "B", "C", "D"],
-      [
-        m("A", "B", SWEEP),
-        m("A", "C", SWEEP),
-        m("D", "A", SWEEP),
-        m("B", "C", SWEEP),
-        m("B", "D", SWEEP),
-      ],
-    );
-    expect(rows.map((r) => r.teamId)).toEqual(["A", "B", "D", "C"]);
-    expect(rows[0].tiebreakerStep).toBe(2);
-    expect(rows[1].tiebreakerStep).toBe(2);
-    expect(rows[2].tiebreakerStep).toBe(1); // D, unique win count
-    expect(rows[3].tiebreakerStep).toBe(1); // C
-  });
-});
-
-describe("rankStandings — step 3 (set ratio)", () => {
+describe("rankStandings — step 2 (set ratio)", () => {
   it("breaks a split (1–1) two-way tie by set ratio", () => {
     const rows = rankStandings(
       ["A", "B"],
@@ -147,12 +126,12 @@ describe("rankStandings — step 3 (set ratio)", () => {
         m("B", "A", SWEEP), // B wins 2–0
       ],
     );
-    // A: sw 2 sl 3 = 0.667; B: sw 3 sl 2 = 1.5 → B first.
+    // A: sw 2 sl 3 = 0.667; B: sw 3 sl 2 = 1.5 → B first (set ratio is step 2 now).
     expect(rows.map((r) => r.teamId)).toEqual(["B", "A"]);
-    expect(rows.every((r) => r.tiebreakerStep === 3)).toBe(true);
+    expect(rows.every((r) => r.tiebreakerStep === 2)).toBe(true);
   });
 
-  it("falls through a 3-way circular head-to-head to set ratio", () => {
+  it("separates a 3-way tie by set ratio (head-to-head never reached)", () => {
     const rows = rankStandings(
       ["A", "B", "C"],
       [
@@ -165,9 +144,10 @@ describe("rankStandings — step 3 (set ratio)", () => {
         m("C", "A", SWEEP), // C sw2 sl0
       ],
     );
-    // setRatios: C=3/2=1.5, A=2/2=1, B=2/3=0.667 → C, A, B
+    // setRatios: C=3/2=1.5, A=2/2=1, B=2/3=0.667 → C, A, B — resolved at set
+    // ratio (step 2), so the circular head-to-head never comes into play.
     expect(rows.map((r) => r.teamId)).toEqual(["C", "A", "B"]);
-    expect(rows.every((r) => r.tiebreakerStep === 3)).toBe(true);
+    expect(rows.every((r) => r.tiebreakerStep === 2)).toBe(true);
   });
 
   it("ranks an infinite set ratio (SL=0) above a finite one", () => {
@@ -188,15 +168,15 @@ describe("rankStandings — step 3 (set ratio)", () => {
         ]), // B drops sets
       ],
     );
-    // A,B tied at 2 wins, never played → h2h 0/0, then set ratio: A=∞ > B.
+    // A,B tied at 2 wins → set ratio (step 2): A=∞ > B.
     expect(rows[0].teamId).toBe("A");
     expect(rows[1].teamId).toBe("B");
-    expect(rows[0].tiebreakerStep).toBe(3);
+    expect(rows[0].tiebreakerStep).toBe(2);
     expect(rows[0].setRatio).toBe(Infinity);
   });
 });
 
-describe("rankStandings — step 4 (point ratio)", () => {
+describe("rankStandings — step 3 (point ratio)", () => {
   it("breaks a tie equal through set ratio by point ratio", () => {
     const rows = rankStandings(
       ["A", "B"],
@@ -211,9 +191,31 @@ describe("rankStandings — step 4 (point ratio)", () => {
         ]), // B 2–0, +4
       ],
     );
-    // Both 1 win, set ratio 1.0; A point ratio 96/90 > B 90/96.
+    // Both 1 win, set ratio 1.0; A point ratio 96/90 > B 90/96 (step 3 now).
     expect(rows.map((r) => r.teamId)).toEqual(["A", "B"]);
-    expect(rows.every((r) => r.tiebreakerStep === 4)).toBe(true);
+    expect(rows.every((r) => r.tiebreakerStep === 3)).toBe(true);
+  });
+});
+
+describe("rankStandings — step 4 (head-to-head, the final tiebreaker)", () => {
+  it("breaks a tie by who won head-to-head only when ratios are equal", () => {
+    // A,B tied at 2 wins AND identical set ratio (2) AND point ratio (1.333);
+    // A beat B, so head-to-head (step 4) puts A first. D=1, C=0 (unique → step 1).
+    const rows = rankStandings(
+      ["A", "B", "C", "D"],
+      [
+        m("A", "B", SWEEP),
+        m("A", "C", SWEEP),
+        m("D", "A", SWEEP),
+        m("B", "C", SWEEP),
+        m("B", "D", SWEEP),
+      ],
+    );
+    expect(rows.map((r) => r.teamId)).toEqual(["A", "B", "D", "C"]);
+    expect(rows[0].tiebreakerStep).toBe(4);
+    expect(rows[1].tiebreakerStep).toBe(4);
+    expect(rows[2].tiebreakerStep).toBe(1); // D, unique win count
+    expect(rows[3].tiebreakerStep).toBe(1); // C
   });
 });
 
@@ -238,8 +240,33 @@ describe("rankStandings — step 5 (unresolved)", () => {
   });
 });
 
+describe("rankStandings — ratio beats head-to-head (the owner's rule)", () => {
+  it("ranks the better point ratio ABOVE the head-to-head winner", () => {
+    // A and B tie at 2 wins with equal set ratio. A beat B head-to-head, but B
+    // has the far better point ratio (blew out C & D; A won its games narrowly).
+    // New rule: ratio decides first, so B ranks above A even though A beat B.
+    // (Under the old OVA order — head-to-head first — A would have been first.)
+    const single = (h: number, a: number): [number, number][] => [[h, a]];
+    const rows = rankStandings(
+      ["A", "B", "C", "D"],
+      [
+        m("A", "B", single(21, 20)), // A edges B
+        m("A", "C", single(21, 20)), // A edges C
+        m("D", "A", single(21, 10)), // A loses to D
+        m("B", "C", single(21, 2)), // B crushes C
+        m("B", "D", single(21, 2)), // B crushes D
+      ],
+    );
+    // A: 2 wins, pf 52 / pa 61 = 0.852. B: 2 wins, pf 62 / pa 25 = 2.48.
+    // Both set ratio 2.0 → point ratio (step 3) → B first, then A.
+    expect(rows.map((r) => r.teamId)).toEqual(["B", "A", "D", "C"]);
+    expect(rows[0]).toMatchObject({ teamId: "B", tiebreakerStep: 3 });
+    expect(rows[1]).toMatchObject({ teamId: "A", tiebreakerStep: 3 });
+  });
+});
+
 describe("rankStandings — mixed steps (3-way partial)", () => {
-  it("separates top by head-to-head, rest by point ratio", () => {
+  it("separates top by set ratio, rest by point ratio", () => {
     const rows = rankStandings(
       ["A", "B", "C", "D", "E"],
       [
@@ -269,11 +296,12 @@ describe("rankStandings — mixed steps (3-way partial)", () => {
         ]),
       ],
     );
-    // A,B,C tied at 2 wins. h2h: A beat B & C → A first (step 2). B,C tied on
-    // set ratio (4/2 each) → point ratio: B (110/90) > C (110/110).
+    // A,B,C tied at 2 wins. Set ratio (step 2): A swept both (sl 0 → ∞) → A
+    // first. B,C tie on set ratio (4/2 each) → point ratio (step 3): B (110/90)
+    // > C (110/110). Head-to-head is never needed here.
     expect(rows[0]).toMatchObject({ teamId: "A", tiebreakerStep: 2 });
-    expect(rows[1]).toMatchObject({ teamId: "B", tiebreakerStep: 4 });
-    expect(rows[2]).toMatchObject({ teamId: "C", tiebreakerStep: 4 });
+    expect(rows[1]).toMatchObject({ teamId: "B", tiebreakerStep: 3 });
+    expect(rows[2]).toMatchObject({ teamId: "C", tiebreakerStep: 3 });
   });
 });
 

@@ -94,7 +94,23 @@ function buildExplainer(
           return entry(r, `${w} ${w === 1 ? "win" : "wins"}`);
         }),
       };
-    case 2: {
+    case 2:
+      return {
+        step: 2,
+        heading: "Sorting tied teams by set ratio (sets won / sets lost).",
+        entries: ordered.map((r) =>
+          entry(r, `${r.sw} / ${r.sl} = ${fmtRatio(r.setRatio)}`),
+        ),
+      };
+    case 3:
+      return {
+        step: 3,
+        heading: "Sorting tied teams by point ratio (points for / against).",
+        entries: ordered.map((r) =>
+          entry(r, `${r.pf} / ${r.pa} = ${fmtRatio(r.pointRatio)}`),
+        ),
+      };
+    case 4: {
       const h2h = new Map(
         headToHeadTable([...tied], results, droppedByTeam).map((e) => [
           e.teamId,
@@ -102,31 +118,15 @@ function buildExplainer(
         ]),
       );
       return {
-        step: 2,
+        step: 4,
         heading:
-          "Sorting teams by (matches won / played) between the tied teams.",
+          "Still tied — sorting by (matches won / played) between just these teams.",
         entries: ordered.map((r) => {
           const e = h2h.get(r.teamId)!;
           return entry(r, `${e.wins} / ${e.played} = ${fmtRatio(e.ratio)}`);
         }),
       };
     }
-    case 3:
-      return {
-        step: 3,
-        heading: "Sorting tied teams by set ratio (sets won / sets lost).",
-        entries: ordered.map((r) =>
-          entry(r, `${r.sw} / ${r.sl} = ${fmtRatio(r.setRatio)}`),
-        ),
-      };
-    case 4:
-      return {
-        step: 4,
-        heading: "Sorting tied teams by point ratio (points for / against).",
-        entries: ordered.map((r) =>
-          entry(r, `${r.pf} / ${r.pa} = ${fmtRatio(r.pointRatio)}`),
-        ),
-      };
     default:
       return {
         step: 5,

@@ -281,15 +281,17 @@ All scheduling algorithms must be **pure functions** in `lib/scheduler/`. No DB 
 
 This is critical and a common place where apps cut corners. **Do not cut corners.**
 
-The standard hierarchy used by OVA and most North American volleyball:
+The hierarchy (owner's rule, updated 2026-07-26 — **head-to-head is the *last* separator, not the second**, because "most wins, then best ratio, and only whoever-beat-whom on an exact tie" is far easier to explain to players than the OVA order):
 
 1. **Match wins** (descending)
-2. **Head-to-head**: if a subset of teams are tied on match wins, look at matches won between *only those tied teams*. Recompute MW/MP ratio within the tied subset.
-3. **Set ratio**: SW / SL across all matches (in the relevant competition)
-4. **Point ratio**: PF / PA across all matches
+2. **Set ratio**: SW / SL across all matches (in the relevant competition). *(In "point differential" leagues, steps 2–3 use PF − PA instead.)*
+3. **Point ratio**: PF / PA across all matches
+4. **Head-to-head**: only if a subset of teams are *still* exactly tied after ratio, look at matches won between *only those tied teams* (MW/MP ratio within the subset)
 5. **Coin flip / organizer decision** (last resort, displayed as "TBD" until resolved)
 
-When two teams have the same record at step 2, but a third team is also involved, the head-to-head computation can produce circular results. In that case, fall back to step 3 (set ratio) **calculated only among the still-tied teams**, then step 4 among the still-tied teams.
+Because head-to-head is now the final step, a circular head-to-head (A>B>C>A) simply fails to separate and falls through to "unresolved" — the ratios above already did the real ordering. Applies identically to leagues and tournaments.
+
+> Note: this deliberately diverges from the standard OVA order (which puts head-to-head second). It was a conscious owner decision for explainability; the code in `lib/scheduler/tiebreakers.ts` is the source of truth.
 
 ### UX requirement
 Tapping the position number on a standings row opens a modal showing exactly which tiebreaker step resolved the tie and the values used. Match the OVA app's style:
