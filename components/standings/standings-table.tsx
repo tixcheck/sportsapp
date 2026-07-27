@@ -269,11 +269,11 @@ export function StandingsLegend({
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
       <p>
         <span className="font-semibold">How rankings are calculated:</span> by{" "}
-        {unit} won{ties ? " (a tied 2-set game counts as ½ a win)" : ""}, then
-        head-to-head among tied teams,
+        {unit} won{ties ? " (a tied 2-set game counts as ½ a win)" : ""},
         {differential
-          ? " then point differential (PF − PA)."
-          : `${showSets ? " then set ratio (SW / SL)," : ""} then point ratio (PF / PA).`}
+          ? " then point differential (PF − PA),"
+          : `${showSets ? " then set ratio (SW / SL)," : ""} then point ratio (PF / PA),`}{" "}
+        then head-to-head among teams still tied.
       </p>
       <p className="text-ink-3">
         GP games played / scheduled · MW/ML {unit} won/lost ·

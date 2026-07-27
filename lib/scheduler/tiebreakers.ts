@@ -3,15 +3,18 @@
  *
  * Order of resolution within a group of teams tied on the prior criteria:
  *   1. Match wins (descending)
- *   2. Head-to-head: wins / played among the *tied subset only*
- *   3. Set ratio   (SW / SL across all matches in scope)
- *   4. Point ratio (PF / PA across all matches in scope)
+ *   2. Set ratio   (SW / SL across all matches in scope)
+ *   3. Point ratio (PF / PA across all matches in scope)
+ *   4. Head-to-head: wins / played among the *tied subset only*
  *   5. Unresolved  → coin flip / organizer decision ("TBD")
  *
- * Steps 3 and 4 use each team's overall ratios (the same SW/SL, PF/PA shown in
- * the standings table); at every step we only compare the still-tied subset, so
- * a circular head-to-head (A>B>C>A, all 0.5) simply fails to separate and falls
- * through to set ratio. Each returned row records which step resolved it.
+ * Head-to-head is the LAST separator, not the first: the rule is "most wins,
+ * then best ratio, and only if two teams are still exactly tied, whoever beat
+ * the other". That's simpler to explain than the OVA order (which put
+ * head-to-head second). Steps 2–3 use each team's overall ratios (the same
+ * SW/SL, PF/PA shown in the table); at every step we only compare the still-tied
+ * subset, so a circular head-to-head (A>B>C>A, all 0.5) simply fails to separate
+ * and falls through to "unresolved". Each row records which step resolved it.
  */
 
 export type TeamId = string;
@@ -70,11 +73,11 @@ export interface TeamStats {
 export type TiebreakerStep = 1 | 2 | 3 | 4 | 5;
 
 /**
- * Which hierarchy to rank by:
- *  - "ova": match wins → head-to-head → set ratio → point ratio (the default).
- *  - "differential": match wins → head-to-head → point differential (PF − PA);
- *    steps 3 and 4 both use point differential, so a further tie is unresolved.
- *    Used by leagues whose rules rank on point differential rather than ratios.
+ * Which hierarchy to rank by (head-to-head is the final step in both):
+ *  - "ova": match wins → set ratio → point ratio → head-to-head (the default).
+ *  - "differential": match wins → point differential (PF − PA) → head-to-head;
+ *    steps 2 and 3 both use point differential. Used by leagues whose rules rank
+ *    on point differential rather than ratios.
  */
 export type RankMode = "ova" | "differential";
 
@@ -324,7 +327,9 @@ function valuerFor(
   droppedByTeam?: DroppedByTeam,
   projection?: RankProjection,
 ): (id: TeamId) => number {
-  if (step === 2) {
+  // Head-to-head is the FINAL tiebreaker (step 4): a team only reaches it when
+  // it's still tied on wins AND ratio, so it compares just that residual subset.
+  if (step === 4) {
     const table = new Map(
       headToHeadTable(group, matches, droppedByTeam).map((e) => [
         e.teamId,
@@ -342,8 +347,8 @@ function valuerFor(
     if (mode === "differential") {
       return projectionFactor(s, projection) * (s.pf - s.pa);
     }
-    if (step === 3) return s.setRatio;
-    return s.pointRatio; // step 4
+    if (step === 2) return s.setRatio;
+    return s.pointRatio; // step 3
   };
 }
 
@@ -446,16 +451,16 @@ function explain(
     case 1:
       return `Match wins: ${s.mw + 0.5 * s.mt}`;
     case 2:
-      return `Head-to-head among tied teams: ${formatRatio(value)}`;
     case 3:
-    case 4:
       if (mode === "differential") {
         const diff = s.pf - s.pa;
         return `Point differential ${s.pf}−${s.pa} = ${diff >= 0 ? "+" : ""}${diff}`;
       }
-      return step === 3
+      return step === 2
         ? `Set ratio ${s.sw}/${s.sl} = ${formatRatio(s.setRatio)}`
         : `Point ratio ${s.pf}/${s.pa} = ${formatRatio(s.pointRatio)}`;
+    case 4:
+      return `Head-to-head among tied teams: ${formatRatio(value)}`;
     case 5:
       return "Unresolved — coin flip / organizer decision (TBD)";
   }
