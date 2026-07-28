@@ -14,6 +14,7 @@ import {
 } from "@/server/actions/organizers";
 import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
+import { ManageTiersDialog } from "@/components/league/manage-tiers-dialog";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
@@ -34,6 +35,7 @@ import {
 } from "@/components/bracket/bracket-tree";
 import {
   StandingsTable,
+  StandingsGroups,
   StandingsLegend,
 } from "@/components/standings/standings-table";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
@@ -177,16 +179,27 @@ export default async function LeaguePage({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <StandingsTable
-          rows={standings[0]?.rows ?? []}
-          format={league.matchFormat}
-          differential={league.tiebreaker === "differential"}
-        />
-        {(standings[0]?.rows.length ?? 0) > 0 && (
-          <StandingsLegend
+        {standings.length > 1 ? (
+          <StandingsGroups
+            groups={standings}
+            showDivision={false}
             format={league.matchFormat}
             differential={league.tiebreaker === "differential"}
           />
+        ) : (
+          <>
+            <StandingsTable
+              rows={standings[0]?.rows ?? []}
+              format={league.matchFormat}
+              differential={league.tiebreaker === "differential"}
+            />
+            {(standings[0]?.rows.length ?? 0) > 0 && (
+              <StandingsLegend
+                format={league.matchFormat}
+                differential={league.tiebreaker === "differential"}
+              />
+            )}
+          </>
         )}
       </CardContent>
     </Card>
@@ -229,15 +242,19 @@ export default async function LeaguePage({
 
   const teamsTab = (
     <Card>
-      <CardHeader>
-        <CardTitle>Teams</CardTitle>
-        <CardDescription>
-          Add a team with its captain&apos;s email — they get a link to claim it
-          and join.
-        </CardDescription>
+      <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
+        <div>
+          <CardTitle>Teams</CardTitle>
+          <CardDescription>
+            Add a team with its captain&apos;s email — they get a link to claim
+            it and join.
+            {league.tiers.length > 1 && " Pick which tier each team plays in."}
+          </CardDescription>
+        </div>
+        <ManageTiersDialog competitionId={league.id} tiers={league.tiers} />
       </CardHeader>
       <CardContent className="space-y-4">
-        <AddTeamForm competitionId={league.id} />
+        <AddTeamForm competitionId={league.id} tiers={league.tiers} />
 
         <TeamManagementList
           teams={league.teams.map((t) => ({

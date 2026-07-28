@@ -377,17 +377,51 @@ export async function loadStandings(
       }
     }
 
-    const rows = rank(teamIds, results, scheduled, projection).map((r) => ({
-      ...r,
-      weekly: weeklyTallies(entriesByTeam.get(r.teamId) ?? []),
-    }));
+    const buildRows = (ids: string[]) =>
+      rank(ids, results, scheduled, projection).map((r) => ({
+        ...r,
+        weekly: weeklyTallies(entriesByTeam.get(r.teamId) ?? []),
+      }));
+
+    // Tiered league: one standings group per tier (division), ordered by tier.
+    // Untiered: a single group, exactly as before.
+    const { data: divs } = await supabase
+      .from("divisions")
+      .select("id, name, tier_order")
+      .eq("competition_id", competitionId)
+      .order("tier_order", { ascending: true });
+
+    if ((divs ?? []).length > 0) {
+      const groups: StandingsGroup[] = (divs ?? []).map((d) => ({
+        poolId: null,
+        poolName: d.name as string,
+        divisionId: d.id as string,
+        divisionName: null,
+        rows: buildRows(
+          teams.filter((t) => t.division_id === d.id).map((t) => t.id),
+        ),
+      }));
+      // Teams not yet sorted into a tier surface in their own group.
+      const unsorted = teams.filter((t) => !t.division_id).map((t) => t.id);
+      if (unsorted.length > 0) {
+        groups.push({
+          poolId: null,
+          poolName: "Not sorted into a tier",
+          divisionId: null,
+          divisionName: null,
+          rows: buildRows(unsorted),
+        });
+      }
+      return groups;
+    }
+
     return [
       {
         poolId: null,
         poolName: null,
         divisionId: null,
         divisionName: null,
-        rows,
+        rows: buildRows(teamIds),
       },
     ];
   }

@@ -7,6 +7,7 @@ import { estimateMatchMinutes } from "@/lib/formats";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   StandingsTable,
+  StandingsGroups,
   StandingsLegend,
 } from "@/components/standings/standings-table";
 import { BracketTree } from "@/components/bracket/bracket-tree";
@@ -94,17 +95,29 @@ export function LeagueTabs({
       </TabsContent>
 
       <TabsContent value="standings" className="mt-6 space-y-3">
-        <StandingsTable
-          rows={standings[0]?.rows ?? []}
-          myTeamIds={myTeamIds}
-          format={league.matchFormat}
-          differential={league.tiebreaker === "differential"}
-        />
-        {(standings[0]?.rows.length ?? 0) > 0 && (
-          <StandingsLegend
+        {standings.length > 1 ? (
+          <StandingsGroups
+            groups={standings}
+            showDivision={false}
+            myTeamIds={myTeamIds}
             format={league.matchFormat}
             differential={league.tiebreaker === "differential"}
           />
+        ) : (
+          <>
+            <StandingsTable
+              rows={standings[0]?.rows ?? []}
+              myTeamIds={myTeamIds}
+              format={league.matchFormat}
+              differential={league.tiebreaker === "differential"}
+            />
+            {(standings[0]?.rows.length ?? 0) > 0 && (
+              <StandingsLegend
+                format={league.matchFormat}
+                differential={league.tiebreaker === "differential"}
+              />
+            )}
+          </>
         )}
       </TabsContent>
 
