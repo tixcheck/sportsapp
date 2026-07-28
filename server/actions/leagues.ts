@@ -492,12 +492,19 @@ export async function registerLeagueTeamAction(
   if (!parsed.success) return { error: "Please check the form." };
   const v = parsed.data;
 
+  const players = v.players
+    .filter((p) => p.email && p.email.trim().length > 0)
+    .map((p) => ({
+      name: p.name && p.name.trim().length > 0 ? p.name.trim() : null,
+      email: p.email.trim(),
+    }));
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("register_team", {
     _competition_id: competitionId,
     _division_id: v.divisionId ? v.divisionId : null,
     _team_name: v.teamName,
-    _player_emails: v.playerEmails,
+    _player_emails: players,
   });
   if (error) return { error: error.message };
 

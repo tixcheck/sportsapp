@@ -108,15 +108,30 @@ export const multiDayConfigSchema = z.object({
   ),
 });
 
+// One roster entry: an email (the login key — required to actually stored) and
+// an optional readable name. Empty email = a blank row the form filters out.
+export const registerPlayerSchema = z.object({
+  name: z.string().trim().max(80).optional(),
+  email: z.union([
+    z.string().trim().email("Enter a valid email."),
+    z.literal(""),
+  ]),
+});
+
 export const registerTeamSchema = z.object({
   teamName: z.string().trim().min(2, "Team name is too short.").max(80),
   // Empty string = no division/tier (single-division tournament, or an untiered
   // league). The register_team RPC validates any non-empty id belongs here.
   divisionId: z.string(),
-  playerEmails: z
-    .array(z.string().trim().email("Enter a valid email."))
-    .min(1, "Add at least one player."),
+  players: z
+    .array(registerPlayerSchema)
+    .min(1, "Add at least one player.")
+    .refine((ps) => ps.some((p) => p.email && p.email.length > 0), {
+      message: "Add at least one player email.",
+    }),
 });
+
+export type RegisterPlayerInput = z.infer<typeof registerPlayerSchema>;
 
 export type CreateTournamentInput = z.infer<typeof createTournamentSchema>;
 export type EditTournamentInput = z.infer<typeof editTournamentSchema>;
