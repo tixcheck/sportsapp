@@ -659,6 +659,10 @@ export const teamInvites = pgTable(
       .notNull()
       .references(() => teams.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
+    // Optional readable name captured at registration/invite time. Shown in the
+    // roster while the invite is pending; on claim it seeds the user's display
+    // name if they don't have one, so the name persists after they join.
+    name: text("name"),
     token: text("token").notNull().unique(),
     status: inviteStatus("status").notNull().default("pending"),
     // What claiming this invite grants: 'captain' links + sets the team captain;
@@ -695,7 +699,11 @@ export const teamRegistrations = pgTable(
       .notNull()
       .references(() => competitions.id, { onDelete: "cascade" }),
     contactEmail: text("contact_email").notNull(),
-    playerEmails: jsonb("player_emails").$type<string[]>().notNull(),
+    // The roster submitted at registration. Newer rows are { name, email }
+    // objects; older rows are plain email strings (register_team reads both).
+    playerEmails: jsonb("player_emails")
+      .$type<({ name: string | null; email: string } | string)[]>()
+      .notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

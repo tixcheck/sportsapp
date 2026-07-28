@@ -44,14 +44,18 @@ export function RegistrationForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  const emptyPlayers = () =>
+    Array.from({ length: rosterSize }, (_, i) => ({
+      name: "",
+      email: i === 0 ? (userEmail ?? "") : "",
+    }));
+
   const form = useForm<RegisterTeamInput>({
     resolver: zodResolver(registerTeamSchema),
     defaultValues: {
       teamName: "",
       divisionId: divisions[0]?.id ?? "",
-      playerEmails: Array.from({ length: rosterSize }, (_, i) =>
-        i === 0 ? (userEmail ?? "") : "",
-      ),
+      players: emptyPlayers(),
     },
   });
   const { register, handleSubmit, reset, formState } = form;
@@ -80,9 +84,7 @@ export function RegistrationForm({
       reset({
         teamName: "",
         divisionId: values.divisionId,
-        playerEmails: Array.from({ length: rosterSize }, (_, i) =>
-          i === 0 ? (userEmail ?? "") : "",
-        ),
+        players: emptyPlayers(),
       });
       router.refresh();
     });
@@ -117,21 +119,32 @@ export function RegistrationForm({
       )}
 
       <div className="grid gap-1.5">
-        <Label>Player emails</Label>
+        <Label>Players</Label>
+        <p className="text-muted-foreground text-xs">
+          A name and email for each player. The email is how they log in to see
+          the schedule and enter scores; the name just makes the roster easier
+          to read. Only the captain&apos;s email is required.
+        </p>
         <div className="grid gap-2">
           {Array.from({ length: rosterSize }, (_, i) => (
-            <Input
-              key={i}
-              type="email"
-              placeholder={i === 0 ? "You (captain)" : `Player ${i + 1}`}
-              readOnly={i === 0 && !!userEmail}
-              {...register(`playerEmails.${i}` as const)}
-            />
+            <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Input
+                placeholder={i === 0 ? "Your name" : `Player ${i + 1} name`}
+                {...register(`players.${i}.name` as const)}
+              />
+              <Input
+                type="email"
+                placeholder={i === 0 ? "You (captain)" : "Email (optional)"}
+                readOnly={i === 0 && !!userEmail}
+                {...register(`players.${i}.email` as const)}
+              />
+            </div>
           ))}
         </div>
-        {formState.errors.playerEmails && (
+        {formState.errors.players && (
           <p className="text-destructive text-sm">
-            Enter a valid email for each player.
+            {formState.errors.players.message ??
+              "Enter a valid email for each player you add."}
           </p>
         )}
       </div>

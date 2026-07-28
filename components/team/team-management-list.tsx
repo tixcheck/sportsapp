@@ -33,6 +33,8 @@ import { Label } from "@/components/ui/label";
 export interface ManagedTeamInvite {
   id: string;
   email: string;
+  /** Optional readable name captured at registration/invite time. */
+  name: string | null;
   token: string;
 }
 
@@ -143,10 +145,11 @@ function EditEmailDialog({
 /** A joined roster member, for the organizer's member controls. */
 type JoinedMember = { teamId: string; userId: string; isCaptain: boolean };
 
-/** One captain/partner line: their email, joined/pending state, and controls. */
+/** One captain/partner line: their name/email, joined/pending state, controls. */
 function ContactLine({
   label,
   email,
+  name,
   joined,
   inviteId,
   removable,
@@ -155,6 +158,8 @@ function ContactLine({
 }: {
   label: string;
   email: string;
+  /** Readable name, when known — shown before the email for legibility. */
+  name?: string | null;
   joined: boolean;
   inviteId?: string;
   removable?: boolean;
@@ -162,12 +167,23 @@ function ContactLine({
   member?: JoinedMember;
   onDone: () => void;
 }) {
+  // Only treat the name as extra info when it isn't just the email echoed back
+  // (a joined member with no display name falls back to their email).
+  const showName = !!name && name.trim() !== "" && name.trim() !== email;
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       <span className="text-muted-foreground w-16 shrink-0 font-medium">
         {label}
       </span>
-      <span className="text-foreground break-all">{email || "—"}</span>
+      {showName && <span className="text-foreground font-medium">{name}</span>}
+      <span
+        className={cn(
+          "break-all",
+          showName ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {email || "—"}
+      </span>
       <span
         className={cn(
           "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
@@ -297,6 +313,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
         <ContactLine
           label="Captain"
           email={captain.email}
+          name={captain.name}
           joined
           member={{ teamId: team.id, userId: captain.userId, isCaptain: true }}
           onDone={onDone}
@@ -305,6 +322,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
         <ContactLine
           label="Captain"
           email={team.captainInvite.email}
+          name={team.captainInvite.name}
           joined={false}
           inviteId={team.captainInvite.id}
           onDone={onDone}
@@ -317,6 +335,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           key={`m-${i}`}
           label="Partner"
           email={m.email}
+          name={m.name}
           joined
           member={{ teamId: team.id, userId: m.userId, isCaptain: false }}
           onDone={onDone}
@@ -327,6 +346,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           key={inv.id}
           label="Partner"
           email={inv.email}
+          name={inv.name}
           joined={false}
           inviteId={inv.id}
           removable

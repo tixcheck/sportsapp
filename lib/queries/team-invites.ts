@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 export interface TeamInvite {
   id: string;
   email: string;
+  /** Optional readable name captured when the invite was created. */
+  name: string | null;
   token: string;
 }
 
@@ -32,14 +34,19 @@ export async function getTeamInvites(
 
   const { data: invites } = await supabase
     .from("team_invites")
-    .select("id, team_id, email, token, role")
+    .select("id, team_id, email, name, token, role")
     .in("team_id", teamIds)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
   for (const i of invites ?? []) {
     const entry = (out[i.team_id] ??= { captain: null, partners: [] });
-    const inv: TeamInvite = { id: i.id, email: i.email, token: i.token };
+    const inv: TeamInvite = {
+      id: i.id,
+      email: i.email,
+      name: (i.name as string | null) ?? null,
+      token: i.token,
+    };
     if (i.role === "captain") entry.captain = inv;
     else entry.partners.push(inv);
   }
