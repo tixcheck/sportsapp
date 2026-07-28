@@ -1025,3 +1025,32 @@ export const kotcRoundResults = pgTable(
     index("kotc_round_results_round_id_idx").on(t.roundId),
   ],
 );
+
+// Site reviews (user testimonials about the app). Public reads see only
+// 'approved' rows; the platform admin moderates. One review per user (they can
+// re-submit to update it, which returns it to 'pending' for re-approval).
+export const reviewStatus = pgEnum("review_status", [
+  "pending",
+  "approved",
+  "hidden",
+]);
+
+export const reviews = pgTable("reviews", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Author display name captured at submit — the public reviews page is read by
+  // anonymous visitors who can't read the users table (RLS), so we denormalize.
+  authorName: text("author_name").notNull(),
+  rating: integer("rating").notNull(), // 1–5
+  comment: text("comment").notNull(),
+  status: reviewStatus("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

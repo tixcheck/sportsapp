@@ -226,6 +226,9 @@ export default async function HomePage() {
         <div className="text-ink-3 flex flex-wrap items-center justify-between gap-3 text-xs">
           <span>© 2026 MySportsApp — made in Toronto</span>
           <nav className="flex gap-4">
+            <Link href="/reviews" className="hover:text-ink-2">
+              Reviews
+            </Link>
             <Link href="/privacy" className="hover:text-ink-2">
               Privacy
             </Link>
