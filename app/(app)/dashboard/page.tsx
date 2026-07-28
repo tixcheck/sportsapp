@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 
 import { getUserOrgs } from "@/lib/auth/user";
 import {
@@ -219,6 +219,24 @@ export default async function DashboardPage() {
           )}
         </section>
       )}
+
+      <Link
+        href="/reviews"
+        className="border-rule bg-paper-raised hover:border-claret/40 flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-sm">
+          <Star className="text-claret size-4" />
+          <span>
+            <span className="font-medium">Enjoying mysportsapp?</span>{" "}
+            <span className="text-muted-foreground">
+              Leave a review — it helps other organizers find us.
+            </span>
+          </span>
+        </span>
+        <span className="text-claret shrink-0 text-sm font-medium">
+          Review →
+        </span>
+      </Link>
     </div>
   );
 }
