@@ -7,7 +7,7 @@ import { CalendarDays, Clock, MapPin } from "lucide-react";
 import { getPoolsView, getPublicTournament } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
-import { getMyTeamIds } from "@/lib/queries/access";
+import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
 import { getUser } from "@/lib/auth/user";
 import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
 import { RegistrationForm } from "@/components/tournament/registration-form";
@@ -44,12 +44,14 @@ export default async function PublicTournamentPage({
     getUser(),
   ]);
   if (!tournament) notFound();
-  const [poolsView, standings, brackets, myTeamIds] = await Promise.all([
-    getPoolsView(tournament.id),
-    getStandings(tournament.id),
-    getBrackets(tournament.id),
-    getMyTeamIds(tournament.id),
-  ]);
+  const [poolsView, standings, brackets, myTeamIds, scorableMatchIds] =
+    await Promise.all([
+      getPoolsView(tournament.id),
+      getStandings(tournament.id),
+      getBrackets(tournament.id),
+      getMyTeamIds(tournament.id),
+      getScorableMatchIds(tournament.id),
+    ]);
 
   const sportLabel = SPORTS.find((s) => s.value === tournament.sport)?.label;
   const deadlineText = tournament.registrationDeadline
@@ -139,6 +141,7 @@ export default async function PublicTournamentPage({
           standings={standings}
           brackets={brackets}
           myTeamIds={myTeamIds}
+          scorableMatchIds={scorableMatchIds}
           initialTab={tab}
         />
       </main>

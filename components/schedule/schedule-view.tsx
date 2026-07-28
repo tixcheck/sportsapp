@@ -228,15 +228,23 @@ export function ScheduleView({
   timezone,
   editable = false,
   myTeamIds = [],
+  scorableMatchIds = [],
   slotMinutes,
 }: {
   matches: ScheduleMatch[];
   timezone: string;
   editable?: boolean;
   myTeamIds?: string[];
+  /**
+   * Matches the viewer may score on a read-only (public) schedule — shows an
+   * "Enter score" link on their own games. Ignored when `editable` (the
+   * organizer view already shows score entry on every match).
+   */
+  scorableMatchIds?: string[];
   /** Minutes a game occupies — turns the By-team gaps into real break times. */
   slotMinutes?: number;
 }) {
+  const scorable = new Set(scorableMatchIds);
   const [view, setView] = useState<
     "list" | "agenda" | "court" | "team" | "matrix"
   >("list");
@@ -309,21 +317,34 @@ export function ScheduleView({
             ? groupByRoundWithOff(shown, dayScoped, myTeamIds, timezone)
             : groupByRound(shown, timezone);
 
-  const renderTrailing = (m: ScheduleMatch) =>
-    editable ? (
-      <span className="flex items-center gap-3">
-        {m.homeTeamId && m.awayTeamId && (
-          <Link
-            href={`/matches/${m.id}`}
-            className="text-claret inline-flex items-center gap-1 font-medium hover:underline"
-          >
-            <SquarePen className="size-3.5" />
-            {m.status === "completed" ? "Edit score" : "Enter score"}
-          </Link>
-        )}
-        <RescheduleDialog match={m} allMatches={matches} timezone={timezone} />
-      </span>
-    ) : undefined;
+  const scoreLink = (m: ScheduleMatch) =>
+    m.homeTeamId && m.awayTeamId ? (
+      <Link
+        href={`/matches/${m.id}`}
+        className="text-claret inline-flex items-center gap-1 font-medium hover:underline"
+      >
+        <SquarePen className="size-3.5" />
+        {m.status === "completed" ? "Edit score" : "Enter score"}
+      </Link>
+    ) : null;
+
+  const renderTrailing = (m: ScheduleMatch) => {
+    if (editable) {
+      // Organizer view: score entry on every match, plus reschedule.
+      return (
+        <span className="flex items-center gap-3">
+          {scoreLink(m)}
+          <RescheduleDialog
+            match={m}
+            allMatches={matches}
+            timezone={timezone}
+          />
+        </span>
+      );
+    }
+    // Public view: "Enter score" only on the viewer's own scorable games.
+    return scorable.has(m.id) ? scoreLink(m) : undefined;
+  };
 
   return (
     <div className="space-y-5">
