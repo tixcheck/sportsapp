@@ -173,6 +173,7 @@ export function TournamentTabs({
   standings,
   brackets,
   myTeamIds = [],
+  scorableMatchIds = [],
   initialTab,
 }: {
   tournament: PublicTournament;
@@ -180,6 +181,8 @@ export function TournamentTabs({
   standings: StandingsGroup[];
   brackets: BracketTrackView[];
   myTeamIds?: string[];
+  /** Matches the viewer may score — surfaces "Enter score" on their own games. */
+  scorableMatchIds?: string[];
   /** Tab to open on load (e.g. "pools" via ?tab=pools — where standings live). */
   initialTab?: string;
 }) {
@@ -271,6 +274,7 @@ export function TournamentTabs({
             matches={poolsView!.schedule}
             timezone={poolsView!.timezone}
             myTeamIds={effectiveMyTeamIds}
+            scorableMatchIds={scorableMatchIds}
             slotMinutes={
               tournament.minutesPerGame ??
               estimateMatchMinutes(tournament.poolFormat)

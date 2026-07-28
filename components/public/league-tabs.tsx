@@ -25,12 +25,15 @@ export function LeagueTabs({
   standings,
   brackets = [],
   myTeamIds = [],
+  scorableMatchIds = [],
   initialTab,
 }: {
   league: PublicLeague;
   standings: StandingsGroup[];
   brackets?: BracketTrackView[];
   myTeamIds?: string[];
+  /** Matches the viewer may score — surfaces "Enter score" on their own games. */
+  scorableMatchIds?: string[];
   /** Tab to open on load (e.g. "standings" via ?tab=standings). */
   initialTab?: string;
 }) {
@@ -62,6 +65,7 @@ export function LeagueTabs({
           matches={league.schedule}
           timezone={league.timezone}
           myTeamIds={myTeamIds}
+          scorableMatchIds={scorableMatchIds}
           slotMinutes={estimateMatchMinutes(league.matchFormat)}
         />
       </TabsContent>
