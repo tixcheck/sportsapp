@@ -23,7 +23,14 @@ export interface LeagueTeam {
   name: string;
   status: "active" | "withdrawn";
   captain_user_id: string | null;
+  /** The tier (division) this team is sorted into, or null (untiered/unsorted). */
+  divisionId: string | null;
   invite: { token: string; email: string; status: string } | null;
+}
+
+export interface LeagueTier {
+  id: string;
+  name: string;
 }
 
 export interface LeagueDetail {
@@ -62,6 +69,8 @@ export interface LeagueDetail {
     requireConfirmation: boolean;
   };
   teams: LeagueTeam[];
+  /** Skill tiers (divisions). Empty = untiered league. Ordered by tier. */
+  tiers: LeagueTier[];
   matchCount: number;
 }
 
@@ -147,9 +156,15 @@ export async function getLeagueDetail(
 
   const { data: teams } = await supabase
     .from("teams")
-    .select("id, name, status, captain_user_id")
+    .select("id, name, status, captain_user_id, division_id")
     .eq("competition_id", leagueId)
     .order("created_at", { ascending: true });
+
+  const { data: divisionRows } = await supabase
+    .from("divisions")
+    .select("id, name")
+    .eq("competition_id", leagueId)
+    .order("tier_order", { ascending: true });
 
   const teamIds = (teams ?? []).map((t) => t.id);
   const { data: invites } = teamIds.length
@@ -216,7 +231,12 @@ export async function getLeagueDetail(
       name: t.name,
       status: t.status as "active" | "withdrawn",
       captain_user_id: t.captain_user_id,
+      divisionId: (t.division_id as string | null) ?? null,
       invite: inviteByTeam.get(t.id) ?? null,
+    })),
+    tiers: (divisionRows ?? []).map((d) => ({
+      id: d.id as string,
+      name: d.name as string,
     })),
     matchCount: count ?? 0,
   };

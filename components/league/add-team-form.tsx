@@ -11,12 +11,24 @@ import { addTeamSchema, type AddTeamInput } from "@/lib/validations/league";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function AddTeamForm({ competitionId }: { competitionId: string }) {
+export function AddTeamForm({
+  competitionId,
+  tiers = [],
+}: {
+  competitionId: string;
+  /** League tiers to pick from — a tier select shows only when there are 2+. */
+  tiers?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const form = useForm<AddTeamInput>({
     resolver: zodResolver(addTeamSchema),
-    defaultValues: { name: "", captainEmail: "", partnerEmail: "" },
+    defaultValues: {
+      name: "",
+      captainEmail: "",
+      partnerEmail: "",
+      divisionId: tiers.length > 1 ? tiers[0].id : null,
+    },
   });
   const { register, handleSubmit, reset, formState } = form;
 
@@ -73,6 +85,23 @@ export function AddTeamForm({ competitionId }: { competitionId: string }) {
           )}
         </div>
       </div>
+      {tiers.length > 1 && (
+        <div>
+          <label className="text-muted-foreground mb-1 block text-xs font-medium">
+            Tier
+          </label>
+          <select
+            className="border-border bg-surface h-9 w-full rounded-md border px-2 text-sm"
+            {...register("divisionId")}
+          >
+            {tiers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <p className="text-muted-foreground text-xs">
         Add both partners&apos; emails so each sees the schedule and can enter
         scores. The partner is optional — the captain can add them later.

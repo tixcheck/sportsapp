@@ -115,7 +115,30 @@ export const addTeamSchema = z.object({
   partnerEmail: z
     .union([z.string().trim().email("Enter a valid email."), z.literal("")])
     .optional(),
+  // The tier (division) to register into, when the league has tiers. Null = the
+  // league is untiered, or "not sorted into a tier yet".
+  divisionId: z.string().uuid().nullable().optional(),
 });
+
+/**
+ * Manage a league's tiers (skill divisions). Each tier is a separate mini-league
+ * with its own schedule + standings. Rows with an `id` are existing tiers
+ * (renamed if the name changed); rows without are new; existing tiers absent
+ * from the list are deleted (teams in a deleted tier are un-sorted, not removed).
+ */
+export const manageLeagueTiersSchema = z.object({
+  competitionId: z.string().uuid(),
+  tiers: z
+    .array(
+      z.object({
+        id: z.string().uuid().optional(),
+        name: z.string().trim().min(1, "Tier name required.").max(40),
+      }),
+    )
+    .max(12, "That's a lot of tiers — cap is 12."),
+});
+
+export type ManageLeagueTiersInput = z.infer<typeof manageLeagueTiersSchema>;
 
 /**
  * Pushing a season back by whole weeks. Capped at 8: past that an organizer

@@ -17,14 +17,17 @@ import {
 } from "@/lib/formats";
 import { sendCaptainInvite, sendTeammateInvite } from "@/lib/email/send";
 import { generateRoundRobin } from "@/lib/scheduler/round-robin";
+import { planTieredLeagueSchedule } from "@/lib/scheduler/tiered-league";
 import { assignCourts } from "@/lib/scheduler/court-assign";
 import {
   addTeamSchema,
   createLeagueSchema,
   editLeagueSchema,
+  manageLeagueTiersSchema,
   type AddTeamInput,
   type CreateLeagueInput,
   type EditLeagueInput,
+  type ManageLeagueTiersInput,
 } from "@/lib/validations/league";
 import type { LeagueCourt, MatchFormat, WeeklySlot } from "@/lib/db/schema";
 
@@ -252,7 +255,11 @@ export async function addTeamAction(
 
   const { data: team, error } = await supabase
     .from("teams")
-    .insert({ competition_id: competitionId, name })
+    .insert({
+      competition_id: competitionId,
+      name,
+      division_id: parsed.data.divisionId ?? null,
+    })
     .select("id")
     .single();
   if (error || !team) return { error: error?.message ?? "Could not add team." };
@@ -341,6 +348,79 @@ export async function addTeamAction(
   };
 }
 
+/**
+ * Create / rename / delete a league's tiers (skill divisions). Diffs the given
+ * list against what exists: new rows inserted, renamed rows updated, and tiers
+ * dropped from the list deleted (their teams' division_id nulls via the FK, so a
+ * team is un-sorted, never removed). Organizer only.
+ */
+export async function manageLeagueTiersAction(
+  input: ManageLeagueTiersInput,
+): Promise<ActionError | { tiers: { id: string; name: string }[] }> {
+  const parsed = manageLeagueTiersSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the tiers." };
+  }
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: parsed.data.competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can manage tiers." };
+  }
+
+  const { data: existing } = await supabase
+    .from("divisions")
+    .select("id")
+    .eq("competition_id", parsed.data.competitionId);
+  const existingIds = new Set((existing ?? []).map((d) => d.id as string));
+  const keepIds = new Set(
+    parsed.data.tiers.map((t) => t.id).filter(Boolean) as string[],
+  );
+
+  const toDelete = [...existingIds].filter((id) => !keepIds.has(id));
+  if (toDelete.length > 0) {
+    const { error } = await supabase
+      .from("divisions")
+      .delete()
+      .in("id", toDelete);
+    if (error) return { error: error.message };
+  }
+
+  // Position in the list is the tier order (top = tier 0).
+  for (const [i, t] of parsed.data.tiers.entries()) {
+    if (t.id && existingIds.has(t.id)) {
+      const { error } = await supabase
+        .from("divisions")
+        .update({ name: t.name, tier_order: i })
+        .eq("id", t.id);
+      if (error) return { error: error.message };
+    } else {
+      const { error } = await supabase.from("divisions").insert({
+        competition_id: parsed.data.competitionId,
+        name: t.name,
+        tier_order: i,
+      });
+      if (error) return { error: error.message };
+    }
+  }
+
+  const { data: after } = await supabase
+    .from("divisions")
+    .select("id, name")
+    .eq("competition_id", parsed.data.competitionId)
+    .order("tier_order", { ascending: true });
+
+  revalidatePath("/orgs");
+  return {
+    tiers: (after ?? []).map((d) => ({
+      id: d.id as string,
+      name: d.name as string,
+    })),
+  };
+}
+
 export async function generateLeagueScheduleAction(
   competitionId: string,
 ): Promise<ActionError | { matchCount: number }> {
@@ -365,7 +445,7 @@ export async function generateLeagueScheduleAction(
 
   const { data: teams } = await supabase
     .from("teams")
-    .select("id")
+    .select("id, division_id")
     .eq("competition_id", competitionId);
   if (!teams || teams.length < 2) {
     return { error: "Add at least 2 teams before generating a schedule." };
@@ -379,6 +459,7 @@ export async function generateLeagueScheduleAction(
 
   const courtList = (settings.court_list as LeagueCourt[] | null) ?? null;
   const hasCourtList = courtList != null && courtList.length > 0;
+  const courtCount = hasCourtList ? courtList.length : slot.courts;
   const gamesPerWeek = (settings.games_per_week as number | null) ?? 1;
   // Stagger a night's games by the game length so a team never plays two at once.
   // Prefer the configured minutes-per-game; fall back to the format estimate.
@@ -391,51 +472,99 @@ export async function generateLeagueScheduleAction(
   let seed = 0;
   for (const ch of competitionId) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
 
-  const schedule = generateRoundRobin({
-    teamIds: teams.map((t) => t.id),
+  const rrInput = {
     roundsPerTeam: settings.rounds_per_team ?? 1,
     gamesPerTeam: (settings.games_per_team as number | null) ?? null,
-    courts: hasCourtList ? courtList.length : slot.courts,
     startDate,
     intervalDays: 7,
     gamesPerWeek,
     seed: seed >>> 0,
     blackoutDates: (settings.blackout_dates as string[] | null) ?? [],
-  });
+  };
+  const courtLabel = (n: number) =>
+    hasCourtList
+      ? `Court ${courtList[(n - 1) % courtList.length].label}`
+      : `Court ${n}`;
+  const at = (date: string, wave: number) =>
+    DateTime.fromISO(`${date}T${slot.startTime}`, { zone: tz })
+      .plus({ minutes: wave * gameMinutes })
+      .toISO();
 
-  // Custom courts + prime balancing: assign each match a court from the list,
-  // spreading prime courts evenly across teams. Else plain "Court N".
-  const assigned = hasCourtList
-    ? assignCourts(
-        schedule.rounds.map((r) => ({
-          round: r.round,
-          pairs: r.matches.map((m) => ({
-            homeTeamId: m.homeTeamId,
-            awayTeamId: m.awayTeamId,
-          })),
-          byeTeamId: r.byeTeamId,
-        })),
-        courtList,
-      )
-    : null;
+  // Tiered league: each tier (division) plays its own round robin, all sharing
+  // the calendar + court pool (courts assigned so tiers never collide). Untiered
+  // leagues keep the flat single round-robin path (with prime-court balancing).
+  const { data: divisions } = await supabase
+    .from("divisions")
+    .select("id, tier_order")
+    .eq("competition_id", competitionId)
+    .order("tier_order", { ascending: true });
 
-  const rows = schedule.rounds.flatMap((round, ri) =>
-    round.matches.map((mt, mi) => ({
+  let rows: {
+    competition_id: string;
+    round: number;
+    home_team_id: string;
+    away_team_id: string;
+    court: string;
+    status: "scheduled";
+    scheduled_at: string | null;
+  }[];
+
+  if ((divisions ?? []).length > 0) {
+    const tiers = (divisions ?? []).map((d) => ({
+      divisionId: d.id as string,
+      teamIds: teams
+        .filter((t) => t.division_id === d.id)
+        .map((t) => t.id as string),
+    }));
+    const { matches } = planTieredLeagueSchedule(tiers, {
+      ...rrInput,
+      courts: courtCount,
+    });
+    rows = matches.map((m) => ({
       competition_id: competitionId,
-      round: mt.round,
-      home_team_id: mt.homeTeamId,
-      away_team_id: mt.awayTeamId,
-      court: assigned
-        ? `Court ${assigned[ri].courts[mi]}`
-        : `Court ${mt.court}`,
+      round: m.round,
+      home_team_id: m.homeTeamId,
+      away_team_id: m.awayTeamId,
+      court: courtLabel(m.courtIndex),
       status: "scheduled" as const,
-      scheduled_at: DateTime.fromISO(`${mt.date}T${slot.startTime}`, {
-        zone: tz,
-      })
-        .plus({ minutes: round.wave * gameMinutes })
-        .toISO(),
-    })),
-  );
+      scheduled_at: at(m.date, m.wave),
+    }));
+  } else {
+    const schedule = generateRoundRobin({
+      ...rrInput,
+      teamIds: teams.map((t) => t.id),
+      courts: courtCount,
+    });
+    // Custom courts + prime balancing: assign each match a court from the list,
+    // spreading prime courts evenly across teams. Else plain "Court N".
+    const assigned = hasCourtList
+      ? assignCourts(
+          schedule.rounds.map((r) => ({
+            round: r.round,
+            pairs: r.matches.map((m) => ({
+              homeTeamId: m.homeTeamId,
+              awayTeamId: m.awayTeamId,
+            })),
+            byeTeamId: r.byeTeamId,
+          })),
+          courtList,
+        )
+      : null;
+
+    rows = schedule.rounds.flatMap((round, ri) =>
+      round.matches.map((mt, mi) => ({
+        competition_id: competitionId,
+        round: mt.round,
+        home_team_id: mt.homeTeamId,
+        away_team_id: mt.awayTeamId,
+        court: assigned
+          ? `Court ${assigned[ri].courts[mi]}`
+          : `Court ${mt.court}`,
+        status: "scheduled" as const,
+        scheduled_at: at(mt.date, round.wave),
+      })),
+    );
+  }
 
   // Regenerate replaces the existing (draft) schedule.
   const { error: delErr } = await supabase

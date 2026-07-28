@@ -294,12 +294,15 @@ export function StandingsGroups({
   showDivision,
   myTeamIds = [],
   format,
+  differential = false,
 }: {
   groups: StandingsGroup[];
   showDivision: boolean;
   myTeamIds?: string[];
   /** Pool-play format — makes the legend/columns accurate to the format. */
   format?: MatchFormat;
+  /** Point-differential tiebreaker (leagues) — passed to each group's table. */
+  differential?: boolean;
 }) {
   if (groups.length === 0) {
     return (
@@ -318,7 +321,10 @@ export function StandingsGroups({
   return (
     <div className="space-y-6">
       {groups.map((g) => (
-        <section key={g.poolId ?? "all"} className="space-y-2">
+        <section
+          key={g.poolId ?? g.divisionId ?? g.poolName ?? "all"}
+          className="space-y-2"
+        >
           <h4 className="font-display font-semibold">
             {g.poolName ?? "Standings"}
             {showDivision && g.divisionName && (
@@ -327,10 +333,19 @@ export function StandingsGroups({
               </span>
             )}
           </h4>
-          <StandingsTable rows={g.rows} myTeamIds={myTeamIds} format={format} />
+          <StandingsTable
+            rows={g.rows}
+            myTeamIds={myTeamIds}
+            format={format}
+            differential={differential}
+          />
         </section>
       ))}
-      <StandingsLegend singleSet={singleSet} format={format} />
+      <StandingsLegend
+        singleSet={singleSet}
+        format={format}
+        differential={differential}
+      />
     </div>
   );
 }
