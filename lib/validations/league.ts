@@ -141,6 +141,24 @@ export const manageLeagueTiersSchema = z.object({
 export type ManageLeagueTiersInput = z.infer<typeof manageLeagueTiersSchema>;
 
 /**
+ * Open/close public self-registration for a league, with an optional deadline
+ * (a date; the action pins it to end-of-day in the league's timezone). Empty
+ * deadline = open until the organizer closes it.
+ */
+export const setLeagueRegistrationSchema = z.object({
+  competitionId: z.string().uuid(),
+  open: z.boolean(),
+  deadline: z
+    .union([z.string().regex(DATE_RE, "Pick a valid date."), z.literal("")])
+    .nullable()
+    .optional(),
+});
+
+export type SetLeagueRegistrationInput = z.infer<
+  typeof setLeagueRegistrationSchema
+>;
+
+/**
  * Pushing a season back by whole weeks. Capped at 8: past that an organizer
  * is really rescheduling the season, not absorbing a cancellation.
  */

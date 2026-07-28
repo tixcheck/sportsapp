@@ -110,7 +110,9 @@ export const multiDayConfigSchema = z.object({
 
 export const registerTeamSchema = z.object({
   teamName: z.string().trim().min(2, "Team name is too short.").max(80),
-  divisionId: z.string().min(1, "Pick a division."),
+  // Empty string = no division/tier (single-division tournament, or an untiered
+  // league). The register_team RPC validates any non-empty id belongs here.
+  divisionId: z.string(),
   playerEmails: z
     .array(z.string().trim().email("Enter a valid email."))
     .min(1, "Add at least one player."),

@@ -3,12 +3,24 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin } from "lucide-react";
 
+import { DateTime } from "luxon";
+
 import { getPublicLeague } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
-import { SPORTS } from "@/lib/formats";
+import { getUser } from "@/lib/auth/user";
+import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
+import { registerLeagueTeamAction } from "@/server/actions/leagues";
+import { RegistrationForm } from "@/components/tournament/registration-form";
 import { LeagueTabs } from "@/components/public/league-tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export async function generateMetadata({
   params,
@@ -31,7 +43,7 @@ export default async function PublicLeaguePage({
 }) {
   const { slug } = await params;
   const { tab } = await searchParams;
-  const league = await getPublicLeague(slug);
+  const [league, user] = await Promise.all([getPublicLeague(slug), getUser()]);
   if (!league) notFound();
   const [standings, myTeamIds, scorableMatchIds, brackets] = await Promise.all([
     getStandings(league.id),
@@ -41,6 +53,11 @@ export default async function PublicLeaguePage({
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
+  const deadlineText = league.registrationDeadline
+    ? DateTime.fromISO(league.registrationDeadline, {
+        zone: league.timezone,
+      }).toFormat("LLL d, h:mm a")
+    : null;
 
   return (
     <div className="bg-background min-h-svh">
@@ -77,7 +94,32 @@ export default async function PublicLeaguePage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
+        {league.registrationOpen && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Register your team</CardTitle>
+              <CardDescription>
+                {deadlineText
+                  ? `Registration closes ${deadlineText}.`
+                  : "Registration is open."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RegistrationForm
+                competitionId={league.id}
+                divisions={league.tiers}
+                rosterSize={ROSTER_SIZE[league.sport]}
+                isAuthed={!!user}
+                userEmail={user?.email}
+                loginHref={`/login?next=/l/${slug}`}
+                action={registerLeagueTeamAction}
+                divisionLabel="Tier"
+              />
+            </CardContent>
+          </Card>
+        )}
+
         <LeagueTabs
           league={league}
           standings={standings}

@@ -313,6 +313,13 @@ export const leagueSettings = pgTable("league_settings", {
   // The league's specific courts (custom-courts feature). Null/empty = plain
   // 1…N numbering from the weekly slot's court count.
   courtList: jsonb("court_list").$type<LeagueCourt[]>(),
+  // Public self-registration. Independent of visibility: an organizer can share
+  // a published league's schedule with registration closed. Registration is
+  // "open" when this is true AND the deadline (if set) hasn't passed.
+  registrationOpen: boolean("registration_open").notNull().default(false),
+  registrationDeadline: timestamp("registration_deadline", {
+    withTimezone: true,
+  }),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */

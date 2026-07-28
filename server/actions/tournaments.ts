@@ -279,7 +279,7 @@ export async function registerTeamAction(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("register_team", {
     _competition_id: competitionId,
-    _division_id: v.divisionId,
+    _division_id: v.divisionId ? v.divisionId : null,
     _team_name: v.teamName,
     _player_emails: v.playerEmails,
   });
