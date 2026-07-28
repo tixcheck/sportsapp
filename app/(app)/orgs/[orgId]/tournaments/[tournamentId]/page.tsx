@@ -25,6 +25,7 @@ import {
 import { tournamentFormat } from "@/lib/tournament-formats";
 import { EditTournamentSettingsDialog } from "@/components/tournament/edit-tournament-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
+import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
 import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 import { endDatePassed } from "@/lib/competition/completion";
@@ -543,6 +544,9 @@ export default async function TournamentPage({
               status={t.status}
               visibility={t.visibility}
             />
+            {t.status === "open" && t.visibility === "public" && (
+              <CopyRegistrationLink slug={t.slug} />
+            )}
             <CompleteToggle
               competitionId={t.id}
               status={t.status}

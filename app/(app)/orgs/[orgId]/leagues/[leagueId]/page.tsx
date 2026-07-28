@@ -28,6 +28,7 @@ import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
+import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
 import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
@@ -371,6 +372,9 @@ export default async function LeaguePage({
               registrationDeadline={league.registrationDeadline}
               published={league.status === "open"}
             />
+            {league.registrationOpen && (
+              <CopyRegistrationLink slug={league.slug} />
+            )}
             <CompleteToggle
               competitionId={league.id}
               status={league.status}
