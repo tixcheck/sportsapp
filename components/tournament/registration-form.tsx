@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type RegisterResult = { error: string } | { teamId: string };
+
 export function RegistrationForm({
   competitionId,
   divisions,
@@ -23,6 +25,9 @@ export function RegistrationForm({
   isAuthed,
   userEmail,
   loginHref,
+  action = registerTeamAction,
+  // "division" (tournaments) vs "tier" (leagues) — just the label players see.
+  divisionLabel = "Division",
 }: {
   competitionId: string;
   divisions: { id: string; name: string }[];
@@ -30,6 +35,11 @@ export function RegistrationForm({
   isAuthed: boolean;
   userEmail?: string;
   loginHref: string;
+  action?: (
+    competitionId: string,
+    values: RegisterTeamInput,
+  ) => Promise<RegisterResult>;
+  divisionLabel?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -61,7 +71,7 @@ export function RegistrationForm({
 
   function onSubmit(values: RegisterTeamInput) {
     startTransition(async () => {
-      const result = await registerTeamAction(competitionId, values);
+      const result = await action(competitionId, values);
       if ("error" in result) {
         toast.error(result.error);
         return;
@@ -92,7 +102,7 @@ export function RegistrationForm({
 
       {divisions.length > 1 && (
         <div className="grid gap-1.5">
-          <Label>Division</Label>
+          <Label>{divisionLabel}</Label>
           <select
             {...register("divisionId")}
             className="border-border bg-surface h-9 w-full rounded-md border px-3 text-sm"

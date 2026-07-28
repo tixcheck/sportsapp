@@ -71,6 +71,9 @@ export interface LeagueDetail {
   teams: LeagueTeam[];
   /** Skill tiers (divisions). Empty = untiered league. Ordered by tier. */
   tiers: LeagueTier[];
+  /** Public self-registration state (organizer controls). */
+  registrationOpen: boolean;
+  registrationDeadline: string | null;
   matchCount: number;
 }
 
@@ -104,6 +107,12 @@ export interface PublicLeague {
   matchFormat: MatchFormat;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: "ova" | "differential";
+  /** Skill tiers (divisions) teams can register into. Empty = untiered. */
+  tiers: LeagueTier[];
+  /** Whether self-registration is currently accepting teams (open + in window). */
+  registrationOpen: boolean;
+  /** Registration close datetime (ISO), when set. */
+  registrationDeadline: string | null;
   teams: { id: string; name: string }[];
   schedule: ScheduleMatch[];
 }
@@ -153,6 +162,14 @@ export async function getLeagueDetail(
     .eq("competition_id", leagueId)
     .maybeSingle();
   const slot = (settings?.weekly_slots as WeeklySlot[] | null)?.[0];
+
+  // Registration columns are read separately so that — before migration 0057
+  // lands — a missing-column error can't blank out the core settings above.
+  const { data: regRow } = await supabase
+    .from("league_settings")
+    .select("registration_open, registration_deadline")
+    .eq("competition_id", leagueId)
+    .maybeSingle();
 
   const { data: teams } = await supabase
     .from("teams")
@@ -238,6 +255,9 @@ export async function getLeagueDetail(
       id: d.id as string,
       name: d.name as string,
     })),
+    registrationOpen: (regRow?.registration_open as boolean | null) === true,
+    registrationDeadline:
+      (regRow?.registration_deadline as string | null) ?? null,
     matchCount: count ?? 0,
   };
 }
@@ -327,20 +347,39 @@ export async function getPublicLeague(
     .single();
   if (!league) return null; // not found, or private (RLS hides drafts)
 
-  const [{ data: teams }, { data: settings }] = await Promise.all([
-    supabase
-      .from("teams")
-      .select("id, name")
-      .eq("competition_id", league.id)
-      .order("name", { ascending: true }),
-    supabase
-      .from("league_settings")
-      .select("tiebreaker")
-      .eq("competition_id", league.id)
-      .single(),
-  ]);
+  const [{ data: teams }, { data: settings }, { data: divisionRows }] =
+    await Promise.all([
+      supabase
+        .from("teams")
+        .select("id, name")
+        .eq("competition_id", league.id)
+        .order("name", { ascending: true }),
+      supabase
+        .from("league_settings")
+        .select("tiebreaker")
+        .eq("competition_id", league.id)
+        .single(),
+      supabase
+        .from("divisions")
+        .select("id, name")
+        .eq("competition_id", league.id)
+        .order("tier_order", { ascending: true }),
+    ]);
+
+  // Registration columns read separately (see getLeagueDetail) so a pre-0057
+  // missing-column error can't take down the tiebreaker read above.
+  const { data: regRow } = await supabase
+    .from("league_settings")
+    .select("registration_open, registration_deadline")
+    .eq("competition_id", league.id)
+    .maybeSingle();
 
   const schedule = await loadSchedule(supabase, league.id);
+
+  const deadline = (regRow?.registration_deadline as string | null) ?? null;
+  const registrationOpen =
+    (regRow?.registration_open as boolean | null) === true &&
+    (!deadline || new Date(deadline) > new Date());
 
   return {
     id: league.id,
@@ -357,6 +396,12 @@ export async function getPublicLeague(
     )
       ? "differential"
       : "ova",
+    tiers: (divisionRows ?? []).map((d) => ({
+      id: d.id as string,
+      name: d.name as string,
+    })),
+    registrationOpen,
+    registrationDeadline: deadline,
     teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
     schedule,
   };

@@ -27,6 +27,7 @@ import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason
 import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
+import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
 import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
@@ -362,6 +363,13 @@ export default async function LeaguePage({
               competitionId={league.id}
               status={league.status}
               slug={league.slug}
+            />
+            <LeagueRegistrationControls
+              competitionId={league.id}
+              timezone={league.timezone}
+              registrationOpen={league.registrationOpen}
+              registrationDeadline={league.registrationDeadline}
+              published={league.status === "open"}
             />
             <CompleteToggle
               competitionId={league.id}

@@ -24,11 +24,17 @@ import {
   createLeagueSchema,
   editLeagueSchema,
   manageLeagueTiersSchema,
+  setLeagueRegistrationSchema,
   type AddTeamInput,
   type CreateLeagueInput,
   type EditLeagueInput,
   type ManageLeagueTiersInput,
+  type SetLeagueRegistrationInput,
 } from "@/lib/validations/league";
+import {
+  registerTeamSchema,
+  type RegisterTeamInput,
+} from "@/lib/validations/tournament";
 import type { LeagueCourt, MatchFormat, WeeklySlot } from "@/lib/db/schema";
 
 const DEFAULT_TIMEZONE = "America/Toronto";
@@ -419,6 +425,89 @@ export async function manageLeagueTiersAction(
       name: d.name as string,
     })),
   };
+}
+
+/**
+ * Open or close public self-registration for a league, with an optional
+ * deadline. Independent of publish (visibility) — a league can be public with
+ * registration closed. Organizer-gated.
+ */
+export async function setLeagueRegistrationAction(
+  input: SetLeagueRegistrationInput,
+): Promise<ActionError | { open: boolean; deadline: string | null }> {
+  const parsed = setLeagueRegistrationSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+  const { competitionId, open, deadline } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change registration." };
+  }
+
+  // Pin the deadline to end-of-day in the league's timezone, so "closes Aug 10"
+  // means through the whole of the 10th locally.
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("slug, timezone")
+    .eq("id", competitionId)
+    .single();
+  const deadlineIso =
+    deadline && deadline.length > 0
+      ? DateTime.fromISO(deadline, {
+          zone: comp?.timezone ?? DEFAULT_TIMEZONE,
+        })
+          .endOf("day")
+          .toISO()
+      : null;
+
+  const { error } = await supabase
+    .from("league_settings")
+    .update({
+      registration_open: open,
+      registration_deadline: deadlineIso,
+    })
+    .eq("competition_id", competitionId);
+  if (error) return { error: error.message };
+
+  if (comp?.slug) revalidatePath(`/l/${comp.slug}`);
+  revalidatePath("/orgs");
+  return { open, deadline: deadlineIso };
+}
+
+/**
+ * A player registers their own team on a published league's public page.
+ * Delegates to the register_team RPC (shared with tournaments), which validates
+ * the registration window and invites the listed teammates.
+ */
+export async function registerLeagueTeamAction(
+  competitionId: string,
+  values: RegisterTeamInput,
+): Promise<ActionError | { teamId: string }> {
+  const parsed = registerTeamSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the form." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("register_team", {
+    _competition_id: competitionId,
+    _division_id: v.divisionId ? v.divisionId : null,
+    _team_name: v.teamName,
+    _player_emails: v.playerEmails,
+  });
+  if (error) return { error: error.message };
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("slug")
+    .eq("id", competitionId)
+    .single();
+  if (comp?.slug) revalidatePath(`/l/${comp.slug}`);
+  return { teamId: data as string };
 }
 
 export async function generateLeagueScheduleAction(
