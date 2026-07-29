@@ -173,7 +173,7 @@ export function StandingsTable({
                     {r.projected && (
                       <span
                         className="text-ink-3"
-                        title="Ranked on projected pace over the full game count"
+                        title="Shorter schedule — results scaled to the full-season slate for ranking"
                       >
                         {" *"}
                       </span>
@@ -230,8 +230,8 @@ export function StandingsTable({
       </table>
       {rows.some((r) => r.projected) && (
         <p className="text-ink-3 mt-2 text-[0.7rem]">
-          * Joined mid-season — ranked on their projected pace over the full
-          game count. Actual W–L shown.
+          * Shorter schedule (joined mid-season) — their results are scaled to
+          the full-season slate for ranking. Actual W–L shown.
         </p>
       )}
     </div>

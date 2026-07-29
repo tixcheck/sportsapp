@@ -82,19 +82,24 @@ export type TiebreakerStep = 1 | 2 | 3 | 4 | 5;
 export type RankMode = "ova" | "differential";
 
 /**
- * Optional normalization for teams that have played fewer games than the rest
- * (e.g. a pair that joined mid-season). When set, a team below `targetGames` has
- * its ranking values (match wins, and point differential in differential mode)
- * pro-rated up to `targetGames` — so it's compared on the same slate length as
- * everyone else. It only takes effect once a team has played `minGames`, so an
- * early hot start (1–0 → projected 12–0) can't distort the table. Ratios (set /
- * point ratio) are already per-game, so they're never pro-rated. This changes
- * ranking only; the row's actual mw/ml/etc. are untouched, and `projected`
- * flags which rows were normalized.
+ * Optional normalization for teams whose SCHEDULE is shorter than the rest
+ * (e.g. a pair that joined mid-season and plays a 10-game slate in a 12-game
+ * league). When set, such a team has its ranking totals (match wins, and point
+ * differential in differential mode) scaled up by `fullSlate / scheduledGames`
+ * — so a 10-game team is compared as if it played the full 12 (×1.2). Teams
+ * already on the full slate are untouched.
+ *
+ * This is deliberately based on each team's *scheduled* game count, not games
+ * played: it normalizes slate LENGTH, not mid-season pace, so it can't turn a
+ * 2–0 start into a projected 12–0. Ratios (set / point ratio) are already
+ * per-game, so they're never scaled. Ranking only — the row's actual mw/ml/etc.
+ * are untouched, and `projected` flags which rows were normalized.
  */
 export interface RankProjection {
-  targetGames: number;
-  minGames: number;
+  /** The full-season slate length a regular team plays. */
+  fullSlate: number;
+  /** Each team's scheduled game count (season games, any status). */
+  scheduledByTeam: Map<TeamId, number>;
 }
 
 export interface StandingRow extends TeamStats {
@@ -305,15 +310,18 @@ function gamesPlayed(s: TeamStats): number {
 }
 
 /**
- * Factor to pro-rate a team's totals up to the full slate. 1 (no change) unless
- * projection is on and the team has played at least `minGames` but fewer than
- * `targetGames` — then targetGames / gamesPlayed.
+ * Factor to scale a team's totals up to the full slate. 1 (no change) unless
+ * projection is on and the team is *scheduled* for fewer games than the full
+ * slate — then fullSlate / scheduledGames (e.g. 12 / 10 = 1.2 for a mid-season
+ * joiner). Based on scheduled games, not games played, so it normalizes slate
+ * length rather than extrapolating a small-sample pace.
  */
 function projectionFactor(s: TeamStats, projection?: RankProjection): number {
   if (!projection) return 1;
-  const g = gamesPlayed(s);
-  if (g >= projection.minGames && g > 0 && g < projection.targetGames) {
-    return projection.targetGames / g;
+  const scheduled =
+    projection.scheduledByTeam.get(s.teamId) ?? projection.fullSlate;
+  if (scheduled > 0 && scheduled < projection.fullSlate) {
+    return projection.fullSlate / scheduled;
   }
   return 1;
 }

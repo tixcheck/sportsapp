@@ -336,25 +336,20 @@ export async function loadStandings(
     // Season games only (exclude the playoff bracket).
     const scheduled = countScheduled((m) => m.bracket_position === null);
 
-    // Pro-rate short-handed teams (mid-season joiners) to the full slate when
-    // the league opted in. Target = the configured games-per-team, else the most
-    // games any team has actually played. Min games before projecting scales
-    // with the target so an early hot start can't top the table.
+    // Normalize mid-season joiners to the full slate when the league opted in:
+    // a team scheduled for fewer games (e.g. a 10-game slate in a 12-game
+    // league) has its totals scaled by fullSlate / scheduledGames (×1.2). Full-
+    // slate teams are untouched — this is slate-length normalization, keyed on
+    // scheduled games, not a pace projection off games played.
     let projection: RankProjection | undefined;
     if (projectShortTeams) {
-      const played = new Map<string, number>();
-      for (const r of results) {
-        played.set(r.homeTeamId, (played.get(r.homeTeamId) ?? 0) + 1);
-        played.set(r.awayTeamId, (played.get(r.awayTeamId) ?? 0) + 1);
-      }
-      const counts = [...played.values()];
-      const maxPlayed = counts.length ? Math.max(...counts) : 0;
-      const target = targetGamesSetting ?? maxPlayed;
-      if (target > 0) {
-        projection = {
-          targetGames: target,
-          minGames: Math.max(1, Math.ceil(target / 3)),
-        };
+      const scheduledCounts = [...scheduled.values()];
+      const maxScheduled = scheduledCounts.length
+        ? Math.max(...scheduledCounts)
+        : 0;
+      const fullSlate = Math.max(maxScheduled, targetGamesSetting ?? 0);
+      if (fullSlate > 0) {
+        projection = { fullSlate, scheduledByTeam: scheduled };
       }
     }
 
