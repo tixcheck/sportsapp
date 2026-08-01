@@ -489,7 +489,7 @@ export function GenerateBracketPanel({
       <div className="space-y-1.5">
         <div className="flex flex-wrap items-end gap-4">
           <CourtListInput
-            label={isDual ? "Championship courts" : "Bracket courts"}
+            label={isDual ? "Championship courts" : "Playoff courts"}
             value={champCourts}
             onChange={setChampCourts}
           />
@@ -512,17 +512,15 @@ export function GenerateBracketPanel({
           <DialogTrigger asChild>
             <Button variant="outline" disabled={blocked}>
               <Trophy />
-              Regenerate {isDual ? "brackets" : "bracket"}
+              Regenerate playoffs
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>
-                Regenerate {isDual ? "brackets" : "bracket"}?
-              </DialogTitle>
+              <DialogTitle>Regenerate playoffs?</DialogTitle>
               <DialogDescription>
-                This discards the current bracket and all its matches, then
-                reseeds from the order above.
+                This discards the current {isDual ? "brackets" : "bracket"} and
+                all their matches, then reseeds from the order above.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -544,11 +542,7 @@ export function GenerateBracketPanel({
       ) : (
         <Button onClick={generate} disabled={pending || blocked}>
           <Trophy />
-          {pending
-            ? "Generating…"
-            : isDual
-              ? "Generate brackets"
-              : "Generate bracket"}
+          {pending ? "Generating…" : "Generate playoffs"}
         </Button>
       )}
     </div>

@@ -88,8 +88,8 @@ export function EditTournamentSettingsDialog({
           <DialogTitle>Edit tournament settings</DialogTitle>
           <DialogDescription>
             Update the details, schedule window, courts, and format. Structure
-            changes (courts, pool size, bracket type) take effect the next time
-            you draw pools or generate the bracket.
+            changes (courts, pool size, playoff type) take effect the next time
+            you draw pools or generate the playoffs.
           </DialogDescription>
         </DialogHeader>
 
@@ -152,7 +152,7 @@ export function EditTournamentSettingsDialog({
             </Field>
           </div>
 
-          <Field label="Bracket type" error={errors.formatTemplate?.message}>
+          <Field label="Playoff type" error={errors.formatTemplate?.message}>
             <select className={selectClass} {...register("formatTemplate")}>
               {TOURNAMENT_FORMATS.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -173,7 +173,7 @@ export function EditTournamentSettingsDialog({
               })}
             />
             <p className="text-muted-foreground mt-1 text-xs">
-              Drives the generic bracket preview on the public page.
+              Drives the generic playoff preview on the public page.
             </p>
           </Field>
 
@@ -191,7 +191,7 @@ export function EditTournamentSettingsDialog({
             </select>
           </Field>
 
-          <Field label="Bracket format" error={errors.bracketFormatId?.message}>
+          <Field label="Playoff format" error={errors.bracketFormatId?.message}>
             <select
               className={selectClass}
               disabled={hasScores}

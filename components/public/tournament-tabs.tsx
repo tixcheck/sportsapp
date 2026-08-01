@@ -235,7 +235,8 @@ export function TournamentTabs({
         <TabsList>
           <TabsTrigger value="pools">Pools</TabsTrigger>
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="brackets">Brackets</TabsTrigger>
+          {/* Label only — the value stays "brackets" so ?tab=brackets links work. */}
+          <TabsTrigger value="brackets">Playoffs</TabsTrigger>
           <TabsTrigger value="teams">Teams</TabsTrigger>
         </TabsList>
       </div>
@@ -307,7 +308,7 @@ export function TournamentTabs({
             matchFormat={tournament.matchFormat}
           />
         ) : (
-          <Placeholder>The bracket appears after pool play.</Placeholder>
+          <Placeholder>The playoffs appear after pool play.</Placeholder>
         )}
       </TabsContent>
 

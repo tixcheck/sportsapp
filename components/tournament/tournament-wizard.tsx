@@ -373,10 +373,10 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
               </label>
             </div>
             <div className="grid gap-2">
-              <Label>Bracket format</Label>
+              <Label>Playoff format</Label>
               <p className="text-muted-foreground text-xs">
-                The playoff bracket can differ from pool play — e.g. best-of-3
-                even if pools are a single set.
+                The playoffs can differ from pool play — e.g. best-of-3 even if
+                pools are a single set.
               </p>
               {FORMAT_PRESETS[sport].map((p) => {
                 const selected = watch("bracketFormatId") === p.id;
