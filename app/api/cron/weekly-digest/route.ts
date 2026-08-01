@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { getOrigin } from "@/lib/utils/url";
 import { sendMatchReminder } from "@/lib/email/send";
+import { buildReminderItems, type DigestMatchInput } from "@/lib/email/digest";
 import type { ReminderItem } from "@/lib/email/templates/match-reminder";
 
 // Active = anything currently being played or about to be.
@@ -16,6 +17,7 @@ type DigestMatch = {
   away_team_id: string | null;
   round: number | null;
   court: string | null;
+  scheduled_at: string;
   status: string;
 };
 
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
   // end_date — e.g. an undated draft — is kept; the match window still gates it.)
   const { data: comps } = await admin
     .from("competitions")
-    .select("id, name, slug, type")
+    .select("id, name, slug, type, timezone")
     .in("status", ACTIVE)
     .or(`end_date.is.null,end_date.gte.${today}`);
   if (!comps || comps.length === 0) {
@@ -82,7 +84,7 @@ export async function GET(request: Request) {
     admin
       .from("matches")
       .select(
-        "competition_id, home_team_id, away_team_id, round, court, status",
+        "competition_id, home_team_id, away_team_id, round, court, scheduled_at, status",
       )
       .in("competition_id", compIds)
       .in("status", UPCOMING)
@@ -141,7 +143,7 @@ export async function GET(request: Request) {
   for (const u of users ?? []) {
     if (!u.notify_weekly || !u.email) continue;
 
-    const items: ReminderItem[] = [];
+    const rows: DigestMatchInput[] = [];
     for (const teamId of teamsByUser.get(u.id) ?? []) {
       const team = teamById.get(teamId);
       if (!team) continue;
@@ -150,17 +152,18 @@ export async function GET(request: Request) {
       for (const mt of matchesByTeam.get(teamId) ?? []) {
         const oppId =
           mt.home_team_id === teamId ? mt.away_team_id : mt.home_team_id;
-        const oppName = oppId ? (teamById.get(oppId)?.name ?? "TBD") : "TBD";
-        const detailParts = [];
-        if (mt.round) detailParts.push(`Round ${mt.round}`);
-        if (mt.court) detailParts.push(mt.court);
-        items.push({
+        rows.push({
           competitionName: comp.name,
-          summary: `vs ${oppName}`,
-          detail: detailParts.join(" · ") || undefined,
+          opponentName: oppId ? (teamById.get(oppId)?.name ?? "TBD") : "TBD",
+          scheduledAt: mt.scheduled_at,
+          timezone: comp.timezone ?? "America/Toronto",
+          court: mt.court,
+          round: mt.round,
         });
       }
     }
+    // Ordered by day then start time, with the court on each line.
+    const items: ReminderItem[] = buildReminderItems(rows);
     if (items.length === 0) continue;
 
     // Dry run: count what would send, but never claim the log or email.

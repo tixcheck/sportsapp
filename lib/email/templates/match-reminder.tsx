@@ -6,7 +6,9 @@ export interface ReminderItem {
   competitionName: string;
   /** "vs Opponent" — team names only. */
   summary: string;
-  /** "Round 3 · Court 1" (times are estimates, so we surface by order). */
+  /** "Sat, Aug 1 · 9:00 AM" in the competition's timezone. Absent if untimed. */
+  when?: string;
+  /** "Court 1 · Round 3" — court first, since that's what players scan for. */
   detail?: string;
 }
 
@@ -28,8 +30,8 @@ export function MatchReminderEmail({
       unsubscribeUrl={unsubscribeUrl}
     >
       <Text style={emailText}>
-        Here&apos;s what&apos;s coming up. Match times are estimates — they run
-        in order, so check in with the schedule on the day.
+        Here&apos;s what&apos;s coming up, in the order you play. Start times
+        can shift if earlier games run long — check the schedule on the day.
       </Text>
       {items.map((it, i) => (
         <Section
@@ -40,14 +42,27 @@ export function MatchReminderEmail({
             margin: "0 0 12px",
           }}
         >
-          <Text style={{ ...emailText, margin: "0 0 2px", fontWeight: 600 }}>
+          {it.when ? (
+            <Text style={{ ...emailText, margin: "0 0 2px", fontWeight: 600 }}>
+              {it.when}
+            </Text>
+          ) : null}
+          <Text
+            style={{
+              ...emailText,
+              margin: "0 0 2px",
+              fontWeight: it.when ? 400 : 600,
+            }}
+          >
             {it.summary}
+            {it.detail ? (
+              <span style={{ color: emailColors.muted }}> · {it.detail}</span>
+            ) : null}
           </Text>
           <Text
             style={{ fontSize: "13px", color: emailColors.muted, margin: 0 }}
           >
             {it.competitionName}
-            {it.detail ? ` · ${it.detail}` : ""}
           </Text>
         </Section>
       ))}
