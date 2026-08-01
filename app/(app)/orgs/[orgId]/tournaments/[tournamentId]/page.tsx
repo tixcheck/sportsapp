@@ -178,7 +178,7 @@ export default async function TournamentPage({
         ? `${describeFormat(t.poolFormat)} — 2-set round-robin (1–1 ties allowed)`
         : `${describeFormat(t.poolFormat)} round-robin`,
     },
-    { label: "Bracket games", value: describeFormat(t.matchFormat) },
+    { label: "Playoff games", value: describeFormat(t.matchFormat) },
     {
       label: "Games per team",
       value: `${t.gamesPerTeam} pool game${t.gamesPerTeam === 1 ? "" : "s"} (target)`,
@@ -364,7 +364,7 @@ export default async function TournamentPage({
   const bracketTab = (
     <Card>
       <CardHeader>
-        <CardTitle>Bracket</CardTitle>
+        <CardTitle>Playoffs</CardTitle>
         <CardDescription>
           {t.formatTemplate === "champ_consolation"
             ? "Seed teams into the Championship + Consolation brackets."
@@ -506,7 +506,9 @@ export default async function TournamentPage({
       ? [
           { value: "schedule", label: "Schedule", content: scheduleTab },
           { value: "standings", label: "Standings", content: standingsTab },
-          { value: "bracket", label: "Bracket", content: bracketTab },
+          // Label is "Playoffs" (matching the league page) but the tab VALUE
+          // stays "bracket" — it's what existing links and bookmarks carry.
+          { value: "bracket", label: "Playoffs", content: bracketTab },
         ]
       : []),
     { value: "teams", label: "Teams", content: teamsTab },
