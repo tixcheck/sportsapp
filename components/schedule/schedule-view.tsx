@@ -321,7 +321,7 @@ export function ScheduleView({
     m.homeTeamId && m.awayTeamId ? (
       <Link
         href={`/matches/${m.id}`}
-        className="text-claret inline-flex items-center gap-1 font-medium hover:underline"
+        className="text-claret inline-flex shrink-0 items-center gap-1 font-medium whitespace-nowrap hover:underline"
       >
         <SquarePen className="size-3.5" />
         {m.status === "completed" ? "Edit score" : "Enter score"}
@@ -373,7 +373,12 @@ export function ScheduleView({
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="bg-muted inline-flex rounded-lg p-0.5">
+        {/*
+          Wraps rather than `inline-flex`: with four views (organizer) the row
+          needs ~375px and only ~311px is available inside the card at 375px,
+          so it used to overflow and get clipped.
+        */}
+        <div className="bg-muted flex max-w-full flex-wrap rounded-lg p-0.5">
           <ToggleButton
             active={effectiveView === "list"}
             onClick={() => setView("list")}
@@ -462,7 +467,16 @@ export function ScheduleView({
                   <span className="text-muted-foreground text-sm">{g.sub}</span>
                 )}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              {/*
+                minmax(0,…) rather than a bare 1fr: a track sized `auto`/`1fr`
+                floors at the item's min-content, and MatchCard's court/ref line
+                is `truncate` (white-space: nowrap), whose full untruncated width
+                propagates up as min-content. A long ref name therefore widened
+                the whole column past the card, where Card's overflow-hidden
+                silently sliced the time and actions off. Let the track shrink
+                and the truncation does its job.
+              */}
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(2,minmax(0,1fr))]">
                 {g.matches.map((m) => (
                   <MatchCard
                     key={m.id}
@@ -604,7 +618,9 @@ function ToggleButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        // shrink-0 + nowrap so a squeezed row wraps whole buttons rather than
+        // breaking each label across two lines ("By" / "round").
+        "inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
         active
           ? "bg-surface text-foreground shadow-sm"
           : "text-muted-foreground hover:text-foreground",
