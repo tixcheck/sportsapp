@@ -1069,3 +1069,60 @@ export const reviews = pgTable("reviews", {
     .notNull()
     .defaultNow(),
 });
+
+// ---------------------------------------------------------------------------
+// Payments — Stripe Connect (Slice A: organizer payouts onboarding)
+// ---------------------------------------------------------------------------
+
+/**
+ * An organization's Stripe **Express** connected account — where its
+ * registration money is paid out. One row per org per Stripe mode: a test-mode
+ * `acct_` id is NOT usable live, so `livemode` is part of the identity and the
+ * app only ever reads the row matching the keys it's running with.
+ *
+ * We store ids and Stripe's capability flags, never card data or bank details —
+ * those live at Stripe and reach us only as booleans. The flags are a cache of
+ * Stripe's truth, refreshed by the `account.updated` webhook; treat Stripe as
+ * authoritative if they ever disagree.
+ */
+export const paymentAccounts = pgTable(
+  "payment_accounts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // Stripe's account id (acct_...). Unique across the platform.
+    stripeAccountId: text("stripe_account_id").notNull().unique(),
+    // false = the account was created with test keys. Never mix modes.
+    livemode: boolean("livemode").notNull().default(false),
+    // Stripe's capability flags, mirrored from account.updated.
+    chargesEnabled: boolean("charges_enabled").notNull().default(false),
+    payoutsEnabled: boolean("payouts_enabled").notNull().default(false),
+    detailsSubmitted: boolean("details_submitted").notNull().default(false),
+    // Set when Stripe blocks the account (e.g. 'requirements.past_due'). Shown
+    // to the organizer so a stalled onboarding is self-serviceable.
+    disabledReason: text("disabled_reason"),
+    // Count of outstanding requirements — enough to say "3 things to finish"
+    // without storing the (PII-bearing) requirement details themselves.
+    requirementsDueCount: integer("requirements_due_count")
+      .notNull()
+      .default(0),
+    country: text("country").notNull().default("CA"),
+    defaultCurrency: text("default_currency").notNull().default("cad"),
+    // First moment the account could actually take money — for support/audit.
+    onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One connected account per org per Stripe mode (test row + live row can
+    // coexist, which is what makes go-live a key swap rather than a migration).
+    unique("payment_accounts_org_livemode_key").on(t.orgId, t.livemode),
+    index("payment_accounts_org_id_idx").on(t.orgId),
+  ],
+);
