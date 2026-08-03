@@ -1,9 +1,67 @@
 # Registration payments — "Collect fees online, pay out to organizers"
 
-> **Status: PLANNED, not started** (documented 2026-07-23). Design captured from
-> a discovery conversation with the owner; no code written. Payments are a **v1**
-> feature per `PRD.md` §4 (out of v0) and §14 (monetization). Pick up at
-> "Phase 1" below when the owner decides to proceed. **Nothing here is built.**
+> **Status: APPROVED, building (decisions locked 2026-07-30).** Owner has created
+> the platform Stripe account and chosen Stripe Connect. Design below; the open
+> decisions in the original discovery (2026-07-23) are now resolved — see
+> "Decisions (locked)" immediately below, which SUPERSEDES the open-question notes
+> later in this doc. Payments are a v1 feature per `PRD.md` §4/§14.
+
+## Decisions (locked 2026-07-30)
+
+- **Processor:** Stripe Connect. Platform Stripe account created by the owner.
+- **Connect account type:** **Express** (Stripe-hosted onboarding + dashboard).
+- **Who sets the fee:** the **organizer, per event** (a league/tournament can be
+  free).
+- **Fee model:** **pass-through** — the payer covers Stripe processing AND the
+  platform fee on top, so the organizer nets exactly their set price.
+- **Platform (application) fee — admin-adjustable, not hardcoded:**
+  - **Tournaments:** **1%** of the registration, added on top (charged to payer).
+  - **Leagues:** **$3 per player** when players pay individually, or **$20 per
+    team** when the captain pays for the whole team.
+  - A **platform admin** can edit these rates (stored config, not constants).
+- **Tax:** the **organizer can opt to collect tax** on registration payments
+  (per event) — applied on top, charged to the payer.
+- **Payment mode (organizer chooses what's allowed per event):**
+  - Captain pays the **entire team fee**, and/or
+  - **Everyone pays their share** — the team's registration is **confirmed only
+    once all shares are received**.
+- **Partial payment (organizer options):**
+  - Organizer may **approve/confirm a team even with partial payment**, and/or
+  - Organizer may **register a team and send a payment link** to capture payment
+    afterward (e.g. an org-added team, or a "finish paying" nudge).
+- **Currency:** CAD (confirm at build).
+
+### Refined fee math (pass-through, destination charge)
+
+Let `R` = organizer's price (what they net), `P` = platform fee (1% for
+tournaments; $3/player or $20/team for leagues), `X` = tax if the organizer
+enabled it, `S` = estimated Stripe processing (≈2.9% + C$0.30 on the total).
+
+```
+total charged (T)      = (R + P + X + 0.30) / (1 − 0.029)
+application_fee_amount = P + S           # platform keeps P after Stripe takes S
+connected account gets = T − application_fee_amount = R (+ X, remitted per tax setup)
+```
+
+Tournament example (R=$100, P=1%): T ≈ **$104.32**, organizer nets **$100**,
+platform nets **$1**, Stripe ≈ $3.32. `application_fee_amount ≈ $4.32`.
+`S` is an estimate (exact fee varies by card); cent-level rounding lands on the
+platform side, never the organizer. Tax handling (whether X routes to the
+organizer to remit, or via Stripe Tax) to be pinned in the checkout slice.
+
+### Build order (supersedes the "Phasing" section below)
+
+- **Slice A — Organizer payouts onboarding (Express):** connected-account schema
+  on the organization, a Payments section with *Connect Stripe* → hosted
+  onboarding → callback → status (`charges_enabled`), and the `account.updated`
+  webhook. No money moves. Unblocked; needs only test keys to verify.
+- **Slice B — Paid registration:** per-event fee + tax + allowed payment-mode
+  config; the pass-through math; Checkout with destination charge + application
+  fee; payment status on registrations; `checkout.session.completed` webhook;
+  captain-pays-all vs per-player split (team confirmed when shares complete).
+- **Slice C — Organizer payment management:** partial-payment approval,
+  register-a-team + send-payment-link, refunds, the payments dashboard, receipts.
+- **Go-live:** live keys, real onboarding, TOS/refund + surcharge disclosure copy.
 
 ## Context
 
