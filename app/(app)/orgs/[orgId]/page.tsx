@@ -7,13 +7,19 @@ import { getOrgTournaments } from "@/lib/queries/tournaments";
 import { getOrgKotc } from "@/lib/queries/kotc";
 import { getUserOrgs } from "@/lib/auth/user";
 import { getOrgOrganizers } from "@/lib/queries/organizers";
+import { getAccessState } from "@/lib/queries/access";
+import { getPaymentAccount } from "@/lib/queries/payments";
+import { paymentAccountStatus } from "@/lib/payments/account-status";
+import { currentStripeMode } from "@/lib/payments/stripe-mode";
 import {
   addOrgOrganizerAction,
   removeOrgOrganizerAction,
 } from "@/server/actions/organizers";
+import { startPayoutsOnboardingAction } from "@/server/actions/payments";
 import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
+import { PayoutsCard } from "@/components/payments/payouts-card";
 import {
   Card,
   CardContent,
@@ -39,6 +45,17 @@ export default async function OrgPage({
   const myRole = orgs.find((o) => o.id === orgId)?.role;
   const isOrgAdmin = myRole === "owner" || myRole === "admin";
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
+
+  // Payouts are an org-admin concern. Until this deployment has Stripe keys the
+  // section would be a button that can't do anything, so ordinary organizers
+  // don't see it yet — the platform admin does, to check the shell on prod.
+  const stripeMode = currentStripeMode();
+  const access = isOrgAdmin
+    ? await getAccessState()
+    : { isPlatformAdmin: false };
+  const showPayouts =
+    isOrgAdmin && (stripeMode.configured || access.isPlatformAdmin);
+  const paymentAccount = showPayouts ? await getPaymentAccount(orgId) : null;
 
   return (
     <div className="space-y-10">
@@ -74,6 +91,15 @@ export default async function OrgPage({
         items={kotc}
         hrefFor={(c) => `/orgs/${orgId}/kotc/${c.id}`}
       />
+
+      {showPayouts && (
+        <PayoutsCard
+          status={paymentAccountStatus(paymentAccount)}
+          configured={stripeMode.configured}
+          livemode={stripeMode.livemode === true}
+          connectAction={startPayoutsOnboardingAction.bind(null, orgId)}
+        />
+      )}
 
       {isOrgAdmin && (
         <Card>
