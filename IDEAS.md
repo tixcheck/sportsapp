@@ -18,15 +18,18 @@ past-event migration.
 
 ## Registration payments — "Collect fees online, pay out to organizers"
 
-**Status:** planned, not started (documented 2026-07-23). Full design:
-[`docs/plans/registration-payments.md`](docs/plans/registration-payments.md).
+**Status:** APPROVED, building (decisions locked 2026-07-30). Full design +
+locked decisions: [`docs/plans/registration-payments.md`](docs/plans/registration-payments.md).
+Stripe Connect **Express**, **pass-through** fees, platform fee 1% (tournaments)
+/ $3 per player or $20 per team (leagues), admin-adjustable. Building in slices
+A (payouts onboarding) → B (paid registration) → C (payment management).
 
 Teams pay the registration fee online at registration via **Stripe Connect**;
-money routes to the organizer's own bank, with an optional $1–2 platform fee.
-The win is **collecting at registration** (kills e-transfer chasing), offered
-*alongside* cash/e-transfer, not instead. Covers the fee model (pass-through
-gross-up so organizers net their target), payout timing, refunds, **split
-payments** (captain splits the fee across the roster; team confirmed only when
-all shares are paid), and a test-mode Phase 1 slice. A **v1** feature (PRD §14). The plan doc lists exactly
-what the owner must provide to proceed (Stripe account + keys, fee/refund/account-
-type decisions, tax stance).
+money routes to the organizer's own bank, minus the platform fee. The win is
+**collecting at registration** (kills e-transfer chasing), offered *alongside*
+cash/e-transfer, not instead. Covers the fee model (pass-through gross-up so
+organizers net their target), payout timing, refunds, and **split payments**
+(captain pays all, or everyone pays their share; team confirmed only when the
+shares complete). A **v1** feature (PRD §14). Still needed from the owner before
+money can move: **Stripe test keys**, then the refund policy + tax stance copy
+for go-live.

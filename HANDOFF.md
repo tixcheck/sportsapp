@@ -7,13 +7,17 @@
 
 ---
 
-## Current state (last session)
+## Current state (last session — 2026-08-03)
 
-- **Branch:** `main`. **Latest commit:** `853d2d3` — pushed (Vercel auto-deploys).
+- **Branch:** `main`. **Latest commit:** `3f1250b` (Playoffs rename) — pushed (Vercel auto-deploys).
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations applied through `0035`** (0034/0035 were applied by hand in the SQL editor, so Drizzle's tracking doesn't know about them — see Known quirks).
-- **Tests:** `npm test` → 220 passing. tsc + eslint + prettier clean.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0059`.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks. **Confirm with the owner which are actually applied in prod before assuming.**
+- **Tests:** `npm test` → **517 passing across 50 files**. tsc + eslint + prettier clean.
+- **In flight:** registration **payments** (Stripe Connect) — decisions locked
+  2026-07-30, plan at `docs/plans/registration-payments.md`. Slice A (payouts
+  onboarding) is the next build; **blocked on Stripe test keys**, so the
+  schema/migration half goes first.
 
 ## ⚠️ Critical for the live tournament
 
@@ -29,6 +33,28 @@
 
 ## What shipped recently (newest first)
 
+- `01fb968` — the UI calls it **"Playoffs"**, not "Bracket" (organizer-facing
+  language; the code/engine still says bracket).
+- `2fd9f73` — **weekly digest** lists games in day/time order, with the court.
+- `5f84162` — schedule: mobile match cards + view switcher no longer overflow.
+- `55d44a8` — emails link to the **canonical domain**, not the ephemeral Vercel
+  deploy URL.
+- `6f7424f` — **standings normalize by scheduled slate**, not games played, so
+  mid-season joiners aren't ranked unfairly (owner rule: ranking must stay simple
+  enough for an organizer to explain to a player).
+- `a26fa64` — dedicated shareable **`/register/<event>` page** (registration
+  Slice 3).
+- `4975056` (migration `0059`) — organizers can read their own players'
+  names/emails (RLS: `administers_team_member`).
+- `1e0595b` (migration `0058`) — **player names at registration**.
+- `f5e0c63` (migration `0057`) — **public league registration** (Slice 2);
+  `register_team` generalized to leagues and now actually invites teammates.
+- `e23f47d` — **league tiers** (separate mini-leagues) — Slice 1.
+- `37069c0` / `35f72d8` (migration `0056`) — **site reviews**, public + owner-
+  moderated, plus discoverability from the user menu and dashboard.
+- `5b61397` — players can **enter scores from the public schedule**.
+- `6f7424f`-era fixes: org switcher navigates; **head-to-head is the last
+  tiebreaker step** (owner rule); tournament + league organizer pages use tabs.
 - `853d2d3` — **League playoffs**: seed a single-elim (or Championship +
   Consolation) bracket from final league standings, reusing the tournament
   bracket engine. New `LeaguePlayoffPanel`, public **Playoffs** tab.
@@ -80,6 +106,16 @@
 
 ## Open threads / candidate next work
 
+- **Registration payments (Stripe Connect) — the active thread.** Decisions
+  locked; see `docs/plans/registration-payments.md` → "Decisions (locked)" and
+  "Build order". Slice A = Express onboarding. **Needs from the owner:** Stripe
+  **test** keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
+  `STRIPE_WEBHOOK_SECRET`) and sign-off on the `stripe` npm dependency. The
+  schema + migration land ahead of the keys.
+- **KotC full elimination engine** — plan only, not built
+  (`docs/plans/kotc-elimination.md`).
+- **AI spreadsheet import** — approved design, parked 2026-06-30
+  (`docs/plans/spreadsheet-import.md`).
 - **Pool game reorder for even waits** (5/6-team pools) — pending event feedback.
 - **Tournament-page projected-bracket panel** — would reuse `getBracketPreview`;
   optional, not built.
@@ -99,19 +135,25 @@ drop function if exists public.debug_create_comp(uuid);
 delete from public.competitions where name = 'DEBUG';
 ```
 
-Also safe to delete the untracked throwaway scripts: `lib/db/_inspectorg.ts`,
-`lib/db/_inspectpol.ts`.
+The throwaway scripts (`lib/db/_inspectorg.ts`, `lib/db/_inspectpol.ts`) are
+already gone. Whether the SQL above was ever run is **unconfirmed** — it's
+harmless to run again (every statement is `if exists`).
 
 ## Environment (`.env.local` — gitignored; bring it on the USB stick)
 
 ```
+NEXT_PUBLIC_SITE_URL=                   # canonical domain used in email links
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # sb_publishable_...
 SUPABASE_SECRET_KEY=                    # sb_secret_...  (server-only)
 DATABASE_URL=                           # Supabase transaction pooler
 RESEND_API_KEY=                         # re_...
 EMAIL_FROM=MySportsApp <noreply@mysportsapp.ca>
+CRON_SECRET=                            # guards the scheduled digest route
 ```
+
+Coming with payments (not yet present anywhere): `STRIPE_SECRET_KEY`,
+`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` — test set first.
 
 - The **running app does not use `DATABASE_URL`** (it goes through the Supabase
   client) — only Drizzle migrations / `db:studio` do. The pooler password was
@@ -122,6 +164,11 @@ EMAIL_FROM=MySportsApp <noreply@mysportsapp.ca>
 
 ## Known quirks
 
+- **Migrations `0050`+ are hand-written SQL**, not drizzle-kit output — `npm run
+  db:migrate` won't apply them. They're applied with a throwaway node script that
+  runs the file's statements against `DATABASE_URL` (split on
+  `--> statement-breakpoint`). **Applying one to prod needs the owner's explicit
+  go, every time.** Keep the schema in `lib/db/schema.ts` in sync by hand.
 - `next build` can **OOM** on low-RAM machines during static generation. The
   reliable gates are `tsc --noEmit`, `npm run lint`, and `npm test` — the
   pre-commit hook runs `prettier --check` + eslint + vitest, so run
