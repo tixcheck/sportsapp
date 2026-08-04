@@ -107,7 +107,14 @@ export function respreadCourts(
   };
 }
 
-/** Default court labels for a plain N-court league: "Court 1" … "Court N". */
+/**
+ * Default court labels for a plain N-court league: "1" … "N".
+ *
+ * Bare, like a `court_list` label — these get STORED on matches, and the
+ * "Court " prefix is added at render (lib/scheduler/court-label.ts). Storing
+ * the prefixed form here is what let one league end up with both "Court 1"
+ * and "1" for the same court.
+ */
 export function numberedCourts(count: number): string[] {
-  return Array.from({ length: Math.max(0, count) }, (_, i) => `Court ${i + 1}`);
+  return Array.from({ length: Math.max(0, count) }, (_, i) => `${i + 1}`);
 }

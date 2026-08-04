@@ -577,10 +577,11 @@ export async function generateLeagueScheduleAction(
     seed: seed >>> 0,
     blackoutDates: (settings.blackout_dates as string[] | null) ?? [],
   };
+  // Store the BARE label (see lib/scheduler/court-label.ts) so it matches
+  // court_list exactly — prime-court balancing compares these strings. The
+  // "Court " prefix is added at render time.
   const courtLabel = (n: number) =>
-    hasCourtList
-      ? `Court ${courtList[(n - 1) % courtList.length].label}`
-      : `Court ${n}`;
+    hasCourtList ? `${courtList[(n - 1) % courtList.length].label}` : `${n}`;
   const at = (date: string, wave: number) =>
     DateTime.fromISO(`${date}T${slot.startTime}`, { zone: tz })
       .plus({ minutes: wave * gameMinutes })
@@ -653,9 +654,7 @@ export async function generateLeagueScheduleAction(
         round: mt.round,
         home_team_id: mt.homeTeamId,
         away_team_id: mt.awayTeamId,
-        court: assigned
-          ? `Court ${assigned[ri].courts[mi]}`
-          : `Court ${mt.court}`,
+        court: assigned ? `${assigned[ri].courts[mi]}` : `${mt.court}`,
         status: "scheduled" as const,
         scheduled_at: at(mt.date, round.wave),
       })),

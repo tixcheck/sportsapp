@@ -25,6 +25,15 @@ describe("detectConflicts", () => {
     expect(c).toEqual([{ type: "court", matchId: "X" }]);
   });
 
+  it("flags a double-booking across the two court storage formats", () => {
+    // A league can hold both "Court 3" (season generator) and "3" (mid-season).
+    // Raw string equality missed this and let two games share a court.
+    const c = detectConflicts(target, SLOT, "3", [
+      m({ id: "X", court: "Court 3", homeTeamId: "C", awayTeamId: "D" }),
+    ]);
+    expect(c).toEqual([{ type: "court", matchId: "X" }]);
+  });
+
   it("flags a team playing twice in the same slot", () => {
     const c = detectConflicts(target, SLOT, "Court 2", [
       m({ id: "X", court: "Court 3", homeTeamId: "A", awayTeamId: "D" }),

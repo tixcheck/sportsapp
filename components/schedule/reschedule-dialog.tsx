@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { rescheduleMatchAction } from "@/server/actions/matches";
 import { detectConflicts } from "@/lib/scheduler/conflicts";
+import { normalizeCourtLabel } from "@/lib/scheduler/court-label";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,7 +75,9 @@ export function RescheduleDialog({
       const result = await rescheduleMatchAction(
         match.id,
         newIso,
-        court,
+        // Store the bare label whatever the organizer typed, so a hand-edited
+        // court still matches court_list for prime-court balancing.
+        normalizeCourtLabel(court) ?? court,
         hasConflicts,
       );
       if ("error" in result) {
