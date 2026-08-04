@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:courts": "tsx lib/db/check-courts.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,css,json}": "prettier --write",
