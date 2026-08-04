@@ -5,6 +5,7 @@
  */
 import { DateTime } from "luxon";
 
+import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import type { ReminderItem } from "./templates/match-reminder";
 
 export interface DigestMatchInput {
@@ -54,7 +55,10 @@ export function buildReminderItems(
         : undefined;
 
       // Court first: on the day, "which court" is the thing players scan for.
-      const detail = [m.court, m.round ? `Round ${m.round}` : null]
+      const detail = [
+        formatCourtLabel(m.court),
+        m.round ? `Round ${m.round}` : null,
+      ]
         .filter(Boolean)
         .join(" · ");
 

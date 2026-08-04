@@ -12,7 +12,18 @@ import {
 } from "@/server/actions/scores";
 import type { MyMatch } from "@/lib/queries/my-matches";
 import { cn } from "@/lib/utils";
+import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { Button } from "@/components/ui/button";
+
+/**
+ * Shown when a match has no round number (older mid-season games never got
+ * one). Without this the card printed the raw DB enum — a player saw
+ * "league · 11", which reads as a league name rather than a court.
+ */
+const COMPETITION_LABEL: Record<MyMatch["competitionType"], string> = {
+  league: "League game",
+  tournament: "Tournament game",
+};
 
 const STATE_PILL: Record<
   MyMatch["state"],
@@ -116,8 +127,12 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
 
       <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
         <span className="truncate">
-          {match.round ? `Round ${match.round}` : match.competitionType}
-          {match.court ? ` · ${match.court}` : ""}
+          {match.round
+            ? `Round ${match.round}`
+            : COMPETITION_LABEL[match.competitionType]}
+          {formatCourtLabel(match.court)
+            ? ` · ${formatCourtLabel(match.court)}`
+            : ""}
           {match.role === "ref" ? " · you ref" : ""}
         </span>
         <div className="flex items-center gap-2">

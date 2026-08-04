@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
+import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { StatusPill } from "./status-pill";
 
@@ -131,7 +132,7 @@ export function MatchCard({
       </div>
       <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
         <span className="truncate">
-          {match.court ?? "Court TBD"}
+          {formatCourtLabel(match.court) ?? "Court TBD"}
           {match.refTeamName ? ` · Ref: ${match.refTeamName}` : ""}
         </span>
         {trailing}

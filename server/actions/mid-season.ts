@@ -11,6 +11,7 @@ import {
 } from "@/lib/scheduler/mid-season";
 import { addTeamsMidSeasonSchema } from "@/lib/validations/league";
 import { numberedCourts } from "@/lib/scheduler/court-respread";
+import { normalizeCourtLabel } from "@/lib/scheduler/court-label";
 import { assignCourts, type Court } from "@/lib/scheduler/court-assign";
 import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
 
@@ -118,8 +119,14 @@ async function loadContext(
 
   // Seed the prime-fairness ledger from games already played: a team that got
   // more prime courts in the played weeks is owed fewer going forward.
+  // Compare normalized: played games may predate the single-format rule and
+  // still be stored as "Court 1" while court_list says "1". Matching raw made
+  // the ledger look empty, so balancing silently restarted from zero.
   const primeLabels = new Set(
-    courtDefs.filter((c) => c.prime).map((c) => c.label),
+    courtDefs
+      .filter((c) => c.prime)
+      .map((c) => normalizeCourtLabel(c.label)?.toLowerCase())
+      .filter((l): l is string => l != null),
   );
   const teamName = new Map(
     teams.map((t) => [t.id as string, t.name as string]),
@@ -138,7 +145,8 @@ async function loadContext(
 
   const primeLedger = new Map<string, number>();
   for (const m of played) {
-    if (!m.court || !primeLabels.has(m.court as string)) continue;
+    const court = normalizeCourtLabel(m.court as string | null)?.toLowerCase();
+    if (!court || !primeLabels.has(court)) continue;
     for (const t of [m.home_team_id, m.away_team_id]) {
       if (t)
         primeLedger.set(t as string, (primeLedger.get(t as string) ?? 0) + 1);

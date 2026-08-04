@@ -14,6 +14,10 @@ import {
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
+import {
+  formatCourtLabel,
+  normalizeCourtLabel,
+} from "@/lib/scheduler/court-label";
 import { MatchCard } from "./match-card";
 import { MatchupMatrix } from "./matchup-matrix";
 import { NowPlaying } from "./now-playing";
@@ -208,7 +212,9 @@ function formatGap(mins: number): string {
 function groupByCourt(matches: ScheduleMatch[]): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
   for (const m of matches) {
-    const key = m.court ?? "tbd";
+    // Normalize: a league holding both "Court 3" and "3" for the same physical
+    // court would otherwise split into two columns.
+    const key = normalizeCourtLabel(m.court) ?? "tbd";
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(m);
   }
@@ -218,7 +224,8 @@ function groupByCourt(matches: ScheduleMatch[]): Group[] {
     )
     .map(([court, ms]) => ({
       key: `court:${court}`,
-      heading: court === "tbd" ? "Court TBD" : court,
+      heading:
+        court === "tbd" ? "Court TBD" : (formatCourtLabel(court) ?? court),
       matches: [...ms].sort((x, y) => startMillis(x) - startMillis(y)),
     }));
 }

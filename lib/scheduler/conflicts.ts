@@ -3,6 +3,7 @@
  * exact scheduled instant; a conflict is the same court booked twice in a slot,
  * or a team playing twice in a slot.
  */
+import { sameCourt } from "./court-label";
 
 export interface SlotMatch {
   id: string;
@@ -35,7 +36,9 @@ export function detectConflicts(
     if (o.id === target.id || !o.scheduledAt) continue;
     if (new Date(o.scheduledAt).getTime() !== slot) continue;
 
-    if (court && o.court === court) {
+    // Compare normalized: "Court 3" and "3" are the same physical court, and
+    // a league can hold both. Raw equality missed the double-booking.
+    if (court && sameCourt(o.court, court)) {
       conflicts.push({ type: "court", matchId: o.id });
     }
     if (

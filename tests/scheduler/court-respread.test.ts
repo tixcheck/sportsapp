@@ -142,8 +142,8 @@ describe("respreadCourts", () => {
     expect(new Set(courts).size).toBe(2); // distinct — no double-book
   });
 
-  it("numberedCourts builds Court 1..N", () => {
-    expect(numberedCourts(3)).toEqual(["Court 1", "Court 2", "Court 3"]);
+  it("numberedCourts builds bare labels 1..N (the prefix is added at render)", () => {
+    expect(numberedCourts(3)).toEqual(["1", "2", "3"]);
     expect(numberedCourts(0)).toEqual([]);
   });
 });

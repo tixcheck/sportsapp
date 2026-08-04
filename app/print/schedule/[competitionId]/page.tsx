@@ -5,6 +5,7 @@ import {
   getPrintSchedule,
   type PrintMatch,
 } from "@/lib/queries/print-schedule";
+import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { PrintButton } from "@/components/schedule/print-button";
 
 export const metadata = { title: "Schedule — print" };
@@ -93,7 +94,7 @@ export default async function PrintSchedulePage({
                       {m.scheduledAt ? fmtTime(m.scheduledAt) : "—"}
                     </td>
                     <td className="py-1 pr-3 whitespace-nowrap">
-                      {m.court ?? "—"}
+                      {formatCourtLabel(m.court) ?? "—"}
                     </td>
                     {showPool && (
                       <td className="py-1 pr-3 whitespace-nowrap">
