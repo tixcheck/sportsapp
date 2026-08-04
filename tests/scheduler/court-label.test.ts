@@ -51,6 +51,31 @@ describe("formatCourtLabel", () => {
   });
 });
 
+describe("the canonical-storage invariant", () => {
+  // The rule every writer must hold to: what goes in matches.court is already
+  // normalized. If a new writer prefixes again, this is the tripwire — a league
+  // holding both forms is what broke prime-court balancing (see HANDOFF.md).
+  it("normalizing is idempotent, so a stored label is a fixed point", () => {
+    for (const label of ["1", "10", "A", "Court A", "Courtyard", "Court 11"]) {
+      const stored = normalizeCourtLabel(label)!;
+      expect(normalizeCourtLabel(stored)).toBe(stored);
+    }
+  });
+
+  it("court_list labels and stored courts compare equal once normalized", () => {
+    // court_list may legitimately say "Court A"; a match stores "A".
+    expect(sameCourt(normalizeCourtLabel("Court A"), "A")).toBe(true);
+    expect(sameCourt(normalizeCourtLabel("11"), "Court 11")).toBe(true);
+  });
+
+  it("numberedCourts output is already canonical", async () => {
+    const { numberedCourts } = await import("@/lib/scheduler/court-respread");
+    for (const label of numberedCourts(5)) {
+      expect(normalizeCourtLabel(label)).toBe(label);
+    }
+  });
+});
+
 describe("sameCourt", () => {
   it("matches across the two historical storage formats", () => {
     // The bug this exists to prevent: prime-court history stored as "Court 1"

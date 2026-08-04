@@ -124,6 +124,35 @@
 - Optional **"your schedule is ready" email** when pools are drawn (so captains
   get first-game court/time, which the invite can't include).
 
+## Known data issues — deliberately NOT fixed (owner's call, 2026-08-04)
+
+Run **`npm run check:courts`** to see the current state of all of this. It's
+read-only and prints a per-league report. **Re-run it after any scheduling
+change** — it's the cheap way to catch drift before players do.
+
+The code bug behind these is fixed (`674e524`): courts now store the bare label
+matching `court_list`, and `lib/scheduler/court-label.ts` normalizes everywhere.
+**The existing rows were left as they are — the owner chose not to alter live
+league data.** Display normalizes, so none of this is visible to players; the
+cost is that prime-court *history* stays partly invisible to the balancer.
+
+- **Top Gun Summer 2026** — 12 matches stored as `"Court 10"`, 70 as `"10"`.
+  70 matches have **no round number** (created before the 2026-07-19 fix that
+  numbered mid-season games; the schedule view synthesizes rounds from start
+  times, so they still group sensibly).
+- **Top Gun + Summer Sirens** — prime-court spread of **2** (3–5 prime games per
+  pair). Ross & Rachel is at 1, which is optimal. The spread came from the
+  mid-season balancer failing to read prior prime history across the format
+  split, so it restarted from zero.
+- **If either league is rebalanced or extended**, the prime ledger will now read
+  correctly going forward — but it will NOT retroactively even out games already
+  played. Show the owner a projection before writing anything.
+
+The backfill was scoped and declined, not forgotten: normalize `matches.court`
+with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
+number the null rounds by distinct start time. **Do not run either without the
+owner's explicit go.**
+
 ## Pending manual cleanup (Supabase SQL editor)
 
 ```sql

@@ -178,6 +178,11 @@ npm run db:studio
 npm test                # all
 npm test -- scheduler   # just the scheduler
 
+# Check LIVE league data: court-label drift, missing rounds, prime-court
+# fairness. Read-only. Run after any change to scheduling or courts —
+# see HANDOFF.md "Known data issues" for what it currently reports.
+npm run check:courts
+
 # Lint & format
 npm run lint
 npm run format
