@@ -292,17 +292,16 @@ export default async function LeaguePage({
 
   const settingsTab = (
     <div className="space-y-6">
-      {league.tiers.length >= 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Ladder format</CardTitle>
-            <CardDescription>
-              Teams move between tiers each week on that night&apos;s results.
-              The season isn&apos;t scheduled up front — you draw a week at a
-              time.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>Ladder format</CardTitle>
+          <CardDescription>
+            Teams move between tiers each week on that night&apos;s results. The
+            season isn&apos;t scheduled up front — you draw a week at a time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {league.tiers.length >= 2 ? (
             <LadderSetupWizard
               competitionId={league.id}
               tiers={ladderTiers}
@@ -314,9 +313,34 @@ export default async function LeaguePage({
                 swaps: ladder?.swaps ?? [],
               }}
             />
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            // Hiding this card entirely left no clue that tiers are the
+            // prerequisite — the setup spans three tabs, so say so here.
+            <div className="space-y-3">
+              <p className="text-muted-foreground text-sm">
+                A ladder needs at least two tiers to move teams between.{" "}
+                {league.tiers.length === 1
+                  ? "This league has one."
+                  : "This league doesn't have any yet."}
+              </p>
+              <ol className="text-muted-foreground list-decimal space-y-1 pl-5 text-sm">
+                <li>
+                  Open the{" "}
+                  <span className="text-foreground font-medium">Teams</span> tab
+                  and choose{" "}
+                  <span className="text-foreground font-medium">
+                    Manage tiers
+                  </span>
+                  .
+                </li>
+                <li>Add two or more (e.g. Tier 1, Tier 2, Tier 3) and save.</li>
+                <li>Add your teams, putting each in a starting tier.</li>
+                <li>Come back here to set up the ladder.</li>
+              </ol>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
