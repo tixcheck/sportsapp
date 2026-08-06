@@ -12,7 +12,10 @@
 - **Branch:** `main`. **Latest commit:** `3f1250b` (Playoffs rename) — pushed (Vercel auto-deploys).
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0059`.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks. **Confirm with the owner which are actually applied in prod before assuming.**
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0061`.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **`0061` (ladder format) IS applied** — 2026-08-06, verified: 4 columns on `league_settings`, the `ladder_placements` table, both RLS policies, and both check constraints live. All 3 existing leagues picked up the defaults (`ladder_enabled = false`), so nothing changed for them.
+  - **`0060` (payment_accounts) is NOT applied** — written, awaiting the owner's go alongside the Stripe keys.
+  - For `0050`–`0059`, **confirm with the owner before assuming.**
 - **Tests:** `npm test` → **517 passing across 50 files**. tsc + eslint + prettier clean.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`. Slice A (payouts
