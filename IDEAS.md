@@ -3,6 +3,20 @@
 Deferred / out-of-current-scope ideas (per CLAUDE.md, ideas land here instead of
 being built ad hoc).
 
+## Ladder league — "tiers that teams move between every week"
+
+**Status:** design captured 2026-08-06, not started, **one decision open**.
+Full design: [`docs/plans/ladder-league.md`](docs/plans/ladder-league.md).
+
+A box/ladder league: each tier plays among itself weekly, and that night's
+results move teams between tiers. Organizer sets tiers + teams per tier, and a
+per-team **sets or games** target per night which the app divides across the
+night's pairings. Locked: movement on the night's results only; final placing is
+where you finish on the ladder. **Blocked on** whether promotion/relegation
+counts are symmetric per boundary — asymmetric counts make tier sizes collapse
+over a season. Big consequence: the season schedule can no longer be
+pre-generated, only the calendar; matchups are drawn week by week.
+
 ## AI-powered spreadsheet import — "Upload my existing schedule"
 
 **Status:** planned, deferred to a later phase (parked 2026-06-30). Full approved
