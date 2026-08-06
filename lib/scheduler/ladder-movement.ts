@@ -1,19 +1,25 @@
 /**
  * Ladder league — moving teams between tiers after a night. Pure: no DB access.
  *
- * The organizer sets, per tier, how many teams drop and how many rise. The
- * counts are independent: Tier 2 may send 2 down while Tier 3 sends only 1 up.
+ * Movement is a **swap at each boundary**: if `n` teams go up from Tier 2 to
+ * Tier 1, then `n` teams come down from Tier 1 to Tier 2. Same in the other
+ * direction. So the config is one count *per boundary*, not per direction —
+ * an unbalanced exchange can't be expressed, which is why tier sizes are
+ * provably constant all season.
  *
- * When the counts match at a boundary, tier sizes hold forever, and tiers need
- * NOT be the same size — 5/6/5 with one team crossing each boundary stays
- * 5/6/5. When they don't match, sizes drift by design (the owner's call,
- * 2026-08-06): 2 down from Tier 2 against 1 up from Tier 3 shrinks Tier 2 by a
- * team a week. `projectTierSizes` exists so the organizer sees that at setup
- * instead of discovering it in week six.
+ * A tier's own up and down counts may still differ, and tiers need not be the
+ * same size. The owner's example — Tier 1: 5, Tier 2: 6, Tier 3: 5, with one
+ * team crossing the 1↔2 boundary and two crossing the 2↔3 boundary — is:
  *
- * The only hard rule: a tier never falls below `minTeamsPerTier` (2 — fewer
- * can't play). A move that would breach it is refused for that week and
- * reported, never silently applied.
+ *     swaps = [1, 2]
+ *     Tier 1  sends 1 down,           receives 1 up      → 5
+ *     Tier 2  sends 1 up + 2 down,    receives 1 + 2     → 6
+ *     Tier 3  sends 2 up,             receives 2 down    → 5
+ *
+ * The one thing that can force a change is a tier too small to supply its
+ * boundaries (3 teams asked to send 2 up and 2 down). Because the exchange is
+ * atomic, the fix has to apply to BOTH sides of that boundary — trimming only
+ * the short side would reintroduce the drift this model exists to prevent.
  */
 
 export interface LadderTier {
@@ -22,12 +28,12 @@ export interface LadderTier {
   rankedTeamIds: string[];
 }
 
-export interface TierMovement {
-  divisionId: string;
-  /** Teams dropping to the tier below. Ignored for the bottom tier. */
-  down: number;
-  /** Teams rising to the tier above. Ignored for the top tier. */
-  up: number;
+export interface LadderMovementConfig {
+  /**
+   * Teams exchanged at each boundary, top-down: `swaps[i]` is the number
+   * traded between tier `i` and tier `i + 1`. Length is `tiers.length - 1`.
+   */
+  swaps: number[];
 }
 
 export interface LadderMove {
@@ -37,157 +43,87 @@ export interface LadderMove {
   direction: "up" | "down";
 }
 
-export type BlockedReason =
-  /** Top tier has nowhere up; bottom tier has nowhere down. */
-  | "no-adjacent-tier"
-  /** The tier doesn't have enough teams to send that many in both directions. */
-  | "not-enough-teams"
-  /** Sending them would drop the tier under the minimum to play. */
-  | "would-breach-minimum";
-
-export interface BlockedMovement {
-  divisionId: string;
-  direction: "up" | "down";
+export interface AdjustedBoundary {
+  /** Boundary index: between tier `boundary` and tier `boundary + 1`. */
+  boundary: number;
   requested: number;
   applied: number;
-  reason: BlockedReason;
+  /** The tier that couldn't supply its side of the exchange. */
+  limitedByDivisionId: string;
 }
 
 export interface LadderMovementResult {
-  /** Tiers top-first, with next week's rosters. */
+  /** Tiers top-first, with next week's rosters. Sizes always match the input. */
   tiers: { divisionId: string; teamIds: string[] }[];
   moves: LadderMove[];
-  /** Anything the guards refused, for the organizer to see. */
-  blocked: BlockedMovement[];
+  /** Boundaries trimmed because a tier couldn't field that many movers. */
+  adjusted: AdjustedBoundary[];
 }
 
-export interface LadderMovementOptions {
-  /** Fewest teams a tier can hold and still play. Default 2. */
-  minTeamsPerTier?: number;
+/**
+ * Trim boundary counts until every tier can actually supply its exchanges.
+ *
+ * A tier commits `swaps[i-1]` teams upward and `swaps[i]` downward; the sum
+ * can't exceed its roster. When it does, the bigger of the two boundaries gives
+ * way first (ties go to the lower boundary, so the drop yields before the
+ * promotion). Reducing a boundary relieves both tiers touching it, so this
+ * always converges.
+ */
+export function resolveSwaps(
+  sizes: number[],
+  requested: number[],
+): { swaps: number[]; adjusted: { boundary: number; limitedBy: number }[] } {
+  const swaps = requested.map((n) => Math.max(0, Math.floor(n)));
+  const adjusted: { boundary: number; limitedBy: number }[] = [];
+
+  for (let guard = 0; guard < 1000; guard++) {
+    const over = sizes.findIndex((size, i) => {
+      const up = i > 0 ? swaps[i - 1] : 0;
+      const down = i < swaps.length ? swaps[i] : 0;
+      return up + down > size;
+    });
+    if (over === -1) break;
+
+    const upIdx = over - 1;
+    const downIdx = over;
+    const up = upIdx >= 0 ? swaps[upIdx] : -1;
+    const down = downIdx < swaps.length ? swaps[downIdx] : -1;
+
+    // Give way at the busier boundary; on a tie the drop yields first.
+    const target = down >= up ? downIdx : upIdx;
+    if (target < 0 || target >= swaps.length || swaps[target] <= 0) break;
+    swaps[target] -= 1;
+    adjusted.push({ boundary: target, limitedBy: over });
+  }
+
+  return { swaps, adjusted };
 }
 
 /**
  * Apply one night's promotions and relegations.
  *
- * `tiers` must be ordered top-first. Movement is simultaneous: every team moves
- * based on tonight's finishing order, so a team can't be promoted into a tier
- * and then relegated back out in the same step.
+ * `tiers` must be ordered top-first. Movement is simultaneous — every team
+ * moves on tonight's finishing order, so nobody is promoted into a tier and
+ * then relegated back out in the same step.
  *
- * Ordering within a receiving tier reflects where the teams came from — a team
- * dropping from above enters at the top of the tier below (it was the weakest
- * of a stronger group), a team rising from below enters at the bottom. This
- * only affects display; the next night's split ignores order.
+ * Seating in the receiving tier reflects where a team came from: one dropping
+ * from above enters at the top (weakest of a stronger group), one rising from
+ * below enters at the bottom. Display only — the next night's split ignores
+ * order.
  */
 export function applyLadderMovement(
   tiers: LadderTier[],
-  movement: TierMovement[],
-  options: LadderMovementOptions = {},
+  config: LadderMovementConfig,
 ): LadderMovementResult {
-  const min = options.minTeamsPerTier ?? 2;
-  const blocked: BlockedMovement[] = [];
-  const byDivision = new Map(movement.map((m) => [m.divisionId, m]));
+  const sizes = tiers.map((t) => t.rankedTeamIds.length);
+  const boundaries = Math.max(0, tiers.length - 1);
+  const requested = Array.from(
+    { length: boundaries },
+    (_, i) => config.swaps[i] ?? 0,
+  );
 
-  const size = tiers.map((t) => t.rankedTeamIds.length);
-  const up: number[] = [];
-  const down: number[] = [];
+  const { swaps, adjusted } = resolveSwaps(sizes, requested);
 
-  // 1. Requested counts, with the ends pinned (nothing above the top tier,
-  //    nothing below the bottom one).
-  for (const [i, tier] of tiers.entries()) {
-    const cfg = byDivision.get(tier.divisionId);
-    const wantUp = Math.max(0, cfg?.up ?? 0);
-    const wantDown = Math.max(0, cfg?.down ?? 0);
-
-    const canGoUp = i > 0;
-    const canGoDown = i < tiers.length - 1;
-    if (!canGoUp && wantUp > 0) {
-      blocked.push({
-        divisionId: tier.divisionId,
-        direction: "up",
-        requested: wantUp,
-        applied: 0,
-        reason: "no-adjacent-tier",
-      });
-    }
-    if (!canGoDown && wantDown > 0) {
-      blocked.push({
-        divisionId: tier.divisionId,
-        direction: "down",
-        requested: wantDown,
-        applied: 0,
-        reason: "no-adjacent-tier",
-      });
-    }
-    up.push(canGoUp ? wantUp : 0);
-    down.push(canGoDown ? wantDown : 0);
-  }
-
-  // 2. A tier can't send more teams than it has. Trim the drop first — being
-  //    held up is kinder than being sent down on a technicality.
-  for (let i = 0; i < tiers.length; i++) {
-    const outgoing = up[i] + down[i];
-    if (outgoing <= size[i]) continue;
-    let excess = outgoing - size[i];
-    const trimDown = Math.min(excess, down[i]);
-    if (trimDown > 0) {
-      blocked.push({
-        divisionId: tiers[i].divisionId,
-        direction: "down",
-        requested: down[i],
-        applied: down[i] - trimDown,
-        reason: "not-enough-teams",
-      });
-      down[i] -= trimDown;
-      excess -= trimDown;
-    }
-    if (excess > 0) {
-      blocked.push({
-        divisionId: tiers[i].divisionId,
-        direction: "up",
-        requested: up[i],
-        applied: up[i] - excess,
-        reason: "not-enough-teams",
-      });
-      up[i] -= excess;
-    }
-  }
-
-  // 3. Keep every tier playable. A tier only shrinks through its OWN outgoing
-  //    moves (incoming can only add), so easing those off always converges.
-  for (let guard = 0; guard < 100; guard++) {
-    const resulting = tiers.map((_, i) => {
-      const incoming =
-        (i > 0 ? down[i - 1] : 0) + (i < tiers.length - 1 ? up[i + 1] : 0);
-      return size[i] - up[i] - down[i] + incoming;
-    });
-    const i = resulting.findIndex(
-      (n, idx) => n < min && up[idx] + down[idx] > 0,
-    );
-    if (i === -1) break;
-
-    // Hold back one team at a time, the drop before the promotion.
-    if (down[i] > 0) {
-      blocked.push({
-        divisionId: tiers[i].divisionId,
-        direction: "down",
-        requested: down[i],
-        applied: down[i] - 1,
-        reason: "would-breach-minimum",
-      });
-      down[i] -= 1;
-    } else {
-      blocked.push({
-        divisionId: tiers[i].divisionId,
-        direction: "up",
-        requested: up[i],
-        applied: up[i] - 1,
-        reason: "would-breach-minimum",
-      });
-      up[i] -= 1;
-    }
-  }
-
-  // 4. Pick the movers off tonight's finishing order and rebuild the rosters.
   const promoted: string[][] = tiers.map(() => []);
   const relegated: string[][] = tiers.map(() => []);
   const stayers: string[][] = tiers.map(() => []);
@@ -195,9 +131,12 @@ export function applyLadderMovement(
 
   for (const [i, tier] of tiers.entries()) {
     const ranked = tier.rankedTeamIds;
-    const risers = ranked.slice(0, up[i]);
-    const droppers = down[i] > 0 ? ranked.slice(ranked.length - down[i]) : [];
-    stayers[i] = ranked.slice(up[i], ranked.length - down[i]);
+    const up = i > 0 ? swaps[i - 1] : 0;
+    const down = i < swaps.length ? swaps[i] : 0;
+
+    const risers = ranked.slice(0, up);
+    const droppers = down > 0 ? ranked.slice(ranked.length - down) : [];
+    stayers[i] = ranked.slice(up, ranked.length - down);
     promoted[i] = risers;
     relegated[i] = droppers;
 
@@ -219,46 +158,47 @@ export function applyLadderMovement(
     }
   }
 
-  const result = tiers.map((tier, i) => ({
-    divisionId: tier.divisionId,
-    teamIds: [
-      // Dropped from the tier above — weakest of a stronger group, so on top.
-      ...(i > 0 ? relegated[i - 1] : []),
-      ...stayers[i],
-      // Risen from below — strongest of a weaker group, so at the bottom.
-      ...(i < tiers.length - 1 ? promoted[i + 1] : []),
-    ],
-  }));
-
-  return { tiers: result, moves, blocked };
+  return {
+    tiers: tiers.map((tier, i) => ({
+      divisionId: tier.divisionId,
+      teamIds: [
+        ...(i > 0 ? relegated[i - 1] : []),
+        ...stayers[i],
+        ...(i < tiers.length - 1 ? promoted[i + 1] : []),
+      ],
+    })),
+    moves,
+    adjusted: adjusted.map((a) => ({
+      boundary: a.boundary,
+      requested: requested[a.boundary],
+      applied: swaps[a.boundary],
+      limitedByDivisionId: tiers[a.limitedBy].divisionId,
+    })),
+  };
 }
 
 /**
- * Tier sizes week by week under a movement config — what the organizer sees
- * before committing, so a drifting setup is obvious at setup time.
- *
- * Runs the real movement engine on placeholder teams, so the projection can't
- * drift from what actually happens. Index 0 of the result is the starting size.
+ * Whether a config is playable as configured, for validation at setup time.
+ * `feasible` is false when a tier can't supply its boundaries and the counts
+ * had to be trimmed — the organizer should see that before the season starts,
+ * not on the night.
  */
-export function projectTierSizes(
-  startingSizes: number[],
-  movement: TierMovement[],
-  weeks: number,
-  options: LadderMovementOptions = {},
-): number[][] {
-  let tiers: LadderTier[] = startingSizes.map((n, i) => ({
-    divisionId: movement[i]?.divisionId ?? `tier-${i}`,
-    rankedTeamIds: Array.from({ length: n }, (_, k) => `t${i}-${k}`),
-  }));
-
-  const out: number[][] = [tiers.map((t) => t.rankedTeamIds.length)];
-  for (let w = 0; w < Math.max(0, weeks); w++) {
-    const res = applyLadderMovement(tiers, movement, options);
-    tiers = res.tiers.map((t) => ({
-      divisionId: t.divisionId,
-      rankedTeamIds: t.teamIds,
-    }));
-    out.push(tiers.map((t) => t.rankedTeamIds.length));
-  }
-  return out;
+export function checkLadderConfig(
+  sizes: number[],
+  swaps: number[],
+  minTeamsPerTier = 2,
+): {
+  feasible: boolean;
+  resolvedSwaps: number[];
+  tooSmall: number[];
+} {
+  const { swaps: resolved, adjusted } = resolveSwaps(sizes, swaps);
+  return {
+    feasible: adjusted.length === 0,
+    resolvedSwaps: resolved,
+    // Tier sizes never change, so a tier below the minimum is a setup problem.
+    tooSmall: sizes
+      .map((n, i) => (n < minTeamsPerTier ? i : -1))
+      .filter((i) => i >= 0),
+  };
 }
