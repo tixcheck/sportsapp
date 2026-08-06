@@ -161,16 +161,21 @@ export default async function LeaguePage({
               timezone={league.timezone}
             />
           )}
-          <GenerateScheduleButton
-            competitionId={league.id}
-            hasSchedule={league.matchCount > 0}
-          />
+          {/* A ladder draws week by week; the season generator would wipe it. */}
+          {!ladder?.enabled && (
+            <GenerateScheduleButton
+              competitionId={league.id}
+              hasSchedule={league.matchCount > 0}
+            />
+          )}
         </div>
       </CardHeader>
       {league.teams.length < 2 ? (
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            Add at least 2 teams to generate a round-robin schedule.
+            {ladder?.enabled
+              ? "Draw a week from the Ladder tab to fill the schedule."
+              : "Add at least 2 teams to generate a round-robin schedule."}
           </p>
         </CardContent>
       ) : schedule.length > 0 ? (

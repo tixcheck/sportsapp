@@ -559,11 +559,21 @@ export async function generateLeagueScheduleAction(
   const { data: settings, error: sErr } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week, minutes_per_game",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week, minutes_per_game, ladder_enabled",
     )
     .eq("competition_id", competitionId)
     .single();
   if (sErr || !settings) return { error: "League settings not found." };
+
+  // A ladder season is drawn a week at a time — this generator would wipe the
+  // drawn week and replace it with a full round robin, silently undoing the
+  // format. Refuse rather than destroy.
+  if (settings.ladder_enabled === true) {
+    return {
+      error:
+        "This league runs the Ladder format — draw each week from the Ladder tab instead of generating a season.",
+    };
+  }
 
   const { data: teams } = await supabase
     .from("teams")
