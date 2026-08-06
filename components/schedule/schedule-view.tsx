@@ -6,6 +6,7 @@ import { DateTime } from "luxon";
 import {
   CalendarDays,
   Grid3x3,
+  Layers,
   List,
   MapPin,
   SquarePen,
@@ -208,6 +209,49 @@ function formatGap(mins: number): string {
   return `${hours}h${m ? ` ${m}m` : ""}`;
 }
 
+/**
+ * Group by tier, top tier first, in time order within each — the way a tiered
+ * league's schedule is actually read ("where and when is Tier 2 playing?").
+ * Games whose teams aren't sorted into a tier collect at the end.
+ */
+function groupByTier(matches: ScheduleMatch[], tz: string): Group[] {
+  const map = new Map<string, ScheduleMatch[]>();
+  for (const m of matches) {
+    const key = m.divisionId ?? "none";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(m);
+  }
+  const orderOf = (ms: ScheduleMatch[]) =>
+    ms[0]?.tierOrder ?? Number.MAX_SAFE_INTEGER;
+  return [...map.entries()]
+    .sort((a, b) => orderOf(a[1]) - orderOf(b[1]))
+    .map(([key, ms]) => {
+      const sorted = [...ms].sort((x, y) => startMillis(x) - startMillis(y));
+      const courts = [
+        ...new Set(
+          sorted.map((m) => normalizeCourtLabel(m.court)).filter(Boolean),
+        ),
+      ];
+      const date = sorted.find((m) => m.scheduledAt)?.scheduledAt;
+      return {
+        key: `tier:${key}`,
+        heading: sorted[0]?.divisionName ?? "No tier",
+        // A tier usually owns one court for the night — say which, since that's
+        // the first thing a captain looks for.
+        sub: [
+          date
+            ? DateTime.fromISO(date, { zone: tz }).toFormat("cccc, LLL d")
+            : null,
+          courts.length === 1 ? `Court ${courts[0]}` : null,
+          `${sorted.length} games`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        matches: sorted,
+      };
+    });
+}
+
 /** Admin-only: group by court, ordered by start time within each court. */
 function groupByCourt(matches: ScheduleMatch[]): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
@@ -253,8 +297,12 @@ export function ScheduleView({
 }) {
   const scorable = new Set(scorableMatchIds);
   const [view, setView] = useState<
-    "list" | "agenda" | "court" | "team" | "matrix"
+    "list" | "agenda" | "court" | "team" | "tier" | "matrix"
   >("list");
+  // Only worth offering when there's more than one tier to separate.
+  const tierCount = new Set(matches.map((m) => m.divisionId).filter(Boolean))
+    .size;
+  const hasTiers = tierCount > 1;
   const [mineOnly, setMineOnly] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const canFilterMine = myTeamIds.length > 0;
@@ -298,7 +346,12 @@ export function ScheduleView({
       : dayScoped;
 
   // "By date" can be hidden (single-day); fall back to By round if it was set.
-  const effectiveView = view === "agenda" && !multiDay ? "list" : view;
+  const effectiveView =
+    view === "agenda" && !multiDay
+      ? "list"
+      : view === "tier" && !hasTiers
+        ? "list"
+        : view;
 
   // By-team always groups the day-scoped schedule so each team's day is complete;
   // the My-team filter then keeps only the followed teams' sections. (Filtering
@@ -316,13 +369,15 @@ export function ScheduleView({
   const groups =
     effectiveView === "court"
       ? groupByCourt(shown)
-      : effectiveView === "team"
-        ? teamGroups
-        : effectiveView === "agenda"
-          ? groupByDate(shown, timezone)
-          : mineOnly && canFilterMine
-            ? groupByRoundWithOff(shown, dayScoped, myTeamIds, timezone)
-            : groupByRound(shown, timezone);
+      : effectiveView === "tier"
+        ? groupByTier(shown, timezone)
+        : effectiveView === "team"
+          ? teamGroups
+          : effectiveView === "agenda"
+            ? groupByDate(shown, timezone)
+            : mineOnly && canFilterMine
+              ? groupByRoundWithOff(shown, dayScoped, myTeamIds, timezone)
+              : groupByRound(shown, timezone);
 
   const scoreLink = (m: ScheduleMatch) =>
     m.homeTeamId && m.awayTeamId ? (
@@ -400,6 +455,15 @@ export function ScheduleView({
             >
               <CalendarDays className="size-4" />
               By date
+            </ToggleButton>
+          )}
+          {hasTiers && (
+            <ToggleButton
+              active={effectiveView === "tier"}
+              onClick={() => setView("tier")}
+            >
+              <Layers className="size-4" />
+              By tier
             </ToggleButton>
           )}
           <ToggleButton
