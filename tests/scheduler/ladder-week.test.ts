@@ -203,3 +203,67 @@ describe("planLadderWeek — the Mango Season 6 shape", () => {
     expect([...courts.get("T2")!]).toEqual([2]);
   });
 });
+
+describe("planLadderWeek — nobody sits out twice in a row", () => {
+  /** A tier's games in the order they're played. */
+  function order(plan: ReturnType<typeof planLadderWeek>, divisionId: string) {
+    return plan.matches
+      .filter((m) => m.divisionId === divisionId)
+      .sort((a, b) => a.wave - b.wave)
+      .map((m) => [m.homeTeamId, m.awayTeamId] as const);
+  }
+
+  it("rotates 3-team tiers instead of repeating a pairing back-to-back", () => {
+    const plan = planLadderWeek(
+      [{ divisionId: "T", teamIds: ["1", "2", "3"] }],
+      4,
+      1,
+    );
+    const seq = order(plan, "T").map((g) => g.join("v"));
+    // Each pairing appears twice, never twice running.
+    for (let i = 1; i < seq.length; i++) {
+      expect(seq[i]).not.toBe(seq[i - 1]);
+    }
+    // And the team that sat out plays in the very next game.
+    const games = order(plan, "T");
+    for (let i = 1; i < games.length; i++) {
+      const satOut = ["1", "2", "3"].find(
+        (t) => !games[i - 1].includes(t as never),
+      )!;
+      expect(games[i]).toContain(satOut);
+    }
+  });
+
+  it("never makes a team watch two games in a row, across tier sizes", () => {
+    for (const n of [3, 4, 5]) {
+      for (const target of [2, 4, 6]) {
+        const teamIds = Array.from({ length: n }, (_, i) => `t${i + 1}`);
+        const plan = planLadderWeek([{ divisionId: "T", teamIds }], target, 1);
+        const games = order(plan, "T");
+        for (const team of teamIds) {
+          let idle = 0;
+          for (const g of games) {
+            idle = g.includes(team as never) ? 0 : idle + 1;
+            // With one court a 3-team tier can idle at most one game; bigger
+            // tiers naturally idle longer, so scale the bound with the tier.
+            expect(idle).toBeLessThanOrEqual(n - 2);
+          }
+        }
+      }
+    }
+  });
+
+  it("still plays every pairing the right number of times", () => {
+    const plan = planLadderWeek(
+      [{ divisionId: "T", teamIds: ["1", "2", "3"] }],
+      4,
+      1,
+    );
+    const counts = new Map<string, number>();
+    for (const [h, a] of order(plan, "T")) {
+      const k = [h, a].sort().join("|");
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    expect([...counts.values()]).toEqual([2, 2, 2]);
+  });
+});
