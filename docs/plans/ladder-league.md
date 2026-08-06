@@ -1,9 +1,11 @@
 # Ladder league — "tiers that teams move between every week"
 
-> **Status: DESIGN, not started** (captured 2026-08-06 from a request by the
-> owner). Outside `PRD.md` §4 v0 scope, which describes leagues as a
-> pre-generated round robin with fixed tiers. Nothing here is built. One
-> decision is still open — see "Open decision" below — and it blocks the build.
+> **Status: DESIGN + pure logic built** (captured 2026-08-06). Outside
+> `PRD.md` §4 v0 scope, which describes leagues as a pre-generated round robin
+> with fixed tiers. Rules are locked. **Slice 2 (the night split) and the
+> movement engine exist as tested pure functions** —
+> `lib/scheduler/ladder-split.ts` and `lib/scheduler/ladder-movement.ts`. No
+> schema, no UI, no DB writes yet.
 
 ## What it is
 
@@ -80,23 +82,38 @@ Player-visible effects that need deciding as the UI is built:
   ("which tier were you in each week") — a season-long win table is misleading
   when a team has moved.
 
-## Open decision — BLOCKS the build
+## Movement — per-tier counts, decided 2026-08-06
 
-The owner asked for the up-count and down-count to be **settable
-independently**. That does not survive a season: if Tier A sends 2 down while
-Tier B sends only 1 up, Tier A shrinks by one team per week and Tier B grows by
-one. Six weeks in, A has 2 teams and B has 10.
+**The organizer sets, for each tier, how many teams go down and how many go
+up.** Not per boundary, not forced to match — per tier, independently.
 
-**Proposed instead: one count per boundary, symmetric.** 2 teams swap between
-A and B, 1 between B and C. Same expressiveness — tight top tier, stable bottom
-— with tier sizes fixed for the season.
+Tiers do **not** need to be the same size. The owner's worked example, 5/6/5:
 
-Needs the owner's answer before any code:
+| Tier | Size | Down | Up | Net |
+|---|---|---|---|---|
+| Tier 1 | 5 | 1 | — (top tier) | −1 +1 = **5** |
+| Tier 2 | 6 | 1 | 1 | +1 −1 −1 +1 = **6** |
+| Tier 3 | 5 | — (bottom) | 1 | +1 −1 = **5** |
 
-- **(a)** per-boundary symmetric counts (recommended), or
-- **(b)** genuinely drifting tier sizes — which needs its own rules for a tier
-  hitting 1 team, a tier outgrowing its courts, and what the weekly draw does
-  when a tier's size changes the split math every week.
+Sizes hold because the counts happen to match **at each boundary** (T1 down 1 ↔
+T2 up 1; T2 down 1 ↔ T3 up 1). Uneven tier sizes were never a problem — only
+mismatched boundaries are.
+
+**Mismatched boundaries are allowed, and they drift.** The owner's second
+example — Tier 2 sends 2 down but Tier 3 sends only 1 up — shrinks Tier 2 by one
+team per week and grows Tier 3 by one. This is intended behaviour, not a bug to
+prevent, so the app **guards rather than blocks**:
+
+- **Show the drift before the season starts.** Configuration projects tier sizes
+  forward week by week and shows the organizer where they land. A collapse is
+  obvious at setup, not in week six.
+- **Hard floor: a tier never drops below 2 teams.** A move that would empty a
+  tier is refused for that week and reported, not silently applied.
+- **Ceiling from court capacity.** With target `T` per team, a tier of `n` plays
+  `n × T / 2` sets on the night. A tier growing 5 → 8 goes from 15 to 24 sets at
+  T=6. When a tier outgrows its slot, warn the organizer with the projected
+  finish time.
+- Top tier has no "up", bottom tier has no "down" — forced to 0 in the UI.
 
 ## Also unresolved
 
