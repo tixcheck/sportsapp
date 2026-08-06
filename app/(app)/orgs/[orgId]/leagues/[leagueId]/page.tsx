@@ -42,6 +42,9 @@ import {
 } from "@/components/standings/standings-table";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
+import { getLadderState } from "@/lib/queries/ladder";
+import { LadderPanel } from "@/components/league/ladder-panel";
+import { LadderSetupWizard } from "@/components/league/ladder-setup-wizard";
 import {
   Card,
   CardContent,
@@ -58,7 +61,7 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [schedule, standings, rosters, teamInvites, coOrgs, brackets] =
+  const [schedule, standings, rosters, teamInvites, coOrgs, brackets, ladder] =
     await Promise.all([
       getLeagueSchedule(leagueId),
       getStandings(leagueId),
@@ -66,6 +69,7 @@ export default async function LeaguePage({
       getTeamInvites(leagueId),
       getCompetitionAdmins(leagueId),
       getBrackets(leagueId),
+      getLadderState(leagueId),
     ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -273,8 +277,47 @@ export default async function LeaguePage({
     </Card>
   );
 
+  // Ladder format: tier sizes drive the wizard's capacity preview, and the
+  // courts figure tells the organizer how long a night will actually run.
+  const ladderTiers = league.tiers.map((t) => ({
+    divisionId: t.id,
+    name: t.name,
+    teamCount: league.teams.filter((team) => team.divisionId === t.id).length,
+  }));
+
+  const ladderTab =
+    ladder && ladder.enabled ? (
+      <LadderPanel competitionId={league.id} state={ladder} />
+    ) : null;
+
   const settingsTab = (
     <div className="space-y-6">
+      {league.tiers.length >= 2 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ladder format</CardTitle>
+            <CardDescription>
+              Teams move between tiers each week on that night&apos;s results.
+              The season isn&apos;t scheduled up front — you draw a week at a
+              time.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LadderSetupWizard
+              competitionId={league.id}
+              tiers={ladderTiers}
+              courts={league.courts}
+              initial={{
+                enabled: ladder?.enabled ?? false,
+                unit: ladder?.unit ?? "sets",
+                target: ladder?.target ?? 6,
+                swaps: ladder?.swaps ?? [],
+              }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Scoring</CardTitle>
@@ -408,6 +451,9 @@ export default async function LeaguePage({
       <OrganizerTabs
         tabs={[
           { value: "schedule", label: "Schedule", content: scheduleTab },
+          ...(ladderTab
+            ? [{ value: "ladder", label: "Ladder", content: ladderTab }]
+            : []),
           { value: "standings", label: "Standings", content: standingsTab },
           ...(league.teams.length >= 2
             ? [{ value: "playoffs", label: "Playoffs", content: playoffsTab }]
