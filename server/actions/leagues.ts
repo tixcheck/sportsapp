@@ -10,6 +10,8 @@ import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { formatDateRange } from "@/lib/utils/dates";
 import {
+  CUSTOM_FORMAT_ID,
+  customFormat,
   estimateMatchMinutes,
   findPreset,
   toTwoSetFormat,
@@ -41,6 +43,32 @@ const DEFAULT_TIMEZONE = "America/Toronto";
 const INVITE_TTL_DAYS = 14;
 
 type ActionError = { error: string };
+
+/**
+ * The match format the organizer chose — a preset, or their own numbers when
+ * they picked "custom" (e.g. indoor's one set to 25 with a cap at 27).
+ */
+function resolveFormat(
+  sport: Sport,
+  v: {
+    formatId: string;
+    customSets?: number;
+    customPointsPerSet?: number;
+    customWinBy?: number;
+    customCapPoints?: number | null;
+    customDecidingSetTo?: number | null;
+  },
+): MatchFormat {
+  if (v.formatId !== CUSTOM_FORMAT_ID)
+    return findPreset(sport, v.formatId).format;
+  return customFormat({
+    sets: v.customSets ?? 1,
+    pointsPerSet: v.customPointsPerSet ?? 25,
+    winBy: v.customWinBy ?? 2,
+    capPoints: v.customCapPoints ?? null,
+    decidingSetTo: v.customDecidingSetTo ?? null,
+  });
+}
 
 /** First calendar date on/after `startIso` that falls on weekday `dow` (0=Sun). */
 function firstSlotDate(startIso: string, dow: number): string {
@@ -75,7 +103,7 @@ export async function createLeagueAction(
     .or(`slug.eq.${base},slug.like.${base}-%`);
   const slug = uniqueSlug(base, new Set((existing ?? []).map((r) => r.slug)));
 
-  const preset = findPreset(v.sport as Sport, v.formatId);
+  const baseFormat = resolveFormat(v.sport as Sport, v);
 
   const { data: league, error } = await supabase
     .from("competitions")
@@ -92,8 +120,8 @@ export async function createLeagueAction(
       timezone: DEFAULT_TIMEZONE,
       // League games are all round-robin — apply the chosen RR format.
       match_format: v.twoSetRoundRobin
-        ? toTwoSetFormat(preset.format)
-        : preset.format,
+        ? toTwoSetFormat(baseFormat)
+        : baseFormat,
       visibility: "private",
       allow_captain_entry: v.allowCaptainEntry,
       allow_ref_entry: v.allowRefEntry,
@@ -192,10 +220,8 @@ export async function updateLeagueSettingsAction(
   const hasScores = await leagueHasScores(supabase, competitionId);
   let newFormat = comp.match_format as MatchFormat;
   if (!hasScores) {
-    const preset = findPreset(comp.sport as Sport, v.formatId);
-    newFormat = v.twoSetRoundRobin
-      ? toTwoSetFormat(preset.format)
-      : preset.format;
+    const chosen = resolveFormat(comp.sport as Sport, v);
+    newFormat = v.twoSetRoundRobin ? toTwoSetFormat(chosen) : chosen;
   }
 
   const { error: compErr } = await supabase

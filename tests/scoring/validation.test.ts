@@ -335,3 +335,71 @@ describe("recordedDecision — reactive submit/grey-out source", () => {
     ).toBe(true);
   });
 });
+
+// Indoor's classic: one set to 25 with a hard ceiling at 27. At the cap the
+// win-by-2 rule is waived — 27–26 is exactly how a capped set is meant to end.
+const CAP27: MatchFormat = {
+  bestOf: 1,
+  setsToPoints: [25],
+  winBy: 2,
+  capPoints: 27,
+};
+
+describe("validateScore — point cap", () => {
+  it("accepts a normal win by two below the cap", () => {
+    const r = validateScore(CAP27, [{ home: 25, away: 20 }]);
+    expect(r.blocks).toEqual([]);
+    expect(r.winner).toBe("home");
+  });
+
+  it("accepts a one-point win AT the cap", () => {
+    const r = validateScore(CAP27, [{ home: 27, away: 26 }]);
+    expect(r.blocks).toEqual([]);
+    expect(r.winner).toBe("home");
+  });
+
+  it("still rejects a one-point win below the cap", () => {
+    // 26–25 isn't a cap finish, so win-by-2 applies.
+    const r = validateScore(CAP27, [{ home: 26, away: 25 }]);
+    expect(r.blocks.length).toBeGreaterThan(0);
+  });
+
+  it("rejects anything past the cap", () => {
+    const r = validateScore(CAP27, [{ home: 28, away: 26 }]);
+    expect(r.blocks[0]).toContain("cap of 27");
+  });
+
+  it("leaves uncapped formats behaving exactly as before", () => {
+    // Same shape as CAP27 but with no ceiling: a set runs on until someone
+    // leads by two, so 30–28 is fine and 27–26 is not.
+    const noCap: MatchFormat = { bestOf: 1, setsToPoints: [25], winBy: 2 };
+    expect(validateScore(noCap, [{ home: 30, away: 28 }]).blocks).toEqual([]);
+    expect(
+      validateScore(noCap, [{ home: 27, away: 26 }]).blocks.length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("applies the cap per set in a multi-set game", () => {
+    const capBo3: MatchFormat = {
+      bestOf: 3,
+      setsToPoints: [25, 25, 15],
+      winBy: 2,
+      capPoints: 27,
+    };
+    const r = validateScore(capBo3, [
+      { home: 27, away: 26 },
+      { home: 23, away: 25 },
+      { home: 15, away: 12 },
+    ]);
+    expect(r.blocks).toEqual([]);
+    expect(r.winner).toBe("home");
+  });
+});
+
+describe("validateSet — point cap", () => {
+  it("accepts the cap finish and rejects going past it", () => {
+    expect(validateSet(CAP27, 0, { home: 27, away: 26 }).status).toBe("ok");
+    expect(validateSet(CAP27, 0, { home: 28, away: 26 }).status).toBe("reject");
+    expect(validateSet(CAP27, 0, { home: 26, away: 25 }).status).toBe("reject");
+  });
+});
