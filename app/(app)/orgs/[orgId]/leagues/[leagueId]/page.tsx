@@ -109,6 +109,16 @@ export default async function LeaguePage({
     slotDayOfWeek: league.slotDayOfWeek,
     slotStartTime: league.slotStartTime,
     formatId: findPresetId(league.sport, league.matchFormat),
+    // Seed the custom fields from the stored format so a league already on
+    // custom numbers opens showing its own rules, not a preset's.
+    customSets: league.matchFormat.bestOf,
+    customPointsPerSet: league.matchFormat.setsToPoints[0] ?? 25,
+    customWinBy: league.matchFormat.winBy,
+    customCapPoints: league.matchFormat.capPoints ?? null,
+    customDecidingSetTo:
+      league.matchFormat.setsToPoints.length > 1
+        ? (league.matchFormat.setsToPoints.at(-1) ?? null)
+        : null,
     twoSetRoundRobin: league.matchFormat.bestOf % 2 === 0,
     blackoutDates: league.blackoutDates,
   };

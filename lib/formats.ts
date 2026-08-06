@@ -41,11 +41,24 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
       },
     },
     {
-      // A single set to 21 with an on-court cap at 23 (win-by-1 so a 23–22 cap
-      // finish records without being rejected as a non-win-by-2 margin).
+      id: "indoor6-single25cap27",
+      label: "Single set to 25 (cap 27)",
+      format: { bestOf: 1, setsToPoints: [25], winBy: 2, capPoints: 27 },
+    },
+    {
       id: "indoor6-single21",
       label: "Single set to 21 (cap 23)",
-      format: { bestOf: 1, setsToPoints: [21], winBy: 1 },
+      format: { bestOf: 1, setsToPoints: [21], winBy: 2, capPoints: 23 },
+    },
+    {
+      id: "indoor6-bo3cap27",
+      label: "Best of 3 to 25 (cap 27, 3rd to 15 cap 17)",
+      format: {
+        bestOf: 3,
+        setsToPoints: [25, 25, 15],
+        winBy: 2,
+        capPoints: 27,
+      },
     },
   ],
   beach2: [
@@ -71,10 +84,9 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
       format: { bestOf: 1, setsToPoints: [25], winBy: 2 },
     },
     {
-      // Single set to 21, on-court cap at 23 (win-by-1 to allow a 23–22 finish).
       id: "beach2-single21",
       label: "Single set to 21 (cap 23)",
-      format: { bestOf: 1, setsToPoints: [21], winBy: 1 },
+      format: { bestOf: 1, setsToPoints: [21], winBy: 2, capPoints: 23 },
     },
   ],
   coed4: [
@@ -177,22 +189,72 @@ export function poolBasePresetId(
   return findPresetId(sport, poolFormat);
 }
 
+/**
+ * The id meaning "the organizer typed their own numbers". Not in the preset
+ * list — the settings form swaps in its own fields when this is selected.
+ */
+export const CUSTOM_FORMAT_ID = "custom";
+
 export function findPreset(sport: Sport, id: string): FormatPreset {
   return FORMAT_PRESETS[sport].find((p) => p.id === id) ?? defaultPreset(sport);
 }
 
-/** The preset id whose format matches `f` (for pre-selecting a stored format). */
-export function findPresetId(sport: Sport, f: MatchFormat): string {
-  const same = (a: MatchFormat, b: MatchFormat) =>
+/** Whether two formats are the same match rules. */
+export function sameFormat(a: MatchFormat, b: MatchFormat): boolean {
+  return (
     a.bestOf === b.bestOf &&
     a.winBy === b.winBy &&
+    (a.capPoints ?? null) === (b.capPoints ?? null) &&
     (a.capMinutes ?? null) === (b.capMinutes ?? null) &&
     a.setsToPoints.length === b.setsToPoints.length &&
-    a.setsToPoints.every((p, i) => p === b.setsToPoints[i]);
-  return (
-    FORMAT_PRESETS[sport].find((p) => same(p.format, f))?.id ??
-    defaultPreset(sport).id
+    a.setsToPoints.every((p, i) => p === b.setsToPoints[i])
   );
+}
+
+/**
+ * The preset id whose format matches `f` (for pre-selecting a stored format),
+ * or `custom` when the organizer's numbers don't match any preset — otherwise
+ * opening the settings dialog would silently show, and then save, a different
+ * format from the one the league is actually playing.
+ */
+export function findPresetId(sport: Sport, f: MatchFormat): string {
+  return (
+    FORMAT_PRESETS[sport].find((p) => sameFormat(p.format, f))?.id ??
+    CUSTOM_FORMAT_ID
+  );
+}
+
+/** Build a format from the organizer's own numbers. */
+export function customFormat(input: {
+  sets: number;
+  pointsPerSet: number;
+  winBy: number;
+  capPoints?: number | null;
+  /** Deciding-set target when it differs (e.g. best-of-3 with a 15). */
+  decidingSetTo?: number | null;
+}): MatchFormat {
+  const sets = Math.max(1, Math.min(5, Math.floor(input.sets)));
+  const points = Math.max(1, Math.floor(input.pointsPerSet));
+  const deciding =
+    input.decidingSetTo != null && input.decidingSetTo > 0
+      ? Math.floor(input.decidingSetTo)
+      : null;
+
+  const setsToPoints = Array.from({ length: sets }, (_, i) =>
+    deciding != null && i === sets - 1 && sets > 1 ? deciding : points,
+  );
+
+  const format: MatchFormat = {
+    bestOf: sets as MatchFormat["bestOf"],
+    setsToPoints,
+    winBy: Math.max(1, Math.floor(input.winBy)),
+  };
+  // A cap below the target would end every set early — treat it as "no cap"
+  // rather than storing something that rejects legitimate scores.
+  if (input.capPoints != null && input.capPoints >= points) {
+    format.capPoints = Math.floor(input.capPoints);
+  }
+  return format;
 }
 
 /**

@@ -73,14 +73,22 @@ export function validateScore(
     const lose = Math.min(s.home, s.away);
     const margin = win - lose;
 
-    if (win < target) {
+    const cap = format.capPoints;
+
+    if (cap != null && win > cap) {
+      // Nothing can go past a hard ceiling — the set ends the moment it's hit.
+      blocks.push(`Set ${n}: ${win}–${lose} goes past the cap of ${cap}.`);
+    } else if (win < target) {
       // Short of target — only legitimate when time-capped. Allowed, flagged.
       warnings.push(
         `Set ${n}: winner reached ${win}, below the target of ${target}.`,
       );
     } else if (margin < format.winBy) {
-      // Reached the target but not won by the margin — not a legal set ending.
-      blocks.push(`Set ${n} must be won by ${format.winBy} points.`);
+      // At the cap the win-by rule is waived: 27–26 is exactly how a capped
+      // set is meant to finish. Below the cap it's simply not a legal ending.
+      if (cap == null || win !== cap) {
+        blocks.push(`Set ${n} must be won by ${format.winBy} points.`);
+      }
     } else if (win > target && margin > format.winBy) {
       warnings.push(`Set ${n}: ${win}–${lose} runs past the ${target} target.`);
     }
@@ -173,10 +181,15 @@ export function validateSet(
   const win = Math.max(s.home, s.away);
   const lose = Math.min(s.home, s.away);
   const margin = win - lose;
+  const cap = format.capPoints;
+  if (cap != null && win > cap) {
+    return { status: "reject", message: `Goes past the cap of ${cap}.` };
+  }
   if (win < target) {
     return { status: "warn", message: `Below the target of ${target}.` };
   }
-  if (margin < format.winBy) {
+  // A cap finish (27–26) waives the win-by rule; below the cap it doesn't.
+  if (margin < format.winBy && !(cap != null && win === cap)) {
     return {
       status: "reject",
       message: `Set must be won by ${format.winBy} points.`,

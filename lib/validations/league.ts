@@ -47,6 +47,13 @@ export const createLeagueSchema = z
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
     formatId: z.string().min(1),
+    // Read only when formatId === CUSTOM_FORMAT_ID — the organizer's own
+    // numbers (e.g. indoor "one set to 25, cap 27").
+    customSets: z.number().int().min(1).max(5).optional(),
+    customPointsPerSet: z.number().int().min(1).max(99).optional(),
+    customWinBy: z.number().int().min(1).max(5).optional(),
+    customCapPoints: z.number().int().min(1).max(199).nullable().optional(),
+    customDecidingSetTo: z.number().int().min(1).max(99).nullable().optional(),
     // true = round-robin games are a fixed 2-set game (ties allowed); false = bo3.
     twoSetRoundRobin: z.boolean(),
     blackoutDates: z.array(z.string().regex(DATE_RE)),
@@ -99,6 +106,13 @@ export const editLeagueSchema = z
     slotDayOfWeek: z.number().int().min(0).max(6),
     slotStartTime: z.string().regex(TIME_RE, "Use HH:mm."),
     formatId: z.string().min(1),
+    // Read only when formatId === CUSTOM_FORMAT_ID — the organizer's own
+    // numbers (e.g. indoor "one set to 25, cap 27").
+    customSets: z.number().int().min(1).max(5).optional(),
+    customPointsPerSet: z.number().int().min(1).max(99).optional(),
+    customWinBy: z.number().int().min(1).max(5).optional(),
+    customCapPoints: z.number().int().min(1).max(199).nullable().optional(),
+    customDecidingSetTo: z.number().int().min(1).max(99).nullable().optional(),
     twoSetRoundRobin: z.boolean(),
     blackoutDates: z.array(z.string().regex(DATE_RE)),
   })

@@ -15,7 +15,7 @@ import {
   DAY_LABELS,
   type EditLeagueInput,
 } from "@/lib/validations/league";
-import { FORMAT_PRESETS, type Sport } from "@/lib/formats";
+import { CUSTOM_FORMAT_ID, FORMAT_PRESETS, type Sport } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -60,11 +60,13 @@ export function EditLeagueSettingsDialog({
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<EditLeagueInput>({
     resolver: zodResolver(editLeagueSchema),
     defaultValues: initial,
   });
+  const formatId = watch("formatId");
 
   // Keep the form's courtList in sync with the editor (null when empty = default).
   function setCourts(next: LeagueCourt[]) {
@@ -325,8 +327,80 @@ export function EditLeagueSettingsDialog({
                   {p.label}
                 </option>
               ))}
+              <option value={CUSTOM_FORMAT_ID}>Custom — set my own</option>
             </select>
           </Field>
+
+          {formatId === CUSTOM_FORMAT_ID && (
+            <div className="border-border grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+              <Field label="Sets per game" error={errors.customSets?.message}>
+                <Input
+                  type="number"
+                  min={1}
+                  max={5}
+                  disabled={hasScores}
+                  {...register("customSets", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Points to win a set"
+                error={errors.customPointsPerSet?.message}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  disabled={hasScores}
+                  {...register("customPointsPerSet", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field label="Win by" error={errors.customWinBy?.message}>
+                <Input
+                  type="number"
+                  min={1}
+                  max={5}
+                  disabled={hasScores}
+                  {...register("customWinBy", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Cap (optional)"
+                error={errors.customCapPoints?.message}
+                hint="Hard ceiling — at the cap, win-by is waived (25/cap 27 ends 27–26)."
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={199}
+                  placeholder="No cap"
+                  disabled={hasScores}
+                  {...register("customCapPoints", {
+                    setValueAs: (x) =>
+                      x === "" || x == null ? null : Number(x),
+                  })}
+                />
+              </Field>
+              {(watch("customSets") ?? 1) > 1 && (
+                <Field
+                  label="Deciding set to (optional)"
+                  error={errors.customDecidingSetTo?.message}
+                  hint="When the last set is shorter, e.g. 15."
+                >
+                  <Input
+                    type="number"
+                    min={1}
+                    max={99}
+                    placeholder="Same as above"
+                    disabled={hasScores}
+                    {...register("customDecidingSetTo", {
+                      setValueAs: (x) =>
+                        x === "" || x == null ? null : Number(x),
+                    })}
+                  />
+                </Field>
+              )}
+            </div>
+          )}
 
           <Field
             label="Standings tiebreaker"

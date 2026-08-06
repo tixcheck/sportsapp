@@ -42,6 +42,12 @@ export type MatchFormat = {
   setsToPoints: number[];
   /** Margin required to win a set (usually 2). */
   winBy: number;
+  /**
+   * Hard points ceiling for a set — indoor's "to 25, cap 27". At the cap the
+   * win-by rule is waived: 27–26 is a legal finish, and nothing above 27 is.
+   * Absent = no ceiling, so a set runs until someone leads by `winBy`.
+   */
+  capPoints?: number;
   /** Optional time cap in minutes. */
   capMinutes?: number;
   /** Optional alternate deciding-set target (e.g. 11). */
