@@ -320,6 +320,20 @@ export const leagueSettings = pgTable("league_settings", {
   registrationDeadline: timestamp("registration_deadline", {
     withTimezone: true,
   }),
+  // ── Ladder format (docs/plans/ladder-league.md) ──────────────────────────
+  // When on, the league is NOT a pre-generated round robin. Each tier plays
+  // among itself weekly and teams swap between tiers on the night's results,
+  // so only the calendar exists up front — matchups are drawn a week at a time.
+  ladderEnabled: boolean("ladder_enabled").notNull().default(false),
+  // What the per-night target counts: "sets" or "games".
+  ladderUnit: text("ladder_unit").notNull().default("sets"),
+  // How many sets (or games) EACH team gets per night. lib/scheduler/
+  // ladder-split.ts divides this across the tier's pairings.
+  ladderTarget: integer("ladder_target").notNull().default(6),
+  // Teams exchanged at each boundary, top-down: index i is between tier i and
+  // tier i+1. Length is (tiers - 1). The exchange is balanced by construction —
+  // n up always means n down — so tier sizes never drift.
+  ladderSwaps: jsonb("ladder_swaps").$type<number[]>(),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */
@@ -1124,5 +1138,49 @@ export const paymentAccounts = pgTable(
     // coexist, which is what makes go-live a key swap rather than a migration).
     unique("payment_accounts_org_livemode_key").on(t.orgId, t.livemode),
     index("payment_accounts_org_id_idx").on(t.orgId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Ladder format — which tier a team sat in, week by week
+// ---------------------------------------------------------------------------
+
+/**
+ * A team's tier for one week of a ladder league.
+ *
+ * The ladder needs history, not just a current position: next week's draw reads
+ * the latest placements, and the season's story ("you started Tier 3 and
+ * finished Tier 1") is the whole point of the format. Keeping a row per team
+ * per week makes both cheap, and makes a mis-locked week undoable by deleting
+ * that week's rows.
+ *
+ * `week` matches `matches.round`, so a placement lines up with the games that
+ * produced it.
+ */
+export const ladderPlacements = pgTable(
+  "ladder_placements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    divisionId: uuid("division_id")
+      .notNull()
+      .references(() => divisions.id, { onDelete: "cascade" }),
+    /** 1-based week; matches the round number of that week's games. */
+    week: integer("week").notNull(),
+    /** Seat within the tier, 0 = top. Display order only. */
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // A team sits in exactly one tier per week.
+    unique("ladder_placements_team_week_key").on(t.teamId, t.week),
+    index("ladder_placements_competition_week_idx").on(t.competitionId, t.week),
   ],
 );
