@@ -90,6 +90,15 @@ export interface ScheduleMatch {
   refTeamId: string | null;
   refTeamName: string | null;
   isAbnormal: boolean;
+  /**
+   * The tier this game belongs to. Matches don't store a division — teams do —
+   * so it's read off the home team (both sides of a tiered game share a tier).
+   * Absent on an untiered league, a bracket game, or a tournament match.
+   */
+  divisionId?: string | null;
+  divisionName?: string | null;
+  /** Position of that tier in the ladder, 0 = top. */
+  tierOrder?: number | null;
   /** Set scores in order, present once any have been recorded. */
   sets: { home: number; away: number }[];
 }
@@ -266,12 +275,30 @@ async function loadSchedule(
   supabase: Awaited<ReturnType<typeof createClient>>,
   leagueId: string,
 ): Promise<ScheduleMatch[]> {
-  const { data: teams } = await supabase
-    .from("teams")
-    .select("id, name")
-    .eq("competition_id", leagueId);
+  const [{ data: teams }, { data: divisions }] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, division_id")
+      .eq("competition_id", leagueId),
+    supabase
+      .from("divisions")
+      .select("id, name, tier_order")
+      .eq("competition_id", leagueId),
+  ]);
   const nameById = new Map(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+  const divisionByTeam = new Map(
+    (teams ?? []).map((t) => [
+      t.id as string,
+      (t.division_id as string | null) ?? null,
+    ]),
+  );
+  const division = new Map(
+    (divisions ?? []).map((d) => [
+      d.id as string,
+      { name: d.name as string, tierOrder: d.tier_order as number },
+    ]),
   );
 
   const { data: matches } = await supabase
@@ -304,25 +331,37 @@ async function loadSchedule(
     setsByMatch.set(s.match_id, list);
   }
 
-  return (matches ?? []).map((m) => ({
-    id: m.id,
-    round: m.round,
-    scheduledAt: m.scheduled_at,
-    court: m.court,
-    status: m.status,
-    homeTeamId: m.home_team_id,
-    awayTeamId: m.away_team_id,
-    homeTeamName: m.home_team_id
-      ? (nameById.get(m.home_team_id) ?? "TBD")
-      : "TBD",
-    awayTeamName: m.away_team_id
-      ? (nameById.get(m.away_team_id) ?? "TBD")
-      : "TBD",
-    refTeamId: m.ref_team_id,
-    refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
-    isAbnormal: m.is_abnormal === true,
-    sets: setsByMatch.get(m.id) ?? [],
-  }));
+  return (matches ?? []).map((m) => {
+    // Prefer the home team's tier; fall back to the away team's so a game with
+    // a TBD home side still lands in the right block.
+    const divisionId =
+      (m.home_team_id ? divisionByTeam.get(m.home_team_id) : null) ??
+      (m.away_team_id ? divisionByTeam.get(m.away_team_id) : null) ??
+      null;
+    const div = divisionId ? division.get(divisionId) : undefined;
+    return {
+      id: m.id,
+      round: m.round,
+      scheduledAt: m.scheduled_at,
+      court: m.court,
+      status: m.status,
+      divisionId,
+      divisionName: div?.name ?? null,
+      tierOrder: div?.tierOrder ?? null,
+      homeTeamId: m.home_team_id,
+      awayTeamId: m.away_team_id,
+      homeTeamName: m.home_team_id
+        ? (nameById.get(m.home_team_id) ?? "TBD")
+        : "TBD",
+      awayTeamName: m.away_team_id
+        ? (nameById.get(m.away_team_id) ?? "TBD")
+        : "TBD",
+      refTeamId: m.ref_team_id,
+      refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
+      isAbnormal: m.is_abnormal === true,
+      sets: setsByMatch.get(m.id) ?? [],
+    };
+  });
 }
 
 export async function getLeagueSchedule(
