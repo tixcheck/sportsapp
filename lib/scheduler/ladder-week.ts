@@ -59,7 +59,10 @@ export function planLadderWeek(
   const courtCount = Math.max(1, Math.floor(courts));
   const shortedTeamIds: string[] = [];
 
-  // Expand each tier's meetings into one game per set (or per game).
+  // Expand each tier's meetings into one game per set (or per game), ordered so
+  // the pair that just sat out plays next: 1v2, 2v3, 3v1, 1v2, … Emitting a
+  // pairing's repeats together instead (1v2, 1v2, 2v3, …) leaves one team
+  // watching two in a row and then playing four straight.
   const perTier = tiers.map((tier) => {
     const split = splitTierNight({
       teamIds: tier.teamIds,
@@ -67,19 +70,54 @@ export function planLadderWeek(
       week,
     });
     shortedTeamIds.push(...split.shortedTeamIds);
+
+    const pool = split.meetings.map((m) => ({
+      homeTeamId: m.homeTeamId,
+      awayTeamId: m.awayTeamId,
+      left: m.count,
+    }));
     const games: {
       divisionId: string;
       homeTeamId: string;
       awayTeamId: string;
     }[] = [];
-    for (const meeting of split.meetings) {
-      for (let k = 0; k < meeting.count; k++) {
-        games.push({
-          divisionId: tier.divisionId,
-          homeTeamId: meeting.homeTeamId,
-          awayTeamId: meeting.awayTeamId,
-        });
+    let previous: { homeTeamId: string; awayTeamId: string } | null = null;
+
+    while (pool.some((p) => p.left > 0)) {
+      let best = -1;
+      let bestScore = -Infinity;
+      for (const [i, p] of pool.entries()) {
+        if (p.left <= 0) continue;
+        // Prefer whoever sat out the last game; never repeat a pairing
+        // back-to-back; among equals, run down the busiest pairing first so
+        // the night doesn't end with one pair playing itself repeatedly.
+        const rested = previous
+          ? [p.homeTeamId, p.awayTeamId].filter(
+              (t) => t !== previous!.homeTeamId && t !== previous!.awayTeamId,
+            ).length
+          : 0;
+        const samePair =
+          previous != null &&
+          p.homeTeamId === previous.homeTeamId &&
+          p.awayTeamId === previous.awayTeamId;
+        const score = rested * 100 + p.left - (samePair ? 1000 : 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = i;
+        }
       }
+      if (best === -1) break;
+      const chosen = pool[best];
+      chosen.left -= 1;
+      previous = {
+        homeTeamId: chosen.homeTeamId,
+        awayTeamId: chosen.awayTeamId,
+      };
+      games.push({
+        divisionId: tier.divisionId,
+        homeTeamId: chosen.homeTeamId,
+        awayTeamId: chosen.awayTeamId,
+      });
     }
     return games;
   });
