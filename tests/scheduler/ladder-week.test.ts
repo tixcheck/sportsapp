@@ -151,3 +151,55 @@ describe("rankLadderNight", () => {
     expect(ranked[0].rankedTeamIds.sort()).toEqual(["a", "b"]);
   });
 });
+
+describe("planLadderWeek — the Mango Season 6 shape", () => {
+  // From a real league schedule (schedule_examples/Mango Season 6 Week 12):
+  // each tier is 3 teams (A/B/C) playing a DOUBLE round robin on one court —
+  //   7:00 A v B   7:20 B v C   7:40 C v A
+  //   8:00 A v B   8:20 B v C   8:40 C v A
+  // so 6 games per tier, 4 per team, tiers running in parallel on their own
+  // court. That is exactly a 4-set target, which is what this asserts.
+  const tiers = [
+    { divisionId: "T1", teamIds: ["A1", "B1", "C1"] },
+    { divisionId: "T2", teamIds: ["A2", "B2", "C2"] },
+  ];
+
+  it("gives each team 4 games and each tier 6", () => {
+    const plan = planLadderWeek(tiers, 4, 2);
+    expect(plan.matches).toHaveLength(12);
+    for (const d of ["T1", "T2"]) {
+      expect(plan.matches.filter((m) => m.divisionId === d)).toHaveLength(6);
+    }
+    const per = new Map<string, number>();
+    for (const m of plan.matches) {
+      per.set(m.homeTeamId, (per.get(m.homeTeamId) ?? 0) + 1);
+      per.set(m.awayTeamId, (per.get(m.awayTeamId) ?? 0) + 1);
+    }
+    expect([...per.values()]).toEqual([4, 4, 4, 4, 4, 4]);
+  });
+
+  it("plays every pairing exactly twice, like the double round robin", () => {
+    const plan = planLadderWeek(tiers, 4, 2);
+    const counts = new Map<string, number>();
+    for (const m of plan.matches) {
+      const k = [m.homeTeamId, m.awayTeamId].sort().join("|");
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    expect([...counts.values()]).toEqual([2, 2, 2, 2, 2, 2]);
+  });
+
+  it("runs the tiers in parallel, each on its own court", () => {
+    const plan = planLadderWeek(tiers, 4, 2);
+    // Six 20-minute slots = the 7:00–9:00 block in the PDF.
+    expect(plan.waves).toBe(6);
+    const courts = new Map<string, Set<number>>();
+    for (const m of plan.matches) {
+      const set = courts.get(m.divisionId) ?? new Set<number>();
+      set.add(m.courtIndex);
+      courts.set(m.divisionId, set);
+    }
+    // Each tier stays on a single court all night.
+    expect([...courts.get("T1")!]).toEqual([1]);
+    expect([...courts.get("T2")!]).toEqual([2]);
+  });
+});
