@@ -11,11 +11,13 @@ Full design: [`docs/plans/ladder-league.md`](docs/plans/ladder-league.md).
 A box/ladder league: each tier plays among itself weekly, and that night's
 results move teams between tiers. Organizer sets tiers + teams per tier, and a
 per-team **sets or games** target per night which the app divides across the
-night's pairings. Locked: movement on the night's results only; final placing is
-where you finish on the ladder. **Blocked on** whether promotion/relegation
-counts are symmetric per boundary — asymmetric counts make tier sizes collapse
-over a season. Big consequence: the season schedule can no longer be
-pre-generated, only the calendar; matchups are drawn week by week.
+night's pairings. Movement is a **balanced swap per boundary** (n up = n down),
+so tier sizes stay constant while tiers themselves can be different sizes.
+Decided by the night's results only; final placing is where you finish on the
+ladder. Both engines are built and tested (`lib/scheduler/ladder-split.ts`,
+`ladder-movement.ts`); schema, weekly cycle and UI are not. Big consequence: the
+season schedule can no longer be pre-generated, only the calendar — matchups are
+drawn week by week.
 
 ## AI-powered spreadsheet import — "Upload my existing schedule"
 

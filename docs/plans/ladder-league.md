@@ -82,38 +82,38 @@ Player-visible effects that need deciding as the UI is built:
   ("which tier were you in each week") — a season-long win table is misleading
   when a team has moved.
 
-## Movement — per-tier counts, decided 2026-08-06
+## Movement — a balanced swap at each boundary, decided 2026-08-06
 
-**The organizer sets, for each tier, how many teams go down and how many go
-up.** Not per boundary, not forced to match — per tier, independently.
+**Movement is an exchange.** If `n` teams go up from Tier 2 to Tier 1, then `n`
+teams come down from Tier 1 to Tier 2. Likewise downward. So the organizer sets
+**one count per boundary**, not one per direction.
 
-Tiers do **not** need to be the same size. The owner's worked example, 5/6/5:
+A tier's own up and down counts may still differ, and **tiers need not be the
+same size**. The owner's example, 5/6/5 with one team crossing the 1↔2 boundary
+and two crossing 2↔3 (`swaps = [1, 2]`):
 
-| Tier | Size | Down | Up | Net |
-|---|---|---|---|---|
-| Tier 1 | 5 | 1 | — (top tier) | −1 +1 = **5** |
-| Tier 2 | 6 | 1 | 1 | +1 −1 −1 +1 = **6** |
-| Tier 3 | 5 | — (bottom) | 1 | +1 −1 = **5** |
+| Tier | Size | Sends up | Sends down | Receives | Net |
+|---|---|---|---|---|---|
+| Tier 1 | 5 | — (top) | 1 | 1 | **5** |
+| Tier 2 | 6 | 1 | 2 | 1 + 2 | **6** |
+| Tier 3 | 5 | 2 | — (bottom) | 2 | **5** |
 
-Sizes hold because the counts happen to match **at each boundary** (T1 down 1 ↔
-T2 up 1; T2 down 1 ↔ T3 up 1). Uneven tier sizes were never a problem — only
-mismatched boundaries are.
+Tier 2 sends 1 up but 2 down — allowed, because each *boundary* balances.
 
-**Mismatched boundaries are allowed, and they drift.** The owner's second
-example — Tier 2 sends 2 down but Tier 3 sends only 1 up — shrinks Tier 2 by one
-team per week and grows Tier 3 by one. This is intended behaviour, not a bug to
-prevent, so the app **guards rather than blocks**:
+**Tier sizes are therefore constant for the whole season**, by construction
+rather than by validation: an unbalanced exchange can't be expressed in the
+config at all. Top tier has no "up", bottom tier has no "down" — there is simply
+no boundary there.
 
-- **Show the drift before the season starts.** Configuration projects tier sizes
-  forward week by week and shows the organizer where they land. A collapse is
-  obvious at setup, not in week six.
-- **Hard floor: a tier never drops below 2 teams.** A move that would empty a
-  tier is refused for that week and reported, not silently applied.
-- **Ceiling from court capacity.** With target `T` per team, a tier of `n` plays
-  `n × T / 2` sets on the night. A tier growing 5 → 8 goes from 15 to 24 sets at
-  T=6. When a tier outgrows its slot, warn the organizer with the projected
-  finish time.
-- Top tier has no "up", bottom tier has no "down" — forced to 0 in the UI.
+The only thing that can force a change is a tier too small to supply its
+boundaries — 3 teams asked to send 2 up and 2 down. Because the exchange is
+atomic, the trim applies to **both sides** of that boundary; trimming only the
+short side would reintroduce drift. `checkLadderConfig` surfaces this at setup,
+and `resolveSwaps` handles it deterministically on the night.
+
+Capacity still matters even with fixed sizes: with target `T` per team, a tier
+of `n` plays `n × T / 2` sets a night (`tierNightVolume`). That has to fit the
+slot — check it when the config is saved.
 
 ## Also unresolved
 

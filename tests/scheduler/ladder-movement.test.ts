@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyLadderMovement,
-  projectTierSizes,
+  checkLadderConfig,
+  resolveSwaps,
   type LadderTier,
-  type TierMovement,
 } from "@/lib/scheduler/ladder-movement";
 
 /** Tier of `n` teams, ids like "A1".."A5" — A1 finished top tonight. */
@@ -19,28 +19,40 @@ const sizes = (r: { tiers: { teamIds: string[] }[] }) =>
   r.tiers.map((t) => t.teamIds.length);
 
 describe("applyLadderMovement", () => {
-  // The owner's worked example: 5/6/5, one team crossing each boundary.
-  const balanced: TierMovement[] = [
-    { divisionId: "A", down: 1, up: 0 },
-    { divisionId: "B", down: 1, up: 1 },
-    { divisionId: "C", down: 0, up: 1 },
-  ];
+  // The owner's example: Tier 1/2/3 at 5/6/5, one team across the 1-2
+  // boundary and two across the 2-3 boundary.
+  const start = () => [tier("A", 5), tier("B", 6), tier("C", 5)];
 
-  it("holds uneven tier sizes when the counts match at each boundary", () => {
-    const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 6), tier("C", 5)],
-      balanced,
-    );
+  it("keeps uneven tier sizes exactly as they were", () => {
+    const res = applyLadderMovement(start(), { swaps: [1, 2] });
     expect(sizes(res)).toEqual([5, 6, 5]);
-    expect(res.blocked).toEqual([]);
+    expect(res.adjusted).toEqual([]);
+  });
+
+  it("swaps the same number both ways at every boundary", () => {
+    const res = applyLadderMovement(start(), { swaps: [1, 2] });
+    const across = (from: string, dir: "up" | "down") =>
+      res.moves.filter((m) => m.fromDivisionId === from && m.direction === dir)
+        .length;
+
+    // Boundary A-B: 1 each way. Boundary B-C: 2 each way.
+    expect(across("A", "down")).toBe(1);
+    expect(across("B", "up")).toBe(1);
+    expect(across("B", "down")).toBe(2);
+    expect(across("C", "up")).toBe(2);
+  });
+
+  it("a tier's own up and down counts may differ", () => {
+    // Tier B sends 1 up but 2 down — allowed, because each BOUNDARY balances.
+    const res = applyLadderMovement(start(), { swaps: [1, 2] });
+    const b = res.moves.filter((m) => m.fromDivisionId === "B");
+    expect(b.filter((m) => m.direction === "up")).toHaveLength(1);
+    expect(b.filter((m) => m.direction === "down")).toHaveLength(2);
+    expect(sizes(res)).toEqual([5, 6, 5]);
   });
 
   it("moves the right teams — bottom drops, top rises", () => {
-    const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 6), tier("C", 5)],
-      balanced,
-    );
-    // A5 finished last in Tier A, so it drops. B1 won Tier B, so it rises.
+    const res = applyLadderMovement(start(), { swaps: [1, 2] });
     expect(res.moves).toContainEqual({
       teamId: "A5",
       fromDivisionId: "A",
@@ -53,161 +65,144 @@ describe("applyLadderMovement", () => {
       toDivisionId: "A",
       direction: "up",
     });
-    expect(res.moves).toHaveLength(4);
-  });
-
-  it("seats a demoted team above the tier it joins, a promoted one below", () => {
-    const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 6), tier("C", 5)],
-      balanced,
-    );
-    const b = res.tiers.find((t) => t.divisionId === "B")!.teamIds;
-    // A5 came down from a stronger tier; C1 came up from a weaker one.
-    expect(b[0]).toBe("A5");
-    expect(b[b.length - 1]).toBe("C1");
-  });
-
-  it("stays stable week after week when boundaries match", () => {
-    expect(projectTierSizes([5, 6, 5], balanced, 10).at(-1)).toEqual([5, 6, 5]);
-  });
-
-  it("drifts when a boundary doesn't match — the owner's second case", () => {
-    // Tier B sends 2 down but Tier C only sends 1 up: B shrinks, C grows.
-    const drifting: TierMovement[] = [
-      { divisionId: "A", down: 1, up: 0 },
-      { divisionId: "B", down: 2, up: 1 },
-      { divisionId: "C", down: 0, up: 1 },
-    ];
-    const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 6), tier("C", 5)],
-      drifting,
-    );
-    expect(sizes(res)).toEqual([5, 5, 6]);
-
-    // Projected forward, B drains into C — visible at setup, not week six.
-    const projected = projectTierSizes([5, 6, 5], drifting, 4);
-    expect(projected[0]).toEqual([5, 6, 5]);
-    expect(projected[4]).toEqual([5, 2, 9]);
-  });
-
-  it("caps a tier that would send out more teams than it holds", () => {
-    // Tier B is down to 2 and is configured to send 3 away. It can send at
-    // most 2 — and since 2 arrive, it stays playable at 2.
-    const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 2), tier("C", 9)],
-      [
-        { divisionId: "A", down: 1, up: 0 },
-        { divisionId: "B", down: 2, up: 1 },
-        { divisionId: "C", down: 0, up: 1 },
-      ],
-    );
-    expect(sizes(res).every((n) => n >= 2)).toBe(true);
-    expect(res.moves.filter((m) => m.fromDivisionId === "B")).toHaveLength(2);
-    expect(
-      res.blocked.some(
-        (b) => b.divisionId === "B" && b.reason === "not-enough-teams",
-      ),
-    ).toBe(true);
-  });
-
-  it("holds a team back rather than leave a tier unable to play", () => {
-    // Nothing comes into B, so sending 2 of its 3 teams down would leave 1.
-    const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 3), tier("C", 5)],
-      [
-        { divisionId: "A", down: 0, up: 0 },
-        { divisionId: "B", down: 2, up: 0 },
-        { divisionId: "C", down: 0, up: 0 },
-      ],
-    );
-    expect(sizes(res)).toEqual([5, 2, 6]);
-    expect(res.blocked).toContainEqual({
-      divisionId: "B",
+    // Bottom TWO of B drop to C; top TWO of C rise.
+    expect(res.moves).toContainEqual({
+      teamId: "B6",
+      fromDivisionId: "B",
+      toDivisionId: "C",
       direction: "down",
-      requested: 2,
-      applied: 1,
-      reason: "would-breach-minimum",
+    });
+    expect(res.moves).toContainEqual({
+      teamId: "C2",
+      fromDivisionId: "C",
+      toDivisionId: "B",
+      direction: "up",
     });
   });
 
-  it("never lets a tier send more teams than it has", () => {
-    const res = applyLadderMovement(
-      [tier("A", 4), tier("B", 3), tier("C", 4)],
-      [
-        { divisionId: "A", down: 0, up: 0 },
-        { divisionId: "B", down: 3, up: 3 },
-        { divisionId: "C", down: 0, up: 0 },
-      ],
-    );
-    const moved = res.moves.filter((m) => m.fromDivisionId === "B");
-    expect(moved.length).toBeLessThanOrEqual(3);
-    // No team is both promoted and relegated.
-    expect(new Set(moved.map((m) => m.teamId)).size).toBe(moved.length);
-    expect(res.blocked.some((b) => b.reason === "not-enough-teams")).toBe(true);
+  it("seats a demoted team above the tier it joins, a promoted one below", () => {
+    const res = applyLadderMovement(start(), { swaps: [1, 2] });
+    const b = res.tiers.find((t) => t.divisionId === "B")!.teamIds;
+    expect(b[0]).toBe("A5");
+    expect(b.slice(-2)).toEqual(["C1", "C2"]);
   });
 
-  it("pins the ends: nothing rises out of the top or drops out of the bottom", () => {
-    const res = applyLadderMovement(
-      [tier("A", 4), tier("B", 4)],
-      [
-        { divisionId: "A", down: 1, up: 2 },
-        { divisionId: "B", down: 2, up: 1 },
-      ],
-    );
-    expect(
-      res.moves.some((m) => m.fromDivisionId === "A" && m.direction === "up"),
-    ).toBe(false);
-    expect(
-      res.moves.some((m) => m.fromDivisionId === "B" && m.direction === "down"),
-    ).toBe(false);
-    expect(
-      res.blocked.filter((b) => b.reason === "no-adjacent-tier"),
-    ).toHaveLength(2);
+  it("holds sizes constant week after week, whatever the counts", () => {
+    let tiers = start();
+    for (let week = 0; week < 20; week++) {
+      const res = applyLadderMovement(tiers, { swaps: [1, 2] });
+      expect(sizes(res)).toEqual([5, 6, 5]);
+      tiers = res.tiers.map((t) => ({
+        divisionId: t.divisionId,
+        rankedTeamIds: t.teamIds,
+      }));
+    }
+  });
+
+  it("keeps sizes constant across a sweep of tier shapes and counts", () => {
+    for (const shape of [
+      [5, 6, 5],
+      [4, 4, 4, 4],
+      [8, 3],
+      [2, 2, 2],
+      [6, 5, 4, 3],
+    ]) {
+      for (const n of [1, 2, 3]) {
+        const tiers = shape.map((size, i) => tier(`T${i}`, size));
+        const res = applyLadderMovement(tiers, {
+          swaps: Array(shape.length - 1).fill(n),
+        });
+        expect(sizes(res)).toEqual(shape);
+      }
+    }
   });
 
   it("keeps every team somewhere, and only once", () => {
-    const start = [tier("A", 5), tier("B", 6), tier("C", 5)];
-    const all = start.flatMap((t) => t.rankedTeamIds).sort();
-    const res = applyLadderMovement(start, balanced);
-    const after = res.tiers.flatMap((t) => t.teamIds).sort();
-    expect(after).toEqual(all);
+    const tiers = start();
+    const all = tiers.flatMap((t) => t.rankedTeamIds).sort();
+    const res = applyLadderMovement(tiers, { swaps: [1, 2] });
+    expect(res.tiers.flatMap((t) => t.teamIds).sort()).toEqual(all);
   });
 
-  it("does nothing when every count is zero", () => {
+  it("trims BOTH sides when a tier can't supply its boundaries", () => {
+    // Tier B has 3 teams but is asked for 2 up and 2 down. Trimming only B
+    // would unbalance a boundary and start the sizes drifting.
     const res = applyLadderMovement(
-      [tier("A", 5), tier("B", 6)],
-      [
-        { divisionId: "A", down: 0, up: 0 },
-        { divisionId: "B", down: 0, up: 0 },
-      ],
+      [tier("A", 5), tier("B", 3), tier("C", 5)],
+      { swaps: [2, 2] },
     );
+    expect(sizes(res)).toEqual([5, 3, 5]);
+    expect(res.adjusted.length).toBeGreaterThan(0);
+    expect(res.adjusted[0].limitedByDivisionId).toBe("B");
+    // Whatever was applied, B never sends more teams than it has.
+    expect(
+      res.moves.filter((m) => m.fromDivisionId === "B").length,
+    ).toBeLessThanOrEqual(3);
+  });
+
+  it("no team is both promoted and relegated in the same night", () => {
+    const res = applyLadderMovement(
+      [tier("A", 4), tier("B", 4), tier("C", 4)],
+      { swaps: [2, 2] },
+    );
+    const movers = res.moves.map((m) => m.teamId);
+    expect(new Set(movers).size).toBe(movers.length);
+  });
+
+  it("does nothing when the counts are zero", () => {
+    const res = applyLadderMovement(start(), { swaps: [0, 0] });
     expect(res.moves).toEqual([]);
-    expect(res.blocked).toEqual([]);
-    expect(sizes(res)).toEqual([5, 6]);
+    expect(sizes(res)).toEqual([5, 6, 5]);
   });
 
   it("handles a single tier as a no-op ladder", () => {
-    const res = applyLadderMovement(
-      [tier("A", 6)],
-      [{ divisionId: "A", down: 2, up: 2 }],
-    );
+    const res = applyLadderMovement([tier("A", 6)], { swaps: [] });
     expect(res.moves).toEqual([]);
     expect(sizes(res)).toEqual([6]);
   });
 });
 
-describe("projectTierSizes", () => {
-  it("starts from the given sizes and never goes below the minimum", () => {
-    const drifting: TierMovement[] = [
-      { divisionId: "A", down: 2, up: 0 },
-      { divisionId: "B", down: 0, up: 0 },
-    ];
-    const projected = projectTierSizes([6, 4], drifting, 8);
-    expect(projected[0]).toEqual([6, 4]);
-    for (const week of projected) {
-      for (const n of week) expect(n).toBeGreaterThanOrEqual(2);
-    }
-    // A drains toward the floor and stops there rather than emptying.
-    expect(projected.at(-1)![0]).toBe(2);
+describe("resolveSwaps", () => {
+  it("leaves a feasible config untouched", () => {
+    expect(resolveSwaps([5, 6, 5], [1, 2]).swaps).toEqual([1, 2]);
+    expect(resolveSwaps([5, 6, 5], [1, 2]).adjusted).toEqual([]);
+  });
+
+  it("reduces until every tier can field its movers", () => {
+    const { swaps } = resolveSwaps([5, 3, 5], [2, 2]);
+    // B commits swaps[0] up + swaps[1] down, and only has 3 teams.
+    expect(swaps[0] + swaps[1]).toBeLessThanOrEqual(3);
+  });
+
+  it("never returns a negative or fractional count", () => {
+    const { swaps } = resolveSwaps([4, 4], [-3]);
+    expect(swaps).toEqual([0]);
+    expect(resolveSwaps([4, 4], [1.7]).swaps).toEqual([1]);
+  });
+
+  it("caps at what the smallest tier can field", () => {
+    // Two one-team tiers CAN still trade their single teams — sizes hold at
+    // 1 and 1. Whether a 1-team tier can play at all is a separate check.
+    expect(resolveSwaps([1, 1], [3]).swaps).toEqual([1]);
+    expect(resolveSwaps([4, 2, 4], [3, 3]).swaps[0]).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("checkLadderConfig", () => {
+  it("passes a config every tier can supply", () => {
+    const res = checkLadderConfig([5, 6, 5], [1, 2]);
+    expect(res.feasible).toBe(true);
+    expect(res.resolvedSwaps).toEqual([1, 2]);
+    expect(res.tooSmall).toEqual([]);
+  });
+
+  it("flags a config that has to be trimmed", () => {
+    const res = checkLadderConfig([5, 3, 5], [2, 2]);
+    expect(res.feasible).toBe(false);
+  });
+
+  it("flags a tier too small to play at all", () => {
+    // Sizes never change, so this is a setup problem, not a weekly one.
+    expect(checkLadderConfig([5, 1, 5], [0, 0]).tooSmall).toEqual([1]);
   });
 });
