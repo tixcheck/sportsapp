@@ -13,6 +13,7 @@
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
 - **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0061`.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **`0062` (invite expiry) IS applied** — 2026-08-11. Replaces three functions only, no data change. Verified: `accept_pending_invites` and `autolink_team_invites` no longer reference `expires_at`; `claim_team` still does, guarding a token whose email doesn't match the caller. Proven end-to-end by impersonating a real locked-out captain in a rolled-back transaction (invite expired Jul 19 → accepted, roster row created, then rolled back).
   - **`0061` (ladder format) IS applied** — 2026-08-06, verified: 4 columns on `league_settings`, the `ladder_placements` table, both RLS policies, and both check constraints live. All 3 existing leagues picked up the defaults (`ladder_enabled = false`), so nothing changed for them.
   - **`0060` (payment_accounts) is NOT applied** — written, awaiting the owner's go alongside the Stripe keys.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
