@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 
 import { getRegistrationEvent } from "@/lib/queries/registration";
+import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
 import { getUser } from "@/lib/auth/user";
 import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
 import { registerLeagueTeamAction } from "@/server/actions/leagues";
@@ -43,6 +44,19 @@ export default async function RegisterPage({
     getUser(),
   ]);
   if (!event) notFound();
+
+  // Pricing drives whether the form asks how they'll pay and whether it sends
+  // them on to Stripe. Read after the event so a missing slug 404s first.
+  const feeSettings = await getCompetitionPaymentSettings(event.id);
+  const fee =
+    feeSettings.registrationFeeCents > 0
+      ? {
+          teamCents: feeSettings.registrationFeeCents,
+          allowCaptainPays: feeSettings.allowCaptainPays,
+          allowSplitPayment: feeSettings.allowSplitPayment,
+          paymentRequired: feeSettings.paymentRequired,
+        }
+      : null;
 
   const sportLabel = SPORTS.find((s) => s.value === event.sport)?.label;
   const deadlineText = event.registrationDeadline
@@ -125,6 +139,7 @@ export default async function RegisterPage({
                 loginHref={`/login?next=/register/${slug}`}
                 action={action}
                 divisionLabel={event.divisionLabel}
+                fee={fee}
               />
             </CardContent>
           </Card>

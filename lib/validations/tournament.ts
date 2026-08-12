@@ -158,6 +158,10 @@ export const registerPlayerSchema = z.object({
 
 export const registerTeamSchema = z.object({
   teamName: z.string().trim().min(2, "Team name is too short.").max(80),
+  // How the captain intends to settle a fee. Ignored for free events and for
+  // events that don't require payment; the DB records it on the team so the
+  // team page knows which flow to offer before any charge exists.
+  paymentMode: z.enum(["team_full", "player_share"]),
   // Empty string = no division/tier (single-division tournament, or an untiered
   // league). The register_team RPC validates any non-empty id belongs here.
   divisionId: z.string(),

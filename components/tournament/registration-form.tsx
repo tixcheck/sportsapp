@@ -9,10 +9,15 @@ import { toast } from "sonner";
 
 import { registerTeamAction } from "@/server/actions/tournaments";
 import {
+  startRegistrationCheckoutAction,
+  startShareCheckoutAction,
+} from "@/server/actions/registration-payments";
+import {
   registerTeamSchema,
   type RegisterTeamInput,
 } from "@/lib/validations/tournament";
 import { Button } from "@/components/ui/button";
+import { PaymentModeChoice } from "@/components/payments/payment-mode-choice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -28,6 +33,7 @@ export function RegistrationForm({
   action = registerTeamAction,
   // "division" (tournaments) vs "tier" (leagues) — just the label players see.
   divisionLabel = "Division",
+  fee,
 }: {
   competitionId: string;
   divisions: { id: string; name: string }[];
@@ -40,6 +46,15 @@ export function RegistrationForm({
     values: RegisterTeamInput,
   ) => Promise<RegisterResult>;
   divisionLabel?: string;
+  /** Null on a free event, or one that doesn't ask for payment up front. */
+  fee?: {
+    /** What the whole team owes, in cents. */
+    teamCents: number;
+    allowCaptainPays: boolean;
+    allowSplitPayment: boolean;
+    /** Registration only counts once the fee is covered. */
+    paymentRequired: boolean;
+  } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -56,6 +71,8 @@ export function RegistrationForm({
       teamName: "",
       divisionId: divisions[0]?.id ?? "",
       players: emptyPlayers(),
+      // Captain-pays unless they say otherwise; ignored entirely on free events.
+      paymentMode: "team_full",
     },
   });
   const { register, handleSubmit, reset, formState } = form;
@@ -80,11 +97,35 @@ export function RegistrationForm({
         toast.error(result.error);
         return;
       }
+      // A gated event isn't finished at "registered" — the team is not an
+      // entrant until it pays, so send them straight on rather than leaving
+      // them to discover a Pay button somewhere else.
+      if (fee?.paymentRequired && fee.teamCents > 0 && "teamId" in result) {
+        toast.success("Team created — one more step to confirm your spot.");
+        const checkout =
+          values.paymentMode === "player_share"
+            ? await startShareCheckoutAction(competitionId, result.teamId)
+            : await startRegistrationCheckoutAction(
+                competitionId,
+                result.teamId,
+              );
+        if ("url" in checkout) {
+          window.location.href = checkout.url;
+          return;
+        }
+        // Payment couldn't start; the team page still has a Pay button, so say
+        // what happened rather than stranding them on a form that looks done.
+        toast.error(checkout.error);
+        router.push(`/teams/${result.teamId}`);
+        return;
+      }
+
       toast.success("You're registered! See your team below.");
       reset({
         teamName: "",
         divisionId: values.divisionId,
         players: emptyPlayers(),
+        paymentMode: values.paymentMode,
       });
       router.refresh();
     });
@@ -149,8 +190,26 @@ export function RegistrationForm({
         )}
       </div>
 
+      {fee &&
+        fee.teamCents > 0 &&
+        fee.allowCaptainPays &&
+        fee.allowSplitPayment && (
+          <PaymentModeChoice
+            teamCents={fee.teamCents}
+            players={
+              form.watch("players").filter((p) => p.email?.trim()).length
+            }
+            value={form.watch("paymentMode")}
+            onChange={(v) => form.setValue("paymentMode", v)}
+          />
+        )}
+
       <Button type="submit" disabled={pending} className="justify-self-start">
-        {pending ? "Registering…" : "Register team"}
+        {pending
+          ? "Registering…"
+          : fee?.paymentRequired && fee.teamCents > 0
+            ? "Register & pay"
+            : "Register team"}
       </Button>
     </form>
   );

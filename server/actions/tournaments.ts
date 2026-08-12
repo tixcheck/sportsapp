@@ -314,6 +314,7 @@ export async function registerTeamAction(
     _division_id: v.divisionId ? v.divisionId : null,
     _team_name: v.teamName,
     _player_emails: players,
+    _payment_mode: v.paymentMode,
   });
   if (error) return { error: error.message };
 
