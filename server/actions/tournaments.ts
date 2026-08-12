@@ -113,6 +113,29 @@ export async function createTournamentAction(
   );
   if (divError) return { error: divError.message };
 
+  // Pricing. Only written when there IS a price — a free event needs no row,
+  // and its absence is what getCompetitionPaymentSettings reads as free.
+  const feeCents = Math.round(v.feeDollars * 100);
+  if (feeCents > 0) {
+    const { error: feeError } = await supabase
+      .from("competition_payment_settings")
+      .insert({
+        competition_id: tournament.id,
+        registration_fee_cents: feeCents,
+        allow_captain_pays: v.allowCaptainPays,
+        allow_split_payment: v.allowSplitPayment,
+        tax_enabled: v.taxEnabled,
+        tax_percent: v.taxEnabled ? v.taxPercent : 0,
+        payment_required: v.paymentRequired,
+      });
+    // A failed fee row must not orphan a created tournament — the organizer can
+    // set the price on Settings, so surface it rather than rolling everything
+    // back and losing the whole setup.
+    if (feeError) {
+      console.error("[payments] competition fee insert failed at creation");
+    }
+  }
+
   revalidatePath(`/orgs/${orgId}`);
   redirect(`/orgs/${orgId}/tournaments/${tournament.id}`);
 }

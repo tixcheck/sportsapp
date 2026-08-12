@@ -23,23 +23,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScoringFields } from "@/components/scoring/scoring-fields";
+import { VenueInput } from "@/components/tournament/venue-input";
+import { WizardPaymentStep } from "@/components/payments/wizard-payment-step";
 
 const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
   ["sport"],
-  [
-    "name",
-    "startDate",
-    "endDate",
-    "startTime",
-    "endTime",
-    "venue",
-    "courts",
-    "gamesPerTeam",
-    "minutesPerGame",
-  ],
+  // Details is deliberately just "what and when and where" — the scheduling
+  // logistics that used to live here now have their own step.
+  ["name", "startDate", "endDate", "startTime", "endTime", "venue"],
   ["divisions"],
   ["formatTemplate", "playoffTeams"],
+  ["courts", "gamesPerTeam", "minutesPerGame"],
   ["formatId", "bracketFormatId", "registrationDeadline"],
+  ["feeDollars", "allowCaptainPays", "allowSplitPayment", "taxPercent"],
   [],
 ];
 const STEP_TITLES = [
@@ -47,7 +43,9 @@ const STEP_TITLES = [
   "Details",
   "Divisions",
   "Format",
+  "Schedule",
   "Match format",
+  "Payment",
   "Scoring",
 ];
 
@@ -80,6 +78,12 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       allowRefEntry: false,
       allowOrganizerEntry: true,
       requireConfirmation: false,
+      feeDollars: 0,
+      allowCaptainPays: true,
+      allowSplitPayment: false,
+      taxEnabled: false,
+      taxPercent: 0,
+      paymentRequired: false,
     },
   });
   const {
@@ -200,44 +204,11 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
               default first-match time when you generate the schedule.
             </p>
             <Field label="Venue" error={errors.venue?.message}>
-              <Input placeholder="Ashbridges Bay" {...register("venue")} />
+              <VenueInput
+                value={watch("venue") ?? ""}
+                onChange={(v) => setValue("venue", v, { shouldValidate: true })}
+              />
             </Field>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Courts" error={errors.courts?.message}>
-                <Input
-                  type="number"
-                  min={1}
-                  max={40}
-                  {...register("courts", { valueAsNumber: true })}
-                />
-              </Field>
-              <Field
-                label="Games per team"
-                error={errors.gamesPerTeam?.message}
-              >
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  {...register("gamesPerTeam", { valueAsNumber: true })}
-                />
-              </Field>
-              <Field
-                label="Minutes per game"
-                error={errors.minutesPerGame?.message}
-              >
-                <Input
-                  type="number"
-                  min={5}
-                  max={120}
-                  placeholder="Auto (from format)"
-                  {...register("minutesPerGame", {
-                    setValueAs: (v) =>
-                      v === "" || v == null ? null : Number(v),
-                  })}
-                />
-              </Field>
-            </div>
           </div>
         )}
 
@@ -336,6 +307,53 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
 
         {step === 4 && (
           <div className="grid gap-4">
+            <p className="text-muted-foreground text-sm">
+              How much court time you have. These drive the generated schedule
+              and can all be changed before you publish it.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Courts" error={errors.courts?.message}>
+                <Input
+                  type="number"
+                  min={1}
+                  max={40}
+                  {...register("courts", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Games per team"
+                error={errors.gamesPerTeam?.message}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  {...register("gamesPerTeam", { valueAsNumber: true })}
+                />
+              </Field>
+            </div>
+            <Field
+              label="Minutes per game"
+              error={errors.minutesPerGame?.message}
+            >
+              <Input
+                type="number"
+                min={5}
+                max={120}
+                placeholder="Auto (from match format)"
+                {...register("minutesPerGame", {
+                  setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                })}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Leave blank and we estimate it from the match format.
+              </p>
+            </Field>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Pool format</Label>
               {FORMAT_PRESETS[sport].map((p) => {
@@ -409,7 +427,30 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
           </div>
         )}
 
-        {step === 5 && (
+        {step === 6 && (
+          <WizardPaymentStep
+            value={{
+              feeDollars: watch("feeDollars"),
+              allowCaptainPays: watch("allowCaptainPays"),
+              allowSplitPayment: watch("allowSplitPayment"),
+              taxEnabled: watch("taxEnabled"),
+              taxPercent: watch("taxPercent"),
+              paymentRequired: watch("paymentRequired"),
+            }}
+            onChange={(patch) => {
+              for (const [k, val] of Object.entries(patch)) {
+                setValue(k as keyof CreateTournamentInput, val as never, {
+                  shouldValidate: true,
+                });
+              }
+            }}
+            error={
+              errors.feeDollars?.message ?? errors.allowCaptainPays?.message
+            }
+          />
+        )}
+
+        {step === 7 && (
           <div className="grid gap-3">
             <p className="text-muted-foreground text-sm">
               Choose who can enter match scores and whether a second party must
