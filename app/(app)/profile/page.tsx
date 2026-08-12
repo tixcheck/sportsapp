@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getProfile } from "@/lib/auth/user";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { Button } from "@/components/ui/button";
 import { NotificationPrefsForm } from "@/components/profile/notification-prefs-form";
 import {
   Card,
@@ -30,6 +32,20 @@ export default async function ProfilePage() {
               avatarUrl: profile.avatar_url ?? "",
             }}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Payments</CardTitle>
+          <CardDescription>
+            Registration fees you&apos;ve paid by card.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href="/profile/payments">View your payments</Link>
+          </Button>
         </CardContent>
       </Card>
 
