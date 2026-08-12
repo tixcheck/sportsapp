@@ -106,7 +106,19 @@ export const orgMemberRole = pgEnum("org_member_role", [
 
 export const teamMemberRole = pgEnum("team_member_role", ["captain", "player"]);
 
-export const teamStatus = pgEnum("team_status", ["active", "withdrawn"]);
+/** One payment covers a whole team, or one player's share of it. */
+export const registrationPaymentKind = pgEnum("registration_payment_kind", [
+  "team_full",
+  "player_share",
+]);
+
+export const teamStatus = pgEnum("team_status", [
+  "active",
+  "withdrawn",
+  // Registered but not yet an entrant: the event requires payment and the fee
+  // is not covered. Excluded from pools, schedules and standings.
+  "pending_payment",
+]);
 
 /** Platform-level organizer approval state (distinct from per-org roles). */
 export const organizerStatus = pgEnum("organizer_status", [
@@ -452,6 +464,9 @@ export const teams = pgTable(
     // 'withdrawn' teams stay visible (history/standings stay coherent); the
     // organizer handles their matches manually via normal score entry.
     status: teamStatus("status").notNull().default("active"),
+    /** How the captain chose to pay while a fee is outstanding. Null once
+     *  confirmed, and for free events. */
+    paymentMode: registrationPaymentKind("payment_mode"),
     // Null until a captain claims the team via invite (flow F1).
     captainUserId: uuid("captain_user_id").references(() => users.id, {
       onDelete: "set null",
@@ -1286,12 +1301,6 @@ export const competitionPaymentSettings = pgTable(
       .defaultNow(),
   },
 );
-
-/** One payment covers a whole team, or one player's share of it. */
-export const registrationPaymentKind = pgEnum("registration_payment_kind", [
-  "team_full",
-  "player_share",
-]);
 
 export const registrationPaymentStatus = pgEnum("registration_payment_status", [
   /** Checkout session created, payer hasn't completed it. */

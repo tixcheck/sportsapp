@@ -21,7 +21,7 @@ export interface LeagueSummary {
 export interface LeagueTeam {
   id: string;
   name: string;
-  status: "active" | "withdrawn";
+  status: "active" | "withdrawn" | "pending_payment";
   captain_user_id: string | null;
   /** The tier (division) this team is sorted into, or null (untiered/unsorted). */
   divisionId: string | null;
@@ -255,7 +255,7 @@ export async function getLeagueDetail(
     teams: (teams ?? []).map((t) => ({
       id: t.id,
       name: t.name,
-      status: t.status as "active" | "withdrawn",
+      status: t.status as "active" | "withdrawn" | "pending_payment",
       captain_user_id: t.captain_user_id,
       divisionId: (t.division_id as string | null) ?? null,
       invite: inviteByTeam.get(t.id) ?? null,
@@ -279,7 +279,9 @@ async function loadSchedule(
     supabase
       .from("teams")
       .select("id, name, division_id")
-      .eq("competition_id", leagueId),
+      .eq("competition_id", leagueId)
+      // Unpaid teams are not entrants yet (migration 0066).
+      .neq("status", "pending_payment"),
     supabase
       .from("divisions")
       .select("id, name, tier_order")
@@ -392,6 +394,8 @@ export async function getPublicLeague(
         .from("teams")
         .select("id, name")
         .eq("competition_id", league.id)
+        // Unpaid teams are not entrants yet (migration 0066).
+        .neq("status", "pending_payment")
         .order("name", { ascending: true }),
       supabase
         .from("league_settings")

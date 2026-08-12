@@ -103,6 +103,7 @@ export async function POST(request: Request) {
       .update({ status: "cancelled", updated_at: new Date().toISOString() })
       .eq("stripe_checkout_session_id", expired.id)
       .eq("status", "pending");
+    await releaseAbandonedTeam(admin, expired);
     return NextResponse.json({ received: true });
   }
 
@@ -190,5 +191,92 @@ async function settleRegistrationPayment(
 
   // No row updated means either an unknown session or a replay of one already
   // settled. Neither is an error worth making Stripe retry.
-  return NextResponse.json({ received: true, settled: data?.length ?? 0 });
+  const settled = data?.length ?? 0;
+  if (settled > 0) await confirmTeamIfPaid(admin, session);
+
+  return NextResponse.json({ received: true, settled });
+}
+
+/**
+ * Promote a `pending_payment` team to a real entrant once its fee is covered.
+ *
+ * "Covered" is measured against the organizer's price, not against a row count:
+ * a split team is confirmed only when the shares add up, and an organizer who
+ * accepts a partial payment can still confirm manually. Comparing sums is also
+ * what makes this correct when the roster changed mid-collection.
+ */
+async function confirmTeamIfPaid(
+  admin: AdminClient,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const teamId = session.metadata?.team_id;
+  const competitionId = session.metadata?.competition_id;
+  if (!teamId || !competitionId) return;
+
+  const { data: team } = await admin
+    .from("teams")
+    .select("id, status")
+    .eq("id", teamId)
+    .maybeSingle();
+  // Only a pending team needs promoting; anything else is already an entrant.
+  if (!team || (team as { status: string }).status !== "pending_payment")
+    return;
+
+  const [{ data: settings }, { data: paid }] = await Promise.all([
+    admin
+      .from("competition_payment_settings")
+      .select("registration_fee_cents")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    admin
+      .from("registration_payments")
+      .select("price_cents")
+      .eq("team_id", teamId)
+      .eq("status", "paid"),
+  ]);
+
+  const feeCents =
+    (settings as { registration_fee_cents?: number } | null)
+      ?.registration_fee_cents ?? 0;
+  const paidCents = ((paid ?? []) as { price_cents: number }[]).reduce(
+    (sum, r) => sum + r.price_cents,
+    0,
+  );
+  if (paidCents < feeCents) return; // still short — a split mid-collection
+
+  const { error } = await admin
+    .from("teams")
+    .update({ status: "active", payment_mode: null })
+    .eq("id", teamId)
+    .eq("status", "pending_payment");
+  if (error) console.error("[stripe-webhook] could not confirm team");
+}
+
+/**
+ * Release a spot held by a team that never paid.
+ *
+ * Withdrawing rather than deleting keeps the trail — the organizer can see
+ * someone tried — while freeing the spot, because capacity counts everything
+ * that isn't withdrawn. Only ever touches a team with nothing paid or in
+ * flight, so a split team part-way through collecting is left alone.
+ */
+async function releaseAbandonedTeam(
+  admin: AdminClient,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const teamId = session.metadata?.team_id;
+  if (!teamId) return;
+
+  const { data: live } = await admin
+    .from("registration_payments")
+    .select("id")
+    .eq("team_id", teamId)
+    .in("status", ["paid", "pending"]);
+  if ((live ?? []).length > 0) return;
+
+  await admin
+    .from("teams")
+    .update({ status: "withdrawn" })
+    .eq("id", teamId)
+    .eq("status", "pending_payment");
 }

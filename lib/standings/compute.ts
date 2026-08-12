@@ -213,7 +213,10 @@ export async function loadStandings(
   const { data: teamsData } = await supabase
     .from("teams")
     .select("id, name, status, pool_id, division_id, dropped_match_id")
-    .eq("competition_id", competitionId);
+    .eq("competition_id", competitionId)
+    // Unpaid teams are not entrants — they must never reach a pool, a
+    // schedule or the standings (migration 0066).
+    .neq("status", "pending_payment");
   const teams = (teamsData ?? []) as TeamRow[];
   if (teams.length === 0) return [];
 
