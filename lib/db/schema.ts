@@ -1190,3 +1190,85 @@ export const ladderPlacements = pgTable(
     index("ladder_placements_competition_week_idx").on(t.competitionId, t.week),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Payments Slice B — registration fees.
+//
+// Money is stored as integer CENTS everywhere. Currency is CAD platform-wide
+// (locked 2026-08-12); there is deliberately no currency column, because a
+// nullable one nobody reads is worse than adding it the day a second currency
+// is real.
+// ---------------------------------------------------------------------------
+
+/**
+ * The platform's own fee rates — one row, edited by the platform admin.
+ *
+ * A table rather than constants because the locked plan requires these be
+ * admin-adjustable without a deploy. Rates are read at quote time and the
+ * resolved amount is stored on the payment row, so changing them later never
+ * retroactively alters what someone already paid.
+ */
+export const platformFeeSettings = pgTable("platform_fee_settings", {
+  /** Singleton: `true` is the only allowed value, enforced by a check. */
+  id: boolean("id").primaryKey().default(true),
+  /** Tournaments: percent of the registration, added on top. 1.000 = 1%. */
+  tournamentPercent: numeric("tournament_percent", { precision: 5, scale: 3 })
+    .notNull()
+    .default("1.000"),
+  /** Leagues, players paying individually: flat cents per player. */
+  leaguePerPlayerCents: integer("league_per_player_cents")
+    .notNull()
+    .default(300),
+  /** Leagues, captain paying for the team: flat cents per team. */
+  leaguePerTeamCents: integer("league_per_team_cents").notNull().default(2000),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedBy: uuid("updated_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});
+
+/**
+ * Per-competition registration pricing. 1:1 with competitions, created lazily
+ * when an organizer first sets a price.
+ *
+ * `registrationFeeCents` is what the organizer NETS per team — not what the
+ * payer is charged. The payer's total is derived at quote time by
+ * `lib/payments/fees.ts`, which grosses it up to cover Stripe and the platform
+ * fee. Storing the net is what makes "you receive exactly $X" true.
+ */
+export const competitionPaymentSettings = pgTable(
+  "competition_payment_settings",
+  {
+    competitionId: uuid("competition_id")
+      .primaryKey()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    /** What the organizer receives per team. 0 = this event is free. */
+    registrationFeeCents: integer("registration_fee_cents")
+      .notNull()
+      .default(0),
+    /** Captain may pay the whole team fee in one go. */
+    allowCaptainPays: boolean("allow_captain_pays").notNull().default(true),
+    /** Players may each pay their share; the team confirms once all land. */
+    allowSplitPayment: boolean("allow_split_payment").notNull().default(false),
+    /** Organizer opted to collect tax on registrations (added on top). */
+    taxEnabled: boolean("tax_enabled").notNull().default(false),
+    /** Tax rate as a percent, e.g. 13.000 for Ontario HST. */
+    taxPercent: numeric("tax_percent", { precision: 5, scale: 3 })
+      .notNull()
+      .default("0.000"),
+    /**
+     * Whether a team's registration is confirmed only once paid. Off by
+     * default: online payment is additive alongside cash/e-transfer, never a
+     * replacement (PRD §14, and the owner's framing in the plan).
+     */
+    paymentRequired: boolean("payment_required").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+);
