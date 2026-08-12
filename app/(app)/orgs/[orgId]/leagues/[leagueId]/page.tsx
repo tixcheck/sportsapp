@@ -40,6 +40,13 @@ import {
   StandingsGroups,
   StandingsLegend,
 } from "@/components/standings/standings-table";
+import {
+  getCompetitionPaymentSettings,
+  getPaymentAccount,
+  getPlatformFeeRates,
+} from "@/lib/queries/payments";
+import { paymentAccountStatus } from "@/lib/payments/account-status";
+import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { getLadderState } from "@/lib/queries/ladder";
@@ -73,6 +80,20 @@ export default async function LeaguePage({
     ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
+  // Registration pricing. The payouts flag drives a "you can price it, but
+  // nobody can pay yet" hint rather than hiding the card — an organizer should
+  // be able to set a price before finishing Stripe.
+  const [feeSettings, feeRates, orgAccount] = await Promise.all([
+    getCompetitionPaymentSettings(league.id),
+    getPlatformFeeRates(),
+    getPaymentAccount(orgId),
+  ]);
+  const payment = {
+    settings: feeSettings,
+    rates: feeRates,
+    payoutsReady: paymentAccountStatus(orgAccount).canAcceptPayments,
+  };
+
   // Teams that were added after the schedule was generated have no matches yet —
   // the "add teams mid-season" flow schedules them into the unplayed weeks.
   const scheduledTeamIds = new Set(
@@ -371,6 +392,21 @@ export default async function LeaguePage({
           />
         </CardContent>
       </Card>
+
+      <RegistrationFeeCard
+        competitionId={league.id}
+        competitionType="league"
+        initial={{
+          feeDollars: payment.settings.registrationFeeCents / 100,
+          allowCaptainPays: payment.settings.allowCaptainPays,
+          allowSplitPayment: payment.settings.allowSplitPayment,
+          taxEnabled: payment.settings.taxEnabled,
+          taxPercent: payment.settings.taxPercent,
+          paymentRequired: payment.settings.paymentRequired,
+        }}
+        rates={payment.rates}
+        payoutsReady={payment.payoutsReady}
+      />
 
       {coOrgs.canManage && (
         <Card>

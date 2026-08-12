@@ -61,3 +61,96 @@ export async function getPaymentAccount(
     onboardedAt: r.onboarded_at,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Registration fees (Slice B)
+// ---------------------------------------------------------------------------
+
+import type { PlatformFeeRates } from "@/lib/payments/platform-fee";
+import { DEFAULT_PLATFORM_FEE_RATES } from "@/lib/payments/platform-fee";
+
+export type CompetitionPaymentSettings = {
+  registrationFeeCents: number;
+  allowCaptainPays: boolean;
+  allowSplitPayment: boolean;
+  taxEnabled: boolean;
+  taxPercent: number;
+  paymentRequired: boolean;
+};
+
+/** What an unpriced competition looks like — also the shape the form starts at. */
+export const FREE_COMPETITION_PAYMENT_SETTINGS: CompetitionPaymentSettings = {
+  registrationFeeCents: 0,
+  allowCaptainPays: true,
+  allowSplitPayment: false,
+  taxEnabled: false,
+  taxPercent: 0,
+  paymentRequired: false,
+};
+
+/**
+ * A competition's pricing, or the free-event defaults when no row exists.
+ *
+ * Rows are created lazily on first save, so "no row" is the normal state for
+ * every competition that predates payments — it means free, not broken.
+ */
+export async function getCompetitionPaymentSettings(
+  competitionId: string,
+): Promise<CompetitionPaymentSettings> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("competition_payment_settings")
+    .select(
+      "registration_fee_cents, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
+    )
+    .eq("competition_id", competitionId)
+    .maybeSingle();
+  if (!data) return FREE_COMPETITION_PAYMENT_SETTINGS;
+
+  const r = data as {
+    registration_fee_cents: number;
+    allow_captain_pays: boolean;
+    allow_split_payment: boolean;
+    tax_enabled: boolean;
+    tax_percent: string | number;
+    payment_required: boolean;
+  };
+  return {
+    registrationFeeCents: r.registration_fee_cents,
+    allowCaptainPays: r.allow_captain_pays,
+    allowSplitPayment: r.allow_split_payment,
+    taxEnabled: r.tax_enabled,
+    // numeric(5,3) arrives as a string from PostgREST.
+    taxPercent: Number(r.tax_percent),
+    paymentRequired: r.payment_required,
+  };
+}
+
+/**
+ * The platform's own fee rates.
+ *
+ * Falls back to the locked defaults if the singleton row is somehow unreadable:
+ * a quote that silently used 0% would hand the platform's fee to nobody, and
+ * these defaults are the same values the migration seeds.
+ */
+export async function getPlatformFeeRates(): Promise<PlatformFeeRates> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("platform_fee_settings")
+    .select(
+      "tournament_percent, league_per_player_cents, league_per_team_cents",
+    )
+    .maybeSingle();
+  if (!data) return DEFAULT_PLATFORM_FEE_RATES;
+
+  const r = data as {
+    tournament_percent: string | number;
+    league_per_player_cents: number;
+    league_per_team_cents: number;
+  };
+  return {
+    tournamentPercent: Number(r.tournament_percent),
+    leaguePerPlayerCents: r.league_per_player_cents,
+    leaguePerTeamCents: r.league_per_team_cents,
+  };
+}
