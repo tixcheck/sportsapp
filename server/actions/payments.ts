@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
@@ -165,4 +166,98 @@ async function createConnectedAccount(
   }
 
   return storedId;
+}
+
+// ---------------------------------------------------------------------------
+// Registration fees (Slice B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Money arrives from the form in DOLLARS (what the organizer typed) and is
+ * stored in CENTS. Doing that conversion here, once, at the trust boundary,
+ * keeps every layer below this dealing in integers.
+ */
+const registrationFeeSchema = z
+  .object({
+    // 4 digits of dollars is a $9,999 ceiling — far above any real team fee,
+    // and low enough that a typo'd extra zero is caught rather than charged.
+    feeDollars: z
+      .number()
+      .min(0, "A fee can't be negative.")
+      .max(9_999, "That's higher than any real registration fee.")
+      .multipleOf(0.01, "Fees are in whole cents."),
+    allowCaptainPays: z.boolean(),
+    allowSplitPayment: z.boolean(),
+    taxEnabled: z.boolean(),
+    taxPercent: z
+      .number()
+      .min(0, "Tax can't be negative.")
+      .max(100, "Tax can't exceed 100%."),
+    paymentRequired: z.boolean(),
+  })
+  .refine(
+    (v) => v.feeDollars === 0 || v.allowCaptainPays || v.allowSplitPayment,
+    {
+      message: "Pick at least one way for teams to pay.",
+      path: ["allowCaptainPays"],
+    },
+  );
+
+export type RegistrationFeeInput = z.infer<typeof registrationFeeSchema>;
+
+/**
+ * Set (or clear) a competition's registration fee.
+ *
+ * Upsert rather than insert: the row is created lazily the first time an
+ * organizer prices an event, so every competition that predates payments has
+ * no row and reads as free.
+ *
+ * Authorization is `is_competition_admin` in the DB — the same check the RLS
+ * write policy applies — with this call as defense in depth.
+ */
+export async function updateRegistrationFeeAction(
+  competitionId: string,
+  values: RegistrationFeeInput,
+): Promise<ActionError | { success: true }> {
+  const id = z.string().uuid().safeParse(competitionId);
+  if (!id.success) return { error: "Unknown competition." };
+
+  const parsed = registrationFeeSchema.safeParse(values);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid settings." };
+  }
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: id.data,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change this." };
+  }
+
+  // Round rather than truncate: 12.005 typed into a dollars field should
+  // become 1201, not 1200. The zod multipleOf already rejects sub-cent input,
+  // so this only cleans up float representation error (12.34 * 100 = 1233.9999).
+  const feeCents = Math.round(parsed.data.feeDollars * 100);
+
+  const { error } = await supabase.from("competition_payment_settings").upsert(
+    {
+      competition_id: id.data,
+      registration_fee_cents: feeCents,
+      allow_captain_pays: parsed.data.allowCaptainPays,
+      allow_split_payment: parsed.data.allowSplitPayment,
+      tax_enabled: parsed.data.taxEnabled,
+      tax_percent: parsed.data.taxEnabled ? parsed.data.taxPercent : 0,
+      payment_required: feeCents === 0 ? false : parsed.data.paymentRequired,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "competition_id" },
+  );
+  if (error) {
+    console.error("[payments] registration fee upsert failed");
+    return { error: "Couldn't save the fee. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { success: true };
 }

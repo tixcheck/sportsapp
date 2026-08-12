@@ -49,6 +49,13 @@ import { ScheduleMatrix } from "@/components/tournament/schedule-matrix";
 import { TeamManagementList } from "@/components/team/team-management-list";
 import { TournamentPublishControls } from "@/components/tournament/tournament-publish-controls";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import {
+  getCompetitionPaymentSettings,
+  getPaymentAccount,
+  getPlatformFeeRates,
+} from "@/lib/queries/payments";
+import { paymentAccountStatus } from "@/lib/payments/account-status";
+import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
@@ -87,6 +94,19 @@ export default async function TournamentPage({
     getTeamInvites(tournamentId),
     getCompetitionAdmins(tournamentId),
   ]);
+  // Registration pricing. The payouts flag drives a "you can price it, but
+  // nobody can pay yet" hint rather than hiding the card — an organizer should
+  // be able to set a price before finishing Stripe.
+  const [feeSettings, feeRates, orgAccount] = await Promise.all([
+    getCompetitionPaymentSettings(t.id),
+    getPlatformFeeRates(),
+    getPaymentAccount(orgId),
+  ]);
+  const payment = {
+    settings: feeSettings,
+    rates: feeRates,
+    payoutsReady: paymentAccountStatus(orgAccount).canAcceptPayments,
+  };
   const hasPools = poolsView?.hasPools ?? false;
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
@@ -454,6 +474,21 @@ export default async function TournamentPage({
           <ScoringSettingsCard competitionId={t.id} initial={t.scoring} />
         </CardContent>
       </Card>
+
+      <RegistrationFeeCard
+        competitionId={t.id}
+        competitionType="tournament"
+        initial={{
+          feeDollars: payment.settings.registrationFeeCents / 100,
+          allowCaptainPays: payment.settings.allowCaptainPays,
+          allowSplitPayment: payment.settings.allowSplitPayment,
+          taxEnabled: payment.settings.taxEnabled,
+          taxPercent: payment.settings.taxPercent,
+          paymentRequired: payment.settings.paymentRequired,
+        }}
+        rates={payment.rates}
+        payoutsReady={payment.payoutsReady}
+      />
 
       {coOrgs.canManage && (
         <Card>
