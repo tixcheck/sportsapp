@@ -60,6 +60,7 @@ export default async function ProfilePage() {
               notifyResults: profile.notify_results,
               notifyScheduleChanges: profile.notify_schedule_changes,
               notifyWeekly: profile.notify_weekly,
+              notifyOrgMessages: profile.notify_org_messages,
             }}
           />
         </CardContent>

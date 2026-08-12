@@ -244,7 +244,9 @@ export async function GET(request: Request) {
         when,
         detail: m.round ? `Round ${m.round}` : undefined,
         matchUrl: `${origin}/l/${league.slug}`,
-        unsubscribeUrl: `${origin}/unsubscribe/${u.unsubscribe_token}`,
+        // This email respects notify_results, so its opt-out must switch
+        // off exactly that — not the weekly digest.
+        unsubscribeUrl: `${origin}/unsubscribe/${u.unsubscribe_token}?kind=results`,
       });
       sent += 1;
     }

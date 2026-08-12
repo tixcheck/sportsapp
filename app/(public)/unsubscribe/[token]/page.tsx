@@ -5,14 +5,31 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Unsubscribe" };
 
+/** What each email's footer link switches off. */
+const KIND_COPY: Record<string, string> = {
+  weekly: "the weekly digest",
+  results: "score and result emails",
+  schedule: "schedule change emails",
+  org_messages: "messages from your organizers",
+  all: "all optional emails",
+};
+
 export default async function UnsubscribePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ kind?: string }>;
 }) {
-  const { token } = await params;
+  const [{ token }, { kind }] = await Promise.all([params, searchParams]);
+  // No kind = an old link from before per-kind unsubscribe; the RPC treats
+  // that as the digest, which is what every historical footer meant.
+  const requested = kind && kind in KIND_COPY ? kind : "weekly";
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("unsubscribe", { _token: token });
+  const { data, error } = await supabase.rpc("unsubscribe", {
+    _token: token,
+    _kind: requested,
+  });
   const ok = !error && data === true;
 
   return (
@@ -23,7 +40,7 @@ export default async function UnsubscribePage({
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">
           {ok
-            ? "You won't receive the weekly digest anymore. You can re-enable it anytime from your profile's notification settings."
+            ? `You won't receive ${KIND_COPY[requested]} anymore. You can re-enable this anytime from your profile's notification settings.`
             : "This unsubscribe link is invalid or expired. Manage your notifications from your profile instead."}
         </p>
         <Link

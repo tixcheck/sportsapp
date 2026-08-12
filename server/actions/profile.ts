@@ -39,6 +39,7 @@ export interface NotificationPrefs {
   notifyResults: boolean;
   notifyScheduleChanges: boolean;
   notifyWeekly: boolean;
+  notifyOrgMessages: boolean;
 }
 
 /** Update the signed-in user's notification preferences (RLS self-update). */
@@ -57,6 +58,7 @@ export async function updateNotificationPrefsAction(
       notify_results: prefs.notifyResults,
       notify_schedule_changes: prefs.notifyScheduleChanges,
       notify_weekly: prefs.notifyWeekly,
+      notify_org_messages: prefs.notifyOrgMessages,
     })
     .eq("id", user.id);
   if (error) return { error: error.message };

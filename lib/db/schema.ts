@@ -204,6 +204,8 @@ export const users = pgTable("users", {
     .notNull()
     .default(true),
   notifyWeekly: boolean("notify_weekly").notNull().default(true),
+  /** Broadcasts an organizer sends to their events (migration 0068). */
+  notifyOrgMessages: boolean("notify_org_messages").notNull().default(true),
   // Unguessable token for one-click unsubscribe links in the weekly digest.
   unsubscribeToken: uuid("unsubscribe_token")
     .notNull()

@@ -24,6 +24,10 @@ import {
   MissingScoreEmail,
   type MissingScoreEmailProps,
 } from "./templates/missing-score";
+import {
+  OrgMessageEmail,
+  type OrgMessageEmailProps,
+} from "./templates/org-message";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -197,4 +201,67 @@ export function sendMissingScore(
     subject: `Score needed: ${props.summary}`,
     react: MissingScoreEmail(props),
   });
+}
+
+// --- organizer broadcast (opt-out-able; carries the unsubscribe link) -------
+
+export type BatchMessage = {
+  to: string;
+  props: OrgMessageEmailProps;
+};
+
+export type BatchResult = { sent: number; failed: number; reason?: string };
+
+/**
+ * Send one organizer message to many people, one email each.
+ *
+ * Resend's batch endpoint takes up to 100 fully-formed emails per call, which
+ * keeps a 300-person league to three round trips instead of 300 — the
+ * difference between a server action that returns and one that times out.
+ *
+ * Still ONE recipient per email, never CC or BCC: a broadcast must not leak the
+ * roster's addresses to the roster, which is the classic way this feature goes
+ * wrong.
+ *
+ * The unsubscribe link is per-recipient, so each email is rendered separately
+ * rather than once and reused.
+ */
+export async function sendOrgMessageBatch(
+  subject: string,
+  messages: BatchMessage[],
+  replyTo?: string,
+): Promise<BatchResult> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key)
+    return {
+      sent: 0,
+      failed: messages.length,
+      reason: "RESEND_API_KEY not set",
+    };
+  if (messages.length === 0) return { sent: 0, failed: 0 };
+
+  try {
+    const payload = await Promise.all(
+      messages.map(async (m) => {
+        const el = OrgMessageEmail(m.props);
+        const [html, text] = await Promise.all([
+          render(el),
+          render(el, { plainText: true }),
+        ]);
+        return { from: FROM, to: m.to, replyTo, subject, html, text };
+      }),
+    );
+
+    const resend = new Resend(key);
+    const { error } = await resend.batch.send(payload);
+    if (error)
+      return { sent: 0, failed: messages.length, reason: error.message };
+    return { sent: messages.length, failed: 0 };
+  } catch (err) {
+    return {
+      sent: 0,
+      failed: messages.length,
+      reason: err instanceof Error ? err.message : "batch send failed",
+    };
+  }
 }
