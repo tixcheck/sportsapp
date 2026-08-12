@@ -17,6 +17,14 @@ export const createTournamentSchema = z
     endTime: z.string().regex(TIME_RE, "Pick an end time."),
     venue: z.string().trim().max(120).optional().or(z.literal("")),
     courts: z.number().int().min(1, "At least 1 court.").max(40),
+    // Registration capacity. Null = uncapped; the field is left blank to mean
+    // "as many as sign up", which is how every event worked before this.
+    maxTeams: z
+      .number()
+      .int()
+      .min(2, "A capped event needs room for at least 2 teams.")
+      .max(512)
+      .nullable(),
     // Target round-robin games each team plays in pool play; the pool structure
     // is sized to deliver ~this many (pool size ≈ games + 1).
     gamesPerTeam: z.number().int().min(1, "At least 1 game.").max(12),
@@ -89,6 +97,14 @@ export const editTournamentSchema = z
     endTime: z.string().regex(TIME_RE, "Pick an end time."),
     venue: z.string().trim().max(120).optional().or(z.literal("")),
     courts: z.number().int().min(1, "At least 1 court.").max(40),
+    // Registration capacity. Null = uncapped; the field is left blank to mean
+    // "as many as sign up", which is how every event worked before this.
+    maxTeams: z
+      .number()
+      .int()
+      .min(2, "A capped event needs room for at least 2 teams.")
+      .max(512)
+      .nullable(),
     gamesPerTeam: z.number().int().min(1, "At least 1 game.").max(12),
     minutesPerGame: z.number().int().min(5).max(120).nullable(),
     formatId: z.string().min(1),

@@ -322,6 +322,13 @@ export const leagueSettings = pgTable("league_settings", {
   // Public self-registration. Independent of visibility: an organizer can share
   // a published league's schedule with registration closed. Registration is
   // "open" when this is true AND the deadline (if set) hasn't passed.
+  /**
+   * Registration capacity — how many teams may sign up. Null = uncapped, which
+   * is every competition created before this existed. Enforced inside the
+   * register_team RPC (a count, not a row constraint), so the check is race-safe
+   * against two captains registering at the same moment.
+   */
+  maxTeams: integer("max_teams"),
   registrationOpen: boolean("registration_open").notNull().default(false),
   registrationDeadline: timestamp("registration_deadline", {
     withTimezone: true,
@@ -347,6 +354,13 @@ export const tournamentSettings = pgTable("tournament_settings", {
   competitionId: uuid("competition_id")
     .primaryKey()
     .references(() => competitions.id, { onDelete: "cascade" }),
+  /**
+   * Registration capacity — how many teams may sign up. Null = uncapped, which
+   * is every competition created before this existed. Enforced inside the
+   * register_team RPC (a count, not a row constraint), so the check is race-safe
+   * against two captains registering at the same moment.
+   */
+  maxTeams: integer("max_teams"),
   poolSize: integer("pool_size").notNull().default(4),
   // Target round-robin games per team — drives the suggested pool structure
   // (pool size ≈ target + 1) AND caps games within a bigger pool (partial round

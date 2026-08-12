@@ -50,6 +50,8 @@ export default async function RegisterPage({
         zone: event.timezone,
       }).toFormat("LLL d, h:mm a")
     : null;
+  // Full is a distinct closed reason: the deadline may be days away.
+  const isFull = event.spotsLeft === 0;
   const action =
     event.type === "league" ? registerLeagueTeamAction : registerTeamAction;
 
@@ -100,6 +102,17 @@ export default async function RegisterPage({
                 {deadlineText
                   ? `Registration closes ${deadlineText}.`
                   : "Registration is open."}
+                {event.spotsLeft !== null && (
+                  <>
+                    {" "}
+                    <span className="text-foreground font-medium">
+                      {event.spotsLeft === 1
+                        ? "1 spot left"
+                        : `${event.spotsLeft} spots left`}
+                    </span>{" "}
+                    of {event.maxTeams}.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -118,11 +131,15 @@ export default async function RegisterPage({
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Registration is closed</CardTitle>
+              <CardTitle>
+                {isFull ? "This event is full" : "Registration is closed"}
+              </CardTitle>
               <CardDescription>
-                {deadlineText
-                  ? `Sign-ups closed ${deadlineText}.`
-                  : "This event isn't accepting new teams right now."}
+                {isFull
+                  ? `All ${event.maxTeams} spots have been taken. Contact the organizer if you'd like to be added to a waitlist.`
+                  : deadlineText
+                    ? `Sign-ups closed ${deadlineText}.`
+                    : "This event isn't accepting new teams right now."}
               </CardDescription>
             </CardHeader>
             <CardContent>

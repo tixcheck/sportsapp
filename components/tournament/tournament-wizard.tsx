@@ -33,7 +33,7 @@ const STEP_FIELDS: (keyof CreateTournamentInput)[][] = [
   ["name", "startDate", "endDate", "startTime", "endTime", "venue"],
   ["divisions"],
   ["formatTemplate", "playoffTeams"],
-  ["courts", "gamesPerTeam", "minutesPerGame"],
+  ["courts", "maxTeams", "gamesPerTeam", "minutesPerGame"],
   ["formatId", "bracketFormatId", "registrationDeadline"],
   ["feeDollars", "allowCaptainPays", "allowSplitPayment", "taxPercent"],
   [],
@@ -65,6 +65,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
       endTime: "17:00",
       venue: "",
       courts: 4,
+      maxTeams: null,
       gamesPerTeam: 3,
       minutesPerGame: null,
       formatId: defaultPoolPreset("beach2").id,
@@ -332,6 +333,24 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
                 />
               </Field>
             </div>
+            <Field
+              label="Max teams (optional)"
+              error={errors.maxTeams?.message}
+            >
+              <Input
+                type="number"
+                min={2}
+                max={512}
+                placeholder="No limit"
+                {...register("maxTeams", {
+                  setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                })}
+              />
+              <p className="text-muted-foreground mt-1 text-xs">
+                Registration closes itself once this many teams have signed up.
+                Leave blank to take as many as turn up.
+              </p>
+            </Field>
             <Field
               label="Minutes per game"
               error={errors.minutesPerGame?.message}
