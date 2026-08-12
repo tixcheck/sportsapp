@@ -3,6 +3,18 @@ import { notFound } from "next/navigation";
 
 import { getTeamView } from "@/lib/queries/team-view";
 import { competitionPath } from "@/lib/queries/dashboard";
+import {
+  getCompetitionPaymentSettings,
+  getPaymentAccount,
+  getPlatformFeeRates,
+  getTeamPaymentRows,
+} from "@/lib/queries/payments";
+import { paymentAccountStatus } from "@/lib/payments/account-status";
+import {
+  planTeamCharge,
+  teamPaymentState,
+} from "@/lib/payments/registration-plan";
+import { TeamPaymentCard } from "@/components/payments/team-payment-card";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { MatchSections } from "@/components/scoring/match-sections";
 import {
@@ -38,6 +50,32 @@ export default async function TeamPage({
     roster,
   } = view;
 
+  // Registration fee. getTeamView already gated on membership/admin, so the
+  // org id it exposes is one this viewer may read.
+  const [feeSettings, feeRates, paymentRows] = await Promise.all([
+    getCompetitionPaymentSettings(competition.id),
+    getPlatformFeeRates(),
+    getTeamPaymentRows(team.id),
+  ]);
+  const orgAccount = await getPaymentAccount(view.orgId);
+  const payment = teamPaymentState(paymentRows, {
+    feeCents: feeSettings.registrationFeeCents,
+  });
+  // Quote the outstanding amount, not the full fee — a part-paid team owes the
+  // remainder, and charging them the whole thing again would be theft.
+  const [outstandingCharge] = planTeamCharge({
+    pricing: {
+      registrationFeeCents: payment.outstandingPriceCents,
+      taxEnabled: feeSettings.taxEnabled,
+      taxPercent: feeSettings.taxPercent,
+    },
+    competitionType: competition.type,
+    rates: feeRates,
+  });
+  const canPayOnline =
+    feeSettings.allowCaptainPays &&
+    paymentAccountStatus(orgAccount).canAcceptPayments;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -51,6 +89,15 @@ export default async function TeamPage({
           {team.name}
         </h1>
       </div>
+
+      <TeamPaymentCard
+        competitionId={competition.id}
+        teamId={team.id}
+        payment={payment}
+        totalDueCents={outstandingCharge?.totalCents ?? 0}
+        canPayOnline={canPayOnline}
+        canPay={isMember || view.isAdmin}
+      />
 
       {/* Schedule */}
       <Card>

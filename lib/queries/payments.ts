@@ -154,3 +154,31 @@ export async function getPlatformFeeRates(): Promise<PlatformFeeRates> {
     leaguePerTeamCents: r.league_per_team_cents,
   };
 }
+
+/** A team's payment rows, in the shape `teamPaymentState` expects. */
+export async function getTeamPaymentRows(teamId: string): Promise<
+  {
+    status: "pending" | "paid" | "cancelled" | "refunded";
+    priceCents: number;
+  }[]
+> {
+  const mode = currentStripeMode();
+  if (!mode.configured) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("registration_payments")
+    .select("status, price_cents")
+    .eq("team_id", teamId)
+    // Test-mode rows must never colour a live deployment's status, and vice
+    // versa — the same reason payment_accounts keys on livemode.
+    .eq("livemode", mode.livemode);
+  if (!data) return [];
+
+  return (
+    data as {
+      status: "pending" | "paid" | "cancelled" | "refunded";
+      price_cents: number;
+    }[]
+  ).map((r) => ({ status: r.status, priceCents: r.price_cents }));
+}
