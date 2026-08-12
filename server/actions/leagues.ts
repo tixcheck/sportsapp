@@ -578,7 +578,10 @@ export async function generateLeagueScheduleAction(
   const { data: teams } = await supabase
     .from("teams")
     .select("id, division_id")
-    .eq("competition_id", competitionId);
+    .eq("competition_id", competitionId)
+    // Unpaid teams are not entrants — they must never reach a pool, a
+    // schedule or the standings (migration 0066).
+    .neq("status", "pending_payment");
   if (!teams || teams.length < 2) {
     return { error: "Add at least 2 teams before generating a schedule." };
   }

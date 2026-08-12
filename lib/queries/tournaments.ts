@@ -27,7 +27,7 @@ export interface TournamentTeam {
   name: string;
   divisionId: string | null;
   seed: number | null;
-  status: "active" | "withdrawn";
+  status: "active" | "withdrawn" | "pending_payment";
   captainUserId: string | null;
   invite: { token: string; email: string } | null;
 }
@@ -216,7 +216,7 @@ export async function getTournamentDetail(
       name: tm.name,
       divisionId: tm.division_id,
       seed: tm.seed,
-      status: tm.status as "active" | "withdrawn",
+      status: tm.status as "active" | "withdrawn" | "pending_payment",
       captainUserId: tm.captain_user_id,
       invite: inviteByTeam.get(tm.id) ?? null,
     })),
@@ -252,6 +252,8 @@ export async function getPublicTournament(
     .from("teams")
     .select("id, name, division_id")
     .eq("competition_id", t.id)
+    // Unpaid teams are not entrants yet (migration 0066).
+    .neq("status", "pending_payment")
     .order("name", { ascending: true });
 
   const deadline = settings?.registration_deadline ?? null;
@@ -334,7 +336,9 @@ export async function getPoolsView(
   const { data: teams } = await supabase
     .from("teams")
     .select("id, name, seed, pool_id")
-    .eq("competition_id", competitionId);
+    .eq("competition_id", competitionId)
+    // Unpaid teams are not entrants yet (migration 0066).
+    .neq("status", "pending_payment");
   const nameById = new Map(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
   );

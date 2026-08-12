@@ -109,7 +109,10 @@ export async function generatePoolsAction(
   const { data: allTeams } = await supabase
     .from("teams")
     .select("id, division_id, seed")
-    .eq("competition_id", competitionId);
+    .eq("competition_id", competitionId)
+    // Unpaid teams are not entrants — they must never reach a pool, a
+    // schedule or the standings (migration 0066).
+    .neq("status", "pending_payment");
   const ordered = resolveSeedOrder(
     (allTeams ?? [])
       .filter((t) => t.division_id)

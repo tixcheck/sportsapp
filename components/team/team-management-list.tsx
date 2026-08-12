@@ -42,7 +42,7 @@ export interface ManagedTeam {
   id: string;
   name: string;
   divisionName?: string | null;
-  status: "active" | "withdrawn";
+  status: "active" | "withdrawn" | "pending_payment";
   claimed: boolean;
   /** Pending captain invite (null once they've joined). */
   captainInvite: ManagedTeamInvite | null;
