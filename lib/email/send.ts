@@ -20,6 +20,10 @@ import {
   SchedulePushedEmail,
   type SchedulePushedEmailProps,
 } from "./templates/schedule-pushed";
+import {
+  MissingScoreEmail,
+  type MissingScoreEmailProps,
+} from "./templates/missing-score";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -178,5 +182,19 @@ export function sendMatchReminder(
     to,
     subject: "Your matches this week",
     react: MatchReminderEmail(props),
+  });
+}
+
+// --- missing score nudge (opt-out-able; carries the unsubscribe link) -------
+
+export function sendMissingScore(
+  to: string,
+  props: MissingScoreEmailProps,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    // Names the game, so a stack of these in an inbox is still scannable.
+    subject: `Score needed: ${props.summary}`,
+    react: MissingScoreEmail(props),
   });
 }
