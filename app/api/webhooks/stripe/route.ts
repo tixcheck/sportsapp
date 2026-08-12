@@ -25,6 +25,15 @@ import { accountUpdateFromStripe } from "@/lib/payments/account-sync";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** One place to build the trusted client, so its inferred type is shareable. */
+function createAdminClient(url: string, key: string) {
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   const mode = currentStripeMode();
@@ -60,22 +69,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, ignored: "mode mismatch" });
   }
 
-  if (event.type !== "account.updated") {
+  if (
+    event.type !== "account.updated" &&
+    event.type !== "checkout.session.completed" &&
+    event.type !== "checkout.session.expired"
+  ) {
     // Everything else is a later slice's business. 200 keeps Stripe from
     // retrying an event we simply don't handle yet.
     return NextResponse.json({ received: true });
   }
 
-  const account = event.data.object as Stripe.Account;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
     console.error("[stripe-webhook] supabase secret key missing");
     return NextResponse.json({ error: "not configured" }, { status: 500 });
   }
-  const admin = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const admin = createAdminClient(url, key);
+
+  if (event.type === "checkout.session.completed") {
+    return settleRegistrationPayment(
+      admin,
+      event.data.object as Stripe.Checkout.Session,
+    );
+  }
+
+  if (event.type === "checkout.session.expired") {
+    // Nobody paid and the link is dead. Retiring the row is what lets the team
+    // start a fresh charge — the partial unique index allows only one open one.
+    const expired = event.data.object as Stripe.Checkout.Session;
+    await admin
+      .from("registration_payments")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("stripe_checkout_session_id", expired.id)
+      .eq("status", "pending");
+    return NextResponse.json({ received: true });
+  }
+
+  const account = event.data.object as Stripe.Account;
 
   // onboarded_at is a milestone, so the existing value wins if it's already
   // set — see accountUpdateFromStripe.
@@ -110,4 +141,54 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+/**
+ * Mark a registration charge paid.
+ *
+ * Stripe is the authority on whether money moved, so we key off
+ * `payment_status`, not the session merely being "complete" — a session can
+ * complete with payment still processing, and calling that paid would confirm
+ * a team that hasn't paid.
+ *
+ * Idempotent: the update is scoped to rows still `pending`, so Stripe's retries
+ * (and its at-least-once delivery) settle the row exactly once.
+ */
+async function settleRegistrationPayment(
+  admin: AdminClient,
+  session: Stripe.Checkout.Session,
+): Promise<Response> {
+  if (session.payment_status !== "paid") {
+    // Async payment methods land later via checkout.session.async_payment_*.
+    // Acknowledging without writing keeps Stripe from retrying a non-event.
+    return NextResponse.json({ received: true, ignored: "not yet paid" });
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null);
+
+  const { data, error } = await admin
+    .from("registration_payments")
+    .update({
+      status: "paid",
+      paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntentId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_checkout_session_id", session.id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (error) {
+    // 500 so Stripe retries — a dropped payment would leave a team looking
+    // unpaid after they have actually paid, which is the worst failure here.
+    console.error("[stripe-webhook] registration payment update failed");
+    return NextResponse.json({ error: "update failed" }, { status: 500 });
+  }
+
+  // No row updated means either an unknown session or a replay of one already
+  // settled. Neither is an error worth making Stripe retry.
+  return NextResponse.json({ received: true, settled: data?.length ?? 0 });
 }

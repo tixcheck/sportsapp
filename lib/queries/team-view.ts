@@ -19,6 +19,8 @@ export interface TeamView {
     type: "league" | "tournament";
     timezone: string;
   };
+  /** The competition's owning org — resolves the connected Stripe account. */
+  orgId: string;
   isMember: boolean;
   isAdmin: boolean;
   /** Member path: the user's own matches for this team (with their actions). */
@@ -55,7 +57,7 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("id, name, slug, type, timezone")
+    .select("id, name, slug, type, timezone, org_id")
     .eq("id", team.competition_id)
     .single();
   if (!comp) return null;
@@ -132,6 +134,8 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
       type: comp.type as "league" | "tournament",
       timezone: comp.timezone,
     },
+    // Needed to look up where this competition's registration money goes.
+    orgId: comp.org_id as string,
     isMember,
     isAdmin,
     myMatches,

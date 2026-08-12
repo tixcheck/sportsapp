@@ -1272,3 +1272,77 @@ export const competitionPaymentSettings = pgTable(
       .defaultNow(),
   },
 );
+
+/** One payment covers a whole team, or one player's share of it. */
+export const registrationPaymentKind = pgEnum("registration_payment_kind", [
+  "team_full",
+  "player_share",
+]);
+
+export const registrationPaymentStatus = pgEnum("registration_payment_status", [
+  /** Checkout session created, payer hasn't completed it. */
+  "pending",
+  "paid",
+  /** Payer abandoned checkout or the session expired. */
+  "cancelled",
+  "refunded",
+]);
+
+/**
+ * One row per payment a team owes or has made.
+ *
+ * Captain-pays produces a single `team_full` row; a split produces one
+ * `player_share` row per payer. Modelling both as rows of the same table is
+ * what lets "is this team paid?" be one question — count the unpaid rows —
+ * rather than two code paths that can disagree.
+ *
+ * Every amount is FROZEN at the moment the row is created, resolved from the
+ * rates in force then. Platform rates are admin-editable, so recomputing a
+ * historical payment from live rates would quietly rewrite what someone owed.
+ */
+export const registrationPayments = pgTable(
+  "registration_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    kind: registrationPaymentKind("kind").notNull(),
+    status: registrationPaymentStatus("status").notNull().default("pending"),
+    /** Which roster email this share belongs to. Null for a team_full charge. */
+    payerEmail: text("payer_email"),
+    /** Set once a signed-in user actually pays it. */
+    payerUserId: uuid("payer_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** Organizer's net for THIS charge, excluding tax. */
+    priceCents: integer("price_cents").notNull(),
+    taxCents: integer("tax_cents").notNull().default(0),
+    platformFeeCents: integer("platform_fee_cents").notNull(),
+    /** What the payer is charged. */
+    totalCents: integer("total_cents").notNull(),
+    /** What Stripe routes to the platform off the destination charge. */
+    applicationFeeCents: integer("application_fee_cents").notNull(),
+    currency: text("currency").notNull().default("cad"),
+    /** Mirrors payment_accounts: test and live rows must never be confused. */
+    livemode: boolean("livemode").notNull().default(false),
+    /** The connected account this charge is destined for. */
+    stripeAccountId: text("stripe_account_id").notNull(),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("registration_payments_team_idx").on(t.teamId),
+    index("registration_payments_competition_idx").on(t.competitionId),
+  ],
+);
