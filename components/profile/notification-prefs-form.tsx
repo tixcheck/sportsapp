@@ -12,6 +12,7 @@ type Prefs = {
   notifyResults: boolean;
   notifyScheduleChanges: boolean;
   notifyWeekly: boolean;
+  notifyOrgMessages: boolean;
 };
 
 const TOGGLES: { key: keyof Prefs; label: string; desc: string }[] = [
@@ -29,6 +30,11 @@ const TOGGLES: { key: keyof Prefs; label: string; desc: string }[] = [
     key: "notifyWeekly",
     label: "Weekly digest",
     desc: "Sunday evening: your matches for the week.",
+  },
+  {
+    key: "notifyOrgMessages",
+    label: "Messages from organizers",
+    desc: "Announcements your organizer sends to everyone in an event.",
   },
 ];
 
@@ -78,7 +84,8 @@ export function NotificationPrefsForm({ initial }: { initial: Prefs }) {
   const dirty =
     prefs.notifyResults !== initial.notifyResults ||
     prefs.notifyScheduleChanges !== initial.notifyScheduleChanges ||
-    prefs.notifyWeekly !== initial.notifyWeekly;
+    prefs.notifyWeekly !== initial.notifyWeekly ||
+    prefs.notifyOrgMessages !== initial.notifyOrgMessages;
 
   function save() {
     start(async () => {

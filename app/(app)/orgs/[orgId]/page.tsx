@@ -20,6 +20,7 @@ import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { PayoutsCard } from "@/components/payments/payouts-card";
+import { ComposeMessageDialog } from "@/components/communications/compose-message-dialog";
 import {
   Card,
   CardContent,
@@ -46,6 +47,22 @@ export default async function OrgPage({
   const isOrgAdmin = myRole === "owner" || myRole === "admin";
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
 
+  // Everything this org runs, for the "send a message" audience picker. Built
+  // from lists the page already loaded rather than a fresh query.
+  const messageable = [
+    ...leagues.map((l) => ({
+      id: l.id,
+      name: l.name,
+      type: "league" as const,
+    })),
+    ...tournaments.map((t) => ({
+      id: t.id,
+      name: t.name,
+      type: "tournament" as const,
+    })),
+    ...kotc.map((k) => ({ id: k.id, name: k.name, type: "kotc" as const })),
+  ];
+
   // Payouts are an org-admin concern. Until this deployment has Stripe keys the
   // section would be a button that can't do anything, so ordinary organizers
   // don't see it yet — the platform admin does, to check the shell on prod.
@@ -59,10 +76,13 @@ export default async function OrgPage({
 
   return (
     <div className="space-y-10">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
           {org.name}
         </h1>
+        {isOrgAdmin && (
+          <ComposeMessageDialog orgId={orgId} competitions={messageable} />
+        )}
       </div>
 
       <Section
