@@ -196,3 +196,87 @@ export async function getTeamPaymentRows(
     totalCents: r.total_cents,
   }));
 }
+
+export type MyPayment = {
+  id: string;
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  kind: "team_full" | "player_share";
+  totalCents: number;
+  priceCents: number;
+  taxCents: number;
+  currency: string;
+  paidAt: string | null;
+  createdAt: string;
+  teamId: string;
+  teamName: string;
+  competitionName: string;
+  competitionType: "league" | "tournament" | "kotc";
+  competitionSlug: string;
+};
+
+/**
+ * Everything the signed-in user has paid or been asked to pay.
+ *
+ * Matched on payer_user_id, set when the charge is created (migration 0067).
+ * Deliberately NOT matched on team membership: a captain who paid for the team
+ * should see that payment, but a teammate who paid nothing should not see it
+ * listed as theirs.
+ */
+export async function getMyPayments(): Promise<MyPayment[]> {
+  const mode = currentStripeMode();
+  if (!mode.configured) return [];
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("registration_payments")
+    .select(
+      "id, status, kind, total_cents, price_cents, tax_cents, currency, paid_at, created_at, team_id, teams(name, competitions(name, type, slug))",
+    )
+    .eq("payer_user_id", user.id)
+    .eq("livemode", mode.livemode)
+    .order("created_at", { ascending: false });
+  if (!data) return [];
+
+  type Row = {
+    id: string;
+    status: MyPayment["status"];
+    kind: MyPayment["kind"];
+    total_cents: number;
+    price_cents: number;
+    tax_cents: number;
+    currency: string;
+    paid_at: string | null;
+    created_at: string;
+    team_id: string;
+    teams: {
+      name: string;
+      competitions: {
+        name: string;
+        type: MyPayment["competitionType"];
+        slug: string;
+      } | null;
+    } | null;
+  };
+
+  return (data as unknown as Row[]).map((r) => ({
+    id: r.id,
+    status: r.status,
+    kind: r.kind,
+    totalCents: r.total_cents,
+    priceCents: r.price_cents,
+    taxCents: r.tax_cents,
+    currency: r.currency,
+    paidAt: r.paid_at,
+    createdAt: r.created_at,
+    teamId: r.team_id,
+    teamName: r.teams?.name ?? "Your team",
+    competitionName: r.teams?.competitions?.name ?? "Event",
+    competitionType: r.teams?.competitions?.type ?? "tournament",
+    competitionSlug: r.teams?.competitions?.slug ?? "",
+  }));
+}
