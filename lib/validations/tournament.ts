@@ -43,6 +43,19 @@ export const createTournamentSchema = z
     allowRefEntry: z.boolean(),
     allowOrganizerEntry: z.boolean(),
     requireConfirmation: z.boolean(),
+    // Registration fee, set at creation rather than hunted for afterwards.
+    // Dollars here because that is what the organizer types; the action
+    // converts to cents at the trust boundary. Zero = a free event.
+    feeDollars: z
+      .number()
+      .min(0, "A fee can't be negative.")
+      .max(9_999, "That's higher than any real registration fee.")
+      .multipleOf(0.01, "Fees are in whole cents."),
+    allowCaptainPays: z.boolean(),
+    allowSplitPayment: z.boolean(),
+    taxEnabled: z.boolean(),
+    taxPercent: z.number().min(0).max(100),
+    paymentRequired: z.boolean(),
   })
   .refine((v) => v.endDate >= v.startDate, {
     message: "End date must be on or after the start date.",
@@ -51,7 +64,16 @@ export const createTournamentSchema = z
   .refine((v) => v.startDate !== v.endDate || v.endTime > v.startTime, {
     message: "End time must be after the start time.",
     path: ["endTime"],
-  });
+  })
+  // Mirrors the DB check constraint: a priced event nobody can pay for is a
+  // dead end, so at least one mode must be open whenever there is a fee.
+  .refine(
+    (v) => v.feeDollars === 0 || v.allowCaptainPays || v.allowSplitPayment,
+    {
+      message: "Pick at least one way for teams to pay.",
+      path: ["allowCaptainPays"],
+    },
+  );
 
 /**
  * Editable tournament settings (post-creation). No sport (fundamental) or
