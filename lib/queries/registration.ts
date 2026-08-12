@@ -22,6 +22,12 @@ export interface RegistrationEvent {
   /** Whether sign-up is currently accepting teams (open + within any deadline). */
   registrationOpen: boolean;
   registrationDeadline: string | null;
+  /** Team cap, or null when the event takes as many as sign up. */
+  maxTeams: number | null;
+  /** Active (non-withdrawn) teams already registered. */
+  teamsRegistered: number;
+  /** Spots left, or null when uncapped. Zero means full. */
+  spotsLeft: number | null;
   /** The full public event page (schedule/standings). */
   publicPath: string;
 }
@@ -49,39 +55,56 @@ export async function getRegistrationEvent(
 
   const isLeague = comp.type === "league";
 
-  const [{ data: divisionRows }, deadlineAndOpen] = await Promise.all([
-    supabase
-      .from("divisions")
-      .select("id, name")
-      .eq("competition_id", comp.id)
-      .order("tier_order", { ascending: true }),
-    (async () => {
-      if (isLeague) {
+  const [{ data: divisionRows }, deadlineAndOpen, teamCount] =
+    await Promise.all([
+      supabase
+        .from("divisions")
+        .select("id, name")
+        .eq("competition_id", comp.id)
+        .order("tier_order", { ascending: true }),
+      (async () => {
+        if (isLeague) {
+          const { data } = await supabase
+            .from("league_settings")
+            .select("registration_open, registration_deadline, max_teams")
+            .eq("competition_id", comp.id)
+            .maybeSingle();
+          return {
+            open: (data?.registration_open as boolean | null) === true,
+            deadline: (data?.registration_deadline as string | null) ?? null,
+            maxTeams: (data?.max_teams as number | null) ?? null,
+          };
+        }
         const { data } = await supabase
-          .from("league_settings")
-          .select("registration_open, registration_deadline")
+          .from("tournament_settings")
+          .select("registration_deadline, max_teams")
           .eq("competition_id", comp.id)
           .maybeSingle();
         return {
-          open: (data?.registration_open as boolean | null) === true,
+          open: comp.status === "open",
           deadline: (data?.registration_deadline as string | null) ?? null,
+          maxTeams: (data?.max_teams as number | null) ?? null,
         };
-      }
-      const { data } = await supabase
-        .from("tournament_settings")
-        .select("registration_deadline")
+      })(),
+      // Head-count only — the public page has no business reading team rows, and
+      // a withdrawn team frees its spot, matching what register_team counts.
+      supabase
+        .from("teams")
+        .select("id", { count: "exact", head: true })
         .eq("competition_id", comp.id)
-        .maybeSingle();
-      return {
-        open: comp.status === "open",
-        deadline: (data?.registration_deadline as string | null) ?? null,
-      };
-    })(),
-  ]);
+        .neq("status", "withdrawn"),
+    ]);
 
-  const { open, deadline } = deadlineAndOpen;
+  const { open, deadline, maxTeams } = deadlineAndOpen;
+  const teamsRegistered = teamCount.count ?? 0;
+  const spotsLeft =
+    maxTeams === null ? null : Math.max(0, maxTeams - teamsRegistered);
+  // A full event is closed even when the deadline hasn't passed — otherwise the
+  // form invites a registration the RPC is going to refuse.
   const registrationOpen =
-    open && (!deadline || new Date(deadline) > new Date());
+    open &&
+    (!deadline || new Date(deadline) > new Date()) &&
+    (spotsLeft === null || spotsLeft > 0);
 
   return {
     id: comp.id,
@@ -100,6 +123,9 @@ export async function getRegistrationEvent(
     divisionLabel: isLeague ? "Tier" : "Division",
     registrationOpen,
     registrationDeadline: deadline,
+    maxTeams,
+    teamsRegistered,
+    spotsLeft,
     publicPath: isLeague ? `/l/${comp.slug}` : `/t/${comp.slug}`,
   };
 }

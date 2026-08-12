@@ -100,6 +100,7 @@ export async function createTournamentAction(
       bracket_type: "single_elim",
       format_template: v.formatTemplate,
       playoff_teams: v.playoffTeams,
+      max_teams: v.maxTeams,
       registration_deadline: deadlineIso,
     });
   if (settingsError) return { error: settingsError.message };
@@ -238,6 +239,7 @@ export async function updateTournamentSettingsAction(
       courts: v.courts,
       format_template: v.formatTemplate,
       playoff_teams: v.playoffTeams,
+      max_teams: v.maxTeams,
       pool_format: newPoolFormat,
     })
     .eq("competition_id", competitionId);

@@ -188,6 +188,7 @@ export default async function TournamentPage({
     bracketFormatId: findPresetId(t.sport, t.matchFormat),
     formatTemplate: t.formatTemplate,
     playoffTeams: t.playoffTeams,
+    maxTeams: t.maxTeams,
     twoSetRoundRobin,
   };
   const setupItems: { label: string; value: string }[] = [

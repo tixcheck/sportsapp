@@ -57,6 +57,7 @@ export interface TournamentDetail {
   formatTemplate: FormatTemplate;
   /** How many pool finishers advance to the playoff bracket. Null = unset. */
   playoffTeams: number | null;
+  maxTeams: number | null;
   /** Pool-play match format (2-set round-robin when bestOf is even). */
   poolFormat: MatchFormat;
   /** Bracket / base match format. */
@@ -89,6 +90,7 @@ export interface PublicTournament {
   registrationOpen: boolean;
   /** Playoff field size for the generic bracket preview. Null = unset. */
   playoffTeams: number | null;
+  maxTeams: number | null;
   courts: number;
   /** Organizer's per-game slot length; null = estimate from the format. */
   minutesPerGame: number | null;
@@ -148,7 +150,7 @@ export async function getTournamentDetail(
   const { data: settings } = await supabase
     .from("tournament_settings")
     .select(
-      "pool_size, target_games_per_team, minutes_per_game, courts, pool_format, format_template, playoff_teams, registration_deadline, days",
+      "pool_size, target_games_per_team, minutes_per_game, courts, pool_format, format_template, playoff_teams, max_teams, registration_deadline, days",
     )
     .eq("competition_id", tournamentId)
     .single();
@@ -197,6 +199,7 @@ export async function getTournamentDetail(
     courts: settings?.courts ?? 1,
     formatTemplate: (settings?.format_template ?? "single") as FormatTemplate,
     playoffTeams: (settings?.playoff_teams as number | null) ?? null,
+    maxTeams: (settings?.max_teams as number | null) ?? null,
     poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,
     matchFormat: t.match_format as MatchFormat,
     registrationDeadline: settings?.registration_deadline ?? null,
@@ -238,7 +241,7 @@ export async function getPublicTournament(
   const { data: settings } = await supabase
     .from("tournament_settings")
     .select(
-      "registration_deadline, playoff_teams, courts, minutes_per_game, pool_format",
+      "registration_deadline, playoff_teams, max_teams, courts, minutes_per_game, pool_format",
     )
     .eq("competition_id", t.id)
     .single();
@@ -269,6 +272,7 @@ export async function getPublicTournament(
     registrationDeadline: deadline,
     registrationOpen,
     playoffTeams: (settings?.playoff_teams as number | null) ?? null,
+    maxTeams: (settings?.max_teams as number | null) ?? null,
     courts: (settings?.courts as number | null) ?? 1,
     minutesPerGame: (settings?.minutes_per_game as number | null) ?? null,
     matchFormat: t.match_format as MatchFormat,
