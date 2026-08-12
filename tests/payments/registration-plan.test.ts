@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  planMemberShares,
   planSplitCharges,
   planTeamCharge,
   teamPaymentState,
@@ -203,5 +204,193 @@ describe("teamPaymentState", () => {
     const s = teamPaymentState([{ status: "paid", priceCents: 60_000 }], fee);
     expect(s.state).toBe("paid");
     expect(s.outstandingPriceCents).toBe(0);
+  });
+});
+
+describe("planMemberShares", () => {
+  const rates = DEFAULT_PLATFORM_FEE_RATES;
+  const members = [
+    { email: "a@x.com", name: "Ana", userId: "u1" },
+    { email: "b@x.com", name: "Bo", userId: "u2" },
+    { email: "c@x.com", name: "Cy", userId: "u3" },
+  ];
+  const base = {
+    pricing: priced({ registrationFeeCents: 9_000 }),
+    competitionType: "league" as const,
+    rates,
+    members,
+  };
+
+  it("splits evenly when nobody has started", () => {
+    const shares = planMemberShares({ ...base, existingShares: [] });
+    expect(shares.map((s) => s.priceCents)).toEqual([3_000, 3_000, 3_000]);
+    expect(shares.every((s) => s.status === "owed")).toBe(true);
+    // Each is quoted a chargeable total above their share.
+    for (const s of shares) expect(s.totalCents!).toBeGreaterThan(s.priceCents);
+  });
+
+  it("keeps a paid share frozen and re-divides only the remainder", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "paid",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+
+    expect(shares[0]).toMatchObject({ status: "paid", priceCents: 3_000 });
+    // $60 left across the two who haven't started.
+    expect(shares[1].priceCents).toBe(3_000);
+    expect(shares[2].priceCents).toBe(3_000);
+  });
+
+  it("re-divides the remainder when the roster grows after a payment", () => {
+    const shares = planMemberShares({
+      ...base,
+      members: [...members, { email: "d@x.com", name: "Di", userId: "u4" }],
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "paid",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+
+    // $60 remaining over three unstarted players — $20 each, and the payer
+    // who already settled is untouched.
+    expect(shares[0]).toMatchObject({ status: "paid", priceCents: 3_000 });
+    expect(shares.slice(1).map((s) => s.priceCents)).toEqual([
+      2_000, 2_000, 2_000,
+    ]);
+    // The organizer still nets exactly the team fee.
+    expect(shares.reduce((sum, s) => sum + s.priceCents, 0)).toBe(9_000);
+  });
+
+  it("treats a pending share as committed, not up for redivision", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "pending",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+    expect(shares[0].status).toBe("pending");
+    // Their frozen total is what Stripe will charge — shown, not recomputed.
+    expect(shares[0].totalCents).toBe(3_430);
+  });
+
+  it("frees a cancelled share back up for redivision", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "cancelled",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+    expect(shares.every((s) => s.status === "owed")).toBe(true);
+    expect(shares.map((s) => s.priceCents)).toEqual([3_000, 3_000, 3_000]);
+  });
+
+  it("reopens a refunded share", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "refunded",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+    expect(shares[0].status).toBe("owed");
+  });
+
+  it("lets a later paid row win over an earlier refund for the same payer", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "refunded",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+        {
+          payerEmail: "a@x.com",
+          status: "paid",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+    expect(shares[0].status).toBe("paid");
+  });
+
+  it("matches payers case-insensitively", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "  A@X.com ",
+          status: "paid",
+          priceCents: 3_000,
+          totalCents: 3_430,
+        },
+      ],
+    });
+    expect(shares[0].status).toBe("paid");
+  });
+
+  it("owes nothing more once the fee is fully covered", () => {
+    const shares = planMemberShares({
+      ...base,
+      existingShares: [
+        {
+          payerEmail: "a@x.com",
+          status: "paid",
+          priceCents: 4_500,
+          totalCents: 5_000,
+        },
+        {
+          payerEmail: "b@x.com",
+          status: "paid",
+          priceCents: 4_500,
+          totalCents: 5_000,
+        },
+      ],
+    });
+    expect(shares[2]).toMatchObject({
+      status: "owed",
+      priceCents: 0,
+      totalCents: null,
+    });
+  });
+
+  it("returns nothing for a free event or an empty roster", () => {
+    expect(
+      planMemberShares({
+        ...base,
+        pricing: priced({ registrationFeeCents: 0 }),
+        existingShares: [],
+      }),
+    ).toEqual([]);
+    expect(
+      planMemberShares({ ...base, members: [], existingShares: [] }),
+    ).toEqual([]);
   });
 });
