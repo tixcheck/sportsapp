@@ -7,9 +7,9 @@
 
 ---
 
-## Current state (last session — 2026-08-03)
+## Current state (last session — 2026-08-12)
 
-- **Branch:** `main`. **Latest commit:** `3f1250b` (Playoffs rename) — pushed (Vercel auto-deploys).
+- **Branch:** `main`. **Latest commit:** `57d98d0` (Stripe Connect Express onboarding) — pushed, Vercel deploy green.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
 - **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0062`.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
@@ -18,11 +18,35 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **517 passing across 50 files**. tsc + eslint + prettier clean.
+- **Tests:** `npm test` → **611 passing across 57 files**. tsc + eslint + prettier clean.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
-  2026-07-30, plan at `docs/plans/registration-payments.md`. Slice A (payouts
-  onboarding) is the next build; **blocked on Stripe test keys**, so the
-  schema/migration half goes first.
+  2026-07-30, plan at `docs/plans/registration-payments.md`.
+  - **Slice A (payouts onboarding) is SHIPPED and verified in production**
+    (2026-08-12). Stripe test keys live in `.env.local` and Vercel; `stripe`
+    SDK v22.5.0 added; migration `0060` applied. Proven end-to-end against a
+    real Express account: 10 `account.updated` deliveries tracked, DB flags an
+    exact match for Stripe's account object, `onboarded_at` stamped.
+  - **Slice B (paid registration) is the next build.** Nothing started.
+  - **Gotcha, cost an hour:** the canonical domain is `www.mysportsapp.ca`.
+    The apex `mysportsapp.ca` 308-redirects, and **Stripe treats a 3xx on a
+    webhook as a failed delivery** — it does not follow redirects. Any Stripe
+    event destination must use the `www` URL. Note `lib/utils/url.ts`
+    `CANONICAL_URL` is still the apex; harmless for browsers/email (they follow
+    redirects), fatal for webhooks.
+  - **Connect webhooks must be scoped to "Events on connected accounts."**
+    `account.updated` for an Express account never reaches an endpoint listening
+    only to your own account's events — and it fails silently.
+  - **Connected-account events don't appear in the platform's event list.**
+    `stripe.events.list()` returns nothing; you need
+    `stripe.events.list({...}, { stripeAccount: acct_... })`. Easy to mistake
+    for "the webhook never fired".
+  - **Express accounts are `requirement_collection: stripe`.** The platform
+    cannot write `individual.*` — `accounts.update` returns
+    `StripePermissionError`. Outstanding requirements can only be cleared
+    through Stripe's hosted flow. Test account `acct_1U3ewF2Xcj6rCnzd` sits at
+    `charges_enabled = true`, `payouts_enabled = false`, blocked on
+    `individual.verification.proof_of_liveness` — which gates payouts, not
+    charges, so it does not block Slice B.
 
 ## ⚠️ Critical for the live tournament
 
