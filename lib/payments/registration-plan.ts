@@ -236,3 +236,143 @@ export function teamPaymentState(
     chargesOutstanding: live.filter((r) => r.status !== "paid").length,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Split payments (Slice B3)
+// ---------------------------------------------------------------------------
+
+export type ShareMember = {
+  email: string;
+  name: string;
+  userId: string;
+};
+
+export type ExistingShare = {
+  payerEmail: string | null;
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  priceCents: number;
+  totalCents: number;
+};
+
+export type MemberShare = {
+  email: string;
+  name: string;
+  userId: string;
+  /** paid = settled; pending = checkout open; owed = nothing started yet. */
+  status: "paid" | "pending" | "owed";
+  /** Organizer's net for this person's share. */
+  priceCents: number;
+  /** What they'd actually be charged, fees included. Null until quoted. */
+  totalCents: number | null;
+};
+
+/**
+ * Who owes what on a split team fee.
+ *
+ * Shares are recomputed over the members who haven't started paying, against
+ * what's left of the fee — deliberately, because a roster changes. If a seventh
+ * player joins after two have paid, re-dividing the *remainder* keeps the team
+ * total correct without disturbing anyone already settled. Fixing shares up
+ * front would either short the organizer or bill someone twice.
+ *
+ * A member with an existing row keeps that row's FROZEN amount: it's what they
+ * were quoted and, if pending, what Stripe will actually charge them.
+ */
+export function planMemberShares({
+  pricing,
+  competitionType,
+  rates,
+  members,
+  existingShares,
+  stripe,
+}: {
+  pricing: RegistrationPricing;
+  competitionType: CompetitionType;
+  rates: PlatformFeeRates;
+  members: ShareMember[];
+  existingShares: ExistingShare[];
+  stripe?: StripeRate;
+}): MemberShare[] {
+  if (pricing.registrationFeeCents <= 0 || members.length === 0) return [];
+
+  // Abandoned checkouts aren't debts and mustn't hold a share hostage.
+  const live = existingShares.filter((s) => s.status !== "cancelled");
+  const byEmail = new Map<string, ExistingShare>();
+  for (const s of live) {
+    const email = s.payerEmail?.trim().toLowerCase();
+    // A refund reopens the share, so a later `paid`/`pending` row wins.
+    if (!email) continue;
+    const existing = byEmail.get(email);
+    if (!existing || rank(s.status) > rank(existing.status)) {
+      byEmail.set(email, s);
+    }
+  }
+
+  const settled = [...byEmail.values()].filter(
+    (s) => s.status === "paid" || s.status === "pending",
+  );
+  const committedCents = settled.reduce((sum, s) => sum + s.priceCents, 0);
+  const remainingCents = Math.max(
+    0,
+    pricing.registrationFeeCents - committedCents,
+  );
+
+  const unstarted = members.filter((m) => {
+    const row = byEmail.get(m.email.trim().toLowerCase());
+    return !row || (row.status !== "paid" && row.status !== "pending");
+  });
+
+  const shares =
+    unstarted.length > 0 ? splitEvenly(remainingCents, unstarted.length) : [];
+  const shareByEmail = new Map(
+    unstarted.map((m, i) => [m.email.trim().toLowerCase(), shares[i]]),
+  );
+
+  return members.map((m) => {
+    const key = m.email.trim().toLowerCase();
+    const row = byEmail.get(key);
+
+    if (row?.status === "paid" || row?.status === "pending") {
+      return {
+        email: m.email,
+        name: m.name,
+        userId: m.userId,
+        status: row.status === "paid" ? "paid" : "pending",
+        priceCents: row.priceCents,
+        totalCents: row.totalCents,
+      };
+    }
+
+    const priceCents = shareByEmail.get(key) ?? 0;
+    const quoted =
+      priceCents > 0
+        ? quotePayment({
+            priceCents,
+            platformFeeCents: platformFeeCentsFor({
+              competitionType,
+              payerMode: "player_share",
+              chargeBaseCents: priceCents,
+              rates,
+            }),
+            taxCents: taxFor(priceCents, pricing),
+            stripe,
+          })
+        : null;
+
+    return {
+      email: m.email,
+      name: m.name,
+      userId: m.userId,
+      status: "owed" as const,
+      priceCents,
+      totalCents: quoted?.totalCents ?? null,
+    };
+  });
+}
+
+/** paid beats pending beats anything reopened. */
+function rank(status: ExistingShare["status"]): number {
+  if (status === "paid") return 3;
+  if (status === "pending") return 2;
+  return 1;
+}

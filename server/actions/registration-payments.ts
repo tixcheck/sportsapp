@@ -9,10 +9,19 @@ import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
   getPlatformFeeRates,
+  getTeamPaymentRows,
 } from "@/lib/queries/payments";
+import { getTeamRoster } from "@/lib/queries/roster";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
-import { planTeamCharge } from "@/lib/payments/registration-plan";
-import type { CompetitionType } from "@/lib/payments/platform-fee";
+import {
+  planMemberShares,
+  planTeamCharge,
+} from "@/lib/payments/registration-plan";
+import { quotePayment } from "@/lib/payments/fees";
+import {
+  platformFeeCentsFor,
+  type CompetitionType,
+} from "@/lib/payments/platform-fee";
 import { getOrigin } from "@/lib/utils/url";
 
 type ActionError = { error: string };
@@ -199,6 +208,213 @@ export async function startRegistrationCheckoutAction(
     return { url: session.url };
   } catch {
     console.error("[payments] checkout session create failed");
+    return { error: STRIPE_FAILED };
+  }
+}
+
+/**
+ * Send a player to Stripe Checkout to pay their own share of a split team fee.
+ *
+ * The share is recomputed here from the current roster and the shares already
+ * committed — never taken from the client. Recomputing matters: the roster can
+ * change between the page rendering and the click, and the amount charged has
+ * to be the one that keeps the team total right.
+ *
+ * An organizer may pay on a player's behalf by passing that player's email (an
+ * org-added team, or cash taken at the door recorded here). Everyone else can
+ * only pay their own share; `start_registration_payment` enforces the
+ * team-membership half of that in the database.
+ */
+export async function startShareCheckoutAction(
+  competitionId: string,
+  teamId: string,
+  payerEmail?: string,
+): Promise<ActionError | { url: string }> {
+  const comp = idSchema.safeParse(competitionId);
+  const team = idSchema.safeParse(teamId);
+  if (!comp.success || !team.success) return { error: "Unknown team." };
+
+  const mode = currentStripeMode();
+  if (!mode.configured) {
+    return { error: "Online payments aren't switched on yet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in to pay." };
+
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("id, org_id, type, name")
+    .eq("id", comp.data)
+    .maybeSingle();
+  if (!competition) return { error: "Unknown competition." };
+  const c = competition as {
+    id: string;
+    org_id: string;
+    type: CompetitionType;
+    name: string;
+  };
+
+  const [settings, rates, account, rows, roster] = await Promise.all([
+    getCompetitionPaymentSettings(c.id),
+    getPlatformFeeRates(),
+    getPaymentAccount(c.org_id),
+    getTeamPaymentRows(team.data),
+    getTeamRoster(team.data),
+  ]);
+
+  if (settings.registrationFeeCents <= 0) {
+    return { error: "This event is free — there's nothing to pay." };
+  }
+  if (!settings.allowSplitPayment) {
+    return { error: "This event asks the captain to pay the whole team fee." };
+  }
+  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+    return {
+      error:
+        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+    };
+  }
+
+  // Default to the signed-in user's own share. A supplied email means an
+  // organizer acting for someone else, so it has to be checked against admin
+  // rights before we bill it.
+  const target = (payerEmail ?? user.email ?? "").trim().toLowerCase();
+  if (!target) {
+    return { error: "We don't have an email to bill this share to." };
+  }
+
+  if (payerEmail && target !== (user.email ?? "").trim().toLowerCase()) {
+    const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+      _competition_id: c.id,
+    });
+    if (isAdmin !== true) {
+      return { error: "You can only pay your own share." };
+    }
+  }
+
+  const shares = planMemberShares({
+    pricing: {
+      registrationFeeCents: settings.registrationFeeCents,
+      taxEnabled: settings.taxEnabled,
+      taxPercent: settings.taxPercent,
+    },
+    competitionType: c.type,
+    rates,
+    members: roster,
+    existingShares: rows.filter((r) => r.kind === "player_share"),
+  });
+
+  const share = shares.find((s) => s.email.trim().toLowerCase() === target);
+  if (!share) return { error: "You're not on this team's roster." };
+  if (share.status === "paid") return { error: "That share is already paid." };
+  if (share.priceCents <= 0) {
+    return { error: "This team's fee is already covered." };
+  }
+
+  const platformFeeCents = platformFeeCentsFor({
+    competitionType: c.type,
+    payerMode: "player_share",
+    chargeBaseCents: share.priceCents,
+    rates,
+  });
+  const taxCents = settings.taxEnabled
+    ? Math.round((share.priceCents * settings.taxPercent) / 100)
+    : 0;
+  const quote = quotePayment({
+    priceCents: share.priceCents,
+    platformFeeCents,
+    taxCents,
+  });
+
+  const stripe = getStripe();
+  const origin = await getOrigin();
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: target,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "cad",
+            unit_amount: quote.totalCents,
+            product_data: {
+              name: `${c.name} — your share`,
+              description:
+                taxCents > 0
+                  ? "Includes tax, card and platform fees."
+                  : "Includes card and platform fees.",
+            },
+          },
+        },
+      ],
+      payment_intent_data: {
+        application_fee_amount: quote.applicationFeeCents,
+        transfer_data: { destination: account.stripeAccountId },
+      },
+      metadata: {
+        competition_id: c.id,
+        team_id: team.data,
+        kind: "player_share",
+        payer_email: target,
+      },
+      success_url: `${origin}/teams/${team.data}?paid=1`,
+      cancel_url: `${origin}/teams/${team.data}?paid=0`,
+    });
+
+    if (!session.url) {
+      console.error("[payments] share checkout session had no url");
+      return { error: STRIPE_FAILED };
+    }
+
+    const { data: storedSessionId, error } = await supabase.rpc(
+      "start_registration_payment",
+      {
+        _competition_id: c.id,
+        _team_id: team.data,
+        _kind: "player_share",
+        _payer_email: target,
+        _price_cents: share.priceCents,
+        _tax_cents: taxCents,
+        _platform_fee_cents: platformFeeCents,
+        _total_cents: quote.totalCents,
+        _application_fee_cents: quote.applicationFeeCents,
+        _stripe_account_id: account.stripeAccountId,
+        _livemode: mode.livemode,
+        _session_id: session.id,
+      },
+    );
+
+    if (error || typeof storedSessionId !== "string") {
+      await expireQuietly(session.id);
+      const message = error?.message ?? "";
+      if (message.includes("Only the team or the organizer")) {
+        return { error: "Only the team or the organizer can pay this." };
+      }
+      console.error("[payments] start_registration_payment (share) failed");
+      return { error: STRIPE_FAILED };
+    }
+
+    if (storedSessionId !== session.id) {
+      await expireQuietly(session.id);
+      const existing = await stripe.checkout.sessions.retrieve(storedSessionId);
+      if (existing.status === "open" && existing.url) {
+        return { url: existing.url };
+      }
+      await supabase.rpc("cancel_registration_payment", {
+        _session_id: storedSessionId,
+      });
+      return { error: "That payment link expired. Please try again." };
+    }
+
+    return { url: session.url };
+  } catch {
+    console.error("[payments] share checkout session create failed");
     return { error: STRIPE_FAILED };
   }
 }

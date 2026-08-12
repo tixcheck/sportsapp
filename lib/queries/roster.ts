@@ -9,6 +9,52 @@ export interface RosterMember {
 }
 
 /**
+ * One team's linked members, in the same shape and order as `getTeamRosters`.
+ *
+ * Split payments need the roster for a single team without knowing (or being
+ * allowed to read) every other team in the competition, so this queries by team
+ * rather than filtering the competition-wide result.
+ */
+export async function getTeamRoster(teamId: string): Promise<RosterMember[]> {
+  const supabase = await createClient();
+  const { data: members } = await supabase
+    .from("team_members")
+    .select("user_id, role")
+    .eq("team_id", teamId);
+  if (!members || members.length === 0) return [];
+
+  const userIds = [...new Set(members.map((m) => m.user_id as string))];
+  const { data: users } = await supabase
+    .from("users")
+    .select("id, display_name, email")
+    .in("id", userIds);
+
+  const byId = new Map(
+    (users ?? []).map((u) => [
+      u.id as string,
+      { name: (u.display_name || u.email) as string, email: u.email as string },
+    ]),
+  );
+
+  return (
+    members
+      .map((m) => {
+        const u = byId.get(m.user_id as string);
+        return {
+          name: u?.name ?? "Member",
+          role: m.role as "captain" | "player",
+          email: u?.email ?? "",
+          userId: m.user_id as string,
+        };
+      })
+      // A member with no readable email can't be billed a share — drop rather
+      // than show a payer nobody can charge.
+      .filter((m) => m.email.length > 0)
+      .sort((a, b) => (a.role === b.role ? 0 : a.role === "captain" ? -1 : 1))
+  );
+}
+
+/**
  * Team rosters (linked members) for a competition, keyed by team id. Names come
  * from users the caller shares context with (RLS); falls back to email.
  */

@@ -155,20 +155,25 @@ export async function getPlatformFeeRates(): Promise<PlatformFeeRates> {
   };
 }
 
-/** A team's payment rows, in the shape `teamPaymentState` expects. */
-export async function getTeamPaymentRows(teamId: string): Promise<
-  {
-    status: "pending" | "paid" | "cancelled" | "refunded";
-    priceCents: number;
-  }[]
-> {
+export type TeamPaymentRow = {
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  kind: "team_full" | "player_share";
+  payerEmail: string | null;
+  priceCents: number;
+  totalCents: number;
+};
+
+/** A team's payment rows — feeds both `teamPaymentState` and `planMemberShares`. */
+export async function getTeamPaymentRows(
+  teamId: string,
+): Promise<TeamPaymentRow[]> {
   const mode = currentStripeMode();
   if (!mode.configured) return [];
 
   const supabase = await createClient();
   const { data } = await supabase
     .from("registration_payments")
-    .select("status, price_cents")
+    .select("status, kind, payer_email, price_cents, total_cents")
     .eq("team_id", teamId)
     // Test-mode rows must never colour a live deployment's status, and vice
     // versa — the same reason payment_accounts keys on livemode.
@@ -177,8 +182,17 @@ export async function getTeamPaymentRows(teamId: string): Promise<
 
   return (
     data as {
-      status: "pending" | "paid" | "cancelled" | "refunded";
+      status: TeamPaymentRow["status"];
+      kind: TeamPaymentRow["kind"];
+      payer_email: string | null;
       price_cents: number;
+      total_cents: number;
     }[]
-  ).map((r) => ({ status: r.status, priceCents: r.price_cents }));
+  ).map((r) => ({
+    status: r.status,
+    kind: r.kind,
+    payerEmail: r.payer_email,
+    priceCents: r.price_cents,
+    totalCents: r.total_cents,
+  }));
 }

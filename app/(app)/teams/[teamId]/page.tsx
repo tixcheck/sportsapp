@@ -11,6 +11,7 @@ import {
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import {
+  planMemberShares,
   planTeamCharge,
   teamPaymentState,
 } from "@/lib/payments/registration-plan";
@@ -72,9 +73,22 @@ export default async function TeamPage({
     competitionType: competition.type,
     rates: feeRates,
   });
-  const canPayOnline =
-    feeSettings.allowCaptainPays &&
-    paymentAccountStatus(orgAccount).canAcceptPayments;
+  const canPayOnline = paymentAccountStatus(orgAccount).canAcceptPayments;
+  // Split shares only when the organizer allows them. planMemberShares reads
+  // the roster we already loaded, so this costs no extra query.
+  const shares = feeSettings.allowSplitPayment
+    ? planMemberShares({
+        pricing: {
+          registrationFeeCents: feeSettings.registrationFeeCents,
+          taxEnabled: feeSettings.taxEnabled,
+          taxPercent: feeSettings.taxPercent,
+        },
+        competitionType: competition.type,
+        rates: feeRates,
+        members: roster,
+        existingShares: paymentRows.filter((r) => r.kind === "player_share"),
+      })
+    : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -97,6 +111,10 @@ export default async function TeamPage({
         totalDueCents={outstandingCharge?.totalCents ?? 0}
         canPayOnline={canPayOnline}
         canPay={isMember || view.isAdmin}
+        allowCaptainPays={feeSettings.allowCaptainPays}
+        shares={shares}
+        viewerEmail={view.viewerEmail}
+        isAdmin={view.isAdmin}
       />
 
       {/* Schedule */}
