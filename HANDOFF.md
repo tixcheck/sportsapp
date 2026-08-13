@@ -9,10 +9,10 @@
 
 ## Current state (last session — 2026-08-12)
 
-- **Branch:** `main`. **Latest commit:** `57d98d0` (Stripe Connect Express onboarding) — pushed, Vercel deploy green.
+- **Branch:** `main`. **Latest commit:** `b0dd9e6` (organizer broadcasts + per-kind unsubscribe) — pushed, working tree clean, no unmerged feature branches.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0069`.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0069`, and all of `0060`–`0069` were re-verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0069` (per-kind unsubscribe) IS applied** — 2026-08-12. `unsubscribe(_token)` only ever set `notify_weekly`, so every new opt-out-able email pointed at a link that switched off the digest and kept sending what the reader objected to. Now `unsubscribe(_token, _kind)` maps weekly/results/schedule/org_messages/all to the right column; an unknown kind falls back to the digest. **The 1-arg signature was DROPPED** (same ambiguity rule as `register_team`); verified the legacy 1-arg call still resolves. Email footers must now pass `?kind=` — a footer without one silently unsubscribes from the digest instead.
   - **`0068` (organizer broadcasts) IS applied** — 2026-08-12. Adds `users.notify_org_messages` (default true) and the `org_messages` audit table. The log stores a recipient COUNT, never the address list — the addresses are already in `users` and copying them spreads PII for no gain.
   - **`0067` (payment attribution) IS applied** — 2026-08-12. `payer_user_id` existed since `0064` but was never populated, so “my payments” could only match on email — and a `team_full` charge carries no payer email at all. `start_registration_payment` now sets it from `auth.uid()`: a parameter could be forged, and the settling webhook has no user context, so the SECURITY DEFINER function is the only trustworthy place. Body is the `0064` definition verbatim plus the attribution update.
@@ -26,7 +26,7 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **611 passing across 57 files**. tsc + eslint + prettier clean.
+- **Tests:** `npm test` → **692 passing across 62 files** (verified 2026-08-13).
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`.
   - **Slice A (payouts onboarding) is SHIPPED and verified in production**
@@ -34,7 +34,16 @@
     SDK v22.5.0 added; migration `0060` applied. Proven end-to-end against a
     real Express account: 10 `account.updated` deliveries tracked, DB flags an
     exact match for Stripe's account object, `onboarded_at` stamped.
-  - **Slice B (paid registration) is the next build.** Nothing started.
+  - **Slice B (paid registration) is SHIPPED** (2026-08-12) — all three
+    sub-slices: B1 fee-at-the-event (`0063`), B2 Checkout with destination
+    charges (`0064`), B3 split payments. Plus payment-gated registration
+    (`0066`), max-teams caps (`0065`), payer attribution (`0067`), and the
+    `/profile/payments` page. See `PROGRESS.md` for the detail.
+  - **Slice C (organizer payment management) is the next build. Nothing
+    started.** Scope: partial-payment approval, register-a-team + send a
+    payment link, refunds, the payments dashboard, receipts.
+  - **Not yet done for go-live:** live Stripe keys, real (non-test) onboarding,
+    and TOS / refund / surcharge disclosure copy.
   - **Gotcha, cost an hour:** the canonical domain is `www.mysportsapp.ca`.
     The apex `mysportsapp.ca` 308-redirects, and **Stripe treats a 3xx on a
     webhook as a failed delivery** — it does not follow redirects. Any Stripe
@@ -70,6 +79,25 @@
 
 ## What shipped recently (newest first)
 
+- `31a5a66` (migrations `0068` + `0069`) — **organizer broadcasts**, plus a
+  per-kind unsubscribe. The old `unsubscribe(_token)` only ever switched off the
+  weekly digest, so opt-out links kept sending the thing the reader objected to.
+  **Email footers must now pass `?kind=`.**
+- `9477003` — **missing-score reminder**: a daily cron nudges captains when a
+  league game has no score.
+- `4a39961` (migration `0067`) — **`/profile/payments`** for players, and
+  `payer_user_id` is finally populated (from `auth.uid()`, inside the SECURITY
+  DEFINER function — a parameter could be forged).
+- `4025db7` — captain **chooses the payment mode at registration**.
+- `b34e59c` (migration `0066`) — **payment-gated registration**: the new
+  `pending_payment` team status, and 8 team queries that now exclude those teams
+  from play. _Any new query that selects teams for PLAY must exclude it too._
+- `a97b453` (migration `0065`) — **max teams** cap, counted inside the inserting
+  function so a race for the last spot can't over-fill.
+- `7c39676` — **tournament wizard restructured**; events are priced at creation.
+- `6e59e41` — **split payments** (Slice B3): players pay their own share.
+- `f9cddb2` (migration `0064`) — **Checkout with destination charges** (B2).
+- `af61c7d` (migration `0063`) — **organizers can set a registration fee** (B1).
 - `01fb968` — the UI calls it **"Playoffs"**, not "Bracket" (organizer-facing
   language; the code/engine still says bracket).
 - `2fd9f73` — **weekly digest** lists games in day/time order, with the court.
@@ -143,12 +171,11 @@
 
 ## Open threads / candidate next work
 
-- **Registration payments (Stripe Connect) — the active thread.** Decisions
-  locked; see `docs/plans/registration-payments.md` → "Decisions (locked)" and
-  "Build order". Slice A = Express onboarding. **Needs from the owner:** Stripe
-  **test** keys (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`,
-  `STRIPE_WEBHOOK_SECRET`) and sign-off on the `stripe` npm dependency. The
-  schema + migration land ahead of the keys.
+- **Registration payments (Stripe Connect) — the active thread.** Slices A and
+  B are shipped; **Slice C (organizer payment management) is the next build**.
+  See `docs/plans/registration-payments.md` → "Build order". Test keys are in
+  `.env.local` and Vercel. **Needs from the owner before go-live:** live Stripe
+  keys, and TOS / refund / surcharge disclosure copy.
 - **KotC full elimination engine** — plan only, not built
   (`docs/plans/kotc-elimination.md`).
 - **AI spreadsheet import** — approved design, parked 2026-06-30
