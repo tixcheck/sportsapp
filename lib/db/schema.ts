@@ -74,6 +74,14 @@ export type LeagueCourt = {
   /** Display label, e.g. "9" or "Court A". */
   label: string;
   prime: boolean;
+  /**
+   * The venue this court is in (migration 0071). Null = the competition's own
+   * `venue`, which is every court that predates multi-venue support.
+   *
+   * Labels are only unique WITHIN a venue — "Court A" exists at every gym — so
+   * a court is identified by (venueId, label), never by label alone.
+   */
+  venueId?: string | null;
 };
 
 /**
@@ -259,6 +267,30 @@ export const orgMembers = pgTable(
 // ---------------------------------------------------------------------------
 // Competitions (the spine) + their settings
 // ---------------------------------------------------------------------------
+
+/**
+ * A building a competition plays in. Org-scoped, because an organizer books the
+ * same gyms season after season — see migration 0071.
+ */
+export const venues = pgTable(
+  "venues",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    address: text("address"),
+    /** Directions shown on the public schedule — never door codes. */
+    entryNotes: text("entry_notes"),
+    /** e.g. "Doors open at 6:05pm and 8:05pm". */
+    doorsNote: text("doors_note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("venues_org_id_idx").on(t.orgId)],
+);
 
 export const competitions = pgTable(
   "competitions",
@@ -584,6 +616,14 @@ export const matches = pgTable(
     }),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
     court: varchar("court", { length: 64 }),
+    /**
+     * Which building (migration 0071). Null = the competition's own `venue`.
+     * Court labels collide across venues, so this cannot be inferred from
+     * `court` — it has to be stored.
+     */
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
     // Per-match format override (highest precedence, above pool/competition
     // format). Used for league playoffs that differ from the season, e.g.
     // best-of-3 brackets off a single-set season. Null = resolve normally.

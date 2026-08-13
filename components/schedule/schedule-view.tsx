@@ -15,10 +15,8 @@ import {
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
-import {
-  formatCourtLabel,
-  normalizeCourtLabel,
-} from "@/lib/scheduler/court-label";
+import { formatPlacement, isMultiVenue } from "@/lib/venues/resolve";
+import { normalizeCourtLabel } from "@/lib/scheduler/court-label";
 import { MatchCard } from "./match-card";
 import { MatchupMatrix } from "./matchup-matrix";
 import { NowPlaying } from "./now-playing";
@@ -252,26 +250,47 @@ function groupByTier(matches: ScheduleMatch[], tz: string): Group[] {
     });
 }
 
-/** Admin-only: group by court, ordered by start time within each court. */
-function groupByCourt(matches: ScheduleMatch[]): Group[] {
+/**
+ * Admin-only: group by court, ordered by start time within each court.
+ *
+ * Keyed on VENUE + label, not the label alone. Every school gym has a "Court
+ * A", so a league running six buildings would otherwise collapse six different
+ * courts into one column and show them as clashing.
+ */
+function groupByCourt(matches: ScheduleMatch[], multiVenue: boolean): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
   for (const m of matches) {
     // Normalize: a league holding both "Court 3" and "3" for the same physical
     // court would otherwise split into two columns.
-    const key = normalizeCourtLabel(m.court) ?? "tbd";
+    const label = normalizeCourtLabel(m.court) ?? "tbd";
+    const key = `${m.venueId ?? ""}|${label}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(m);
   }
   return [...map.entries()]
+    .map(([key, ms]) => {
+      const label = key.slice(key.indexOf("|") + 1);
+      const venueName = ms[0]?.venueName ?? null;
+      return {
+        key: `court:${key}`,
+        label,
+        venueName,
+        heading:
+          label === "tbd"
+            ? multiVenue && venueName
+              ? `${venueName} · Court TBD`
+              : "Court TBD"
+            : (formatPlacement(label, venueName, { multiVenue }) ?? label),
+        matches: [...ms].sort((x, y) => startMillis(x) - startMillis(y)),
+      };
+    })
     .sort(
-      (a, b) => courtRank(a[0]) - courtRank(b[0]) || a[0].localeCompare(b[0]),
+      (a, b) =>
+        (a.venueName ?? "").localeCompare(b.venueName ?? "") ||
+        courtRank(a.label) - courtRank(b.label) ||
+        a.label.localeCompare(b.label),
     )
-    .map(([court, ms]) => ({
-      key: `court:${court}`,
-      heading:
-        court === "tbd" ? "Court TBD" : (formatCourtLabel(court) ?? court),
-      matches: [...ms].sort((x, y) => startMillis(x) - startMillis(y)),
-    }));
+    .map(({ key, heading, matches }) => ({ key, heading, matches }));
 }
 
 export function ScheduleView({
@@ -366,9 +385,13 @@ export function ScheduleView({
         : groupByTeam(dayScoped, myTeamIds)
       : [];
 
+  // Whether this competition genuinely spans buildings — measured from the
+  // schedule, so a league with venues on file but only one in use stays clean.
+  const multiVenue = isMultiVenue(matches);
+
   const groups =
     effectiveView === "court"
-      ? groupByCourt(shown)
+      ? groupByCourt(shown, multiVenue)
       : effectiveView === "tier"
         ? groupByTier(shown, timezone)
         : effectiveView === "team"
@@ -528,6 +551,7 @@ export function ScheduleView({
               slotMinutes={slotMinutes}
               editable={editable}
               myTeamIds={myTeamIds}
+              multiVenue={multiVenue}
               renderTrailing={renderTrailing}
             />
           ) : (
@@ -555,6 +579,7 @@ export function ScheduleView({
                     timezone={timezone}
                     showAbnormal={editable}
                     myTeamIds={myTeamIds}
+                    multiVenue={multiVenue}
                     trailing={renderTrailing(m)}
                   />
                 ))}
@@ -580,6 +605,7 @@ export function ScheduleView({
  * cards for detail.
  */
 function TeamDay({
+  multiVenue,
   teamId,
   name,
   games,
@@ -590,6 +616,7 @@ function TeamDay({
   myTeamIds,
   renderTrailing,
 }: {
+  multiVenue: boolean;
   teamId: string;
   name: string;
   games: ScheduleMatch[];
@@ -636,6 +663,7 @@ function TeamDay({
               showAbnormal={editable}
               showDate
               myTeamIds={myTeamIds}
+              multiVenue={multiVenue}
               // "You play/ref" is the viewer's role — only meaningful in the
               // followed team's own section. Elsewhere let MatchCard derive it,
               // so another team's game isn't mislabelled "You play".

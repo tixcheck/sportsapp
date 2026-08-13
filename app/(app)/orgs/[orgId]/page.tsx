@@ -18,6 +18,8 @@ import {
 import { startPayoutsOnboardingAction } from "@/server/actions/payments";
 import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
+import { VenuesCard } from "@/components/venues/venues-card";
+import { getOrgVenues } from "@/lib/queries/venues";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { PayoutsCard } from "@/components/payments/payouts-card";
 import { ComposeMessageDialog } from "@/components/communications/compose-message-dialog";
@@ -46,6 +48,8 @@ export default async function OrgPage({
   const myRole = orgs.find((o) => o.id === orgId)?.role;
   const isOrgAdmin = myRole === "owner" || myRole === "admin";
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
+  // Venues are org-wide: the same gyms come back season after season.
+  const venues = isOrgAdmin ? await getOrgVenues(orgId) : [];
 
   // Everything this org runs, for the "send a message" audience picker. Built
   // from lists the page already loaded rather than a fresh query.
@@ -120,6 +124,8 @@ export default async function OrgPage({
           connectAction={startPayoutsOnboardingAction.bind(null, orgId)}
         />
       )}
+
+      {isOrgAdmin && <VenuesCard orgId={orgId} venues={venues} />}
 
       {isOrgAdmin && (
         <Card>

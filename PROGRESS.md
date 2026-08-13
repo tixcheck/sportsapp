@@ -5,6 +5,54 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-13 (later) — Venues: a competition can span several buildings
+
+**Shipped.** Until now the model was one competition, one venue —
+`competitions.venue` was a single text column and courts were a flat list of
+labels. That holds for a beach league in one park. It does not hold for BVL's
+indoor season, which runs **9 divisions across 6 school gyms on the same
+night**, each gym with its own Court A/B/C.
+
+- **Migration `0071`** (applied, verified). A `venues` table hanging off the
+  **org**, not the competition — an organizer books the same gyms season after
+  season, so the address and the "enter through the east doors by the garbage
+  bins" note are typed once. Plus `matches.venue_id`, and `venueId` on each
+  `LeagueCourt`.
+- **Court labels collide across venues.** Every gym has a "Court A", so a label
+  can no longer identify a court. That single fact drove the shape: the venue
+  has to be stored on the match, not inferred, and `(venue, label)` is the only
+  safe court identity.
+- **A real bug this exposed:** the By-court schedule view keyed purely on the
+  normalized label, so six gyms' "Court A" collapsed into one column and read as
+  a six-way clash. Now keyed on venue + label.
+- **`lib/venues/resolve.ts`** is pure and unit-tested (23 tests): court identity,
+  placement formatting, grouping a schedule by building, and `isMultiVenue`.
+- **The venue only shows when it earns its place.** `isMultiVenue` is measured
+  against the *schedule*, not the venue list, so a single-site league still reads
+  "Court 10" rather than "Woodbine Beach · Court 10" on every card.
+- **UI:** a Venues card on the org page (address, entry directions, doors note,
+  maps link) and a Court venues card on the league page that assigns each court
+  to a gym — and stamps the venue onto games already scheduled there, so the
+  court list and the schedule cannot drift.
+- **Deleting a venue never deletes games.** The FK is `on delete set null`; the
+  games keep their times and fall back to the competition's venue.
+
+**Proven against real data.** Both BVL demos were converted off the
+"venue baked into the court label" workaround: 151 + 83 games re-pointed, all
+234 placed, and **Terry Miller came out as ONE org-level venue row shared by two
+different leagues** — which is the entire argument for org-scoping.
+
+**Tests:** 756 passing across 65 files (up from 733/64). tsc, eslint and build
+clean.
+
+**Deliberately NOT in this slice**, and worth stating because BVL's sheets use
+both: per-venue start times (their Thursday night starts 6:00 at one gym, 6:15
+at another, 6:30 at a third), and a venue-aware *generator* — nothing yet stops
+the scheduler putting a team in two buildings back to back. Those need
+`weekly_slots` and the scheduler itself to change, which is a second slice.
+
+---
+
 ## 2026-08-13 — Payments Slice C: organizer payment management
 
 **Shipped.** Slice B could take money. Slice C is what an organizer does about

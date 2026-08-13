@@ -48,6 +48,8 @@ import {
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
+import { CourtVenuesCard } from "@/components/venues/court-venues-card";
+import { getOrgVenues } from "@/lib/queries/venues";
 import { getCompetitionLedger } from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
@@ -101,6 +103,10 @@ export default async function LeaguePage({
   const ledger = await getCompetitionLedger(league.id, {
     feeCents: feeSettings.registrationFeeCents,
   });
+
+  // Only offered once the org has venues on file — a single-site league has
+  // nothing to assign.
+  const orgVenues = await getOrgVenues(orgId);
 
   // Teams that were added after the schedule was generated have no matches yet —
   // the "add teams mid-season" flow schedules them into the unplayed weeks.
@@ -409,6 +415,12 @@ export default async function LeaguePage({
           splitAllowed={payment.settings.allowSplitPayment}
         />
       )}
+
+      <CourtVenuesCard
+        competitionId={league.id}
+        courts={league.courtList ?? []}
+        venues={orgVenues}
+      />
 
       <RegistrationFeeCard
         competitionId={league.id}
