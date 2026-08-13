@@ -29,13 +29,21 @@ export function CourtVenuesCard({
   competitionId,
   courts,
   venues,
+  divisions = [],
+  startTimes = {},
 }: {
   competitionId: string;
   courts: LeagueCourt[];
   venues: VenueSummary[];
+  /** Divisions to pin to a building — the generator reads this. */
+  divisions?: { id: string; name: string; venueId: string | null }[];
+  /** Current per-venue start time, keyed by venue id. */
+  startTimes?: Record<string, string>;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<LeagueCourt[]>(courts);
+  const [divRows, setDivRows] = useState(divisions);
+  const [times, setTimes] = useState<Record<string, string>>(startTimes);
   const [pending, start] = useTransition();
 
   if (venues.length === 0 || courts.length === 0) return null;
@@ -43,7 +51,14 @@ export function CourtVenuesCard({
   const assigned = rows.filter((r) => r.venueId).length;
   const dirty =
     rows.length !== courts.length ||
-    rows.some((r, i) => (r.venueId ?? null) !== (courts[i]?.venueId ?? null));
+    rows.some((r, i) => (r.venueId ?? null) !== (courts[i]?.venueId ?? null)) ||
+    divRows.some(
+      (d, i) => (d.venueId ?? null) !== (divisions[i]?.venueId ?? null),
+    ) ||
+    Object.keys(times).some((k) => times[k] !== startTimes[k]);
+
+  // Only venues this league actually uses need a start time.
+  const usedVenues = venues.filter((v) => rows.some((r) => r.venueId === v.id));
 
   function setVenue(index: number, venueId: string | null) {
     setRows((prev) =>
@@ -60,6 +75,10 @@ export function CourtVenuesCard({
           prime: r.prime,
           venueId: r.venueId ?? null,
         })),
+        divisions: divRows.map((d) => ({ id: d.id, venueId: d.venueId })),
+        startTimes: usedVenues
+          .filter((v) => times[v.id])
+          .map((v) => ({ venueId: v.id, startTime: times[v.id] })),
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -86,6 +105,9 @@ export function CourtVenuesCard({
       </CardHeader>
 
       <CardContent className="space-y-4">
+        <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+          Courts
+        </p>
         <ul className="divide-border divide-y">
           {rows.map((c, i) => (
             <li
@@ -117,6 +139,82 @@ export function CourtVenuesCard({
             </li>
           ))}
         </ul>
+
+        {divRows.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Divisions
+            </p>
+            <p className="text-muted-foreground text-xs">
+              A division plays its night in one building. The generator uses
+              this to hand out courts per venue instead of from one pool.
+            </p>
+            <ul className="divide-border divide-y">
+              {divRows.map((d, i) => (
+                <li
+                  key={d.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-2"
+                >
+                  <span className="min-w-0 text-sm font-medium">{d.name}</span>
+                  <select
+                    aria-label={`Venue for ${d.name}`}
+                    className="border-border bg-surface min-w-[12rem] rounded-md border px-2 py-1.5 text-sm"
+                    value={d.venueId ?? ""}
+                    disabled={pending}
+                    onChange={(e) =>
+                      setDivRows((prev) =>
+                        prev.map((x, xi) =>
+                          xi === i
+                            ? { ...x, venueId: e.target.value || null }
+                            : x,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">— no venue —</option>
+                    {venues.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {usedVenues.length > 1 && (
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Start times
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Gyms on the same night rarely start together. Leave blank to use
+              the league&apos;s own start time.
+            </p>
+            <ul className="divide-border divide-y">
+              {usedVenues.map((v) => (
+                <li
+                  key={v.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-2"
+                >
+                  <span className="min-w-0 text-sm font-medium">{v.name}</span>
+                  <input
+                    type="time"
+                    aria-label={`Start time at ${v.name}`}
+                    className="border-border bg-surface rounded-md border px-2 py-1.5 text-sm tabular-nums"
+                    value={times[v.id] ?? ""}
+                    disabled={pending}
+                    onChange={(e) =>
+                      setTimes((prev) => ({ ...prev, [v.id]: e.target.value }))
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={save} disabled={pending || !dirty}>

@@ -107,3 +107,115 @@ describe("planTieredLeagueSchedule", () => {
     expect(a.matches).toEqual(b.matches);
   });
 });
+
+describe("venue-aware court assignment", () => {
+  const base = {
+    startDate: "2026-03-12",
+    gamesPerWeek: 1,
+    courts: 3,
+  };
+
+  const A = ["a1", "a2", "a3", "a4", "a5", "a6"];
+  const B = ["b1", "b2", "b3", "b4", "b5", "b6"];
+
+  it("hands out courts per building, so two gyms both use Court 1", () => {
+    const { matches } = planTieredLeagueSchedule(
+      [
+        { divisionId: "dA", teamIds: A, venueId: "v1" },
+        { divisionId: "dB", teamIds: B, venueId: "v2" },
+      ],
+      {
+        ...base,
+        venues: [
+          { venueId: "v1", courts: 3 },
+          { venueId: "v2", courts: 3 },
+        ],
+      },
+    );
+
+    const firstSlot = matches.filter(
+      (m) => m.date === matches[0].date && m.wave === 0,
+    );
+    const v1 = firstSlot.filter((m) => m.venueId === "v1");
+    const v2 = firstSlot.filter((m) => m.venueId === "v2");
+
+    // Three games each, courts 1-3 at BOTH venues — the whole point.
+    expect(v1.map((m) => m.courtIndex).sort()).toEqual([1, 2, 3]);
+    expect(v2.map((m) => m.courtIndex).sort()).toEqual([1, 2, 3]);
+  });
+
+  it("never puts two games on one court within a building", () => {
+    const { matches } = planTieredLeagueSchedule(
+      [
+        { divisionId: "dA", teamIds: A, venueId: "v1" },
+        { divisionId: "dB", teamIds: B, venueId: "v1" },
+      ],
+      { ...base, venues: [{ venueId: "v1", courts: 6 }] },
+    );
+    const seen = new Set<string>();
+    for (const m of matches) {
+      const key = `${m.venueId}|${m.date}|${m.wave}|${m.courtIndex}`;
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+    }
+  });
+
+  it("carries the tier's venue onto every one of its games", () => {
+    const { matches } = planTieredLeagueSchedule(
+      [{ divisionId: "dA", teamIds: A, venueId: "v1" }],
+      { ...base, venues: [{ venueId: "v1", courts: 3 }] },
+    );
+    expect(matches.every((m) => m.venueId === "v1")).toBe(true);
+  });
+
+  it("reports a gym asked to host more games at once than it has courts", () => {
+    const { overCapacity } = planTieredLeagueSchedule(
+      [
+        { divisionId: "dA", teamIds: A, venueId: "v1" },
+        { divisionId: "dB", teamIds: B, venueId: "v1" },
+      ],
+      // Six simultaneous games into a 3-court gym.
+      { ...base, venues: [{ venueId: "v1", courts: 3 }] },
+    );
+    expect(overCapacity).toHaveLength(1);
+    expect(overCapacity[0]).toMatchObject({
+      venueId: "v1",
+      courts: 3,
+      needed: 6,
+    });
+  });
+
+  it("reports nothing when every venue fits", () => {
+    const { overCapacity } = planTieredLeagueSchedule(
+      [
+        { divisionId: "dA", teamIds: A, venueId: "v1" },
+        { divisionId: "dB", teamIds: B, venueId: "v2" },
+      ],
+      {
+        ...base,
+        venues: [
+          { venueId: "v1", courts: 3 },
+          { venueId: "v2", courts: 3 },
+        ],
+      },
+    );
+    expect(overCapacity).toEqual([]);
+  });
+
+  it("behaves exactly as before when no venues are given", () => {
+    const without = planTieredLeagueSchedule(
+      [
+        { divisionId: "dA", teamIds: A },
+        { divisionId: "dB", teamIds: B },
+      ],
+      { ...base, courts: 6 },
+    );
+    // One global pool: six distinct courts in the opening slot, no venues.
+    const firstSlot = without.matches.filter(
+      (m) => m.date === without.matches[0].date && m.wave === 0,
+    );
+    expect(new Set(firstSlot.map((m) => m.courtIndex)).size).toBe(6);
+    expect(without.matches.every((m) => m.venueId === null)).toBe(true);
+    expect(without.overCapacity).toEqual([]);
+  });
+});

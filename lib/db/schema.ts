@@ -62,6 +62,14 @@ export type WeeklySlot = {
   startTime: string;
   /** Number of courts available in this slot. */
   courts: number;
+  /**
+   * The venue this slot belongs to (migration 0072). A league running several
+   * buildings on one night carries ONE SLOT PER VENUE, because they don't start
+   * together — BVL's Thursday is 6:00 at one gym, 6:15 at another, 6:30 at a
+   * third. Null = the competition's single venue, which is every league that
+   * predates multi-venue support.
+   */
+  venueId?: string | null;
 };
 
 /**
@@ -445,6 +453,15 @@ export const divisions = pgTable(
       .references(() => competitions.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     tierOrder: integer("tier_order").notNull().default(0),
+    /**
+     * The building this division plays in (migration 0072). A division plays
+     * its night in one venue, which is what lets the generator hand out courts
+     * per venue rather than from one global pool. Null = the competition's
+     * single venue.
+     */
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
     // Multi-day/multi-court: the specific court numbers this division plays on.
     // Null/empty = share the tournament's whole court pool (still scheduled as a
     // contiguous block per division, never interleaved with another division).

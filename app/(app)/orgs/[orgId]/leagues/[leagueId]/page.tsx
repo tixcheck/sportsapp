@@ -49,7 +49,8 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { CourtVenuesCard } from "@/components/venues/court-venues-card";
-import { getOrgVenues } from "@/lib/queries/venues";
+import { getOrgVenues, getVenueIssues } from "@/lib/queries/venues";
+import { ScheduleIssuesCard } from "@/components/venues/schedule-issues-card";
 import { getCompetitionLedger } from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
@@ -107,6 +108,9 @@ export default async function LeaguePage({
   // Only offered once the org has venues on file — a single-site league has
   // nothing to assign.
   const orgVenues = await getOrgVenues(orgId);
+  // Only meaningful once the league actually spans buildings.
+  const venueIssues =
+    orgVenues.length > 0 ? await getVenueIssues(league.id) : [];
 
   // Teams that were added after the schedule was generated have no matches yet —
   // the "add teams mid-season" flow schedules them into the unplayed weeks.
@@ -420,7 +424,14 @@ export default async function LeaguePage({
         competitionId={league.id}
         courts={league.courtList ?? []}
         venues={orgVenues}
+        divisions={league.tiers.map((t) => ({
+          id: t.id,
+          name: t.name,
+          venueId: t.venueId ?? null,
+        }))}
       />
+
+      {orgVenues.length > 0 && <ScheduleIssuesCard issues={venueIssues} />}
 
       <RegistrationFeeCard
         competitionId={league.id}

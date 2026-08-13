@@ -12,7 +12,20 @@
 - **Branch:** `main`. **Latest commit:** venues + Slice C completion — pushed, working tree clean, no unmerged feature branches.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0071`, and all of `0060`–`0071` verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0072`, and all of `0060`–`0072` verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **`0072` (division venues) IS applied** — 2026-08-13. `divisions.venue_id`,
+    plus per-venue start times carried on `weekly_slots` (jsonb, no DDL). The
+    generator now groups court assignment BY VENUE — without it a six-gym night
+    draws court numbers from one pool and double-books a physical court. Passing
+    no venues preserves the old behaviour exactly.
+    - `planTieredLeagueSchedule` also returns `overCapacity`: venues asked to
+      host more simultaneous games than they have courts. It still emits a
+      schedule (wrapping court numbers, as always) — the report is what lets the
+      caller warn instead of silently double-booking a gym.
+    - **`lib/scheduler/venue-conflicts.ts`** audits any schedule, including
+      imported ones. **Its split-division check is scoped to ONE NIGHT on
+      purpose** — BVL rotates gyms week to week, and a season-wide comparison
+      flagged five well-run divisions as broken.
   - **`0071` (venues) IS applied** — 2026-08-13. A `venues` table scoped to the
     ORG (name, address, entry_notes, doors_note), plus `matches.venue_id` and a
     `venueId` on each `LeagueCourt`. Org-scoped on purpose: the same gyms come
@@ -24,10 +37,7 @@
       `lib/venues/resolve.ts` is the correct comparison.
     - The By-court schedule view had exactly that bug and is fixed.
     - `on delete set null`, so removing a venue never deletes its games.
-    - **Still single-venue-only:** `weekly_slots` has one start time for the
-      whole night (BVL starts 6:00/6:15/6:30 at different gyms), and the
-      generator is not venue-aware — nothing stops it scheduling a team in two
-      buildings back to back.
+    - Slice two (`0072`) removed the single-venue limits noted here.
   - **`0070` (organizer payment management) IS applied** — 2026-08-13. Adds
     refund state to `registration_payments` (`refunded_cents`,
     `stripe_refund_id`, `refunded_at`, `refund_reason`) with two check
@@ -58,7 +68,7 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **760 passing across 65 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
+- **Tests:** `npm test` → **784 passing across 66 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
   - **Build gotcha:** `next build` intermittently dies with `EINVAL: invalid argument, readlink .next/server/functions-config-manifest.json`. That's OneDrive syncing the `.next` directory, not a code error — `rm -rf .next` and rebuild.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`.

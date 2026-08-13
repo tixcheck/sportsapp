@@ -632,9 +632,43 @@ export async function generateLeagueScheduleAction(
   // leagues keep the flat single round-robin path (with prime-court balancing).
   const { data: divisions } = await supabase
     .from("divisions")
-    .select("id, tier_order")
+    .select("id, tier_order, venue_id")
     .eq("competition_id", competitionId)
     .order("tier_order", { ascending: true });
+
+  /**
+   * Capacity and start time per building (migration 0072).
+   *
+   * Courts come from `court_list` grouped by venue; the start time from the
+   * weekly slot carrying that venue, falling back to the league's own. A league
+   * with no venues assigned yields an empty list, and the generator keeps its
+   * single-pool behaviour exactly.
+   */
+  const venueCourts = new Map<string, string[]>();
+  for (const c of courtList ?? []) {
+    if (!c.venueId) continue;
+    const list = venueCourts.get(c.venueId);
+    if (list) list.push(c.label);
+    else venueCourts.set(c.venueId, [c.label]);
+  }
+  const venueStart = new Map<string, string>();
+  for (const ws of (settings.weekly_slots as WeeklySlot[]) ?? []) {
+    if (ws.venueId) venueStart.set(ws.venueId, ws.startTime);
+  }
+  /** Court labels are per venue, so the index has to be resolved per venue. */
+  const labelFor = (venueId: string | null, courtIndex: number) => {
+    const labels = venueId ? venueCourts.get(venueId) : null;
+    if (labels && labels.length > 0) {
+      return labels[(courtIndex - 1) % labels.length];
+    }
+    return courtLabel(courtIndex);
+  };
+  const startFor = (venueId: string | null) =>
+    (venueId ? venueStart.get(venueId) : null) ?? slot.startTime;
+  const atVenue = (venueId: string | null, date: string, wave: number) =>
+    DateTime.fromISO(`${date}T${startFor(venueId)}`, { zone: tz })
+      .plus({ minutes: wave * gameMinutes })
+      .toISO();
 
   let rows: {
     competition_id: string;
@@ -649,6 +683,7 @@ export async function generateLeagueScheduleAction(
   if ((divisions ?? []).length > 0) {
     const tiers = (divisions ?? []).map((d) => ({
       divisionId: d.id as string,
+      venueId: (d.venue_id as string | null) ?? null,
       teamIds: teams
         .filter((t) => t.division_id === d.id)
         .map((t) => t.id as string),
@@ -656,15 +691,25 @@ export async function generateLeagueScheduleAction(
     const { matches } = planTieredLeagueSchedule(tiers, {
       ...rrInput,
       courts: courtCount,
+      // Only when divisions actually name venues — otherwise the generator
+      // keeps its single global court pool.
+      venues:
+        venueCourts.size > 0
+          ? [...venueCourts.entries()].map(([venueId, labels]) => ({
+              venueId,
+              courts: labels.length,
+            }))
+          : undefined,
     });
     rows = matches.map((m) => ({
       competition_id: competitionId,
       round: m.round,
       home_team_id: m.homeTeamId,
       away_team_id: m.awayTeamId,
-      court: courtLabel(m.courtIndex),
+      court: labelFor(m.venueId, m.courtIndex),
+      venue_id: m.venueId,
       status: "scheduled" as const,
-      scheduled_at: at(m.date, m.wave),
+      scheduled_at: atVenue(m.venueId, m.date, m.wave),
     }));
   } else {
     const schedule = generateRoundRobin({

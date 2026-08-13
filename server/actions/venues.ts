@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import type { WeeklySlot } from "@/lib/db/schema";
 
 type ActionError = { error: string };
 
@@ -179,6 +180,21 @@ const assignSchema = z.object({
       }),
     )
     .max(64),
+  /** Which building each division plays in — the generator reads this. */
+  divisions: z
+    .array(z.object({ id: idSchema, venueId: idSchema.nullable() }))
+    .max(64)
+    .optional(),
+  /** Per-venue start time "HH:mm". Gyms on one night rarely start together. */
+  startTimes: z
+    .array(
+      z.object({
+        venueId: idSchema,
+        startTime: z.string().regex(/^\d{2}:\d{2}$/, "Use HH:mm."),
+      }),
+    )
+    .max(32)
+    .optional(),
 });
 
 /**
@@ -241,6 +257,43 @@ export async function assignCourtVenuesAction(
   if (settingsError) {
     console.error("[venues] court_list update failed");
     return { error: "The courts couldn't be saved. Please try again." };
+  }
+
+  // A division plays its night in one building; the generator needs that to
+  // hand out courts per venue instead of from one pool.
+  for (const d of parsed.data.divisions ?? []) {
+    await supabase
+      .from("divisions")
+      .update({ venue_id: d.venueId })
+      .eq("id", d.id)
+      .eq("competition_id", parsed.data.competitionId);
+  }
+
+  // Per-venue start times live on the weekly slot: one slot per venue, each
+  // with its own clock. The league's existing slot is kept as the fallback for
+  // anything not assigned to a venue.
+  if (parsed.data.startTimes && parsed.data.startTimes.length > 0) {
+    const { data: ls } = await supabase
+      .from("league_settings")
+      .select("weekly_slots")
+      .eq("competition_id", parsed.data.competitionId)
+      .maybeSingle();
+    const existing = ((ls as { weekly_slots?: WeeklySlot[] } | null)
+      ?.weekly_slots ?? []) as WeeklySlot[];
+    const base = existing.find((w) => !w.venueId) ?? existing[0];
+    if (base) {
+      const perVenue = parsed.data.startTimes.map((t) => ({
+        dayOfWeek: base.dayOfWeek,
+        startTime: t.startTime,
+        courts: parsed.data.courts.filter((c) => c.venueId === t.venueId)
+          .length,
+        venueId: t.venueId,
+      }));
+      await supabase
+        .from("league_settings")
+        .update({ weekly_slots: [base, ...perVenue] })
+        .eq("competition_id", parsed.data.competitionId);
+    }
   }
 
   let updatedMatches = 0;
