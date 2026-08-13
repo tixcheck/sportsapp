@@ -1,10 +1,16 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import { Star } from "lucide-react";
+
 import type { PublicLeague } from "@/lib/queries/leagues";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import type { BracketTrackView } from "@/lib/queries/bracket";
 import { estimateMatchMinutes } from "@/lib/formats";
+import { useBookmarkedTeams } from "@/lib/hooks/use-bookmarked-teams";
+import { cn } from "@/lib/utils";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { TeamGames } from "@/components/schedule/team-games";
 import {
   StandingsTable,
   StandingsGroups,
@@ -38,6 +44,46 @@ export function LeagueTabs({
   /** Tab to open on load (e.g. "standings" via ?tab=standings). */
   initialTab?: string;
 }) {
+  const [openTeam, setOpenTeam] = useState<string | null>(null);
+  const { bookmarked, toggle } = useBookmarkedTeams(league.id);
+  const bookmarkedSet = new Set(bookmarked);
+
+  /**
+   * Teams grouped by tier, in tier order, with bookmarked teams floated to the
+   * top of each group. A tiered league's Teams tab is otherwise one long
+   * alphabetical list in which nobody can find their own division.
+   */
+  const teamGroups = useMemo(() => {
+    // Rebuilt from `bookmarked` inside the memo so the dependency is the array
+    // itself, not a Set identity that changes every render.
+    const bm = new Set(bookmarked);
+    const byBookmark = (a: { id: string }, b: { id: string }) =>
+      Number(bm.has(b.id)) - Number(bm.has(a.id));
+
+    if (league.tiers.length === 0) {
+      return [
+        { id: "__all", name: "", teams: [...league.teams].sort(byBookmark) },
+      ];
+    }
+    const groups = league.tiers.map((tier) => ({
+      id: tier.id,
+      name: tier.name,
+      teams: league.teams
+        .filter((t) => t.divisionId === tier.id)
+        .sort(byBookmark),
+    }));
+    // Teams not sorted into a tier yet still have to appear somewhere.
+    const unsorted = league.teams.filter((t) => t.divisionId === null);
+    if (unsorted.length > 0) {
+      groups.push({
+        id: "__unsorted",
+        name: "Not yet placed",
+        teams: [...unsorted].sort(byBookmark),
+      });
+    }
+    return groups.filter((g) => g.teams.length > 0);
+  }, [league.teams, league.tiers, bookmarked]);
+
   const hasPlayoffs = brackets.length > 0;
   const allowed = new Set([
     "schedule",
@@ -71,26 +117,90 @@ export function LeagueTabs({
         />
       </TabsContent>
 
-      <TabsContent value="teams" className="mt-6">
+      <TabsContent value="teams" className="mt-6 space-y-6">
         {league.teams.length === 0 ? (
           <div className="border-rule bg-paper-raised text-ink-2 rounded-lg border p-8 text-center text-sm">
             No teams yet.
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {league.teams.map((t) => (
-              <div
-                key={t.id}
-                className="border-border bg-surface flex items-center gap-3 rounded-lg border p-4"
-              >
-                <span className="bg-accent text-accent-foreground grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold">
-                  {initials(t.name)}
-                </span>
-                <span className="truncate font-medium">{t.name}</span>
-                {myTeamIds.includes(t.id) && <MyTeamBadge />}
-              </div>
+          <>
+            <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
+              <Star className="size-4" />
+              Tap a team to see their games. Tap the star to bookmark it — it
+              stays pinned here and on the schedule.
+            </p>
+            {teamGroups.map((g) => (
+              <section key={g.id} className="space-y-3">
+                {teamGroups.length > 1 && (
+                  <h3 className="font-display font-semibold">{g.name}</h3>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {g.teams.map((t) => {
+                    const isBookmarked = bookmarkedSet.has(t.id);
+                    return (
+                      <div
+                        key={t.id}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border p-4 transition-colors",
+                          openTeam === t.id
+                            ? "border-primary bg-accent"
+                            : "border-border bg-surface",
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenTeam((cur) => (cur === t.id ? null : t.id))
+                          }
+                          aria-expanded={openTeam === t.id}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                        >
+                          <span className="bg-accent text-accent-foreground grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold">
+                            {initials(t.name)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate font-medium">
+                            {t.name}
+                          </span>
+                          {myTeamIds.includes(t.id) && <MyTeamBadge />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggle(t.id)}
+                          aria-pressed={isBookmarked}
+                          aria-label={
+                            isBookmarked
+                              ? `Remove ${t.name} bookmark`
+                              : `Bookmark ${t.name}`
+                          }
+                          className="hover:bg-muted shrink-0 rounded-md p-1.5 transition-colors"
+                        >
+                          <Star
+                            className={cn(
+                              "size-5",
+                              isBookmarked
+                                ? "fill-primary text-primary"
+                                : "text-muted-foreground",
+                            )}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {openTeam && g.teams.some((t) => t.id === openTeam) && (
+                  <TeamGames
+                    teamId={openTeam}
+                    teamName={
+                      g.teams.find((t) => t.id === openTeam)?.name ??
+                      "This team"
+                    }
+                    schedule={league.schedule}
+                    timezone={league.timezone}
+                  />
+                )}
+              </section>
             ))}
-          </div>
+          </>
         )}
       </TabsContent>
 

@@ -122,7 +122,8 @@ export interface PublicLeague {
   registrationOpen: boolean;
   /** Registration close datetime (ISO), when set. */
   registrationDeadline: string | null;
-  teams: { id: string; name: string }[];
+  /** `divisionId` groups the Teams tab by tier, the way the schedule is. */
+  teams: { id: string; name: string; divisionId: string | null }[];
   schedule: ScheduleMatch[];
 }
 
@@ -392,7 +393,7 @@ export async function getPublicLeague(
     await Promise.all([
       supabase
         .from("teams")
-        .select("id, name")
+        .select("id, name, division_id")
         .eq("competition_id", league.id)
         // Unpaid teams are not entrants yet (migration 0066).
         .neq("status", "pending_payment")
@@ -445,7 +446,11 @@ export async function getPublicLeague(
     })),
     registrationOpen,
     registrationDeadline: deadline,
-    teams: (teams ?? []).map((t) => ({ id: t.id, name: t.name })),
+    teams: (teams ?? []).map((t) => ({
+      id: t.id,
+      name: t.name,
+      divisionId: (t.division_id as string | null) ?? null,
+    })),
     schedule,
   };
 }
