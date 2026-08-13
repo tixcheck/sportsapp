@@ -3,7 +3,10 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 
-import { startRegistrationCheckoutAction } from "@/server/actions/registration-payments";
+import {
+  coverRemainingBalanceAction,
+  startRegistrationCheckoutAction,
+} from "@/server/actions/registration-payments";
 import type {
   MemberShare,
   TeamPaymentState,
@@ -68,6 +71,17 @@ export function TeamPaymentCard({
         return;
       }
       // Stripe Checkout is hosted — leave the app entirely.
+      window.location.href = res.url;
+    });
+  }
+
+  function coverRest() {
+    start(async () => {
+      const res = await coverRemainingBalanceAction(competitionId, teamId);
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
       window.location.href = res.url;
     });
   }
@@ -146,6 +160,44 @@ export function TeamPaymentCard({
               </p>
             )
           )}
+
+          {/*
+            A split that has stalled — somebody has paid, somebody hasn't. The
+            way out for the team is one payment covering what's left, rather
+            than chasing the last teammate indefinitely.
+          */}
+          {canPayOnline &&
+            canPay &&
+            shares.length > 0 &&
+            payment.state === "partial" && (
+              <div className="border-border bg-surface space-y-2 rounded-lg border p-3">
+                <p className="text-sm font-medium">
+                  Waiting on{" "}
+                  {payment.chargesOutstanding === 1
+                    ? "one"
+                    : payment.chargesOutstanding}{" "}
+                  teammate
+                  {payment.chargesOutstanding === 1 ? "" : "s"}?
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Cover the remaining{" "}
+                  {formatCents(payment.outstandingPriceCents)} in one payment
+                  and the team is confirmed. Anyone who already paid their share
+                  keeps it.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={coverRest}
+                  disabled={pending}
+                >
+                  {pending
+                    ? "Opening Stripe…"
+                    : `Cover the rest — ${formatCents(payment.outstandingPriceCents)}`}
+                </Button>
+              </div>
+            )}
 
           {/* Split mode: who owes what, and the viewer's own Pay button. */}
           {shares.length > 0 && (

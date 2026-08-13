@@ -5,6 +5,38 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-13 (later still) — Slice C finished: the two split-payment escapes
+
+**Shipped.** An audit of Slice C against the plan found the five headline items
+built, but two actions the plan explicitly promises were not. Both exist for the
+same failure: a split fee stalls at "$45 of $60" because one teammate never
+pays, and there is no way out.
+
+- **"Cover the rest"** (captain / any team member). One payment for the
+  outstanding balance, recorded as a `team_full` charge for the REMAINDER — not
+  the whole fee. `teamPaymentState` sums `price_cents` across live rows, so the
+  paid shares plus the remainder come to exactly the organizer's price. Four
+  tests pin that invariant, including an uneven 5-way split where the remainder
+  isn't a round share, and the case where refunding the covering payment
+  correctly reopens the balance.
+- **"Refund all N payers"** (organizer). Unwinds every refundable charge on a
+  team with one reason typed once. Failures are collected rather than thrown —
+  refunding three of four and reporting the fourth honestly beats aborting
+  halfway with no record of which went through.
+
+The amount is always recomputed server-side from the stored rows; a
+client-supplied remainder could be forged, and the roster can change between the
+page rendering and the click.
+
+**Tests:** 760 passing across 65 files. tsc, eslint and build clean.
+
+**Slice C is now complete.** What remains before payments can be relied on is
+not code: no refund has been exercised against real Stripe money yet (unit tests
+and rolled-back DB checks only), and go-live still needs live keys, real Connect
+onboarding, and TOS / refund / surcharge disclosure copy.
+
+---
+
 ## 2026-08-13 (later) — Venues: a competition can span several buildings
 
 **Shipped.** Until now the model was one competition, one venue —

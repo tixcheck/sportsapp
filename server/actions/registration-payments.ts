@@ -16,6 +16,7 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import {
   planMemberShares,
   planTeamCharge,
+  teamPaymentState,
 } from "@/lib/payments/registration-plan";
 import { quotePayment } from "@/lib/payments/fees";
 import {
@@ -425,5 +426,186 @@ async function expireQuietly(sessionId: string): Promise<void> {
     await getStripe().checkout.sessions.expire(sessionId);
   } catch {
     console.error("[payments] could not expire redundant checkout session");
+  }
+}
+
+/**
+ * Settle whatever is left of a split fee in one payment.
+ *
+ * The case the plan calls out: a split team stalls at "$45 of $60" because one
+ * teammate never pays. Without this the only exits are chasing that person
+ * forever or refunding everyone who did pay — so the captain gets to cover the
+ * remainder and confirm the team.
+ *
+ * Recorded as a `team_full` charge for the OUTSTANDING amount, not the whole
+ * fee. `teamPaymentState` sums `price_cents` across every live row, so the paid
+ * shares plus this remainder come to exactly the organizer's price — no
+ * double-charging and no gap. The partial unique index allows one open
+ * `team_full` charge, so a double-clicked button resumes the same session.
+ *
+ * The amount is recomputed here from the stored rows. A client-supplied
+ * remainder could be forged, and the roster can change between the page
+ * rendering and the click.
+ */
+export async function coverRemainingBalanceAction(
+  competitionId: string,
+  teamId: string,
+): Promise<ActionError | { url: string }> {
+  const comp = idSchema.safeParse(competitionId);
+  const team = idSchema.safeParse(teamId);
+  if (!comp.success || !team.success) return { error: "Unknown team." };
+
+  const mode = currentStripeMode();
+  if (!mode.configured) {
+    return { error: "Online payments aren't switched on yet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in to pay." };
+
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("id, org_id, type, name")
+    .eq("id", comp.data)
+    .maybeSingle();
+  if (!competition) return { error: "Unknown competition." };
+  const c = competition as {
+    id: string;
+    org_id: string;
+    type: CompetitionType;
+    name: string;
+  };
+
+  const [settings, rates, account, rows] = await Promise.all([
+    getCompetitionPaymentSettings(c.id),
+    getPlatformFeeRates(),
+    getPaymentAccount(c.org_id),
+    getTeamPaymentRows(team.data),
+  ]);
+
+  if (settings.registrationFeeCents <= 0) {
+    return { error: "This event is free — there's nothing to pay." };
+  }
+  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+    return {
+      error:
+        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+    };
+  }
+
+  const state = teamPaymentState(rows, {
+    feeCents: settings.registrationFeeCents,
+  });
+  const outstanding = state.outstandingPriceCents;
+  if (outstanding <= 0) {
+    return { error: "This team's fee is already covered." };
+  }
+
+  const platformFeeCents = platformFeeCentsFor({
+    competitionType: c.type,
+    payerMode: "captain_pays_team",
+    chargeBaseCents: outstanding,
+    rates,
+  });
+  const taxCents = settings.taxEnabled
+    ? Math.round((outstanding * settings.taxPercent) / 100)
+    : 0;
+  const quote = quotePayment({
+    priceCents: outstanding,
+    platformFeeCents,
+    taxCents,
+  });
+
+  const stripe = getStripe();
+  const origin = await getOrigin();
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: user.email ?? undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "cad",
+            unit_amount: quote.totalCents,
+            product_data: {
+              name: `${c.name} — remaining team balance`,
+              description:
+                taxCents > 0
+                  ? "Covers what's left of the team fee. Includes tax, card and platform fees."
+                  : "Covers what's left of the team fee. Includes card and platform fees.",
+            },
+          },
+        },
+      ],
+      payment_intent_data: {
+        application_fee_amount: quote.applicationFeeCents,
+        transfer_data: { destination: account.stripeAccountId },
+      },
+      metadata: {
+        competition_id: c.id,
+        team_id: team.data,
+        kind: "team_full",
+        covers: "remaining_balance",
+      },
+      success_url: `${origin}/teams/${team.data}?paid=1`,
+      cancel_url: `${origin}/teams/${team.data}?paid=0`,
+    });
+
+    if (!session.url) {
+      console.error("[payments] cover-rest session had no url");
+      return { error: STRIPE_FAILED };
+    }
+
+    const { data: storedSessionId, error } = await supabase.rpc(
+      "start_registration_payment",
+      {
+        _competition_id: c.id,
+        _team_id: team.data,
+        _kind: "team_full",
+        _payer_email: null,
+        _price_cents: outstanding,
+        _tax_cents: taxCents,
+        _platform_fee_cents: platformFeeCents,
+        _total_cents: quote.totalCents,
+        _application_fee_cents: quote.applicationFeeCents,
+        _stripe_account_id: account.stripeAccountId,
+        _livemode: mode.livemode,
+        _session_id: session.id,
+      },
+    );
+
+    if (error || typeof storedSessionId !== "string") {
+      await expireQuietly(session.id);
+      const message = error?.message ?? "";
+      if (message.includes("Only the team or the organizer")) {
+        return { error: "Only the team or the organizer can pay this." };
+      }
+      console.error(
+        "[payments] start_registration_payment (cover-rest) failed",
+      );
+      return { error: STRIPE_FAILED };
+    }
+
+    if (storedSessionId !== session.id) {
+      await expireQuietly(session.id);
+      const existing = await stripe.checkout.sessions.retrieve(storedSessionId);
+      if (existing.status === "open" && existing.url) {
+        return { url: existing.url };
+      }
+      await supabase.rpc("cancel_registration_payment", {
+        _session_id: storedSessionId,
+      });
+      return { error: "That payment link expired. Please try again." };
+    }
+
+    return { url: session.url };
+  } catch {
+    console.error("[payments] cover-rest session create failed");
+    return { error: STRIPE_FAILED };
   }
 }

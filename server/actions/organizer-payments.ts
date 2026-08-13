@@ -463,3 +463,136 @@ export async function sendPaymentLinkAction(
 
   return { ok: true, sent };
 }
+
+// ---------------------------------------------------------------------------
+// Refunding a whole team at once
+// ---------------------------------------------------------------------------
+
+const refundTeamSchema = z.object({
+  teamId: idSchema,
+  reason: z
+    .string()
+    .trim()
+    .max(280, "Keep the reason under 280 characters.")
+    .optional(),
+});
+
+/**
+ * Give every payer on a team their money back.
+ *
+ * The other half of the split-payment problem the plan names: a team stalls at
+ * "$45 of $60", the deadline passes, and the organizer has to unwind three or
+ * four separate charges. Doing that one dialog at a time is where mistakes get
+ * made — one payer quietly missed, and they chase the organizer for weeks.
+ *
+ * Each charge is still refunded individually through Stripe, because that is
+ * what Stripe's API does; what this adds is that the organizer names the reason
+ * once and cannot leave someone out. Failures are collected rather than thrown:
+ * refunding three of four payers and reporting the fourth honestly is far
+ * better than aborting halfway with no record of which ones went through.
+ */
+export async function refundTeamPaymentsAction(
+  input: z.input<typeof refundTeamSchema>,
+): Promise<
+  | ActionError
+  | { ok: true; refunded: number; failed: number; totalCents: number }
+> {
+  const parsed = refundTeamSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Unknown team." };
+  }
+
+  const mode = currentStripeMode();
+  if (!mode.configured) {
+    return { error: "Online payments aren't switched on." };
+  }
+
+  const supabase = await createClient();
+  const { data: team } = await supabase
+    .from("teams")
+    .select("competition_id, name")
+    .eq("id", parsed.data.teamId)
+    .maybeSingle();
+  if (!team) return { error: "Unknown team." };
+
+  const comp = await requireCompetitionAdmin(
+    (team as { competition_id: string }).competition_id,
+  );
+  if ("error" in comp) return comp;
+
+  const { data: rows } = await supabase
+    .from("registration_payments")
+    .select(
+      "id, status, price_cents, tax_cents, application_fee_cents, total_cents, refunded_cents, stripe_payment_intent_id",
+    )
+    .eq("team_id", parsed.data.teamId)
+    .eq("livemode", mode.livemode);
+
+  type Row = {
+    id: string;
+    status: "pending" | "paid" | "cancelled" | "refunded";
+    price_cents: number;
+    tax_cents: number;
+    application_fee_cents: number;
+    total_cents: number;
+    refunded_cents: number;
+    stripe_payment_intent_id: string | null;
+  };
+
+  const charges = ((rows ?? []) as Row[])
+    .map((r) => ({
+      id: r.id,
+      intent: r.stripe_payment_intent_id,
+      charge: {
+        status: r.status,
+        totalCents: r.total_cents,
+        priceCents: r.price_cents,
+        taxCents: r.tax_cents,
+        applicationFeeCents: r.application_fee_cents,
+        refundedCents: r.refunded_cents,
+      },
+    }))
+    .filter((c) => c.intent && refundableCents(c.charge) > 0);
+
+  if (charges.length === 0) {
+    return { error: "There's nothing left to refund on this team." };
+  }
+
+  const stripe = getStripe();
+  let refunded = 0;
+  let failed = 0;
+  let totalCents = 0;
+
+  for (const c of charges) {
+    const amount = refundableCents(c.charge);
+    try {
+      await stripe.refunds.create({
+        payment_intent: c.intent!,
+        amount,
+        reverse_transfer: true,
+        refund_application_fee: true,
+        metadata: {
+          registration_payment_id: c.id,
+          team_id: parsed.data.teamId,
+          reason: parsed.data.reason ?? "",
+        },
+      });
+      refunded++;
+      totalCents += amount;
+    } catch {
+      // Keep going: the organizer needs the ones that worked to have worked.
+      console.error("[payments] bulk refund: one charge failed");
+      failed++;
+    }
+  }
+
+  if (refunded === 0) {
+    return {
+      error:
+        "None of those refunds went through. The organizer's Stripe balance may be too low.",
+    };
+  }
+
+  revalidateCompetition(comp, parsed.data.teamId);
+  return { ok: true, refunded, failed, totalCents };
+}

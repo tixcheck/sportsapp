@@ -11,9 +11,11 @@ import { refundableCents } from "@/lib/payments/refunds";
 import { formatCents } from "@/lib/payments/format";
 import {
   admitTeamUnpaidAction,
+  refundTeamPaymentsAction,
   sendPaymentLinkAction,
 } from "@/server/actions/organizer-payments";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RefundDialog } from "@/components/payments/refund-dialog";
 
 const STATE_STYLES: Record<TeamLedgerRow["state"], string> = {
@@ -52,6 +54,9 @@ export function PaymentTeamRow({
 
   const isPending = team.status === "pending_payment";
   const withdrawn = team.status === "withdrawn";
+  const refundableCount = team.charges.filter(
+    (c) => refundableCents(c) > 0,
+  ).length;
 
   function admit() {
     start(async () => {
@@ -62,6 +67,22 @@ export function PaymentTeamRow({
       }
       toast.success(
         `${team.teamName} is in. The balance still shows as owing.`,
+      );
+      router.refresh();
+    });
+  }
+
+  function refundEveryone() {
+    start(async () => {
+      const res = await refundTeamPaymentsAction({ teamId: team.teamId });
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        res.failed > 0
+          ? `Refunded ${formatCents(res.totalCents, currency)} to ${res.refunded} payer${res.refunded === 1 ? "" : "s"}. ${res.failed} couldn't be refunded — try those individually.`
+          : `Refunded ${formatCents(res.totalCents, currency)} to ${res.refunded} payer${res.refunded === 1 ? "" : "s"}.`,
       );
       router.refresh();
     });
@@ -178,6 +199,24 @@ export function PaymentTeamRow({
                 );
               })}
             </ul>
+          )}
+
+          {/*
+            A stalled split leaves several payers to unwind. Doing that one
+            dialog at a time is where somebody gets missed.
+          */}
+          {refundableCount > 1 && (
+            <ConfirmDialog
+              trigger={
+                <Button variant="outline" size="sm">
+                  Refund all {refundableCount} payers
+                </Button>
+              }
+              title={`Refund everyone who paid for ${team.teamName}?`}
+              description={`${refundableCount} payments go back to the cards they came from, in full. Your Stripe balance and our platform fee are both reduced in proportion. This can't be undone.`}
+              confirmLabel="Refund everyone"
+              onConfirm={refundEveryone}
+            />
           )}
 
           {!withdrawn && team.outstandingPriceCents > 0 && (

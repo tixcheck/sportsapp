@@ -9,7 +9,7 @@
 
 ## Current state (last session — 2026-08-13)
 
-- **Branch:** `main`. **Latest commit:** Slice C (organizer payment management) — pushed, working tree clean, no unmerged feature branches.
+- **Branch:** `main`. **Latest commit:** venues + Slice C completion — pushed, working tree clean, no unmerged feature branches.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
 - **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0071`, and all of `0060`–`0071` verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
@@ -58,7 +58,7 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **756 passing across 65 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
+- **Tests:** `npm test` → **760 passing across 65 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
   - **Build gotcha:** `next build` intermittently dies with `EINVAL: invalid argument, readlink .next/server/functions-config-manifest.json`. That's OneDrive syncing the `.next` directory, not a code error — `rm -rf .next` and rebuild.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`.
@@ -72,12 +72,14 @@
     charges (`0064`), B3 split payments. Plus payment-gated registration
     (`0066`), max-teams caps (`0065`), payer attribution (`0067`), and the
     `/profile/payments` page. See `PROGRESS.md` for the detail.
-  - **Slice C (organizer payment management) is SHIPPED** (2026-08-13):
+  - **Slice C (organizer payment management) is COMPLETE** (2026-08-13):
     partial-payment approval, organizer-registered teams + payment links,
-    refunds, the payments dashboard, and receipt/refund/request emails. See
-    `PROGRESS.md`. **Not verified against real Stripe money yet** — the refund
-    path has unit tests and DB checks but no live test-mode refund has been run
-    end to end.
+    refunds, the payments dashboard, receipt/refund/request emails — plus the
+    captain's **"cover the rest"** and the organizer's **"refund all payers"**,
+    which finish the split-payment story the plan asks for. See `PROGRESS.md`.
+    **Not verified against real Stripe money yet** — the refund path has unit
+    tests and rolled-back DB checks but no live test-mode refund has been run
+    end to end. That is the one thing to do before trusting it.
   - **Not yet done for go-live:** live Stripe keys, real (non-test) onboarding,
     and TOS / refund / surcharge disclosure copy.
   - **Gotcha, cost an hour:** the canonical domain is `www.mysportsapp.ca`.
@@ -215,10 +217,10 @@
 ## Open threads / candidate next work
 
 - **Registration payments (Stripe Connect) — the active thread.** Slices A and
-  B are shipped; **Slice C (organizer payment management) is the next build**.
-  See `docs/plans/registration-payments.md` → "Build order". Test keys are in
-  `.env.local` and Vercel. **Needs from the owner before go-live:** live Stripe
-  keys, and TOS / refund / surcharge disclosure copy.
+  B and C are all shipped. See `docs/plans/registration-payments.md` → "Build
+  order". Test keys are in `.env.local` and Vercel. **Remaining before go-live:**
+  a real test-mode refund run end to end, live Stripe keys, real (non-test)
+  Connect onboarding, and TOS / refund / surcharge disclosure copy.
 - **KotC full elimination engine** — plan only, not built
   (`docs/plans/kotc-elimination.md`).
 - **AI spreadsheet import** — approved design, parked 2026-06-30
