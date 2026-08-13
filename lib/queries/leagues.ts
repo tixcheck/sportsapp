@@ -31,6 +31,8 @@ export interface LeagueTeam {
 export interface LeagueTier {
   id: string;
   name: string;
+  /** The building this tier plays in (migration 0072). Null = single venue. */
+  venueId?: string | null;
 }
 
 export interface LeagueDetail {
@@ -196,7 +198,7 @@ export async function getLeagueDetail(
 
   const { data: divisionRows } = await supabase
     .from("divisions")
-    .select("id, name")
+    .select("id, name, venue_id")
     .eq("competition_id", leagueId)
     .order("tier_order", { ascending: true });
 
@@ -271,6 +273,7 @@ export async function getLeagueDetail(
     tiers: (divisionRows ?? []).map((d) => ({
       id: d.id as string,
       name: d.name as string,
+      venueId: (d.venue_id as string | null) ?? null,
     })),
     registrationOpen: (regRow?.registration_open as boolean | null) === true,
     registrationDeadline:

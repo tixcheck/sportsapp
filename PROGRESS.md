@@ -5,6 +5,51 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-13 (later still) — Venues slice two: the generator learns about buildings
+
+**Shipped.** Slice one made venues real so an existing schedule could be *read*
+correctly. It taught the generator nothing: court assignment was still global
+across a night, and the whole league shared one start time.
+
+- **Migration `0072`** (applied, verified). `divisions.venue_id` — a division
+  plays its night in one building, which is what lets courts be handed out per
+  venue. Per-venue start times need no DDL: `weekly_slots` is jsonb, so a slot
+  gains an optional `venueId` and the league carries one slot per venue. BVL's
+  Thursday starts 6:00 at Jim Archdekin, 6:15 at St. Augustine, 6:30 at Terry
+  Miller — one start time for the night cannot express that.
+- **`planTieredLeagueSchedule` groups by venue as well as by instant.** Without
+  it a six-gym night draws court numbers from one pool and puts two games on the
+  same physical court. Passing no venues preserves the old behaviour exactly —
+  all 431 existing scheduler tests were untouched.
+- **Over-capacity is now reported, not silently absorbed.** Wrapping court
+  numbers was always the fallback; doing it quietly is what made it dangerous.
+  Four divisions assigned to a three-court gym produced a schedule that looked
+  fine and double-booked a court all night.
+- **`lib/scheduler/venue-conflicts.ts`** — a pure auditor over any schedule,
+  generated or imported: court double-booked, team double-booked, venue over
+  capacity, a team driving between gyms mid-night, a division split across
+  buildings. 18 tests.
+- **A Schedule check card** on the organizer page, shown even when clean —
+  "no problems" is the reassurance you want before publishing, and a card that
+  only appears when something is wrong is one nobody trusts is running.
+
+**The auditor caught a bug in itself.** Run against the real BVL data it
+reported five split divisions on Thursdays and three on Wednesdays. All false:
+BVL *rotates* gyms week to week — Division C1 plays Jim Archdekin one week and
+St. Marguerite the next — so comparing across a season flags every well-run
+league in the system. Scoped to a single night, all three schedules come back
+clean. That check is now pinned by a test built from the real pattern.
+
+**Tests:** 784 passing across 66 files (up from 760/65). tsc, eslint and build
+clean.
+
+**Still not done:** the generator places a division at its venue but does not
+*choose* venues — an organizer assigns them. Automatic assignment (balancing
+divisions across gyms by size and court count) is a further slice, and probably
+wants the changeover-load thinking from the beach analysis folded in.
+
+---
+
 ## 2026-08-13 (later still) — Slice C finished: the two split-payment escapes
 
 **Shipped.** An audit of Slice C against the plan found the five headline items
