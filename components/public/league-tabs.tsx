@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Star } from "lucide-react";
 
 import type { PublicLeague } from "@/lib/queries/leagues";
@@ -138,66 +138,68 @@ export function LeagueTabs({
                   {g.teams.map((t) => {
                     const isBookmarked = bookmarkedSet.has(t.id);
                     return (
-                      <div
-                        key={t.id}
-                        className={cn(
-                          "flex items-center gap-2 rounded-lg border p-4 transition-colors",
-                          openTeam === t.id
-                            ? "border-primary bg-accent"
-                            : "border-border bg-surface",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenTeam((cur) => (cur === t.id ? null : t.id))
-                          }
-                          aria-expanded={openTeam === t.id}
-                          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      <Fragment key={t.id}>
+                        <div
+                          className={cn(
+                            "flex items-center gap-2 rounded-lg border p-4 transition-colors",
+                            openTeam === t.id
+                              ? "border-primary bg-accent"
+                              : "border-border bg-surface",
+                          )}
                         >
-                          <span className="bg-accent text-accent-foreground grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold">
-                            {initials(t.name)}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {t.name}
-                          </span>
-                          {myTeamIds.includes(t.id) && <MyTeamBadge />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggle(t.id)}
-                          aria-pressed={isBookmarked}
-                          aria-label={
-                            isBookmarked
-                              ? `Remove ${t.name} bookmark`
-                              : `Bookmark ${t.name}`
-                          }
-                          className="hover:bg-muted shrink-0 rounded-md p-1.5 transition-colors"
-                        >
-                          <Star
-                            className={cn(
-                              "size-5",
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenTeam((cur) => (cur === t.id ? null : t.id))
+                            }
+                            aria-expanded={openTeam === t.id}
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          >
+                            <span className="bg-accent text-accent-foreground grid size-9 shrink-0 place-items-center rounded-full text-sm font-semibold">
+                              {initials(t.name)}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {t.name}
+                            </span>
+                            {myTeamIds.includes(t.id) && <MyTeamBadge />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggle(t.id)}
+                            aria-pressed={isBookmarked}
+                            aria-label={
                               isBookmarked
-                                ? "fill-primary text-primary"
-                                : "text-muted-foreground",
-                            )}
+                                ? `Remove ${t.name} bookmark`
+                                : `Bookmark ${t.name}`
+                            }
+                            className="hover:bg-muted shrink-0 rounded-md p-1.5 transition-colors"
+                          >
+                            <Star
+                              className={cn(
+                                "size-5",
+                                isBookmarked
+                                  ? "fill-primary text-primary"
+                                  : "text-muted-foreground",
+                              )}
+                            />
+                          </button>
+                        </div>
+                        {/* Inside the grid and spanning the row, so the panel
+                          opens directly beneath the team you tapped rather
+                          than at the bottom of the whole division. */}
+                        {openTeam === t.id && (
+                          <TeamGames
+                            teamId={t.id}
+                            teamName={t.name}
+                            schedule={league.schedule}
+                            timezone={league.timezone}
+                            className="mt-0 sm:col-span-2 lg:col-span-3"
                           />
-                        </button>
-                      </div>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </div>
-                {openTeam && g.teams.some((t) => t.id === openTeam) && (
-                  <TeamGames
-                    teamId={openTeam}
-                    teamName={
-                      g.teams.find((t) => t.id === openTeam)?.name ??
-                      "This team"
-                    }
-                    schedule={league.schedule}
-                    timezone={league.timezone}
-                  />
-                )}
               </section>
             ))}
           </>
