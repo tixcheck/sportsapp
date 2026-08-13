@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type PaymentRowLike,
+  type RegistrationPricing,
   planMemberShares,
   planSplitCharges,
   planTeamCharge,
   teamPaymentState,
-  type RegistrationPricing,
 } from "@/lib/payments/registration-plan";
+import { splitEvenly } from "@/lib/payments/fees";
 import { DEFAULT_PLATFORM_FEE_RATES } from "@/lib/payments/platform-fee";
 
 const rates = DEFAULT_PLATFORM_FEE_RATES;
@@ -417,5 +419,73 @@ describe("planMemberShares", () => {
     expect(
       planMemberShares({ ...base, members: [], existingShares: [] }),
     ).toEqual([]);
+  });
+});
+
+describe("covering the rest of a stalled split", () => {
+  // The plan's escape hatch: a split stalls because one teammate never pays,
+  // so the captain settles the remainder in a single team_full charge. The
+  // invariant that makes it safe is that the paid shares plus that remainder
+  // come to EXACTLY the organizer's price — no double charge, no shortfall.
+  const fee = { feeCents: 48_000 };
+
+  it("charges exactly the shortfall, never the whole fee again", () => {
+    const rows: PaymentRowLike[] = [
+      { status: "paid", priceCents: 12_000 },
+      { status: "paid", priceCents: 12_000 },
+      { status: "pending", priceCents: 12_000 },
+      { status: "pending", priceCents: 12_000 },
+    ];
+    const before = teamPaymentState(rows, fee);
+    expect(before.outstandingPriceCents).toBe(24_000);
+
+    // What the action writes: one team_full row for the outstanding amount.
+    const after = teamPaymentState(
+      [...rows, { status: "paid", priceCents: before.outstandingPriceCents }],
+      fee,
+    );
+    expect(after.state).toBe("paid");
+    expect(after.paidPriceCents).toBe(48_000);
+    expect(after.outstandingPriceCents).toBe(0);
+  });
+
+  it("adds up for an uneven split, where the remainder isn't a round share", () => {
+    // 5 ways into $480 leaves a cent-level remainder on the early payers.
+    const shares = splitEvenly(48_000, 5);
+    const rows: PaymentRowLike[] = shares.map((p, i) => ({
+      status: i < 3 ? ("paid" as const) : ("pending" as const),
+      priceCents: p,
+    }));
+    const outstanding = teamPaymentState(rows, fee).outstandingPriceCents;
+
+    const after = teamPaymentState(
+      [...rows, { status: "paid", priceCents: outstanding }],
+      fee,
+    );
+    expect(after.paidPriceCents).toBe(48_000);
+    expect(after.state).toBe("paid");
+  });
+
+  it("offers nothing to cover once the team is settled", () => {
+    const state = teamPaymentState(
+      [{ status: "paid", priceCents: 48_000 }],
+      fee,
+    );
+    expect(state.outstandingPriceCents).toBe(0);
+  });
+
+  it("reopens a balance to cover if the covering payment is refunded", () => {
+    const rows: PaymentRowLike[] = [
+      { status: "paid", priceCents: 24_000 },
+      {
+        status: "paid",
+        priceCents: 24_000,
+        totalCents: 25_000,
+        refundedCents: 25_000,
+      },
+    ];
+    const state = teamPaymentState(rows, fee);
+    expect(state.state).toBe("partial");
+    expect(state.outstandingPriceCents).toBe(24_000);
   });
 });
