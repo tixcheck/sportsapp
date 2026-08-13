@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
-import { formatCourtLabel } from "@/lib/scheduler/court-label";
+import { formatPlacement } from "@/lib/venues/resolve";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { StatusPill } from "./status-pill";
 
@@ -19,6 +19,7 @@ export function MatchCard({
   showDate = false,
   myTeamIds = [],
   role,
+  multiVenue = false,
 }: {
   match: ScheduleMatch;
   timezone: string;
@@ -37,6 +38,11 @@ export function MatchCard({
    * a viewer following their team sees at a glance whether they play or ref.
    */
   role?: "play" | "ref";
+  /**
+   * Whether this competition runs across more than one building. When it does,
+   * the court alone is useless — every gym has a Court A — so the venue leads.
+   */
+  multiVenue?: boolean;
 }) {
   const dt = match.scheduledAt
     ? DateTime.fromISO(match.scheduledAt, { zone: timezone })
@@ -132,7 +138,8 @@ export function MatchCard({
       </div>
       <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
         <span className="truncate">
-          {formatCourtLabel(match.court) ?? "Court TBD"}
+          {formatPlacement(match.court, match.venueName, { multiVenue }) ??
+            "Court TBD"}
           {match.refTeamName ? ` · Ref: ${match.refTeamName}` : ""}
         </span>
         {trailing}

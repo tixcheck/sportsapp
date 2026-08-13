@@ -82,6 +82,13 @@ export interface ScheduleMatch {
   round: number | null;
   scheduledAt: string | null;
   court: string | null;
+  /**
+   * The building (migration 0071). Null on a single-venue competition, where
+   * `competitions.venue` is the answer. Court labels repeat across venues, so
+   * this is the only reliable way to tell two "Court A"s apart.
+   */
+  venueId?: string | null;
+  venueName?: string | null;
   status: string;
   homeTeamId: string | null;
   awayTeamId: string | null;
@@ -307,7 +314,7 @@ async function loadSchedule(
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal",
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, venue_id, venues(name)",
     )
     .eq("competition_id", leagueId)
     .order("scheduled_at", { ascending: true })
@@ -347,6 +354,10 @@ async function loadSchedule(
       round: m.round,
       scheduledAt: m.scheduled_at,
       court: m.court,
+      venueId: (m.venue_id as string | null) ?? null,
+      venueName:
+        (m as unknown as { venues?: { name: string } | null }).venues?.name ??
+        null,
       status: m.status,
       divisionId,
       divisionName: div?.name ?? null,
