@@ -57,7 +57,9 @@ function teamDuties(teamId: string, matches: ScheduleMatch[]): Duty[] {
  * grid: any time slot where games are running but the team isn't scheduled, and
  * that falls between two of the team's duties, is an OFF break (e.g. sitting out
  * the 11:50 slot between an 11:30 game and a 12:10 game). Nothing is shown
- * before the first duty or after the last — those aren't rest.
+ * before the first duty or after the last — those aren't rest. The grid is
+ * scoped to the team's own division, so divisions running a different game
+ * length alongside it never look like rest.
  *
  * Rest is only shown between two duties on the SAME calendar day (a genuine
  * hydrate/rest break when a team plays more than once that day). A gap across
@@ -73,7 +75,18 @@ export function teamTimeline(
   const duties = teamDuties(teamId, matches);
   if (duties.length === 0) return [];
 
-  const grid = slotGrid(matches);
+  // Rest is measured against the slot grid the team's OWN division plays on,
+  // not the whole competition. A competition can run parallel grids with
+  // different game lengths at the same time — a 40-minute division on one set
+  // of courts, a 30-minute division on another. Measuring against every match
+  // would report phantom rest at each foreign tip-off: a 40-minute team playing
+  // 7:50 then 8:30 back-to-back would be told it is "off" at 8:00 because some
+  // other division started a game then. Untiered competitions have a single
+  // null division, so this is a no-op for them.
+  const ownDivisions = new Set(duties.map((d) => d.match.divisionId ?? null));
+  const grid = slotGrid(
+    matches.filter((m) => ownDivisions.has(m.divisionId ?? null)),
+  );
   const dutyTimes = new Set(
     duties.map((d) => d.match.scheduledAt).filter(Boolean) as string[],
   );

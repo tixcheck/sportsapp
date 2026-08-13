@@ -164,3 +164,59 @@ describe("teamTimeline — same-day rest gate", () => {
     expect(hasOff(teamTimeline("A", matches))).toBe(true);
   });
 });
+
+describe("teamTimeline — parallel divisions on different clocks", () => {
+  /** A match tagged with the division it belongs to. */
+  function md(
+    round: number,
+    home: string,
+    away: string,
+    time: string,
+    divisionId: string,
+  ): ScheduleMatch {
+    return { ...mk(round, home, away, null, time), divisionId };
+  }
+
+  // Brampton's real shape: one division on 40-minute games (6:30, 7:10, 7:50)
+  // and another on 30-minute games (6:30, 7:00, 7:30) at the same time on
+  // different courts.
+  const matches = [
+    md(1, "A1", "A2", T(18, 30), "div-a"),
+    md(2, "A1", "A3", T(19, 10), "div-a"),
+    md(3, "A1", "A4", T(19, 50), "div-a"),
+    md(1, "E1", "E2", T(18, 30), "div-e"),
+    md(2, "E1", "E3", T(19, 0), "div-e"),
+    md(3, "E1", "E4", T(19, 30), "div-e"),
+  ];
+
+  it("does not invent rest from another division's tip-off times", () => {
+    // A1 plays 6:30, 7:10, 7:50 back to back. The 7:00 and 7:30 slots belong to
+    // the 30-minute division and must not read as a break.
+    const t = teamTimeline("A1", matches, "America/Toronto");
+    expect(t.map((s) => s.activity)).toEqual(["play", "play", "play"]);
+  });
+
+  it("is symmetric for the division on the shorter clock", () => {
+    const t = teamTimeline("E1", matches, "America/Toronto");
+    expect(t.map((s) => s.activity)).toEqual(["play", "play", "play"]);
+  });
+
+  it("still reports a genuine rest slot within the team's own division", () => {
+    const withGap = [
+      md(1, "A1", "A2", T(18, 30), "div-a"),
+      md(2, "A3", "A4", T(19, 10), "div-a"), // A1 sits this one out
+      md(3, "A1", "A3", T(19, 50), "div-a"),
+      md(2, "E1", "E3", T(19, 0), "div-e"),
+    ];
+    const t = teamTimeline("A1", withGap, "America/Toronto");
+    expect(t.map((s) => s.activity)).toEqual(["play", "off", "play"]);
+    // The rest is A's own 7:10 slot, never division E's 7:00.
+    expect(t[1].at).toBe(T(19, 10));
+  });
+
+  it("keeps the schedule list and the strip in agreement", () => {
+    const entries = teamScheduleEntries("A1", matches, "America/Toronto");
+    expect(entries.filter((e) => e.kind === "off")).toHaveLength(0);
+    expect(entries.map((e) => e.round)).toEqual([1, 2, 3]);
+  });
+});

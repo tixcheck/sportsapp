@@ -23,11 +23,14 @@ export function TeamGames({
   teamName,
   schedule,
   timezone,
+  className,
 }: {
   teamId: string;
   teamName: string;
   schedule: ScheduleMatch[];
   timezone: string;
+  /** Lets a grid caller span the panel across the full row. */
+  className?: string;
 }) {
   const entries = teamScheduleEntries(teamId, schedule, timezone);
   const timeline = teamTimeline(teamId, schedule, timezone);
@@ -35,7 +38,12 @@ export function TeamGames({
   const refCount = entries.filter((e) => e.kind === "ref").length;
 
   return (
-    <div className="border-border bg-surface mt-3 space-y-3 rounded-lg border p-4">
+    <div
+      className={cn(
+        "border-border bg-surface mt-3 space-y-3 rounded-lg border p-4",
+        className,
+      )}
+    >
       <p className="font-display text-sm font-semibold">
         {teamName} — {playCount} game{playCount === 1 ? "" : "s"}
         {refCount > 0 ? ` · ${refCount} ref${refCount === 1 ? "" : "s"}` : ""}
