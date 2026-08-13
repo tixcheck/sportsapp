@@ -5,6 +5,75 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-13 — Payments Slice C: organizer payment management
+
+**Shipped.** Slice B could take money. Slice C is what an organizer does about
+it afterwards: chase it, forgive it, hand it back, or take a team without it.
+
+- **Migration `0070`** (applied and verified). Refund state on
+  `registration_payments` (`refunded_cents`, `stripe_refund_id`, `refunded_at`,
+  `refund_reason`) with two check constraints — you can't refund more than was
+  charged, and you can't refund a charge that never collected. Plus the
+  admit-unpaid trail on `teams` and two SECURITY DEFINER functions.
+- **Refunds** — pro rata, the way Stripe actually splits a destination charge.
+  `reverse_transfer` + `refund_application_fee` mean the organizer and the
+  platform each give back their own proportion; without them the refund would
+  come entirely out of the platform's balance. `lib/payments/refunds.ts` is
+  pure and derives the organizer's share by SUBTRACTION so the three parts
+  always sum to the refund exactly — three independent `round()` calls can lose
+  a cent, and a cent belonging to nobody is a reconciliation bug six months on.
+- **The organizer writes nothing.** The refund action calls Stripe; the
+  `charge.refunded` webhook records it, exactly as `checkout.session.completed`
+  records a payment. `amount_refunded` is cumulative, so storing it directly is
+  idempotent for free.
+- **Partial-payment approval** — `admit_team_unpaid` promotes a
+  `pending_payment` team to a real entrant. It deliberately does NOT clear the
+  debt: the balance keeps showing on the dashboard, and who admitted them, when,
+  and why is recorded. Letting a team play and forgiving what they owe are two
+  decisions, not one.
+- **Organizer-registered teams** — `organizer_register_team`, separate from
+  `register_team` because the authorization is inverted (an admin creating a
+  team for people who may not have accounts, rather than a caller registering
+  themselves). The first listed email is invited as CAPTAIN, which is the case
+  `teams.captain_user_id` was made nullable for. Capacity and payment gating
+  still bind the organizer; the public gates (deadline, open/closed) don't.
+- **Payments dashboard** — a Server Component on both organizer pages. Totals
+  (collected, outstanding, tax, refunded) plus a per-team row sorted by who
+  needs chasing, not alphabetically. `lib/payments/ledger.ts` does the rollup,
+  pure and unit-tested.
+- **Payment links** point at the TEAM PAGE, never at a Stripe URL — a Checkout
+  session dies within 24 hours, which is useless in an inbox. The team page
+  mints a fresh session on click.
+- **Three transactional emails**: payment request, receipt, refund notice. No
+  unsubscribe footers — money owed, taken and returned isn't marketing. The
+  receipt exists because Stripe's own can't answer the question a captain has
+  after paying a split fee: is the TEAM covered yet.
+- **A refund now reopens a balance** everywhere, including partially:
+  `teamPaymentState` nets each charge down pro rata. Refunds also surface on
+  `/profile/payments` with the organizer's reason.
+- Extracted the money formatter that had been copy-pasted into five payment
+  components into `lib/payments/format.ts`.
+
+**Verified against the live database** in rolled-back transactions — 21 checks:
+both constraints refuse what they should, `admit_team_unpaid` refuses an
+anonymous caller and is a no-op on an already-active team, and
+`organizer_register_team` refuses a non-admin, makes the first listed existing
+user the captain immediately, leaves someone without an account as a pending
+invite, and still hits the capacity cap ("all 19 spots have been taken").
+
+**Tests:** 729 passing across 64 files (up from 692/62). tsc, eslint, prettier
+and `next build` all clean.
+
+**Not done, and deliberately:** a refund does NOT demote a confirmed team back
+to `pending_payment`. Mid-season that would silently pull them out of pools,
+schedules and standings — destructive, and never what a goodwill refund means.
+The balance reappears on the dashboard and the organizer decides.
+
+**Next:** go-live — live Stripe keys, real (non-test) Connect onboarding, and
+TOS / refund / surcharge disclosure copy.
+
+---
+
 ## 2026-08-12 (later) — Payments Slice B: paid registration, end to end
 
 **Shipped.** Money now moves. An organizer prices an event, a captain pays (or

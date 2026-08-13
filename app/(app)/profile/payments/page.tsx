@@ -55,9 +55,11 @@ export default async function MyPaymentsPage() {
   if (!user) redirect("/login?next=/profile/payments");
 
   const payments = await getMyPayments();
+  // Net of refunds: a total that still counts money you got back would be
+  // wrong in the one direction people actually notice.
   const paidTotal = payments
-    .filter((p) => p.status === "paid")
-    .reduce((sum, p) => sum + p.totalCents, 0);
+    .filter((p) => p.status === "paid" || p.status === "refunded")
+    .reduce((sum, p) => sum + p.totalCents - p.refundedCents, 0);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -159,9 +161,20 @@ export default async function MyPaymentsPage() {
                             {money(p.totalCents - p.priceCents - p.taxCents)}
                           </dd>
                         </div>
+                        {p.refundedCents > 0 && (
+                          <div className="flex justify-between font-medium">
+                            <dt>Refunded to you</dt>
+                            <dd>−{money(p.refundedCents)}</dd>
+                          </div>
+                        )}
                       </dl>
 
-                      <p className="text-muted-foreground text-xs">{s.note}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {p.refundedCents > 0 && p.status === "paid"
+                          ? "Part of this payment was refunded. Refunds reach your card in 5–10 business days."
+                          : s.note}
+                        {p.refundReason ? ` Reason: ${p.refundReason}` : ""}
+                      </p>
 
                       <div className="flex flex-wrap gap-2">
                         <Button asChild size="sm" variant="outline">

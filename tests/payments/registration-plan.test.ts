@@ -191,6 +191,31 @@ describe("teamPaymentState", () => {
     expect(s.chargesOutstanding).toBe(0);
   });
 
+  it("reopens a balance when a settled charge is partially refunded", () => {
+    // $480 collected, then $120 of the payer's total handed back. The price
+    // portion comes back pro rata, so the team is short again.
+    const s = teamPaymentState(
+      [
+        {
+          status: "paid",
+          priceCents: 48_000,
+          totalCents: 50_000,
+          refundedCents: 12_500,
+        },
+      ],
+      fee,
+    );
+    expect(s.state).toBe("partial");
+    expect(s.paidPriceCents).toBe(36_000);
+    expect(s.outstandingPriceCents).toBe(12_000);
+  });
+
+  it("counts the full price when a charge carries no refund fields", () => {
+    // Rows written before Slice C have no refunded_cents; they are not refunds.
+    const s = teamPaymentState([{ status: "paid", priceCents: 48_000 }], fee);
+    expect(s.paidPriceCents).toBe(48_000);
+  });
+
   it("treats a refund as money the organizer no longer has", () => {
     const s = teamPaymentState(
       [{ status: "refunded", priceCents: 48_000 }],

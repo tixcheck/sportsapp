@@ -61,6 +61,10 @@ organizer to remit, or via Stripe Tax) to be pinned in the checkout slice.
   captain-pays-all vs per-player split (team confirmed when shares complete).
 - **Slice C — Organizer payment management:** partial-payment approval,
   register-a-team + send-payment-link, refunds, the payments dashboard, receipts.
+  **SHIPPED 2026-08-13** (migration `0070`). Two decisions worth remembering:
+  refunds are recorded by the `charge.refunded` webhook rather than by the
+  action that requests them (Stripe is the authority on whether money moved),
+  and admitting a team that hasn't paid does not forgive what it owes.
 - **Go-live:** live keys, real onboarding, TOS/refund + surcharge disclosure copy.
 
 ## Context

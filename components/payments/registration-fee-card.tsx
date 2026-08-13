@@ -24,9 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const money = (cents: number) =>
-  (cents / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+import { formatCents } from "@/lib/payments/format";
 
 function Toggle({
   label,
@@ -235,24 +233,26 @@ export function RegistrationFeeCard({
             <dl className="bg-paper-sunken space-y-1.5 rounded-lg p-3 text-sm tabular-nums">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Team pays</dt>
-                <dd className="font-semibold">{money(quote.totalCents)}</dd>
+                <dd className="font-semibold">
+                  {formatCents(quote.totalCents)}
+                </dd>
               </div>
               {taxCents > 0 && (
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Including tax</dt>
-                  <dd>{money(taxCents)}</dd>
+                  <dd>{formatCents(taxCents)}</dd>
                 </div>
               )}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">
                   Card and platform fees
                 </dt>
-                <dd>{money(quote.applicationFeeCents)}</dd>
+                <dd>{formatCents(quote.applicationFeeCents)}</dd>
               </div>
               <div className="border-border flex justify-between border-t pt-1.5">
                 <dt className="font-medium">You receive</dt>
                 <dd className="font-semibold">
-                  {money(quote.organizerNetCents)}
+                  {formatCents(quote.organizerNetCents)}
                 </dd>
               </div>
             </dl>

@@ -161,6 +161,7 @@ export type TeamPaymentRow = {
   payerEmail: string | null;
   priceCents: number;
   totalCents: number;
+  refundedCents: number;
 };
 
 /** A team's payment rows — feeds both `teamPaymentState` and `planMemberShares`. */
@@ -173,7 +174,9 @@ export async function getTeamPaymentRows(
   const supabase = await createClient();
   const { data } = await supabase
     .from("registration_payments")
-    .select("status, kind, payer_email, price_cents, total_cents")
+    .select(
+      "status, kind, payer_email, price_cents, total_cents, refunded_cents",
+    )
     .eq("team_id", teamId)
     // Test-mode rows must never colour a live deployment's status, and vice
     // versa — the same reason payment_accounts keys on livemode.
@@ -187,6 +190,7 @@ export async function getTeamPaymentRows(
       payer_email: string | null;
       price_cents: number;
       total_cents: number;
+      refunded_cents: number;
     }[]
   ).map((r) => ({
     status: r.status,
@@ -194,6 +198,7 @@ export async function getTeamPaymentRows(
     payerEmail: r.payer_email,
     priceCents: r.price_cents,
     totalCents: r.total_cents,
+    refundedCents: r.refunded_cents,
   }));
 }
 
@@ -204,6 +209,9 @@ export type MyPayment = {
   totalCents: number;
   priceCents: number;
   taxCents: number;
+  /** How much of `totalCents` has been handed back. */
+  refundedCents: number;
+  refundReason: string | null;
   currency: string;
   paidAt: string | null;
   createdAt: string;
@@ -235,7 +243,7 @@ export async function getMyPayments(): Promise<MyPayment[]> {
   const { data } = await supabase
     .from("registration_payments")
     .select(
-      "id, status, kind, total_cents, price_cents, tax_cents, currency, paid_at, created_at, team_id, teams(name, competitions(name, type, slug))",
+      "id, status, kind, total_cents, price_cents, tax_cents, refunded_cents, refund_reason, currency, paid_at, created_at, team_id, teams(name, competitions(name, type, slug))",
     )
     .eq("payer_user_id", user.id)
     .eq("livemode", mode.livemode)
@@ -249,6 +257,8 @@ export async function getMyPayments(): Promise<MyPayment[]> {
     total_cents: number;
     price_cents: number;
     tax_cents: number;
+    refunded_cents: number;
+    refund_reason: string | null;
     currency: string;
     paid_at: string | null;
     created_at: string;
@@ -270,6 +280,8 @@ export async function getMyPayments(): Promise<MyPayment[]> {
     totalCents: r.total_cents,
     priceCents: r.price_cents,
     taxCents: r.tax_cents,
+    refundedCents: r.refunded_cents,
+    refundReason: r.refund_reason,
     currency: r.currency,
     paidAt: r.paid_at,
     createdAt: r.created_at,
@@ -279,4 +291,177 @@ export async function getMyPayments(): Promise<MyPayment[]> {
     competitionType: r.teams?.competitions?.type ?? "tournament",
     competitionSlug: r.teams?.competitions?.slug ?? "",
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Organizer payments dashboard (Slice C)
+// ---------------------------------------------------------------------------
+
+import {
+  competitionLedger,
+  type CompetitionLedger,
+  type LedgerCharge,
+  type LedgerTeam,
+} from "@/lib/payments/ledger";
+
+const LEDGER_CHARGE_COLUMNS =
+  "id, team_id, kind, status, payer_email, price_cents, tax_cents, application_fee_cents, total_cents, refunded_cents, paid_at, created_at, payer:users!registration_payments_payer_user_id_fkey(display_name)";
+
+/**
+ * Every team in a competition and what it has paid, rolled up for the
+ * organizer.
+ *
+ * Two reads rather than one embedded query: a team with no charges must still
+ * appear — those are precisely the teams an organizer is looking for — and an
+ * inner join would drop them. Withdrawn teams are included so their history
+ * stays visible; the ledger decides they owe nothing.
+ *
+ * Returns null when payments aren't configured, so callers can hide the panel
+ * rather than render an empty dashboard that looks like "nobody has paid".
+ */
+export async function getCompetitionLedger(
+  competitionId: string,
+  { feeCents }: { feeCents: number },
+): Promise<CompetitionLedger | null> {
+  const mode = currentStripeMode();
+  if (!mode.configured) return null;
+
+  const supabase = await createClient();
+
+  const [{ data: teamRows }, { data: chargeRows }] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, status, admitted_unpaid_at")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("registration_payments")
+      .select(LEDGER_CHARGE_COLUMNS)
+      .eq("competition_id", competitionId)
+      .eq("livemode", mode.livemode)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (!teamRows) return null;
+
+  type ChargeRecord = {
+    id: string;
+    team_id: string;
+    kind: LedgerCharge["kind"];
+    status: LedgerCharge["status"];
+    payer_email: string | null;
+    price_cents: number;
+    tax_cents: number;
+    application_fee_cents: number;
+    total_cents: number;
+    refunded_cents: number;
+    paid_at: string | null;
+    created_at: string;
+    payer: { display_name: string | null } | null;
+  };
+
+  const byTeam = new Map<string, LedgerCharge[]>();
+  for (const raw of (chargeRows ?? []) as unknown as ChargeRecord[]) {
+    const charge: LedgerCharge = {
+      id: raw.id,
+      kind: raw.kind,
+      status: raw.status,
+      payerEmail: raw.payer_email,
+      payerName: raw.payer?.display_name ?? null,
+      priceCents: raw.price_cents,
+      taxCents: raw.tax_cents,
+      applicationFeeCents: raw.application_fee_cents,
+      totalCents: raw.total_cents,
+      refundedCents: raw.refunded_cents,
+      paidAt: raw.paid_at,
+      createdAt: raw.created_at,
+    };
+    const list = byTeam.get(raw.team_id);
+    if (list) list.push(charge);
+    else byTeam.set(raw.team_id, [charge]);
+  }
+
+  const teams: LedgerTeam[] = (
+    teamRows as {
+      id: string;
+      name: string;
+      status: LedgerTeam["status"];
+      admitted_unpaid_at: string | null;
+    }[]
+  ).map((t) => ({
+    teamId: t.id,
+    teamName: t.name,
+    status: t.status,
+    admittedUnpaid: t.admitted_unpaid_at !== null,
+    charges: byTeam.get(t.id) ?? [],
+  }));
+
+  return competitionLedger({ teams, feeCents });
+}
+
+export type RefundablePayment = {
+  id: string;
+  competitionId: string;
+  teamId: string;
+  status: "pending" | "paid" | "cancelled" | "refunded";
+  priceCents: number;
+  taxCents: number;
+  applicationFeeCents: number;
+  totalCents: number;
+  refundedCents: number;
+  currency: string;
+  stripePaymentIntentId: string | null;
+  payerEmail: string | null;
+};
+
+/**
+ * One charge, with the Stripe ids a refund needs.
+ *
+ * Read under RLS, so a caller who isn't the organizer or a team member gets
+ * null and the action refuses before it ever reaches Stripe.
+ */
+export async function getRefundablePayment(
+  paymentId: string,
+): Promise<RefundablePayment | null> {
+  const mode = currentStripeMode();
+  if (!mode.configured) return null;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("registration_payments")
+    .select(
+      "id, competition_id, team_id, status, price_cents, tax_cents, application_fee_cents, total_cents, refunded_cents, currency, stripe_payment_intent_id, payer_email",
+    )
+    .eq("id", paymentId)
+    .eq("livemode", mode.livemode)
+    .maybeSingle();
+  if (!data) return null;
+
+  const r = data as {
+    id: string;
+    competition_id: string;
+    team_id: string;
+    status: RefundablePayment["status"];
+    price_cents: number;
+    tax_cents: number;
+    application_fee_cents: number;
+    total_cents: number;
+    refunded_cents: number;
+    currency: string;
+    stripe_payment_intent_id: string | null;
+    payer_email: string | null;
+  };
+  return {
+    id: r.id,
+    competitionId: r.competition_id,
+    teamId: r.team_id,
+    status: r.status,
+    priceCents: r.price_cents,
+    taxCents: r.tax_cents,
+    applicationFeeCents: r.application_fee_cents,
+    totalCents: r.total_cents,
+    refundedCents: r.refunded_cents,
+    currency: r.currency,
+    stripePaymentIntentId: r.stripe_payment_intent_id,
+    payerEmail: r.payer_email,
+  };
 }
