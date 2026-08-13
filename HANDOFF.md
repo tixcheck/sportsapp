@@ -7,12 +7,29 @@
 
 ---
 
-## Current state (last session — 2026-08-12)
+## Current state (last session — 2026-08-13)
 
-- **Branch:** `main`. **Latest commit:** `b0dd9e6` (organizer broadcasts + per-kind unsubscribe) — pushed, working tree clean, no unmerged feature branches.
+- **Branch:** `main`. **Latest commit:** Slice C (organizer payment management) — pushed, working tree clean, no unmerged feature branches.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0069`, and all of `0060`–`0069` were re-verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0070`, and all of `0060`–`0070` verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **`0070` (organizer payment management) IS applied** — 2026-08-13. Adds
+    refund state to `registration_payments` (`refunded_cents`,
+    `stripe_refund_id`, `refunded_at`, `refund_reason`) with two check
+    constraints, the admit-unpaid trail on `teams`, and the SECURITY DEFINER
+    functions `admit_team_unpaid` and `organizer_register_team`. Verified in
+    rolled-back transactions (21 checks): both constraints refuse what they
+    should; `admit_team_unpaid` refuses an anonymous caller, stamps who/when/why,
+    and is a no-op on an already-active team; `organizer_register_team` refuses a
+    non-admin, makes the first listed existing user the captain immediately,
+    leaves an account-less invitee pending, and still hits the capacity cap.
+    - **Refunds are recorded PRO RATA and only by the webhook.** The organizer's
+      action calls Stripe; `charge.refunded` writes the row. `amount_refunded`
+      is cumulative, so storing it directly is idempotent.
+    - **A refund does NOT demote a confirmed team.** Deliberate — mid-season that
+      would pull them out of pools, schedules and standings.
+    - **Admitting a team unpaid does NOT clear its debt.** The balance keeps
+      showing on the dashboard. Two decisions, not one.
   - **`0069` (per-kind unsubscribe) IS applied** — 2026-08-12. `unsubscribe(_token)` only ever set `notify_weekly`, so every new opt-out-able email pointed at a link that switched off the digest and kept sending what the reader objected to. Now `unsubscribe(_token, _kind)` maps weekly/results/schedule/org_messages/all to the right column; an unknown kind falls back to the digest. **The 1-arg signature was DROPPED** (same ambiguity rule as `register_team`); verified the legacy 1-arg call still resolves. Email footers must now pass `?kind=` — a footer without one silently unsubscribes from the digest instead.
   - **`0068` (organizer broadcasts) IS applied** — 2026-08-12. Adds `users.notify_org_messages` (default true) and the `org_messages` audit table. The log stores a recipient COUNT, never the address list — the addresses are already in `users` and copying them spreads PII for no gain.
   - **`0067` (payment attribution) IS applied** — 2026-08-12. `payer_user_id` existed since `0064` but was never populated, so “my payments” could only match on email — and a `team_full` charge carries no payer email at all. `start_registration_payment` now sets it from `auth.uid()`: a parameter could be forged, and the settling webhook has no user context, so the SECURITY DEFINER function is the only trustworthy place. Body is the `0064` definition verbatim plus the attribution update.
@@ -26,7 +43,8 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **692 passing across 62 files** (verified 2026-08-13).
+- **Tests:** `npm test` → **729 passing across 64 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
+  - **Build gotcha:** `next build` intermittently dies with `EINVAL: invalid argument, readlink .next/server/functions-config-manifest.json`. That's OneDrive syncing the `.next` directory, not a code error — `rm -rf .next` and rebuild.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`.
   - **Slice A (payouts onboarding) is SHIPPED and verified in production**
@@ -39,9 +57,12 @@
     charges (`0064`), B3 split payments. Plus payment-gated registration
     (`0066`), max-teams caps (`0065`), payer attribution (`0067`), and the
     `/profile/payments` page. See `PROGRESS.md` for the detail.
-  - **Slice C (organizer payment management) is the next build. Nothing
-    started.** Scope: partial-payment approval, register-a-team + send a
-    payment link, refunds, the payments dashboard, receipts.
+  - **Slice C (organizer payment management) is SHIPPED** (2026-08-13):
+    partial-payment approval, organizer-registered teams + payment links,
+    refunds, the payments dashboard, and receipt/refund/request emails. See
+    `PROGRESS.md`. **Not verified against real Stripe money yet** — the refund
+    path has unit tests and DB checks but no live test-mode refund has been run
+    end to end.
   - **Not yet done for go-live:** live Stripe keys, real (non-test) onboarding,
     and TOS / refund / surcharge disclosure copy.
   - **Gotcha, cost an hour:** the canonical domain is `www.mysportsapp.ca`.
@@ -79,6 +100,10 @@
 
 ## What shipped recently (newest first)
 
+- **Slice C** (migration `0070`) — **organizer payment management**: refunds
+  (pro rata, webhook-written), "admit anyway" for part-paid teams, an
+  organizer-adds-a-team flow, the payments dashboard on both organizer pages,
+  and receipt / refund / payment-request emails.
 - `31a5a66` (migrations `0068` + `0069`) — **organizer broadcasts**, plus a
   per-kind unsubscribe. The old `unsubscribe(_token)` only ever switched off the
   weekly digest, so opt-out links kept sending the thing the reader objected to.

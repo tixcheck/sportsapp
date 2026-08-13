@@ -7,9 +7,7 @@ import { toast } from "sonner";
 import { startShareCheckoutAction } from "@/server/actions/registration-payments";
 import type { MemberShare } from "@/lib/payments/registration-plan";
 import { Button } from "@/components/ui/button";
-
-const money = (cents: number) =>
-  (cents / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+import { formatCents } from "@/lib/payments/format";
 
 /**
  * Who on the roster has paid their share, and the button for the viewer to pay
@@ -89,7 +87,7 @@ export function ShareList({
                     : s.status === "pending"
                       ? "Checkout open"
                       : s.priceCents > 0
-                        ? `Owes ${money(s.priceCents)}`
+                        ? `Owes ${formatCents(s.priceCents)}`
                         : "Nothing owing"}
                 </p>
               </div>
@@ -101,7 +99,7 @@ export function ShareList({
                   </span>
                 ) : (
                   <span className="text-sm font-medium tabular-nums">
-                    {s.totalCents !== null ? money(s.totalCents) : "—"}
+                    {s.totalCents !== null ? formatCents(s.totalCents) : "—"}
                   </span>
                 )}
 

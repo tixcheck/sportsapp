@@ -178,7 +178,30 @@ export function planSplitCharges({
 export type PaymentRowLike = {
   status: "pending" | "paid" | "cancelled" | "refunded";
   priceCents: number;
+  /**
+   * Refund state (Slice C). Optional so callers that only care about whether a
+   * charge settled — and every row written before refunds existed — keep
+   * working: absent means nothing was handed back.
+   */
+  refundedCents?: number;
+  totalCents?: number;
 };
+
+/**
+ * What a settled charge actually delivered to the organizer.
+ *
+ * A partial refund takes back a pro-rata slice of the price, matching what
+ * Stripe does to the destination charge (see `refunds.ts`). Counting the full
+ * price after money went back would show a team as paid up while the organizer
+ * is holding less than the fee.
+ */
+function deliveredPriceCents(row: PaymentRowLike): number {
+  if (row.status !== "paid") return 0;
+  const refunded = row.refundedCents ?? 0;
+  if (refunded <= 0 || !row.totalCents) return row.priceCents;
+  const back = Math.round((row.priceCents * refunded) / row.totalCents);
+  return Math.max(0, row.priceCents - back);
+}
 
 export type TeamPaymentState = {
   state: "free" | "unpaid" | "partial" | "paid";
@@ -196,7 +219,8 @@ export type TeamPaymentState = {
  * Derived from the payment rows, never stored — the same rule as standings.
  * `cancelled` rows are ignored (an abandoned checkout isn't a debt) and
  * `refunded` rows count as unpaid again, because a refunded registration is one
- * the organizer no longer has the money for.
+ * the organizer no longer has the money for. A PARTIAL refund reduces what the
+ * charge delivered pro rata, which can move a settled team back to `partial`.
  *
  * A team with no rows on a priced event reads `unpaid`, not `free`: rows are
  * created when someone starts checkout, so their absence means nobody has
@@ -216,8 +240,10 @@ export function teamPaymentState(
   }
 
   const live = rows.filter((r) => r.status !== "cancelled");
-  const paid = live.filter((r) => r.status === "paid");
-  const paidPriceCents = paid.reduce((sum, r) => sum + r.priceCents, 0);
+  const paidPriceCents = live.reduce(
+    (sum, r) => sum + deliveredPriceCents(r),
+    0,
+  );
   const outstandingPriceCents = Math.max(0, feeCents - paidPriceCents);
 
   // Compare against the fee rather than counting rows: an organizer can accept

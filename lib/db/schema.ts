@@ -473,6 +473,16 @@ export const teams = pgTable(
     captainUserId: uuid("captain_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    /**
+     * Set when an organizer admitted this team despite an outstanding balance
+     * (Slice C). The debt is NOT forgiven — it keeps showing on the payments
+     * dashboard; this only records who decided to let them play and why.
+     */
+    admittedUnpaidAt: timestamp("admitted_unpaid_at", { withTimezone: true }),
+    admittedUnpaidBy: uuid("admitted_unpaid_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    admittedUnpaidNote: text("admitted_unpaid_note"),
     // The one pool game this team drops from ITS OWN standings (v1 "drop a
     // game"; only meaningful when the team's pool has needs_drop). The result
     // still counts for the opponent. Cleared if the match is deleted.
@@ -1359,6 +1369,16 @@ export const registrationPayments = pgTable(
     stripeCheckoutSessionId: text("stripe_checkout_session_id").unique(),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
+    /**
+     * Cumulative amount handed back, against `totalCents`. Stripe allows
+     * several partial refunds on one intent and reports the running total, so
+     * this mirrors that rather than being a boolean.
+     */
+    refundedCents: integer("refunded_cents").notNull().default(0),
+    stripeRefundId: text("stripe_refund_id"),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
+    /** The organizer's reason, shown back to the payer. */
+    refundReason: text("refund_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

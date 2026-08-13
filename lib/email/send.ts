@@ -28,6 +28,18 @@ import {
   OrgMessageEmail,
   type OrgMessageEmailProps,
 } from "./templates/org-message";
+import {
+  PaymentRequestEmail,
+  type PaymentRequestEmailProps,
+} from "./templates/payment-request";
+import {
+  PaymentReceiptEmail,
+  type PaymentReceiptEmailProps,
+} from "./templates/payment-receipt";
+import {
+  PaymentRefundEmail,
+  type PaymentRefundEmailProps,
+} from "./templates/payment-refund";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -200,6 +212,58 @@ export function sendMissingScore(
     // Names the game, so a stack of these in an inbox is still scannable.
     subject: `Score needed: ${props.summary}`,
     react: MissingScoreEmail(props),
+  });
+}
+
+// --- payments (transactional: always sent, never opt-out-able) -------------
+//
+// Money owed, money taken and money returned are not marketing. A receipt the
+// recipient can switch off is a receipt they'll ask us for later, and a refund
+// notice nobody sees looks like a lost payment.
+
+/**
+ * Ask a team to pay what's outstanding.
+ *
+ * `replyTo` is the organizer, deliberately: the recipient's questions ("I paid
+ * by e-transfer already") are for them, not for us.
+ */
+export function sendPaymentRequest(
+  to: string,
+  props: PaymentRequestEmailProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: `${props.outstanding} left to pay — ${props.competitionName}`,
+    react: PaymentRequestEmail(props),
+    replyTo,
+  });
+}
+
+export function sendPaymentReceipt(
+  to: string,
+  props: PaymentReceiptEmailProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    // Leads with the amount so it's findable in an inbox a year later.
+    subject: `Receipt: ${props.total} — ${props.competitionName}`,
+    react: PaymentReceiptEmail(props),
+    replyTo,
+  });
+}
+
+export function sendPaymentRefund(
+  to: string,
+  props: PaymentRefundEmailProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: `Refunded ${props.amount} — ${props.competitionName}`,
+    react: PaymentRefundEmail(props),
+    replyTo,
   });
 }
 

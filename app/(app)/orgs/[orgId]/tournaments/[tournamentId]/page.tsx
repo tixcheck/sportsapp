@@ -56,6 +56,8 @@ import {
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
+import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
+import { getCompetitionLedger } from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
@@ -107,6 +109,12 @@ export default async function TournamentPage({
     rates: feeRates,
     payoutsReady: paymentAccountStatus(orgAccount).canAcceptPayments,
   };
+  // Fetched after the settings, because the ledger needs the fee to know what
+  // each team still owes. Null when Stripe isn't configured — the panel is
+  // hidden rather than showing an empty dashboard that reads as "nobody paid".
+  const ledger = await getCompetitionLedger(t.id, {
+    feeCents: feeSettings.registrationFeeCents,
+  });
   const hasPools = poolsView?.hasPools ?? false;
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
@@ -475,6 +483,15 @@ export default async function TournamentPage({
           <ScoringSettingsCard competitionId={t.id} initial={t.scoring} />
         </CardContent>
       </Card>
+
+      {ledger && (
+        <PaymentsDashboard
+          competitionId={t.id}
+          ledger={ledger}
+          payoutsReady={payment.payoutsReady}
+          splitAllowed={payment.settings.allowSplitPayment}
+        />
+      )}
 
       <RegistrationFeeCard
         competitionId={t.id}

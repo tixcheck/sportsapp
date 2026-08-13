@@ -8,9 +8,7 @@ import {
   platformFeeCentsFor,
   DEFAULT_PLATFORM_FEE_RATES,
 } from "@/lib/payments/platform-fee";
-
-const money = (cents: number) =>
-  (cents / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+import { formatCents } from "@/lib/payments/format";
 
 export type PaymentMode = "team_full" | "player_share";
 
@@ -70,20 +68,20 @@ export function PaymentModeChoice({
       id: "team_full",
       label: "I'll pay for the team",
       detail: "One payment now. Your spot is confirmed straight away.",
-      amount: `about ${money(captainQuote.totalCents)}`,
+      amount: `about ${formatCents(captainQuote.totalCents)}`,
     },
     {
       id: "player_share",
       label: "Everyone pays their own share",
       detail: `Split ${payers === 1 ? "once more players join" : `${payers} ways`}. The team is confirmed once every share is in.`,
-      amount: `about ${money(shareQuote.totalCents)} each`,
+      amount: `about ${formatCents(shareQuote.totalCents)} each`,
     },
   ];
 
   return (
     <div className="grid gap-2">
       <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-        How will you pay the {money(teamCents)} fee?
+        How will you pay the {formatCents(teamCents)} fee?
       </p>
 
       {options.map((o) => {
@@ -125,7 +123,7 @@ export function PaymentModeChoice({
 
       <p className="text-muted-foreground text-xs">
         Card and platform fees are included in these amounts. The organizer
-        receives {money(teamCents)} either way.
+        receives {formatCents(teamCents)} either way.
       </p>
     </div>
   );

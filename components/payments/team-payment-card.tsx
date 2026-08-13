@@ -17,9 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-const money = (cents: number) =>
-  (cents / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+import { formatCents } from "@/lib/payments/format";
 
 /**
  * What this team owes, and the button that settles it.
@@ -108,13 +106,13 @@ export function TeamPaymentCard({
             {payment.paidPriceCents > 0 && (
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Already paid</dt>
-                <dd>{money(payment.paidPriceCents)}</dd>
+                <dd>{formatCents(payment.paidPriceCents)}</dd>
               </div>
             )}
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Still owing</dt>
               <dd className="font-semibold">
-                {money(payment.outstandingPriceCents)}
+                {formatCents(payment.outstandingPriceCents)}
               </dd>
             </div>
             {canPayOnline && totalDueCents > payment.outstandingPriceCents && (
@@ -122,7 +120,7 @@ export function TeamPaymentCard({
                 <dt className="text-muted-foreground">
                   Card total, fees included
                 </dt>
-                <dd>{money(totalDueCents)}</dd>
+                <dd>{formatCents(totalDueCents)}</dd>
               </div>
             )}
           </dl>
