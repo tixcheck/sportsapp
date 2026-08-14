@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import type { WeeklySlot } from "@/lib/db/schema";
+import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
+import {
+  assignDivisionsToVenues,
+  latenessFromHistory,
+} from "@/lib/scheduler/venue-assign";
 
 type ActionError = { error: string };
 
@@ -310,4 +314,167 @@ export async function assignCourtVenuesAction(
   revalidatePath(`/orgs/${c.org_id}`);
   revalidatePath(`/${c.type === "league" ? "l" : "t"}/${c.slug}`);
   return { ok: true, updatedMatches };
+}
+
+// ---------------------------------------------------------------------------
+// Suggesting a venue assignment
+// ---------------------------------------------------------------------------
+
+/**
+ * Propose which gym each division should play in.
+ *
+ * Returns a proposal and writes NOTHING. The organizer reviews it in the same
+ * selects they'd fill by hand and saves if they agree — an automatic assignment
+ * that silently rewrote a published schedule would be the wrong kind of clever.
+ *
+ * Fairness is seeded from the schedule already played: divisions that keep
+ * drawing the late block get first call on the early slots. That history is the
+ * part no spreadsheet tracks, and it's why this is worth automating at all.
+ */
+export async function suggestVenueAssignmentAction(
+  competitionId: string,
+): Promise<
+  | ActionError
+  | {
+      ok: true;
+      placements: { divisionId: string; venueId: string; startSlot: number }[];
+      unplaced: { divisionId: string; name: string; reason: string }[];
+      worstChangeover: number;
+    }
+> {
+  if (!idSchema.safeParse(competitionId).success) {
+    return { error: "Unknown competition." };
+  }
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only an organizer can do that." };
+
+  const [{ data: comp }, { data: divisions }, { data: settings }] =
+    await Promise.all([
+      supabase
+        .from("competitions")
+        .select("org_id")
+        .eq("id", competitionId)
+        .maybeSingle(),
+      supabase
+        .from("divisions")
+        .select("id, name, tier_order")
+        .eq("competition_id", competitionId)
+        .order("tier_order", { ascending: true }),
+      supabase
+        .from("league_settings")
+        .select("court_list, weekly_slots, games_per_week")
+        .eq("competition_id", competitionId)
+        .maybeSingle(),
+    ]);
+
+  if (!comp) return { error: "Unknown competition." };
+  if (!divisions || divisions.length === 0) {
+    return { error: "This league has no divisions to place." };
+  }
+
+  const courtList = ((settings as { court_list?: LeagueCourt[] } | null)
+    ?.court_list ?? []) as LeagueCourt[];
+  const perVenue = new Map<string, number>();
+  for (const c of courtList) {
+    if (!c.venueId) continue;
+    perVenue.set(c.venueId, (perVenue.get(c.venueId) ?? 0) + 1);
+  }
+  if (perVenue.size === 0) {
+    return {
+      error:
+        "Assign each court to a venue first — there's nothing to place into.",
+    };
+  }
+
+  // Team counts decide how many courts a division wants at once.
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, division_id")
+    .eq("competition_id", competitionId)
+    .neq("status", "withdrawn");
+  const teamCount = new Map<string, number>();
+  for (const t of (teams ?? []) as { division_id: string | null }[]) {
+    if (!t.division_id) continue;
+    teamCount.set(t.division_id, (teamCount.get(t.division_id) ?? 0) + 1);
+  }
+
+  const roundsPerNight = Math.max(
+    1,
+    (settings as { games_per_week?: number } | null)?.games_per_week ?? 1,
+  );
+
+  // Slots per venue: enough for every division that could stack there. Kept
+  // generous — the packer is what decides the night's real length.
+  const slotsPerVenue = Math.max(
+    roundsPerNight * 2,
+    Math.ceil(
+      (divisions.length * roundsPerNight) / Math.max(1, perVenue.size),
+    ) + roundsPerNight,
+  );
+
+  const needs = (divisions as { id: string; name: string }[]).map((d) => {
+    const n = teamCount.get(d.id) ?? 0;
+    const maxCourts = Math.max(...perVenue.values());
+    return {
+      divisionId: d.id,
+      name: d.name,
+      // A division can't want more courts than the biggest gym has.
+      courtsNeeded: Math.max(1, Math.min(Math.floor(n / 2), maxCourts)),
+      rounds: roundsPerNight,
+      teams: n,
+    };
+  });
+
+  // Fairness carry-in from what's already been played.
+  const { data: played } = await supabase
+    .from("matches")
+    .select("scheduled_at, home:teams!matches_home_team_id_fkey(division_id)")
+    .eq("competition_id", competitionId)
+    .not("scheduled_at", "is", null);
+
+  const history = (
+    (played ?? []) as unknown as {
+      scheduled_at: string;
+      home: { division_id: string | null } | null;
+    }[]
+  )
+    .filter((m) => m.home?.division_id)
+    .map((m) => {
+      const dt = new Date(m.scheduled_at);
+      return {
+        date: m.scheduled_at.slice(0, 10),
+        divisionId: m.home!.division_id!,
+        startMinutes: dt.getUTCHours() * 60 + dt.getUTCMinutes(),
+      };
+    });
+
+  const result = assignDivisionsToVenues(
+    needs,
+    [...perVenue.entries()].map(([venueId, courts]) => ({
+      venueId,
+      courts,
+      slots: slotsPerVenue,
+    })),
+    { lateness: latenessFromHistory(history) },
+  );
+
+  const nameById = new Map(needs.map((n) => [n.divisionId, n.name]));
+  return {
+    ok: true,
+    placements: result.placements.map((p) => ({
+      divisionId: p.divisionId,
+      venueId: p.venueId,
+      startSlot: p.startSlot,
+    })),
+    unplaced: result.unplaced.map((u) => ({
+      divisionId: u.divisionId,
+      name: nameById.get(u.divisionId) ?? "A division",
+      reason: u.reason,
+    })),
+    worstChangeover: result.changeovers[0]?.teamsMoving ?? 0,
+  };
 }

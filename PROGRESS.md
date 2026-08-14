@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-13 (later still) — Auto venue assignment
+
+**Shipped.** Slice two taught the generator to respect a division's venue; this
+chooses it. An **Auto-assign** button on the league page proposes which gym each
+division plays in and fills the selects — it writes nothing, so the organizer
+reviews a proposal in the same controls they'd use by hand.
+
+- **`lib/scheduler/venue-assign.ts`** — 2-D packing: each venue is a
+  `courts × slots` grid and each division a rectangle that must sit inside one
+  grid. `courtsNeeded` is an INPUT, not `teams / 2` — BVL's D2 runs 8 teams
+  across 2 courts, so half the division sits each round, and deriving it would
+  bake in an assumption that's wrong for real data.
+- **Fairness is the point, not packing.** Somebody always draws the late block —
+  with more divisions than early slots that's arithmetic. What you control is
+  *who*, round after round. `latenessFromHistory` reads the debt off the games
+  already played, and the most-owed division picks first.
+- **A bug worth recording:** weighting lateness only inside the cost function did
+  nothing, because whoever is placed *first* takes the best slot regardless.
+  Lateness had to lead the sort ORDER. The rotation test caught it.
+- **A second, worse bug, found by running it on the real BVL shape.** Changeover
+  smoothing was nudging blocks off alignment — a 3-round division starting at
+  slot 1 of a 6-slot gym strands a 1-slot gap before and a 2-slot gap after,
+  neither usable. Two divisions ended up unplaced while five gyms sat half
+  empty. Fixed by restricting starts to *anchors*: the top of the night, or the
+  moment the gym frees up. Both cases are now regression-tested.
+
+**Measured on BVL's real Thursday** (9 divisions, 6 gyms) over 10 simulated
+rounds: all 9 placed every round, 17% idle capacity, and the eight comparable
+divisions land on an **identical mean start slot — a spread of 0.00**. Nobody is
+shut out of an early block. (D2 is structurally pinned to slot 0: it needs all
+seven slots at Terry Miller, so it has no choice.)
+
+**Tests:** 809 passing across 67 files. tsc, eslint and build clean.
+
+**Honest limit:** with 6-slot gyms and 3-round divisions every gym must flip at
+slot 3, so the changeover smoothing has nothing to work with here — the worst
+changeover stays at 48 teams. It only helps where block lengths differ. Making
+the night's slot count itself a variable is what would fix that, and it isn't
+in this slice.
+
+---
+
 ## 2026-08-13 (later still) — Venues slice two: the generator learns about buildings
 
 **Shipped.** Slice one made venues real so an existing schedule could be *read*

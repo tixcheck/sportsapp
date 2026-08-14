@@ -13,6 +13,17 @@
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
 - **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0072`, and all of `0060`–`0072` verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **Auto venue assignment** (no migration) — `lib/scheduler/venue-assign.ts`
+    packs divisions into gyms and rotates who gets the early block, seeded from
+    the games already played. Surfaced as an **Auto-assign** button that fills
+    the selects and saves nothing.
+    - **Start slots are restricted to ANCHORS** (slot 0, or where a gym frees
+      up). Allowing any start strands capacity — a 3-round block at slot 1 of a
+      6-slot gym leaves unusable 1- and 2-slot gaps — and left two real BVL
+      divisions unplaced while five gyms sat half empty.
+    - **Lateness drives the placement ORDER, not just the cost.** Whoever is
+      placed first takes the best slot, so weighting it only inside the cost
+      function achieves nothing.
   - **`0072` (division venues) IS applied** — 2026-08-13. `divisions.venue_id`,
     plus per-venue start times carried on `weekly_slots` (jsonb, no DDL). The
     generator now groups court assignment BY VENUE — without it a six-gym night
@@ -68,7 +79,7 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **784 passing across 66 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
+- **Tests:** `npm test` → **809 passing across 67 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
   - **Build gotcha:** `next build` intermittently dies with `EINVAL: invalid argument, readlink .next/server/functions-config-manifest.json`. That's OneDrive syncing the `.next` directory, not a code error — `rm -rf .next` and rebuild.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`.
