@@ -6,7 +6,10 @@ import { toast } from "sonner";
 
 import type { LeagueCourt } from "@/lib/db/schema";
 import type { VenueSummary } from "@/lib/venues/resolve";
-import { assignCourtVenuesAction } from "@/server/actions/venues";
+import {
+  assignCourtVenuesAction,
+  suggestVenueAssignmentAction,
+} from "@/server/actions/venues";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -64,6 +67,35 @@ export function CourtVenuesCard({
     setRows((prev) =>
       prev.map((r, i) => (i === index ? { ...r, venueId } : r)),
     );
+  }
+
+  /**
+   * Fill the division selects from the packer. Deliberately does NOT save — the
+   * organizer reviews a proposal in the same controls they'd use by hand.
+   */
+  function suggest() {
+    start(async () => {
+      const res = await suggestVenueAssignmentAction(competitionId);
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      const byDivision = new Map(
+        res.placements.map((p) => [p.divisionId, p.venueId]),
+      );
+      setDivRows((prev) =>
+        prev.map((d) => ({ ...d, venueId: byDivision.get(d.id) ?? d.venueId })),
+      );
+      if (res.unplaced.length > 0) {
+        toast.warning(
+          `${res.unplaced.length} division${res.unplaced.length === 1 ? "" : "s"} couldn't be placed: ${res.unplaced[0].reason}`,
+        );
+      } else {
+        toast.success(
+          `Proposed ${res.placements.length} placements. Review and save.`,
+        );
+      }
+    });
   }
 
   function save() {
@@ -145,9 +177,25 @@ export function CourtVenuesCard({
             <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Divisions
             </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-muted-foreground flex-1 text-xs">
+                A division plays its night in one building. The generator uses
+                this to hand out courts per venue instead of from one pool.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={suggest}
+                disabled={pending}
+              >
+                {pending ? "Working…" : "Auto-assign"}
+              </Button>
+            </div>
             <p className="text-muted-foreground text-xs">
-              A division plays its night in one building. The generator uses
-              this to hand out courts per venue instead of from one pool.
+              Auto-assign packs divisions into your gyms and gives the early
+              slots to whoever has been playing latest. It fills the boxes below
+              — nothing is saved until you say so.
             </p>
             <ul className="divide-border divide-y">
               {divRows.map((d, i) => (
