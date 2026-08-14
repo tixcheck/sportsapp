@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type SetPairing,
+  assignNightRefs,
   describeNight,
+  everyoneAlwaysBusy,
   maxLateStartSlots,
   orderTierNight,
-  type SetPairing,
 } from "@/lib/scheduler/ladder-night";
 
 /** Every pairing `times` over. */
@@ -174,5 +176,103 @@ describe("describeNight", () => {
     expect(a.slots).toEqual([0, 1, 3]);
     expect(a.maxConsecutive).toBe(2);
     expect(a.longestWait).toBe(1);
+  });
+});
+
+describe("referees", () => {
+  const teams = ["A", "B", "C", "TOP"];
+  const sets = doubleRR(teams);
+
+  it("never asks a team to referee a game it is playing in", () => {
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    const { refs } = assignNightRefs({ order, teamIds: teams });
+    order.forEach((s, i) => {
+      expect(refs[i]).not.toBe(s.homeTeamId);
+      expect(refs[i]).not.toBe(s.awayTeamId);
+    });
+  });
+
+  it("covers every game when a team is always sitting", () => {
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    const { refs, uncovered } = assignNightRefs({ order, teamIds: teams });
+    expect(uncovered).toEqual([]);
+    expect(refs.every(Boolean)).toBe(true);
+  });
+
+  it("never rosters the late team before it has arrived", () => {
+    const { order } = orderTierNight({
+      sets,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    const { refs } = assignNightRefs({
+      order,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    expect(refs.slice(0, 4)).not.toContain("TOP");
+    // and the early games are still covered by whoever is actually there
+    expect(refs.slice(0, 4).every(Boolean)).toBe(true);
+  });
+
+  it("still gives the late team some duty once it is in the building", () => {
+    const { order } = orderTierNight({
+      sets,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    const { countByTeam } = assignNightRefs({
+      order,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    expect(countByTeam.TOP).toBeGreaterThan(0);
+  });
+
+  it("shares the load evenly when everyone is there all night", () => {
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    const { countByTeam } = assignNightRefs({ order, teamIds: teams });
+    const counts = Object.values(countByTeam);
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+
+  it("assigns every slot in a three-team tier to the one sitting team", () => {
+    const three = ["A", "B", "C"];
+    const { order } = orderTierNight({ sets: doubleRR(three), teamIds: three });
+    const { refs, uncovered } = assignNightRefs({ order, teamIds: three });
+    expect(uncovered).toEqual([]);
+    order.forEach((s, i) => {
+      const sitting = three.find(
+        (t) => t !== s.homeTeamId && t !== s.awayTeamId,
+      );
+      expect(refs[i]).toBe(sitting);
+    });
+  });
+
+  it("flags that a three-team tier never gets a genuine break", () => {
+    // Playing or officiating, all night — worth knowing before the organizer
+    // hears it courtside.
+    expect(everyoneAlwaysBusy(3)).toBe(true);
+    expect(everyoneAlwaysBusy(4)).toBe(false);
+  });
+
+  it("is deterministic", () => {
+    const { order } = orderTierNight({ sets, teamIds: teams, seed: 2 });
+    const a = assignNightRefs({ order, teamIds: teams });
+    const b = assignNightRefs({ order, teamIds: teams });
+    expect(a.refs).toEqual(b.refs);
+  });
+
+  it("reports a slot it cannot cover rather than inventing a referee", () => {
+    // Two teams on court, nobody left over.
+    const two = ["A", "B"];
+    const order: SetPairing[] = [{ homeTeamId: "A", awayTeamId: "B" }];
+    const { refs, uncovered } = assignNightRefs({ order, teamIds: two });
+    expect(refs).toEqual([null]);
+    expect(uncovered).toEqual([0]);
   });
 });
