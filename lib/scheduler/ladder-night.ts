@@ -199,3 +199,101 @@ export function orderTierNight(input: NightOrderInput): NightOrderResult {
     lateStartApplied: lateStart,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Referees
+// ---------------------------------------------------------------------------
+
+export interface RefAssignInput {
+  /** The night in slot order, as returned by `orderTierNight`. */
+  order: SetPairing[];
+  teamIds: TeamId[];
+  /**
+   * A team that isn't in the building yet, and the number of opening slots it
+   * misses. It cannot referee a game it hasn't arrived for — the constraint
+   * that makes this more than "pick anyone who's sitting".
+   */
+  lateTeamId?: TeamId | null;
+  lateStartSlots?: number;
+}
+
+export interface RefAssignment {
+  /** Referee per slot, aligned with `order`. Null when nobody is free. */
+  refs: (TeamId | null)[];
+  /** How many games each team referees. */
+  countByTeam: Record<TeamId, number>;
+  /** Slots with no available referee — always empty for a 3+ team tier. */
+  uncovered: number[];
+}
+
+/**
+ * Give every game a referee drawn from the teams sitting that slot.
+ *
+ * Two rules the organizer set, and one the arithmetic sets:
+ *
+ *   - Only a team that is SITTING can referee. It can't play and officiate at
+ *     once.
+ *   - Only a team that has ARRIVED can referee. The tier's late-starting top
+ *     team is absent for the opening slots, so those games have to be covered
+ *     by the teams already there.
+ *   - The load is spread as evenly as the first two rules allow. It will not
+ *     come out equal: a team absent for a third of the night is sitting-and-
+ *     present far less often than the others, so it referees less. That is a
+ *     consequence of the late start, not a flaw in the sharing.
+ *
+ * Ties break towards whoever refereed longest ago, so duty rotates rather than
+ * landing on the same team twice in a row; then on team id, so a redraw of the
+ * same night gives the same officials.
+ */
+export function assignNightRefs(input: RefAssignInput): RefAssignment {
+  const { order, teamIds, lateTeamId = null } = input;
+  const lateStart = Math.max(0, input.lateStartSlots ?? 0);
+
+  const refs: (TeamId | null)[] = [];
+  const uncovered: number[] = [];
+  const count: Record<TeamId, number> = Object.fromEntries(
+    teamIds.map((t) => [t, 0]),
+  );
+  const lastRefSlot: Record<TeamId, number> = Object.fromEntries(
+    teamIds.map((t) => [t, -1]),
+  );
+
+  order.forEach((set, slot) => {
+    const present = (t: TeamId) =>
+      !(lateTeamId && t === lateTeamId && slot < lateStart);
+
+    const candidates = teamIds.filter(
+      (t) => t !== set.homeTeamId && t !== set.awayTeamId && present(t),
+    );
+
+    if (candidates.length === 0) {
+      refs.push(null);
+      uncovered.push(slot);
+      return;
+    }
+
+    candidates.sort(
+      (a, b) =>
+        count[a] - count[b] ||
+        lastRefSlot[a] - lastRefSlot[b] ||
+        a.localeCompare(b),
+    );
+    const chosen = candidates[0];
+    refs.push(chosen);
+    count[chosen] += 1;
+    lastRefSlot[chosen] = slot;
+  });
+
+  return { refs, countByTeam: count, uncovered };
+}
+
+/**
+ * Whether a tier ever gives its teams a genuine break.
+ *
+ * With three teams on one court exactly one team sits each slot, so it must
+ * referee every time — a team is playing or officiating for the whole night,
+ * never idle. Worth surfacing rather than discovering courtside.
+ */
+export function everyoneAlwaysBusy(teamCount: number): boolean {
+  return teamCount <= 3;
+}
