@@ -5,6 +5,54 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-14 — Mango Sports ladder: per-tier nights and the staggered start
+
+**Shipped.** An organizer asked for a 2-tier ladder where the tiers run on
+genuinely different timetables, and one team arrives late as a reward for
+finishing top. Every part of that broke an assumption in the ladder engine.
+
+- **Migration `0073`** (applied). Per-tier overrides on `divisions`:
+  `ladder_target`, `minutes_per_set`, `start_time`, `late_start_slots`. Null
+  means "use the league's value", so every existing ladder is untouched.
+  `divisions.courts` already existed for court pinning.
+- **`lib/scheduler/ladder-night.ts`** — orders one tier's sets across its own
+  night on a single court. `ladder-split.ts` decides who plays whom; this
+  decides the running order, which is what players actually feel: no more than
+  two sets back to back, no 45-minute waits, and **no back-to-back rematches**
+  (the first attempt put the same pairing in slots 11 and 12).
+- **The staggered start is expressed in SLOTS, not a clock time**, so "skip the
+  first four sets" survives a change to set length.
+- **The naive version of a late start is a trap**, and there's a test that says
+  so: held back as long as arithmetically possible (8:30 here), the top team
+  then has to play all six remaining slots **consecutively** — 90 minutes
+  without a break, as the reward for winning. Arriving at 8:00 instead gives
+  play-2, rest, play-2, rest, play-2.
+
+**The league is live**: `/l/mango-ladder-fall-2026` — 7 teams, 2 tiers, 5
+Tuesdays Aug 18 → Sep 15, week 1 drawn (18 sets).
+
+| | Teams | Sets each | Set length | Window | Court |
+|---|---|---|---|---|---|
+| Tier 1 | 3 | 4 | 20 min | 8:00–10:00 | 1 |
+| Tier 2 | 4 | 6 | 15 min | 7:00–10:00 | 2 |
+
+Sets to 25 win by 2, 1 up / 1 down between tiers. Verified on the drawn night:
+everyone gets their full share, nobody plays more than 2 in a row, longest wait
+is 2 slots.
+
+**Only week 1 is drawn, deliberately.** A ladder can't be pre-generated — who
+plays whom in week 2 depends on where week 1 finishes — so the season carries a
+calendar and each night is drawn once the previous one is scored.
+
+**Tests:** 824 passing across 68 files. tsc, eslint and build clean.
+
+**Not done:** `drawLadderWeekAction` still uses the league-wide values and packs
+tiers into shared waves, so weeks 2–5 need the draw action taught to read the
+per-tier columns. Week 1 was written directly. There's also no UI yet for
+setting the per-tier fields.
+
+---
+
 ## 2026-08-13 (later still) — Auto venue assignment
 
 **Shipped.** Slice two taught the generator to respect a division's venue; this

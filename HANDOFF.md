@@ -12,7 +12,21 @@
 - **Branch:** `main`. **Latest commit:** venues + Slice C completion — pushed, working tree clean, no unmerged feature branches.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0072`, and all of `0060`–`0072` verified as applied against the live database on 2026-08-13.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0073`, and all of `0060`–`0073` verified as applied against the live database.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **`0073` (per-tier ladder) IS applied** — 2026-08-14. `divisions` gains
+    `ladder_target`, `minutes_per_set`, `start_time`, `late_start_slots`. Null =
+    use the league's value, so existing ladders are untouched. Built for the
+    Mango Sports ladder, whose two tiers run different targets, set lengths,
+    start times AND courts.
+    - **`lib/scheduler/ladder-night.ts`** orders one tier's sets on its own
+      court: max 2 sets in a row, no back-to-back rematches, and a late-arriving
+      top team that still gets breaks.
+    - **A late start held as long as arithmetically possible is a trap** — the
+      top team then plays every remaining slot consecutively. There's a test
+      asserting exactly that, so nobody "fixes" it back.
+    - **`drawLadderWeekAction` has NOT been taught these columns yet.** It still
+      reads the league-wide values and packs tiers into shared waves. Mango's
+      week 1 was written directly; weeks 2-5 need the draw action updated.
   - **Auto venue assignment** (no migration) — `lib/scheduler/venue-assign.ts`
     packs divisions into gyms and rotates who gets the early block, seeded from
     the games already played. Surfaced as an **Auto-assign** button that fills
@@ -79,7 +93,7 @@
   - **`0060` (payment_accounts) IS applied** — 2026-08-12, on the owner's go once Stripe test keys landed. Purely additive: the `payment_accounts` table (14 columns), the `(org_id, livemode)` unique constraint, `payment_accounts_org_id_idx`, RLS on with the single SELECT policy, and `link_payment_account` (SECURITY DEFINER). No existing data touched; table starts empty. Verified by impersonating a real org owner in a rolled-back transaction: first call inserted, second call returned the SAME id while ignoring the second account (the idempotency the onboarding action depends on), RLS let that admin read the row, and an `anon` caller was refused — then rolled back to 0 rows.
     - Note: Postgres grants EXECUTE on functions to `PUBLIC` by default, so `anon` holds EXECUTE on `link_payment_account`. Harmless — the function's own `is_org_admin` check raises for a caller with no `auth.uid()` (proven above) — but a `revoke execute ... from public, anon` would be tidier defense in depth.
   - For `0050`–`0059`, **confirm with the owner before assuming.**
-- **Tests:** `npm test` → **809 passing across 67 files** (verified 2026-08-13). tsc, eslint, prettier and `next build` clean.
+- **Tests:** `npm test` → **824 passing across 68 files** (verified 2026-08-14). tsc, eslint, prettier and `next build` clean.
   - **Build gotcha:** `next build` intermittently dies with `EINVAL: invalid argument, readlink .next/server/functions-config-manifest.json`. That's OneDrive syncing the `.next` directory, not a code error — `rm -rf .next` and rebuild.
 - **In flight:** registration **payments** (Stripe Connect) — decisions locked
   2026-07-30, plan at `docs/plans/registration-payments.md`.
