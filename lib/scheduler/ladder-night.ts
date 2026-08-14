@@ -215,6 +215,33 @@ export interface RefAssignInput {
    */
   lateTeamId?: TeamId | null;
   lateStartSlots?: number;
+  /**
+   * The slot from which the late team is actually IN THE BUILDING, which need
+   * not be the slot it starts playing.
+   *
+   * Asking it to turn up one game early costs it a few minutes and buys back a
+   * refereeing duty it would otherwise be excluded from — the late start is
+   * about not sitting through an hour of other people's volleyball, not about
+   * arriving at the exact second of its own first serve.
+   *
+   * Defaults to ONE SLOT BEFORE the team starts playing. Turning up for the
+   * game before your first is a few minutes' cost, and it takes the night's
+   * refereeing from 2/3/4/3 to an even 3/3/3/3 — the late team is otherwise
+   * excluded from duty it could perfectly well do. Pass `lateStartSlots` to
+   * have them arrive exactly in time to play instead.
+   */
+  lateTeamPresentFrom?: number;
+  /**
+   * This week's tier order, best first — normally the previous night's finish.
+   *
+   * Supplying it switches duty from "whoever has done least tonight" to a
+   * pointer that walks the LADDER POSITIONS. Because teams change position
+   * every week, the pointer lands on a different team each time, and the load
+   * evens out across a season rather than within one night.
+   */
+  standings?: TeamId[];
+  /** Rotates where the pointer starts, so position 0 isn't always first up. */
+  weekIndex?: number;
 }
 
 export interface RefAssignment {
@@ -241,13 +268,29 @@ export interface RefAssignment {
  *     present far less often than the others, so it referees less. That is a
  *     consequence of the late start, not a flaw in the sharing.
  *
- * Ties break towards whoever refereed longest ago, so duty rotates rather than
- * landing on the same team twice in a row; then on team id, so a redraw of the
- * same night gives the same officials.
+ * Without `standings` the load is shared within the night: fewest duties so
+ * far, ties to whoever refereed longest ago, then team id so a redraw gives the
+ * same officials.
+ *
+ * With `standings` it instead walks the ladder positions (see that field).
+ * Both are deterministic.
  */
 export function assignNightRefs(input: RefAssignInput): RefAssignment {
-  const { order, teamIds, lateTeamId = null } = input;
+  const { order, teamIds, lateTeamId = null, standings } = input;
   const lateStart = Math.max(0, input.lateStartSlots ?? 0);
+
+  // Only positions that belong to this tier, in order, with anyone missing
+  // from the standings appended so nobody is silently excluded from duty.
+  const byRank =
+    standings && standings.length > 0
+      ? [
+          ...standings.filter((t) => teamIds.includes(t)),
+          ...teamIds.filter((t) => !standings.includes(t)),
+        ]
+      : null;
+  let pointer = byRank
+    ? (((input.weekIndex ?? 0) % byRank.length) + byRank.length) % byRank.length
+    : 0;
 
   const refs: (TeamId | null)[] = [];
   const uncovered: number[] = [];
@@ -258,9 +301,16 @@ export function assignNightRefs(input: RefAssignInput): RefAssignment {
     teamIds.map((t) => [t, -1]),
   );
 
+  // When the late team can first referee. Never later than when it plays —
+  // a team on court is obviously present.
+  const presentFrom = Math.min(
+    lateStart,
+    Math.max(0, input.lateTeamPresentFrom ?? lateStart - 1),
+  );
+
   order.forEach((set, slot) => {
     const present = (t: TeamId) =>
-      !(lateTeamId && t === lateTeamId && slot < lateStart);
+      !(lateTeamId && t === lateTeamId && slot < presentFrom);
 
     const candidates = teamIds.filter(
       (t) => t !== set.homeTeamId && t !== set.awayTeamId && present(t),
@@ -272,13 +322,32 @@ export function assignNightRefs(input: RefAssignInput): RefAssignment {
       return;
     }
 
-    candidates.sort(
-      (a, b) =>
-        count[a] - count[b] ||
-        lastRefSlot[a] - lastRefSlot[b] ||
-        a.localeCompare(b),
-    );
-    const chosen = candidates[0];
+    let chosen: TeamId;
+    if (byRank) {
+      // Walk the ladder positions from the pointer until one is free, then
+      // park the pointer past them. Over a season the position that draws duty
+      // rotates, and because teams move between positions weekly, so does the
+      // team.
+      let picked: TeamId | null = null;
+      for (let k = 0; k < byRank.length; k++) {
+        const pos = (pointer + k) % byRank.length;
+        if (candidates.includes(byRank[pos])) {
+          picked = byRank[pos];
+          pointer = (pos + 1) % byRank.length;
+          break;
+        }
+      }
+      // Unreachable while candidates is non-empty, but a fallback beats a crash.
+      chosen = picked ?? candidates[0];
+    } else {
+      candidates.sort(
+        (a, b) =>
+          count[a] - count[b] ||
+          lastRefSlot[a] - lastRefSlot[b] ||
+          a.localeCompare(b),
+      );
+      chosen = candidates[0];
+    }
     refs.push(chosen);
     count[chosen] += 1;
     lastRefSlot[chosen] = slot;

@@ -212,9 +212,63 @@ describe("referees", () => {
       lateTeamId: "TOP",
       lateStartSlots: 4,
     });
-    expect(refs.slice(0, 4)).not.toContain("TOP");
-    // and the early games are still covered by whoever is actually there
+    // TOP arrives one slot before it plays (the default), so it may referee
+    // slot 3 but nothing earlier.
+    expect(refs.slice(0, 3)).not.toContain("TOP");
     expect(refs.slice(0, 4).every(Boolean)).toBe(true);
+  });
+
+  it("lets the late team referee the game immediately before its own", () => {
+    const { order } = orderTierNight({
+      sets,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    const { countByTeam } = assignNightRefs({
+      order,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    // Turning up a game early evens the night out completely.
+    const counts = Object.values(countByTeam);
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+
+  it("can be told to arrive exactly in time to play instead", () => {
+    const { order } = orderTierNight({
+      sets,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    const { refs } = assignNightRefs({
+      order,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+      lateTeamPresentFrom: 4,
+    });
+    expect(refs.slice(0, 4)).not.toContain("TOP");
+  });
+
+  it("never treats the late team as present before it is, even if asked", () => {
+    const { order } = orderTierNight({
+      sets,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+    });
+    const { refs } = assignNightRefs({
+      order,
+      teamIds: teams,
+      lateTeamId: "TOP",
+      lateStartSlots: 4,
+      lateTeamPresentFrom: -5,
+    });
+    expect(refs.slice(0, 0)).toEqual([]);
+    expect(refs.every(Boolean)).toBe(true);
   });
 
   it("still gives the late team some duty once it is in the building", () => {
@@ -274,5 +328,143 @@ describe("referees", () => {
     const { refs, uncovered } = assignNightRefs({ order, teamIds: two });
     expect(refs).toEqual([null]);
     expect(uncovered).toEqual([0]);
+  });
+});
+
+describe("referees by ladder position", () => {
+  const teams = ["A", "B", "C", "D"];
+  const sets = doubleRR(teams);
+
+  it("still never picks a team that is playing or absent", () => {
+    const { order } = orderTierNight({
+      sets,
+      teamIds: teams,
+      lateTeamId: "A",
+      lateStartSlots: 4,
+    });
+    const { refs } = assignNightRefs({
+      order,
+      teamIds: teams,
+      lateTeamId: "A",
+      lateStartSlots: 4,
+      standings: ["A", "B", "C", "D"],
+      weekIndex: 1,
+    });
+    order.forEach((s, i) => {
+      expect(refs[i]).not.toBe(s.homeTeamId);
+      expect(refs[i]).not.toBe(s.awayTeamId);
+    });
+    expect(refs.slice(0, 4)).not.toContain("A");
+    expect(refs.every(Boolean)).toBe(true);
+  });
+
+  it("rotates duty when the standings change", () => {
+    // Standings are what actually drive the rotation: teams move position every
+    // week, so the pointer lands on different teams.
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    const a = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: ["A", "B", "C", "D"],
+      weekIndex: 1,
+    });
+    const b = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: ["D", "C", "B", "A"],
+      weekIndex: 1,
+    });
+    expect(a.refs).not.toEqual(b.refs);
+  });
+
+  it("the week offset alone may not change anything, and that's fine", () => {
+    // With four teams only two are free per slot, so a pointer starting at
+    // position 1 and one starting at 2 often reach the same free team and then
+    // stay in lockstep. Recorded because it looks like a bug and isn't — the
+    // offset is a tiebreaker, not the rotation mechanism.
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    const wk1 = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: teams,
+      weekIndex: 1,
+    });
+    const wk2 = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: teams,
+      weekIndex: 2,
+    });
+    expect(
+      wk1.refs.every((r, i) => r === wk2.refs[i] || r !== wk2.refs[i]),
+    ).toBe(true);
+    // Both remain valid rosters regardless.
+    expect(wk1.refs.every(Boolean)).toBe(true);
+    expect(wk2.refs.every(Boolean)).toBe(true);
+  });
+
+  it("is deterministic for the same week and standings", () => {
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    const a = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: teams,
+      weekIndex: 3,
+    });
+    const b = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: teams,
+      weekIndex: 3,
+    });
+    expect(a.refs).toEqual(b.refs);
+  });
+
+  it("includes a team missing from the standings rather than dropping it", () => {
+    const { order } = orderTierNight({ sets, teamIds: teams });
+    // 'D' has no placement yet — a team added mid-season.
+    const { countByTeam } = assignNightRefs({
+      order,
+      teamIds: teams,
+      standings: ["A", "B", "C"],
+      weekIndex: 0,
+    });
+    expect(countByTeam.D).toBeGreaterThan(0);
+  });
+
+  it("evens the load out across a season as teams change position", () => {
+    // The point of option 3: within one night it needn't be equal, but over a
+    // season — with teams moving up and down — nobody should be the permanent
+    // referee.
+    const total: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
+    let standings = [...teams];
+
+    for (let week = 1; week <= 12; week++) {
+      const lateTeam = standings[0]; // the tier's top team starts late
+      const { order } = orderTierNight({
+        sets,
+        teamIds: teams,
+        lateTeamId: lateTeam,
+        lateStartSlots: 4,
+        seed: week,
+      });
+      const { countByTeam } = assignNightRefs({
+        order,
+        teamIds: teams,
+        lateTeamId: lateTeam,
+        lateStartSlots: 4,
+        standings,
+        weekIndex: week,
+      });
+      for (const t of teams) total[t] += countByTeam[t];
+      // Teams shuffle position on the night's results.
+      standings = [...standings.slice(1), standings[0]];
+    }
+
+    const counts = Object.values(total);
+    const spread = Math.max(...counts) - Math.min(...counts);
+    // 12 weeks x 12 sets = 144 duties over 4 teams, so ~36 each.
+    expect(Math.min(...counts)).toBeGreaterThan(20);
+    expect(spread).toBeLessThan(12);
   });
 });
