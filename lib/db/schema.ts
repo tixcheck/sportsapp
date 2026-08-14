@@ -462,6 +462,24 @@ export const divisions = pgTable(
     venueId: uuid("venue_id").references(() => venues.id, {
       onDelete: "set null",
     }),
+    /**
+     * Per-tier ladder overrides (migration 0073). Null = use the league's
+     * value, which is every ladder that predates this.
+     *
+     * A ladder's tiers can run on genuinely different timetables: 3 teams at 4
+     * sets of 20 minutes from 8pm on one court, 4 teams at 6 sets of 15 from
+     * 7pm on another.
+     */
+    ladderTarget: integer("ladder_target"),
+    minutesPerSet: integer("minutes_per_set"),
+    /** Local "HH:mm" in the competition's timezone. */
+    startTime: text("start_time"),
+    /**
+     * Opening slots this tier's TOP team sits out — the staggered start, where
+     * finishing top earns a later arrival. In slots rather than a clock time so
+     * it survives a change to the set length.
+     */
+    lateStartSlots: integer("late_start_slots"),
     // Multi-day/multi-court: the specific court numbers this division plays on.
     // Null/empty = share the tournament's whole court pool (still scheduled as a
     // contiguous block per division, never interleaved with another division).
