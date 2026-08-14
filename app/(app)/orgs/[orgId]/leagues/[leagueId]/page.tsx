@@ -49,6 +49,7 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { CourtVenuesCard } from "@/components/venues/court-venues-card";
+import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { getOrgVenues, getVenueIssues } from "@/lib/queries/venues";
 import { ScheduleIssuesCard } from "@/components/venues/schedule-issues-card";
 import { getCompetitionLedger } from "@/lib/queries/payments";
@@ -432,6 +433,15 @@ export default async function LeaguePage({
       />
 
       {orgVenues.length > 0 && <ScheduleIssuesCard issues={venueIssues} />}
+
+      <EventBlurbCard
+        competitionId={league.id}
+        registerPath={`/register/${league.slug}`}
+        initial={{
+          description: league.description ?? null,
+          bannerUrl: league.bannerUrl ?? null,
+        }}
+      />
 
       <RegistrationFeeCard
         competitionId={league.id}

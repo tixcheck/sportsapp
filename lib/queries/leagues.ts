@@ -45,6 +45,9 @@ export interface LeagueDetail {
   startDate: string | null;
   endDate: string | null;
   venue: string | null;
+  /** The organizer's blurb on the registration page (migration 0074). */
+  description: string | null;
+  bannerUrl: string | null;
   timezone: string;
   /** Editable settings (for the Edit-settings form). */
   matchFormat: MatchFormat;
@@ -166,7 +169,7 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", leagueId)
     .eq("type", "league")
@@ -237,6 +240,8 @@ export async function getLeagueDetail(
     startDate: league.start_date,
     endDate: league.end_date,
     venue: league.venue,
+    description: (league.description as string | null) ?? null,
+    bannerUrl: (league.banner_url as string | null) ?? null,
     timezone: league.timezone,
     matchFormat: league.match_format as MatchFormat,
     roundsPerTeam: settings?.rounds_per_team ?? 1,

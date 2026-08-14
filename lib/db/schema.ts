@@ -320,6 +320,14 @@ export const competitions = pgTable(
     startTime: text("start_time"),
     endTime: text("end_time"),
     venue: text("venue"),
+    /**
+     * The organizer's pitch, shown on the registration page (migration 0074).
+     * PLAIN TEXT — v0 allows no rich text, and this renders on a public page.
+     * Blank lines separate paragraphs, as in organizer broadcast emails.
+     */
+    description: text("description"),
+    /** A linked banner image. Not an upload — see migration 0074. */
+    bannerUrl: text("banner_url"),
     timezone: text("timezone").notNull().default("America/Toronto"),
     matchFormat: jsonb("match_format").$type<MatchFormat>().notNull(),
     visibility: competitionVisibility("visibility")
