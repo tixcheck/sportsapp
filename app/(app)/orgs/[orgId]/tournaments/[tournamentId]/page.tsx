@@ -56,6 +56,7 @@ import {
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
+import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { getCompetitionLedger } from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
@@ -492,6 +493,15 @@ export default async function TournamentPage({
           splitAllowed={payment.settings.allowSplitPayment}
         />
       )}
+
+      <EventBlurbCard
+        competitionId={t.id}
+        registerPath={`/register/${t.slug}`}
+        initial={{
+          description: t.description ?? null,
+          bannerUrl: t.bannerUrl ?? null,
+        }}
+      />
 
       <RegistrationFeeCard
         competitionId={t.id}

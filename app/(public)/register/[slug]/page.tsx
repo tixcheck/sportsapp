@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
-import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { getRegistrationEvent } from "@/lib/queries/registration";
 import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
 import { getUser } from "@/lib/auth/user";
+import {
+  EventDescription,
+  EventFacts,
+  EventVenues,
+  SpotsBadge,
+} from "@/components/public/event-details";
 import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
 import { registerLeagueTeamAction } from "@/server/actions/leagues";
 import { registerTeamAction } from "@/server/actions/tournaments";
@@ -72,7 +78,17 @@ export default async function RegisterPage({
   return (
     <div className="bg-background min-h-svh">
       <header className="border-border bg-surface border-b">
-        <div className="mx-auto max-w-xl px-4 py-8">
+        {event.bannerUrl && (
+          // A linked image, not an upload (migration 0074) — a broken link
+          // degrades to empty space rather than a broken layout.
+          // eslint-disable-next-line @next/next/no-img-element -- external URL, no loader configured
+          <img
+            src={event.bannerUrl}
+            alt=""
+            className="h-40 w-full object-cover sm:h-56"
+          />
+        )}
+        <div className="mx-auto max-w-2xl px-4 py-8">
           <Link href="/" className="inline-flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element -- brand logo, fixed height */}
             <img
@@ -81,35 +97,50 @@ export default async function RegisterPage({
               className="h-6 w-auto"
             />
           </Link>
-          <p className="text-primary mt-5 text-xs font-semibold tracking-wide uppercase">
-            {sportLabel} {event.type} · Registration
-          </p>
+
+          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <p className="text-primary text-xs font-semibold tracking-wide uppercase">
+              {sportLabel} {event.type} · Registration
+            </p>
+            <SpotsBadge event={event} />
+          </div>
+
           <h1 className="font-display text-foreground mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
             {event.name}
           </h1>
-          <p className="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {event.startDate && (
-              <span className="inline-flex items-center gap-1">
-                <CalendarDays className="size-3.5" />
-                {event.startDate}
-                {event.endDate && event.endDate !== event.startDate
-                  ? ` → ${event.endDate}`
-                  : ""}
-              </span>
+
+          <div className="mt-3 flex items-center gap-2">
+            {event.org.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- external URL, no loader configured
+              <img
+                src={event.org.logoUrl}
+                alt=""
+                className="size-6 rounded-full object-cover"
+              />
             )}
-            {event.venue && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="size-3.5" />
-                {event.venue}
+            <p className="text-muted-foreground text-sm">
+              Hosted by{" "}
+              <span className="text-foreground font-medium">
+                {event.org.name}
               </span>
-            )}
-          </p>
+            </p>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-xl space-y-6 px-4 py-8">
+      <main className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+        <EventFacts
+          event={event}
+          feeCents={fee ? fee.teamCents : null}
+          splitAllowed={fee?.allowSplitPayment ?? false}
+        />
+
+        {event.description && <EventDescription text={event.description} />}
+
+        <EventVenues event={event} />
+
         {event.registrationOpen ? (
-          <Card>
+          <Card id="register" className="scroll-mt-4">
             <CardHeader>
               <CardTitle>Register your team</CardTitle>
               <CardDescription>
@@ -168,14 +199,35 @@ export default async function RegisterPage({
           </Card>
         )}
 
-        <p className="text-muted-foreground text-center text-sm">
-          <Link
-            href={event.publicPath}
-            className="hover:text-foreground underline"
-          >
-            View the full {event.type} page
-          </Link>
-        </p>
+        <div className="border-border space-y-3 border-t pt-6 text-center">
+          {event.registrationOpen && (
+            <Button asChild size="lg">
+              <a href="#register">
+                Register your team
+                <ArrowRight className="size-4" />
+              </a>
+            </Button>
+          )}
+          <p className="text-muted-foreground text-sm">
+            <Link
+              href={event.publicPath}
+              className="hover:text-foreground underline"
+            >
+              View the full {event.type} page
+            </Link>
+            {event.org.contactEmail && (
+              <>
+                {" · "}
+                <a
+                  href={`mailto:${event.org.contactEmail}`}
+                  className="hover:text-foreground underline"
+                >
+                  Questions? Email {event.org.name}
+                </a>
+              </>
+            )}
+          </p>
+        </div>
       </main>
     </div>
   );

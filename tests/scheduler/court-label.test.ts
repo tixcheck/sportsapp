@@ -5,6 +5,7 @@ import {
   normalizeCourtLabel,
   sameCourt,
 } from "@/lib/scheduler/court-label";
+import { numberedCourts } from "@/lib/scheduler/court-respread";
 
 describe("normalizeCourtLabel", () => {
   it("strips the display prefix so stored values match court_list labels", () => {
@@ -68,8 +69,11 @@ describe("the canonical-storage invariant", () => {
     expect(sameCourt(normalizeCourtLabel("11"), "Court 11")).toBe(true);
   });
 
-  it("numberedCourts output is already canonical", async () => {
-    const { numberedCourts } = await import("@/lib/scheduler/court-respread");
+  it("numberedCourts output is already canonical", () => {
+    // Statically imported: as a dynamic import inside the test body this
+    // intermittently blew the 5s timeout when the transform cache was cold
+    // (right after a build wipes .next), failing the pre-commit hook on a
+    // green suite.
     for (const label of numberedCourts(5)) {
       expect(normalizeCourtLabel(label)).toBe(label);
     }

@@ -47,6 +47,9 @@ export interface TournamentDetail {
   startTime: string | null;
   endTime: string | null;
   venue: string | null;
+  /** The organizer's blurb on the registration page (migration 0074). */
+  description: string | null;
+  bannerUrl: string | null;
   timezone: string;
   poolSize: number;
   /** Target round-robin games per team (falls back to poolSize − 1 for old data). */
@@ -140,7 +143,7 @@ export async function getTournamentDetail(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, visibility, start_date, end_date, start_time, end_time, venue, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, visibility, start_date, end_date, start_time, end_time, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
     )
     .eq("id", tournamentId)
     .eq("type", "tournament")
@@ -191,6 +194,8 @@ export async function getTournamentDetail(
     startTime: t.start_time,
     endTime: t.end_time,
     venue: t.venue,
+    description: (t.description as string | null) ?? null,
+    bannerUrl: (t.banner_url as string | null) ?? null,
     timezone: t.timezone,
     poolSize: settings?.pool_size ?? 4,
     gamesPerTeam:
