@@ -202,12 +202,44 @@ async function settleRegistrationPayment(
   const settled = data?.length ?? 0;
   if (settled > 0) {
     await confirmTeamIfPaid(admin, session);
+    await admitFreeAgentIfPaid(admin, session);
     // After confirming, so the receipt can tell the payer whether the TEAM is
     // covered. Never allowed to fail the webhook — see sendReceipt.
     await sendReceipt(admin, session);
   }
 
   return NextResponse.json({ received: true, settled });
+}
+
+/**
+ * Release a free agent into the pool once their own fee lands.
+ *
+ * The individual fee is a single charge for a single person, so unlike a team
+ * there is no sum to reconcile — this payment IS the whole fee. That makes the
+ * rule simple: paid means available for the organizer to place.
+ *
+ * Scoped to `pending_payment` so a replayed webhook can never resurrect
+ * somebody who has since withdrawn or already been put on a team.
+ */
+async function admitFreeAgentIfPaid(
+  admin: AdminClient,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const freeAgentId = session.metadata?.free_agent_id;
+  if (!freeAgentId) return;
+
+  const { error } = await admin
+    .from("free_agents")
+    .update({ status: "available", updated_at: new Date().toISOString() })
+    .eq("id", freeAgentId)
+    .eq("status", "pending_payment");
+
+  if (error) {
+    // Logged, not thrown: the money is already recorded, and failing the
+    // webhook here would make Stripe retry a payment that did settle. The
+    // organizer can admit them by hand from the free-agent list.
+    console.error("[stripe-webhook] free agent admit failed");
+  }
 }
 
 /**

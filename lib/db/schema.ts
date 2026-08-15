@@ -142,6 +142,26 @@ export const teamMemberRole = pgEnum("team_member_role", ["captain", "player"]);
 export const registrationPaymentKind = pgEnum("registration_payment_kind", [
   "team_full",
   "player_share",
+  /** One free agent's own fee (migration 0076). Belongs to a person, not a team. */
+  "individual",
+]);
+
+/** How strong a free agent says they are. Mirrored in lib/sports.ts. */
+export const skillLevel = pgEnum("skill_level", [
+  "rec",
+  "rec_intermediate",
+  "intermediate",
+  "competitive",
+]);
+
+export const freeAgentStatus = pgEnum("free_agent_status", [
+  /** Signed up, individual fee outstanding — not yet offered to the organizer. */
+  "pending_payment",
+  /** Signed up and waiting to be placed on a team. */
+  "available",
+  /** The organizer put them on a team; `placedTeamId` says which. */
+  "placed",
+  "withdrawn",
 ]);
 
 export const teamStatus = pgEnum("team_status", [
@@ -353,6 +373,14 @@ export const competitions = pgTable(
     // can always enter regardless of these flags. require_confirmation gates
     // whether a submitted score needs a second party before it's final.
     allowCaptainEntry: boolean("allow_captain_entry").notNull().default(false),
+    /**
+     * Whether this event takes players who have no team ("free agents").
+     * Leagues and tournaments alike, so it lives here and not in
+     * league_settings. Off by default (migration 0076).
+     */
+    allowIndividualSignups: boolean("allow_individual_signups")
+      .notNull()
+      .default(false),
     allowRefEntry: boolean("allow_ref_entry").notNull().default(false),
     allowOrganizerEntry: boolean("allow_organizer_entry")
       .notNull()
@@ -1388,6 +1416,12 @@ export const competitionPaymentSettings = pgTable(
     registrationFeeCents: integer("registration_fee_cents")
       .notNull()
       .default(0),
+    /**
+     * What ONE free agent pays. Independent of the team fee — a league may
+     * charge $400 a team and $65 a head, and neither derives from the other.
+     * 0 = individual sign-up is free.
+     */
+    individualFeeCents: integer("individual_fee_cents").notNull().default(0),
     /** Captain may pay the whole team fee in one go. */
     allowCaptainPays: boolean("allow_captain_pays").notNull().default(true),
     /** Players may each pay their share; the team confirms once all land. */
@@ -1441,9 +1475,15 @@ export const registrationPayments = pgTable(
     competitionId: uuid("competition_id")
       .notNull()
       .references(() => competitions.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+    /**
+     * The paying team. Null for an individual's own fee, which belongs to a
+     * free agent instead — exactly one of the two is always set, enforced by
+     * the `registration_payments_one_payer` check (migration 0076).
+     */
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    freeAgentId: uuid("free_agent_id").references(() => freeAgents.id, {
+      onDelete: "cascade",
+    }),
     kind: registrationPaymentKind("kind").notNull(),
     status: registrationPaymentStatus("status").notNull().default("pending"),
     /** Which roster email this share belongs to. Null for a team_full charge. */
@@ -1488,5 +1528,63 @@ export const registrationPayments = pgTable(
   (t) => [
     index("registration_payments_team_idx").on(t.teamId),
     index("registration_payments_competition_idx").on(t.competitionId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Free agents (migration 0076) — people who signed up without a team.
+//
+// Deliberately NOT a `teams` row. A team is an ENTRANT: the schedule generator,
+// standings, the payments dashboard and the public team list all read `teams`.
+// A free agent is a person waiting to be placed, so modelling them as a team
+// would mean adding an exclusion to every one of those readers — and the day
+// one was missed, a free agent would appear in a fixture.
+// ---------------------------------------------------------------------------
+
+export const freeAgents = pgTable(
+  "free_agents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    /**
+     * Sign-up requires an account, so this is always set on the way in.
+     * `set null` rather than cascade: if the account goes, the organizer must
+     * still see who they were expecting.
+     */
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone"),
+    /**
+     * Positions they're comfortable in, most-preferred first. Values come from
+     * `sportConfig(sport).positions` — validated in the app rather than by a DB
+     * check, which would hard-code one sport's roles for every sport.
+     */
+    positions: text("positions").array().notNull().default([]),
+    skillLevel: skillLevel("skill_level").notNull(),
+    /** Anything else the organizer should know ("can only make 8pm starts"). */
+    notes: text("notes"),
+    status: freeAgentStatus("status").notNull().default("available"),
+    /** Set when the organizer places them. Null returns them to the pool. */
+    placedTeamId: uuid("placed_team_id").references(() => teams.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("free_agents_competition_idx").on(t.competitionId),
+    index("free_agents_user_idx").on(t.userId),
+    // One sign-up per person per competition — without it, a double-submit
+    // quietly bills someone twice.
+    unique("free_agents_one_per_user").on(t.competitionId, t.userId),
   ],
 );

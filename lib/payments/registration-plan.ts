@@ -18,6 +18,12 @@ import {
 export type RegistrationPricing = {
   /** What the organizer nets per TEAM, excluding tax. */
   registrationFeeCents: number;
+  /**
+   * What the organizer nets per INDIVIDUAL sign-up, excluding tax. Independent
+   * of the team fee — neither derives from the other. Absent/0 means individual
+   * sign-up is free even when teams pay.
+   */
+  individualFeeCents?: number;
   taxEnabled: boolean;
   /** Percent, e.g. 13 for Ontario HST. */
   taxPercent: number;
@@ -25,7 +31,7 @@ export type RegistrationPricing = {
 
 /** One charge to create at Stripe. */
 export type PlannedCharge = {
-  kind: "team_full" | "player_share";
+  kind: "team_full" | "player_share" | "individual";
   /** Roster email this share belongs to; null for a whole-team charge. */
   payerEmail: string | null;
   /** Organizer's net for this charge, excluding tax. */
@@ -401,4 +407,45 @@ function rank(status: ExistingShare["status"]): number {
   if (status === "paid") return 3;
   if (status === "pending") return 2;
   return 1;
+}
+
+/**
+ * The charge for one free agent paying their own way.
+ *
+ * Priced with the PLAYER_SHARE payer mode, not the team mode. That is not a
+ * shortcut — the platform fee is levied per payer, and a free agent is exactly
+ * one payer settling one person's entry. Charging them a per-team rate would
+ * bill one person as though they were a whole roster.
+ *
+ * Returns an empty array when individual sign-up is free, so the caller sends
+ * nobody to Stripe for a zero-amount session.
+ */
+export function planIndividualCharge({
+  pricing,
+  competitionType,
+  payerEmail,
+  rates,
+  stripe,
+}: {
+  pricing: RegistrationPricing;
+  competitionType: CompetitionType;
+  /** The signer-upper's email, so the row and the receipt agree. */
+  payerEmail: string | null;
+  rates: PlatformFeeRates;
+  stripe?: StripeRate;
+}): PlannedCharge[] {
+  const fee = pricing.individualFeeCents ?? 0;
+  if (fee <= 0) return [];
+  return [
+    chargeFor({
+      kind: "individual",
+      payerEmail,
+      priceCents: fee,
+      pricing,
+      competitionType,
+      payerMode: "player_share",
+      rates,
+      stripe,
+    }),
+  ];
 }
