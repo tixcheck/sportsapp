@@ -139,6 +139,7 @@ export function TournamentTabs({
                 showDivision={multiDivision}
                 myTeamIds={effectiveMyTeamIds}
                 format={tournament.poolFormat}
+                sport={tournament.sport}
               />
             </section>
           </>
@@ -156,6 +157,7 @@ export function TournamentTabs({
             timezone={poolsView!.timezone}
             myTeamIds={effectiveMyTeamIds}
             scorableMatchIds={scorableMatchIds}
+            sport={tournament.sport}
             slotMinutes={
               tournament.minutesPerGame ??
               estimateMatchMinutes(tournament.poolFormat)
@@ -277,6 +279,7 @@ export function TournamentTabs({
                               teamName={t.name}
                               schedule={schedule}
                               timezone={tz}
+                              sport={tournament.sport}
                               className="mt-0 sm:col-span-2 lg:col-span-3"
                             />
                           )}

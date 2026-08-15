@@ -13,6 +13,7 @@ import {
 import type { MyMatch } from "@/lib/queries/my-matches";
 import { cn } from "@/lib/utils";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
+import { sportConfig } from "@/lib/sports";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -130,10 +131,12 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
           {match.round
             ? `Round ${match.round}`
             : COMPETITION_LABEL[match.competitionType]}
-          {formatCourtLabel(match.court)
-            ? ` · ${formatCourtLabel(match.court)}`
+          {formatCourtLabel(match.court, match.sport)
+            ? ` · ${formatCourtLabel(match.court, match.sport)}`
             : ""}
-          {match.role === "ref" ? " · you ref" : ""}
+          {match.role === "ref"
+            ? ` · you ${sportConfig(match.sport).official.one.toLowerCase()}`
+            : ""}
         </span>
         <div className="flex items-center gap-2">
           {match.canConfirm ? (

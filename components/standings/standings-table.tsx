@@ -2,7 +2,9 @@ import { DateTime } from "luxon";
 
 import type { MatchFormat } from "@/lib/db/schema";
 import type { StandingsGroup, StandingsRowView } from "@/lib/standings/compute";
+import type { Sport } from "@/lib/formats";
 import { standingsLegendFlags } from "@/lib/formats";
+import { sportConfig } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 
@@ -29,6 +31,21 @@ const STAT_COLS: StatCol[] = [
   { key: "pa", label: "PA", hint: "Points against", cell: "" },
 ];
 
+/**
+ * Volleyball counts points, softball counts runs — the same two columns under
+ * different headers. Everything else in this table is sport-neutral already.
+ */
+function relabelPoints(cols: StatCol[], sport: Sport | undefined): StatCol[] {
+  const pts = sportConfig(sport ?? "indoor6").points;
+  return cols.map((c) =>
+    c.key === "pf"
+      ? { ...c, label: pts.short[0], hint: pts.for }
+      : c.key === "pa"
+        ? { ...c, label: pts.short[1], hint: pts.against }
+        : c,
+  );
+}
+
 const TIE_COL: StatCol = {
   key: "mt",
   label: "T",
@@ -45,12 +62,15 @@ export function StandingsTable({
   rows,
   myTeamIds = [],
   format,
+  sport,
   differential = false,
 }: {
   rows: StandingsRowView[];
   myTeamIds?: string[];
   /** When known, the match format drives which columns show (authoritative). */
   format?: MatchFormat;
+  /** Names the PF/PA columns. Defaults to volleyball. */
+  sport?: Sport;
   /** Point-differential tiebreaker: rank by PF − PA, not the OVA set/point
    * ratios — so the columns/legend match the organizer's chosen setting. */
   differential?: boolean;
@@ -82,9 +102,11 @@ export function StandingsTable({
 
   // Show the Tied column only for formats that can tie (2-set games); a
   // best-of-3 pool/league has no ties, so its table is unchanged.
-  const cols = rows.some((r) => r.mt > 0)
-    ? [base[0], TIE_COL, ...base.slice(1)]
-    : base;
+  const cols = relabelPoints(
+    rows.some((r) => r.mt > 0) ? [base[0], TIE_COL, ...base.slice(1)] : base,
+    sport,
+  );
+  const pts = sportConfig(sport ?? "indoor6").points;
 
   // Week-over-week: the ordered league nights any team played (leagues attach
   // per-night W/L; tournaments don't, so these columns simply don't appear).
@@ -118,8 +140,8 @@ export function StandingsTable({
             <th
               title={
                 differential
-                  ? "Point differential (PF − PA)"
-                  : "Point ratio (PF / PA)"
+                  ? `${pts.unit} differential (${pts.short[0]} − ${pts.short[1]})`
+                  : `${pts.unit} ratio (${pts.short[0]} / ${pts.short[1]})`
               }
               className="px-3 pb-2 text-right font-bold"
             >
@@ -244,12 +266,15 @@ export function StandingsTable({
  */
 export function StandingsLegend({
   className,
+  sport,
   singleSet = false,
   canTie = true,
   format,
   differential = false,
 }: {
   className?: string;
+  /** Names the PF/PA columns. Defaults to volleyball. */
+  sport?: Sport;
   /** One set per game: drop the set-ratio step and the SW/SL legend. */
   singleSet?: boolean;
   /** Whether a game can end in a tie (fixed 2-set play). Best-of-N can't. */
@@ -261,25 +286,31 @@ export function StandingsLegend({
 }) {
   const flags = format ? standingsLegendFlags(format) : { singleSet, canTie };
   const single = flags.singleSet;
-  const ties = !single && flags.canTie;
+  // `canTie` already accounts for single-set play: a lone volleyball set can't
+  // finish level, but a softball game can and says so via `allowTie`.
+  const ties = flags.canTie;
   const unit = single ? "games" : "matches";
+  const pts = sportConfig(sport ?? "indoor6").points;
   // In differential mode set ratio is not a tiebreaker — hide the SW/SL step.
   const showSets = !single && !differential;
   return (
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
       <p>
         <span className="font-semibold">How rankings are calculated:</span> by{" "}
-        {unit} won{ties ? " (a tied 2-set game counts as ½ a win)" : ""},
+        {unit} won{ties ? " (a tied game counts as ½ a win)" : ""},
         {differential
-          ? " then point differential (PF − PA),"
-          : `${showSets ? " then set ratio (SW / SL)," : ""} then point ratio (PF / PA),`}{" "}
+          ? ` then ${pts.unit.toLowerCase()} differential (${pts.short[0]} − ${pts.short[1]}),`
+          : `${showSets ? " then set ratio (SW / SL)," : ""} then ${pts.unit.toLowerCase()} ratio (${pts.short[0]} / ${pts.short[1]}),`}{" "}
         then head-to-head among teams still tied.
       </p>
       <p className="text-ink-3">
         GP games played / scheduled · MW/ML {unit} won/lost ·
         {ties ? " T tied ·" : ""}
-        {showSets ? " SW/SL sets ·" : ""} PF/PA points ·{" "}
-        {differential ? "Diff = PF − PA" : "Ratio = PF / PA"}
+        {showSets ? " SW/SL sets ·" : ""} {pts.short[0]}/{pts.short[1]}{" "}
+        {pts.unit.toLowerCase()}s ·{" "}
+        {differential
+          ? `Diff = ${pts.short[0]} − ${pts.short[1]}`
+          : `Ratio = ${pts.short[0]} / ${pts.short[1]}`}
       </p>
     </div>
   );
@@ -294,11 +325,14 @@ export function StandingsGroups({
   showDivision,
   myTeamIds = [],
   format,
+  sport,
   differential = false,
 }: {
   groups: StandingsGroup[];
   showDivision: boolean;
   myTeamIds?: string[];
+  /** Names the PF/PA columns. Defaults to volleyball. */
+  sport?: Sport;
   /** Pool-play format — makes the legend/columns accurate to the format. */
   format?: MatchFormat;
   /** Point-differential tiebreaker (leagues) — passed to each group's table. */
@@ -337,6 +371,7 @@ export function StandingsGroups({
             rows={g.rows}
             myTeamIds={myTeamIds}
             format={format}
+            sport={sport}
             differential={differential}
           />
         </section>
@@ -344,6 +379,7 @@ export function StandingsGroups({
       <StandingsLegend
         singleSet={singleSet}
         format={format}
+        sport={sport}
         differential={differential}
       />
     </div>

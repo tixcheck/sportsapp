@@ -5,6 +5,7 @@
  */
 import { DateTime } from "luxon";
 
+import type { Sport } from "@/lib/formats";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import type { ReminderItem } from "./templates/match-reminder";
 
@@ -18,6 +19,8 @@ export interface DigestMatchInput {
   timezone: string;
   court: string | null;
   round: number | null;
+  /** Names the surface — a softball player is told a field, not a court. */
+  sport?: Sport;
 }
 
 /** Sort key: the absolute instant, so games across competitions in different
@@ -56,7 +59,7 @@ export function buildReminderItems(
 
       // Court first: on the day, "which court" is the thing players scan for.
       const detail = [
-        formatCourtLabel(m.court),
+        formatCourtLabel(m.court, m.sport),
         m.round ? `Round ${m.round}` : null,
       ]
         .filter(Boolean)

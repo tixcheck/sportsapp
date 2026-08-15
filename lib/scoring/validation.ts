@@ -50,6 +50,7 @@ export function validateScore(
   const warnings: string[] = [];
   let homeSetsWon = 0;
   let awaySetsWon = 0;
+  let tiedSets = 0;
 
   sets.forEach((s, i) => {
     const n = i + 1;
@@ -61,7 +62,13 @@ export function validateScore(
       return;
     }
     if (s.home === s.away) {
-      errors.push(`Set ${n}: a set can't end tied (${s.home}–${s.away}).`);
+      if (!format.allowTie) {
+        errors.push(`Set ${n}: a set can't end tied (${s.home}–${s.away}).`);
+        return;
+      }
+      // A legal draw: neither side takes the set, and there is nothing else to
+      // check — a tie has no winner, no margin and no target to measure.
+      tiedSets += 1;
       return;
     }
 
@@ -74,6 +81,12 @@ export function validateScore(
     const margin = win - lose;
 
     const cap = format.capPoints;
+
+    if (format.untargeted) {
+      // Softball: seven innings or a clock, stopping wherever the score is.
+      // There is no target to fall short of or run past, and no win-by margin.
+      return;
+    }
 
     if (cap != null && win > cap) {
       // Nothing can go past a hard ceiling — the set ends the moment it's hit.
@@ -113,7 +126,10 @@ export function validateScore(
       }
     } else {
       const needed = Math.ceil(format.bestOf / 2);
-      if (Math.max(homeSetsWon, awaySetsWon) < needed) {
+      // A drawn game IS the result when the format permits draws — demanding a
+      // winner would make every legal softball tie un-recordable.
+      const settledByTie = format.allowTie && tiedSets === sets.length;
+      if (!settledByTie && Math.max(homeSetsWon, awaySetsWon) < needed) {
         blocks.push(
           `Enter enough sets to decide the match (best of ${format.bestOf}).`,
         );
@@ -176,7 +192,11 @@ export function validateSet(
     };
   }
   if (s.home === s.away) {
-    return { status: "reject", message: "A set can't end tied." };
+    // Volleyball sets cannot tie. A softball regular-season game can finish
+    // level; its playoff games clear `allowTie` and go to extra innings.
+    return format.allowTie
+      ? { status: "ok" }
+      : { status: "reject", message: "This game can't end tied." };
   }
   const win = Math.max(s.home, s.away);
   const lose = Math.min(s.home, s.away);
@@ -184,6 +204,12 @@ export function validateSet(
   const cap = format.capPoints;
   if (cap != null && win > cap) {
     return { status: "reject", message: `Goes past the cap of ${cap}.` };
+  }
+  // An untargeted game (softball: seven innings or a clock) stops wherever the
+  // score is, so "below the target" and "past the target" are both meaningless.
+  // Without this every blowout warns against a target that doesn't exist.
+  if (format.untargeted) {
+    return { status: "ok" };
   }
   if (win < target) {
     return { status: "warn", message: `Below the target of ${target}.` };

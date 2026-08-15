@@ -350,6 +350,7 @@ export default async function TournamentPage({
             matches={poolsView.schedule}
             timezone={t.timezone}
             editable
+            sport={t.sport}
             slotMinutes={t.minutesPerGame ?? estimateMatchMinutes(t.poolFormat)}
           />
         </CardContent>
@@ -386,6 +387,7 @@ export default async function TournamentPage({
           groups={standings}
           showDivision={t.divisions.length > 1}
           format={t.poolFormat}
+          sport={t.sport}
         />
       </CardContent>
     </Card>

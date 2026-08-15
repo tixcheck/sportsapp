@@ -5,6 +5,63 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-15 — Softball: the app stops assuming volleyball
+
+**Shipped.** A prospective organizer asked whether we could run their softball
+league. We can — and it cost far less than expected, because the scheduling
+engine turned out to be entirely sport-agnostic already: nothing in
+`lib/scheduler/` references `sport` at all. Round robins, divisions, pools,
+venues, court assignment and referee rotation all work unchanged.
+
+What WAS volleyball-specific was **scoring** and **vocabulary**.
+
+**Scoring.** A softball game is one final score, so it stores as a single `sets`
+row. Two new `match_format` flags carry the difference (jsonb — no DDL):
+
+- `untargeted` — there is no target to reach, so no "below the target" warning
+  and no win-by-two rule. A 15–0 game is just a 15–0 game.
+- `allowTie` — a regular-season game may finish level; a playoff game may not,
+  because it goes to extra innings. `validateScore` treats a drawn single game
+  as a complete result when the format says so, and rejects it when it doesn't.
+
+**A real bug this surfaced.** `computeStats` only counted a tie when both sides
+had won a set — true of a drawn volleyball game, false of any sport whose match
+IS a single period. A 6–6 softball game registered as nothing at all: not a win,
+not a loss, not even a game played. The guard is now "a score was recorded"
+rather than "someone won a set", which also makes a 0–0 tie count. Volleyball is
+unaffected (a drawn game is 1–1, so both tests agree). Five tests added.
+
+**Vocabulary.** `lib/sports.ts` is a small pure config layer — what a sport calls
+its surface, its scored periods, its officials, and its points columns. It
+replaced hard-coded "Court"/"Set"/"Ref"/"PF" strings across the schedule,
+standings, score entry, print view, dashboard and weekly digest.
+`formatCourtLabel(court, sport?)` is now the single entry point and defaults to
+volleyball, so every existing caller is correct without passing anything. Adding
+the sport after softball should be a config entry, not another sweep.
+
+Standings needed no new columns: softball's `differential` tiebreaker and
+single-set play already hid SW/SL and the set ratio. Only the labels moved —
+PF/PA → RF/RA, "point differential" → "run differential".
+
+**Migration `0075`** applied (the `sport` enum gained `softball`).
+
+**Mocked in Test Org** so the organizer can see it: *Sunday Softball — Fall 2026*
+at `/l/softball-mock-fall-2026`. Six teams, a full round robin over five
+Sundays, then a playoff week. Three diamonds across two parks — East and West at
+one, Oriole at the other — which exercises the venues model from `0071`. Three
+weeks are played, including two ties. **The fixtures come from the real
+`generatePairings`**, deliberately: that the untouched generator produces a
+softball schedule is the claim being demonstrated.
+
+**Assumed, not confirmed** — the organizer's own sheet was never supplied, so
+team count, dates, times, park names and team names are all invented. The shape
+is what matters; the specifics are a re-seed away.
+
+**Not done:** per-inning scoring (only the final score is recorded), and
+softball's own preset formats are in `lib/formats.ts` but no UI offers them yet.
+
+---
+
 ## 2026-08-14 — Mango Sports ladder: per-tier nights and the staggered start
 
 **Shipped.** An organizer asked for a 2-tier ladder where the tiers run on

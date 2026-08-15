@@ -393,3 +393,68 @@ describe("headToHeadTable — known-good OVA fixture", () => {
     expect(standings.every((r) => r.tiebreakerStep === 1)).toBe(true);
   });
 });
+
+/**
+ * A tie only used to register when each side had won a set — true of a drawn
+ * volleyball game, false of any sport whose match is a single period.
+ */
+describe("ties in single-period sports", () => {
+  const softball = (home: string, away: string, h: number, a: number) => ({
+    homeTeamId: home,
+    awayTeamId: away,
+    sets: [{ home: h, away: a }],
+  });
+
+  it("counts a level single-period game as a tie for both sides", () => {
+    const s = computeStats(["a", "b"], [softball("a", "b", 6, 6)]);
+    expect(s.get("a")!.mt).toBe(1);
+    expect(s.get("b")!.mt).toBe(1);
+    expect(s.get("a")!.mw).toBe(0);
+    expect(s.get("a")!.ml).toBe(0);
+  });
+
+  it("counts a scoreless tie — 0–0 is a result, not an absence of one", () => {
+    const s = computeStats(["a", "b"], [softball("a", "b", 0, 0)]);
+    expect(s.get("a")!.mt).toBe(1);
+    expect(s.get("b")!.mt).toBe(1);
+  });
+
+  it("still ignores a match with no sets recorded", () => {
+    const s = computeStats(
+      ["a", "b"],
+      [{ homeTeamId: "a", awayTeamId: "b", sets: [] }],
+    );
+    expect(s.get("a")!.mt).toBe(0);
+    expect(s.get("a")!.mw + s.get("a")!.ml).toBe(0);
+  });
+
+  it("gives a tie half a win when ranking", () => {
+    // b wins one and draws one; a draws one and loses one. b must rank first.
+    const rows = rankStandings(
+      ["a", "b"],
+      [softball("a", "b", 6, 6), softball("b", "a", 4, 1)],
+      undefined,
+      "differential",
+    );
+    expect(rows[0].teamId).toBe("b");
+  });
+
+  it("leaves a drawn two-set volleyball game exactly as it was", () => {
+    const s = computeStats(
+      ["a", "b"],
+      [
+        {
+          homeTeamId: "a",
+          awayTeamId: "b",
+          sets: [
+            { home: 25, away: 20 },
+            { home: 20, away: 25 },
+          ],
+        },
+      ],
+    );
+    expect(s.get("a")!.mt).toBe(1);
+    expect(s.get("a")!.sw).toBe(1);
+    expect(s.get("a")!.sl).toBe(1);
+  });
+});

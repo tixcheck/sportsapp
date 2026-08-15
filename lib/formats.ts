@@ -4,7 +4,7 @@
  */
 import type { MatchFormat } from "@/lib/db/schema";
 
-export type Sport = "indoor6" | "beach2" | "coed4";
+export type Sport = "indoor6" | "beach2" | "coed4" | "softball";
 
 export interface FormatPreset {
   id: string;
@@ -16,6 +16,11 @@ export const SPORTS: { value: Sport; label: string; roster: string }[] = [
   { value: "indoor6", label: "Indoor 6s", roster: "6 on court, up to 12" },
   { value: "beach2", label: "Beach 2s", roster: "2 players, no subs" },
   { value: "coed4", label: "Co-ed 4s", roster: "4 on court (2M/2W)" },
+  {
+    value: "softball",
+    label: "Softball",
+    roster: "10 fielders, roster of 12+",
+  },
 ];
 
 export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
@@ -112,6 +117,45 @@ export const FORMAT_PRESETS: Record<Sport, FormatPreset[]> = {
       format: { bestOf: 1, setsToPoints: [21], winBy: 1 },
     },
   ],
+  // One game, one final score. `untargeted` because softball stops at an
+  // innings count or a clock rather than at a number of runs; `allowTie`
+  // because a regular-season game may finish level.
+  softball: [
+    {
+      id: "softball-7innings",
+      label: "7 innings, ties allowed",
+      format: {
+        bestOf: 1,
+        setsToPoints: [0],
+        winBy: 1,
+        untargeted: true,
+        allowTie: true,
+      },
+    },
+    {
+      id: "softball-7innings-timed",
+      label: "7 innings or 60 minutes, ties allowed",
+      format: {
+        bestOf: 1,
+        setsToPoints: [0],
+        winBy: 1,
+        capMinutes: 60,
+        untargeted: true,
+        allowTie: true,
+      },
+    },
+    {
+      id: "softball-playoff",
+      label: "Playoffs — extra innings, no ties",
+      format: {
+        bestOf: 1,
+        setsToPoints: [0],
+        winBy: 1,
+        untargeted: true,
+        allowTie: false,
+      },
+    },
+  ],
 };
 
 /** Players on court per sport — the expected roster-email count at registration. */
@@ -119,6 +163,9 @@ export const ROSTER_SIZE: Record<Sport, number> = {
   indoor6: 6,
   beach2: 2,
   coed4: 4,
+  // Fielders, not the whole roster — this is the expected count of roster
+  // emails at registration, and a softball squad carries subs on top.
+  softball: 10,
 };
 
 /**
@@ -268,7 +315,12 @@ export function standingsLegendFlags(f: MatchFormat): {
   singleSet: boolean;
   canTie: boolean;
 } {
-  return { singleSet: f.bestOf === 1, canTie: f.bestOf % 2 === 0 };
+  // A fixed even number of sets can end level. So can any format that says so
+  // outright — a softball regular-season game is one "set" and may finish tied.
+  return {
+    singleSet: f.bestOf === 1,
+    canTie: f.bestOf % 2 === 0 || f.allowTie === true,
+  };
 }
 
 /**

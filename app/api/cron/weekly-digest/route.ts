@@ -1,3 +1,4 @@
+import type { Sport } from "@/lib/formats";
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { createClient } from "@supabase/supabase-js";
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
   // end_date — e.g. an undated draft — is kept; the match window still gates it.)
   const { data: comps } = await admin
     .from("competitions")
-    .select("id, name, slug, type, timezone")
+    .select("id, name, slug, type, sport, timezone")
     .in("status", ACTIVE)
     .or(`end_date.is.null,end_date.gte.${today}`);
   if (!comps || comps.length === 0) {
@@ -159,6 +160,7 @@ export async function GET(request: Request) {
           timezone: comp.timezone ?? "America/Toronto",
           court: mt.court,
           round: mt.round,
+          sport: comp.sport as Sport,
         });
       }
     }

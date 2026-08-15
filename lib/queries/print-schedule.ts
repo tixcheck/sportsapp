@@ -15,6 +15,7 @@ export interface PrintMatch {
 export interface PrintSchedule {
   name: string;
   type: string;
+  sport: string;
   venue: string | null;
   timezone: string;
   matches: PrintMatch[];
@@ -32,7 +33,7 @@ export async function getPrintSchedule(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("name, type, venue, timezone")
+    .select("name, type, sport, venue, timezone")
     .eq("id", competitionId)
     .single();
   if (!comp) return null;
@@ -112,6 +113,7 @@ export async function getPrintSchedule(
   return {
     name: comp.name,
     type: comp.type,
+    sport: comp.sport as string,
     venue: comp.venue,
     timezone: comp.timezone,
     matches,

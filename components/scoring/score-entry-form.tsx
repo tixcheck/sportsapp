@@ -1,5 +1,7 @@
 "use client";
 
+import type { Sport } from "@/lib/formats";
+import { sportConfig } from "@/lib/sports";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, TriangleAlert } from "lucide-react";
@@ -82,6 +84,7 @@ export function ScoreEntryForm({
   initialSets,
   requireConfirmation,
   isAdmin,
+  sport,
 }: {
   matchId: string;
   homeTeamName: string;
@@ -90,9 +93,19 @@ export function ScoreEntryForm({
   initialSets: { home: number; away: number }[];
   requireConfirmation: boolean;
   isAdmin: boolean;
+  /** Names each scored period. Defaults to volleyball's "Set". */
+  sport?: Sport;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  /**
+   * "Set 1" / "Game 2" — or just "Final score" when the match is a single
+   * untargeted period, which is what a softball result is: one number a side.
+   */
+  const periodLabel = (i: number) =>
+    matchFormat.bestOf === 1 && matchFormat.untargeted
+      ? "Final score"
+      : `${sportConfig(sport ?? "indoor6").period.one} ${i + 1}`;
   const [sets, setSets] = useState<SetRow[]>(() =>
     Array.from({ length: matchFormat.bestOf }, (_, i) => {
       const s = initialSets[i];
@@ -228,7 +241,10 @@ export function ScoreEntryForm({
             >
               <div className="mb-2 flex items-center justify-between">
                 <p className="text-muted-foreground text-xs">
-                  Set {i + 1} · to {target}
+                  {periodLabel(i)}
+                  {/* No target to reach: a softball game ends on innings or a
+                      clock, so "to 0" would be nonsense. */}
+                  {matchFormat.untargeted ? "" : ` · to ${target}`}
                 </p>
                 {isRecorded && (
                   <span className="text-ink-2 inline-flex items-center gap-1 text-xs font-medium">
@@ -246,7 +262,7 @@ export function ScoreEntryForm({
                   onChange={(v) => update(i, "home", v)}
                   emphasize={isRecorded && h > a}
                   disabled={greyed}
-                  label={`${homeTeamName} score, set ${i + 1}`}
+                  label={`${homeTeamName} score, ${periodLabel(i).toLowerCase()}`}
                 />
               </div>
               <div className="mt-2 flex items-center justify-between gap-3">
@@ -258,7 +274,7 @@ export function ScoreEntryForm({
                   onChange={(v) => update(i, "away", v)}
                   emphasize={isRecorded && a > h}
                   disabled={greyed}
-                  label={`${awayTeamName} score, set ${i + 1}`}
+                  label={`${awayTeamName} score, ${periodLabel(i).toLowerCase()}`}
                 />
               </div>
               <div className="mt-2 flex items-center justify-between gap-2">

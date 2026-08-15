@@ -1,3 +1,4 @@
+import type { Sport } from "@/lib/formats";
 import { createClient } from "@/lib/supabase/server";
 import {
   getMyMatches,
@@ -18,6 +19,8 @@ export interface TeamView {
     slug: string;
     type: "league" | "tournament";
     timezone: string;
+    /** Names the standings columns — points or runs. */
+    sport: Sport;
   };
   /** The competition's owning org — resolves the connected Stripe account. */
   orgId: string;
@@ -59,7 +62,7 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("id, name, slug, type, timezone, org_id")
+    .select("id, name, slug, type, timezone, org_id, sport")
     .eq("id", team.competition_id)
     .single();
   if (!comp) return null;
@@ -135,6 +138,7 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
       slug: comp.slug,
       type: comp.type as "league" | "tournament",
       timezone: comp.timezone,
+      sport: comp.sport as Sport,
     },
     // Needed to look up where this competition's registration money goes.
     orgId: comp.org_id as string,

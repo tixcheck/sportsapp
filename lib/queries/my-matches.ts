@@ -1,3 +1,4 @@
+import type { Sport } from "@/lib/formats";
 import { createClient } from "@/lib/supabase/server";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { getBracketPreview } from "@/lib/queries/bracket";
@@ -11,6 +12,7 @@ export interface MyMatch {
   competitionId: string;
   competitionName: string;
   competitionType: "league" | "tournament";
+  sport: Sport;
   slug: string;
   timezone: string;
   round: number | null;
@@ -109,7 +111,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
     supabase
       .from("competitions")
       .select(
-        "id, name, type, slug, timezone, match_format, allow_captain_entry, allow_ref_entry, require_confirmation, status",
+        "id, name, type, sport, slug, timezone, match_format, allow_captain_entry, allow_ref_entry, require_confirmation, status",
       )
       .in("id", compIds),
     supabase.from("teams").select("id, name").in("id", teamIds),
@@ -205,6 +207,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       competitionId: m.competition_id,
       competitionName: c.name,
       competitionType: c.type,
+      sport: c.sport as Sport,
       slug: c.slug,
       timezone: c.timezone,
       round: m.round,
@@ -252,6 +255,7 @@ export interface MatchEntryData {
   competitionName: string;
   /** "tournament" | "league" — drives the organizer's admin back-link. */
   competitionType: string;
+  sport: Sport;
   orgId: string;
   timezone: string;
   homeTeamName: string;
@@ -304,7 +308,7 @@ export async function getMatchForEntry(
     supabase
       .from("competitions")
       .select(
-        "name, type, org_id, timezone, match_format, require_confirmation",
+        "name, type, sport, org_id, timezone, match_format, require_confirmation",
       )
       .eq("id", m.competition_id)
       .single(),
@@ -379,6 +383,7 @@ export async function getMatchForEntry(
     competitionId: m.competition_id,
     competitionName: comp.name,
     competitionType: comp.type,
+    sport: comp.sport as Sport,
     orgId: comp.org_id,
     timezone: comp.timezone,
     homeTeamName: m.home_team_id

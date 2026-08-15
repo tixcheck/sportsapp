@@ -7,7 +7,11 @@
  */
 
 import type { LeagueCourt } from "@/lib/db/schema";
-import { normalizeCourtLabel } from "@/lib/scheduler/court-label";
+import type { Sport } from "@/lib/formats";
+import {
+  formatCourtLabel,
+  normalizeCourtLabel,
+} from "@/lib/scheduler/court-label";
 
 export type VenueSummary = {
   id: string;
@@ -50,10 +54,9 @@ export function sameCourtRef(a: CourtRef, b: CourtRef): boolean {
 export function formatPlacement(
   court: string | null | undefined,
   venueName: string | null | undefined,
-  { multiVenue }: { multiVenue: boolean },
+  { multiVenue, sport }: { multiVenue: boolean; sport?: Sport },
 ): string | null {
-  const label = normalizeCourtLabel(court);
-  const courtText = label == null ? null : `Court ${label}`;
+  const courtText = formatCourtLabel(court, sport);
   const venue = venueName?.trim() || null;
 
   if (!multiVenue || !venue) return courtText;

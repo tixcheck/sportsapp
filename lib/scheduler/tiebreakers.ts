@@ -218,8 +218,15 @@ export function computeStats(
     } else if (winner === match.awayTeamId) {
       if (!awayOut) away.mw += 1;
       if (!homeOut) home.ml += 1;
-    } else if (homeSets === awaySets && homeSets > 0) {
-      // A played 2-set game ending 1–1 is a tie — half a win for each side.
+    } else if (homeSets === awaySets && match.sets.length > 0) {
+      // A level match that was actually played is a tie — half a win each.
+      //
+      // The test is "a score was recorded", not "someone won a set". Those
+      // agree for volleyball, where a drawn game is 1–1 and both sides won one.
+      // They part company for a sport whose match IS a single period: a softball
+      // game finishing 6–6 has no set winner at all, and a 0–0 tie has neither
+      // sets nor runs, yet both were played and both count. An unplayed match
+      // still has no sets, so it is still excluded.
       if (!homeOut) home.mt += 1;
       if (!awayOut) away.mt += 1;
     }

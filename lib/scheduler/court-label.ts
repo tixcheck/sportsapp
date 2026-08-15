@@ -14,7 +14,17 @@
  *
  * Everything here tolerates the old prefixed rows, so it works before and after
  * any backfill.
+ *
+ * Not every sport plays on a court. Softball plays on fields, so the word at the
+ * front comes from lib/sports.ts rather than being a literal. Volleyball is the
+ * default, which leaves every existing caller correct without passing anything.
  */
+
+import type { Sport } from "@/lib/formats";
+import { SURFACE_WORDS, sportConfig } from "@/lib/sports";
+
+/** "court|field" — a stored label may already carry any sport's own word. */
+const SURFACE_RE = SURFACE_WORDS.join("|");
 
 /**
  * The canonical, comparable form of a stored court value: `"Court 10"` → `"10"`,
@@ -25,9 +35,12 @@ export function normalizeCourtLabel(
 ): string | null {
   if (court == null) return null;
   const trimmed = court.trim();
-  // A bare "Court " with nothing after it names no court.
-  if (/^court$/i.test(trimmed)) return null;
-  const stripped = trimmed.replace(/^court\s+/i, "").trim();
+  // A bare "Court" (or "Field") with nothing after it names no surface.
+  if (new RegExp("^(" + SURFACE_RE + ")$", "i").test(trimmed)) return null;
+  // Strip whichever word is there, so "Field East" and "East" compare equal.
+  const stripped = trimmed
+    .replace(new RegExp("^(" + SURFACE_RE + ")[ ]+", "i"), "")
+    .trim();
   return stripped.length > 0 ? stripped : null;
 }
 
@@ -38,9 +51,16 @@ export function normalizeCourtLabel(
  */
 export function formatCourtLabel(
   court: string | null | undefined,
+  sport?: Sport,
 ): string | null {
   const label = normalizeCourtLabel(court);
-  return label == null ? null : `Court ${label}`;
+  if (label == null) return null;
+  return sportConfig(sport ?? "indoor6").court.one + " " + label;
+}
+
+/** "Court TBD" / "Field TBD" — the placeholder, in the sport's own words. */
+export function courtTbdLabel(sport?: Sport): string {
+  return sportConfig(sport ?? "indoor6").court.one + " TBD";
 }
 
 /**

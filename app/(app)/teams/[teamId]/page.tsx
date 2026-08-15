@@ -137,6 +137,7 @@ export default async function TeamPage({
               matches={teamSchedule}
               timezone={competition.timezone}
               myTeamIds={[team.id]}
+              sport={competition.sport}
             />
           )}
         </CardContent>
@@ -156,9 +157,13 @@ export default async function TeamPage({
               <StandingsTable
                 rows={standingsGroup.rows}
                 myTeamIds={[team.id]}
+                sport={competition.sport}
                 differential={differential}
               />
-              <StandingsLegend differential={differential} />
+              <StandingsLegend
+                sport={competition.sport}
+                differential={differential}
+              />
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">

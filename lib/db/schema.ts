@@ -52,6 +52,22 @@ export type MatchFormat = {
   capMinutes?: number;
   /** Optional alternate deciding-set target (e.g. 11). */
   tiebreakerSetTo?: number;
+  /**
+   * Whether a level score is a legal finish (migration 0075).
+   *
+   * Volleyball sets cannot tie, so this is absent everywhere by default. A
+   * softball regular-season game can finish level; its playoff games set this
+   * false and go to extra innings.
+   */
+  allowTie?: boolean;
+  /**
+   * Whether the game ends at a points target at all.
+   *
+   * Volleyball plays TO a number. Softball plays a number of innings or a clock
+   * and stops wherever the score is, so "below the target" and "runs past the
+   * target" are both meaningless — without this, every blowout warns.
+   */
+  untargeted?: boolean;
 };
 
 /** One weekly playing slot for a league (PRD §7). */
