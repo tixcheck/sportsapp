@@ -1,0 +1,29 @@
+-- Softball: the first non-volleyball sport.
+--
+-- The scheduling engine never needed to change. Nothing in lib/scheduler
+-- references `sport` at all — round robins, divisions, pools, venues, court
+-- assignment and referee rotation are all sport-agnostic already. What is
+-- volleyball-specific is the SCORING model and the vocabulary, and only the
+-- first of those needs the database.
+--
+-- A softball game maps onto the existing model more neatly than it looks:
+--
+--   W / L / T          -> mw / ml / mt   (a 1-1 volleyball game is already a tie)
+--   runs for/against   -> pf / pa
+--   run differential   -> the existing "differential" tiebreaker mode
+--   time limit         -> match_format.capMinutes
+--   field              -> court, with the park as the venue (migration 0071)
+--   umpire             -> matches.ref_team_id
+--
+-- One game, one final score, so a game is stored as a single `sets` row. Per
+-- inning scoring would be a real change; recording the final score is not.
+--
+-- The one thing that genuinely does not fit is TIES. `validateSet` rejects an
+-- equal score outright — correct for volleyball, wrong for softball, where a
+-- regular-season game can finish level and a playoff game goes to extra
+-- innings. That is handled by an `allowTie` flag on `match_format`, which is
+-- jsonb and needs no DDL: regular-season games carry it, playoff games don't.
+
+-- @separate-transaction: a new enum value is not usable until its own
+-- transaction commits (same rule as `pending_payment` in migration 0066).
+alter type "sport" add value if not exists 'softball';

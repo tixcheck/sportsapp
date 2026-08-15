@@ -224,6 +224,7 @@ export default async function LeaguePage({
             matches={schedule}
             timezone={league.timezone}
             editable
+            sport={league.sport}
             slotMinutes={league.minutesPerGame}
           />
         </CardContent>
@@ -245,6 +246,7 @@ export default async function LeaguePage({
             groups={standings}
             showDivision={false}
             format={league.matchFormat}
+            sport={league.sport}
             differential={league.tiebreaker === "differential"}
           />
         ) : (
@@ -252,11 +254,13 @@ export default async function LeaguePage({
             <StandingsTable
               rows={standings[0]?.rows ?? []}
               format={league.matchFormat}
+              sport={league.sport}
               differential={league.tiebreaker === "differential"}
             />
             {(standings[0]?.rows.length ?? 0) > 0 && (
               <StandingsLegend
                 format={league.matchFormat}
+                sport={league.sport}
                 differential={league.tiebreaker === "differential"}
               />
             )}

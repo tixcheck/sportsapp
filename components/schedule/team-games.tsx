@@ -2,7 +2,10 @@
 
 import { DateTime } from "luxon";
 
+import type { Sport } from "@/lib/formats";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
+import { courtTbdLabel, formatCourtLabel } from "@/lib/scheduler/court-label";
+import { sportConfig } from "@/lib/sports";
 import {
   ActivityStrip,
   teamScheduleEntries,
@@ -24,11 +27,14 @@ export function TeamGames({
   schedule,
   timezone,
   className,
+  sport,
 }: {
   teamId: string;
   teamName: string;
   schedule: ScheduleMatch[];
   timezone: string;
+  /** Names the surface — "Court A" or "Field East". Defaults to volleyball. */
+  sport?: Sport;
   /** Lets a grid caller span the panel across the full row. */
   className?: string;
 }) {
@@ -82,13 +88,13 @@ export function TeamGames({
               return (
                 <li key={e.key} className="min-w-0 py-2 text-sm">
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[0.65rem] font-semibold text-amber-800 uppercase">
-                    Ref
+                    {sportConfig(sport ?? "indoor6").official.one}
                   </span>
                   <span className="ml-2 font-medium">
                     {m.homeTeamName} vs {m.awayTeamName}
                   </span>
                   <span className="text-muted-foreground block text-xs">
-                    {m.court ?? "Court TBD"}
+                    {formatCourtLabel(m.court, sport) ?? courtTbdLabel(sport)}
                     {when ? ` · ${when}` : ""}
                   </span>
                 </li>
@@ -112,7 +118,7 @@ export function TeamGames({
                   <span className="text-muted-foreground">vs </span>
                   <span className="font-medium">{opponent}</span>
                   <span className="text-muted-foreground block text-xs">
-                    {m.court ?? "Court TBD"}
+                    {formatCourtLabel(m.court, sport) ?? courtTbdLabel(sport)}
                     {when ? ` · ${when}` : ""}
                   </span>
                 </span>

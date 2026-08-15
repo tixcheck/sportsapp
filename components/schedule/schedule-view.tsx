@@ -16,7 +16,12 @@ import {
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import { cn } from "@/lib/utils";
 import { formatPlacement, isMultiVenue } from "@/lib/venues/resolve";
-import { normalizeCourtLabel } from "@/lib/scheduler/court-label";
+import type { Sport } from "@/lib/formats";
+import {
+  courtTbdLabel,
+  formatCourtLabel,
+  normalizeCourtLabel,
+} from "@/lib/scheduler/court-label";
 import { MatchCard } from "./match-card";
 import { MatchupMatrix } from "./matchup-matrix";
 import { NowPlaying } from "./now-playing";
@@ -212,7 +217,11 @@ function formatGap(mins: number): string {
  * league's schedule is actually read ("where and when is Tier 2 playing?").
  * Games whose teams aren't sorted into a tier collect at the end.
  */
-function groupByTier(matches: ScheduleMatch[], tz: string): Group[] {
+function groupByTier(
+  matches: ScheduleMatch[],
+  tz: string,
+  sport: Sport | undefined,
+): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
   for (const m of matches) {
     const key = m.divisionId ?? "none";
@@ -240,7 +249,7 @@ function groupByTier(matches: ScheduleMatch[], tz: string): Group[] {
           date
             ? DateTime.fromISO(date, { zone: tz }).toFormat("cccc, LLL d")
             : null,
-          courts.length === 1 ? `Court ${courts[0]}` : null,
+          courts.length === 1 ? formatCourtLabel(courts[0], sport) : null,
           `${sorted.length} games`,
         ]
           .filter(Boolean)
@@ -257,7 +266,11 @@ function groupByTier(matches: ScheduleMatch[], tz: string): Group[] {
  * A", so a league running six buildings would otherwise collapse six different
  * courts into one column and show them as clashing.
  */
-function groupByCourt(matches: ScheduleMatch[], multiVenue: boolean): Group[] {
+function groupByCourt(
+  matches: ScheduleMatch[],
+  multiVenue: boolean,
+  sport: Sport | undefined,
+): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
   for (const m of matches) {
     // Normalize: a league holding both "Court 3" and "3" for the same physical
@@ -278,9 +291,10 @@ function groupByCourt(matches: ScheduleMatch[], multiVenue: boolean): Group[] {
         heading:
           label === "tbd"
             ? multiVenue && venueName
-              ? `${venueName} · Court TBD`
-              : "Court TBD"
-            : (formatPlacement(label, venueName, { multiVenue }) ?? label),
+              ? `${venueName} · ${courtTbdLabel(sport)}`
+              : courtTbdLabel(sport)
+            : (formatPlacement(label, venueName, { multiVenue, sport }) ??
+              label),
         matches: [...ms].sort((x, y) => startMillis(x) - startMillis(y)),
       };
     })
@@ -300,6 +314,7 @@ export function ScheduleView({
   myTeamIds = [],
   scorableMatchIds = [],
   slotMinutes,
+  sport,
 }: {
   matches: ScheduleMatch[];
   timezone: string;
@@ -313,6 +328,8 @@ export function ScheduleView({
   scorableMatchIds?: string[];
   /** Minutes a game occupies — turns the By-team gaps into real break times. */
   slotMinutes?: number;
+  /** Names courts/fields and the officiating role. Defaults to volleyball. */
+  sport?: Sport;
 }) {
   const scorable = new Set(scorableMatchIds);
   const [view, setView] = useState<
@@ -391,9 +408,9 @@ export function ScheduleView({
 
   const groups =
     effectiveView === "court"
-      ? groupByCourt(shown, multiVenue)
+      ? groupByCourt(shown, multiVenue, sport)
       : effectiveView === "tier"
-        ? groupByTier(shown, timezone)
+        ? groupByTier(shown, timezone, sport)
         : effectiveView === "team"
           ? teamGroups
           : effectiveView === "agenda"
@@ -552,6 +569,7 @@ export function ScheduleView({
               editable={editable}
               myTeamIds={myTeamIds}
               multiVenue={multiVenue}
+              sport={sport}
               renderTrailing={renderTrailing}
             />
           ) : (
@@ -580,6 +598,7 @@ export function ScheduleView({
                     showAbnormal={editable}
                     myTeamIds={myTeamIds}
                     multiVenue={multiVenue}
+                    sport={sport}
                     trailing={renderTrailing(m)}
                   />
                 ))}
@@ -615,8 +634,10 @@ function TeamDay({
   editable,
   myTeamIds,
   renderTrailing,
+  sport,
 }: {
   multiVenue: boolean;
+  sport?: Sport;
   teamId: string;
   name: string;
   games: ScheduleMatch[];
@@ -664,6 +685,7 @@ function TeamDay({
               showDate
               myTeamIds={myTeamIds}
               multiVenue={multiVenue}
+              sport={sport}
               // "You play/ref" is the viewer's role — only meaningful in the
               // followed team's own section. Elsewhere let MatchCard derive it,
               // so another team's game isn't mislabelled "You play".

@@ -11,6 +11,7 @@ import {
   type MyCompetition,
 } from "@/lib/queries/dashboard";
 import { getAccessState } from "@/lib/queries/access";
+import type { Sport } from "@/lib/formats";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { getHelperCompetitions } from "@/lib/queries/organizers";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ function nextMatchLine(c: MyCompetition): string | null {
     m.homeName === c.teamName ? m.awayName : (m.homeName ?? m.awayName);
   const parts = [opponent ? `vs ${opponent}` : "TBD"];
   if (m.round) parts.push(`Round ${m.round}`);
-  const court = formatCourtLabel(m.court);
+  const court = formatCourtLabel(m.court, c.sport as Sport);
   if (court) parts.push(court);
   return parts.join(" · ");
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export const sportEnum = z.enum(["indoor6", "beach2", "coed4"]);
+export const sportEnum = z.enum(["indoor6", "beach2", "coed4", "softball"]);
 
 export const createLeagueSchema = z
   .object({

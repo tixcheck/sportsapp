@@ -82,6 +82,7 @@ export default async function MatchEntryPage({
               initialSets={match.sets}
               requireConfirmation={match.requireConfirmation}
               isAdmin={match.isAdmin}
+              sport={match.sport}
             />
           ) : (
             <>

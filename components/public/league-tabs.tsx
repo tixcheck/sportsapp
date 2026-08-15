@@ -113,6 +113,7 @@ export function LeagueTabs({
           timezone={league.timezone}
           myTeamIds={myTeamIds}
           scorableMatchIds={scorableMatchIds}
+          sport={league.sport}
           slotMinutes={estimateMatchMinutes(league.matchFormat)}
         />
       </TabsContent>
@@ -193,6 +194,7 @@ export function LeagueTabs({
                             teamName={t.name}
                             schedule={league.schedule}
                             timezone={league.timezone}
+                            sport={league.sport}
                             className="mt-0 sm:col-span-2 lg:col-span-3"
                           />
                         )}
@@ -213,6 +215,7 @@ export function LeagueTabs({
             showDivision={false}
             myTeamIds={myTeamIds}
             format={league.matchFormat}
+            sport={league.sport}
             differential={league.tiebreaker === "differential"}
           />
         ) : (
@@ -221,11 +224,13 @@ export function LeagueTabs({
               rows={standings[0]?.rows ?? []}
               myTeamIds={myTeamIds}
               format={league.matchFormat}
+              sport={league.sport}
               differential={league.tiebreaker === "differential"}
             />
             {(standings[0]?.rows.length ?? 0) > 0 && (
               <StandingsLegend
                 format={league.matchFormat}
+                sport={league.sport}
                 differential={league.tiebreaker === "differential"}
               />
             )}
