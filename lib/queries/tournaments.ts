@@ -38,6 +38,8 @@ export interface TournamentDetail {
   name: string;
   slug: string;
   sport: Sport;
+  /** Whether this tournament takes players who have no team (migration 0076). */
+  allowIndividualSignups: boolean;
   status: string;
   /** private | public — whether the public page is live. */
   visibility: string;
@@ -143,7 +145,7 @@ export async function getTournamentDetail(
   const { data: t } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, visibility, start_date, end_date, start_time, end_time, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, visibility, start_date, end_date, start_time, end_time, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation, allow_individual_signups",
     )
     .eq("id", tournamentId)
     .eq("type", "tournament")
@@ -187,6 +189,7 @@ export async function getTournamentDetail(
     name: t.name,
     slug: t.slug,
     sport: t.sport as Sport,
+    allowIndividualSignups: t.allow_individual_signups === true,
     status: t.status,
     visibility: (t.visibility as string) ?? "private",
     startDate: t.start_date,

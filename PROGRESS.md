@@ -5,6 +5,59 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-15 (later) — Individual sign-ups: free agents
+
+**Shipped.** Most leagues take teams AND individuals — people with no team who
+get placed. The app only modelled the first.
+
+**The model decision.** A free agent is deliberately NOT a `teams` row. A team
+is an ENTRANT: the schedule generator, standings, the payments dashboard and the
+public team list all read `teams`. A person waiting to be placed is none of
+those, so modelling them as a team would mean adding an exclusion to every one
+of those readers — and the day one was missed, a free agent turns up in a
+fixture. They get their own table; a `teams` row appears only when the organizer
+actually forms a team.
+
+**What a player answers** (migration `0076`): name, email, optional phone,
+positions, level, and free-text notes. Positions come from
+`sportConfig(sport).positions` — the five volleyball positions for indoor 6s and
+co-ed 4s. Beach 2s and softball get NO position question: 2s roles are blocker
+and defender, softball's are unconfirmed, and offering the wrong five would be
+worse than asking nothing. Levels are Rec / Rec Intermediate / Intermediate /
+Competitive, shared across sports.
+
+**Money** (migration `0077`). The organizer sets a per-individual fee,
+independent of the team fee. It is priced at the PER-PLAYER platform rate, not
+the per-team one — a free agent is one payer settling one entry, and billing
+them a team rate would charge one person as though they were a roster.
+`registration_payments.team_id` became nullable with a `free_agent_id` beside it
+and an XOR check, rather than inventing the placeholder team the whole design
+avoids. Unpaid sign-ups sit at `pending_payment` and the webhook releases them.
+
+**Placement.** `place_free_agents` writes the roster row and the status together,
+and MOVES anyone already on another team rather than leaving them on two. The
+organizer either forms a new team from a selection or tops up a short one.
+
+**Verified against the live database**, impersonating real callers with
+`set local role authenticated` — 20 checks, all passing: refused when the flag is
+off, refused when registration is closed, trimming/lowercasing, re-signup edits
+rather than duplicates, pending when a fee is set, an unrelated user sees
+nothing, the player sees only their own row, the organizer sees the list, a
+non-organizer cannot place anyone, and a move clears the old roster row.
+
+**Also fixed, found while testing:** `getCompetitionVenues` returned every venue
+in the ORG, so the softball registration page advertised 11 venues including
+Brampton school gyms it has nothing to do with. It now returns only venues the
+competition actually uses (matches, court list, divisions), and nothing at all
+when none are assigned — the competition's own `venue` text already covers that.
+Softball now shows 2, the BVL demo 6 instead of 11.
+
+**Not done:** no refund path specific to individuals (a refunded sign-up doesn't
+auto-withdraw — the organizer withdraws them, same as teams), and no live
+test-mode payment has been run end to end.
+
+---
+
 ## 2026-08-15 — Softball: the app stops assuming volleyball
 
 **Shipped.** A prospective organizer asked whether we could run their softball

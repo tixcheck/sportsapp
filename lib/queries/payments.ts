@@ -71,6 +71,8 @@ import { DEFAULT_PLATFORM_FEE_RATES } from "@/lib/payments/platform-fee";
 
 export type CompetitionPaymentSettings = {
   registrationFeeCents: number;
+  /** What one free agent pays. 0 = individual sign-up is free. */
+  individualFeeCents: number;
   allowCaptainPays: boolean;
   allowSplitPayment: boolean;
   taxEnabled: boolean;
@@ -81,6 +83,7 @@ export type CompetitionPaymentSettings = {
 /** What an unpriced competition looks like — also the shape the form starts at. */
 export const FREE_COMPETITION_PAYMENT_SETTINGS: CompetitionPaymentSettings = {
   registrationFeeCents: 0,
+  individualFeeCents: 0,
   allowCaptainPays: true,
   allowSplitPayment: false,
   taxEnabled: false,
@@ -101,7 +104,7 @@ export async function getCompetitionPaymentSettings(
   const { data } = await supabase
     .from("competition_payment_settings")
     .select(
-      "registration_fee_cents, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
+      "registration_fee_cents, individual_fee_cents, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
     )
     .eq("competition_id", competitionId)
     .maybeSingle();
@@ -109,6 +112,7 @@ export async function getCompetitionPaymentSettings(
 
   const r = data as {
     registration_fee_cents: number;
+    individual_fee_cents: number | null;
     allow_captain_pays: boolean;
     allow_split_payment: boolean;
     tax_enabled: boolean;
@@ -117,6 +121,7 @@ export async function getCompetitionPaymentSettings(
   };
   return {
     registrationFeeCents: r.registration_fee_cents,
+    individualFeeCents: r.individual_fee_cents ?? 0,
     allowCaptainPays: r.allow_captain_pays,
     allowSplitPayment: r.allow_split_payment,
     taxEnabled: r.tax_enabled,

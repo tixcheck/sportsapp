@@ -48,13 +48,60 @@ export async function getCompetitionVenues(
   competitionId: string,
 ): Promise<VenueSummary[]> {
   const supabase = await createClient();
+
+  // Venues belong to the ORG and outlive any one season, so the org's list is
+  // the wrong answer to "where will this competition play" — a six-team
+  // softball league in two parks would otherwise advertise every school gym the
+  // organizer has ever booked.
+  //
+  // Three places record a venue, and a competition may use any of them: the
+  // match itself (0071), the league's court list (0071), and the division
+  // (0072). Union all three.
+  const [{ data: matchRows }, { data: settings }, { data: divisions }] =
+    await Promise.all([
+      supabase
+        .from("matches")
+        .select("venue_id")
+        .eq("competition_id", competitionId)
+        .not("venue_id", "is", null),
+      supabase
+        .from("league_settings")
+        .select("court_list")
+        .eq("competition_id", competitionId)
+        .maybeSingle(),
+      supabase
+        .from("divisions")
+        .select("venue_id")
+        .eq("competition_id", competitionId)
+        .not("venue_id", "is", null),
+    ]);
+
+  const ids = new Set<string>();
+  for (const r of (matchRows ?? []) as { venue_id: string | null }[]) {
+    if (r.venue_id) ids.add(r.venue_id);
+  }
+  for (const d of (divisions ?? []) as { venue_id: string | null }[]) {
+    if (d.venue_id) ids.add(d.venue_id);
+  }
+  const courts = (settings as { court_list: LeagueCourt[] | null } | null)
+    ?.court_list;
+  for (const c of courts ?? []) {
+    if (c.venueId) ids.add(c.venueId);
+  }
+
+  // Nothing assigned yet: say nothing rather than everything. The competition's
+  // own `venue` text still carries the answer on the page.
+  if (ids.size === 0) return [];
+
   const { data: comp } = await supabase
     .from("competitions")
     .select("org_id")
     .eq("id", competitionId)
     .maybeSingle();
   if (!comp) return [];
-  return getOrgVenues((comp as { org_id: string }).org_id);
+
+  const all = await getOrgVenues((comp as { org_id: string }).org_id);
+  return all.filter((v) => ids.has(v.id));
 }
 
 // ---------------------------------------------------------------------------

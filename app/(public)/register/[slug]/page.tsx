@@ -5,6 +5,8 @@ import { DateTime } from "luxon";
 import { ArrowRight } from "lucide-react";
 
 import { getRegistrationEvent } from "@/lib/queries/registration";
+import { getMyFreeAgentSignup } from "@/lib/queries/free-agents";
+import { IndividualSignupForm } from "@/components/registration/individual-signup-form";
 import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
 import { getUser } from "@/lib/auth/user";
 import {
@@ -14,6 +16,7 @@ import {
   SpotsBadge,
 } from "@/components/public/event-details";
 import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
+import { formatCents } from "@/lib/payments/format";
 import { registerLeagueTeamAction } from "@/server/actions/leagues";
 import { registerTeamAction } from "@/server/actions/tournaments";
 import { RegistrationForm } from "@/components/tournament/registration-form";
@@ -54,6 +57,11 @@ export default async function RegisterPage({
   // Pricing drives whether the form asks how they'll pay and whether it sends
   // them on to Stripe. Read after the event so a missing slug 404s first.
   const feeSettings = await getCompetitionPaymentSettings(event.id);
+  // Only asked for when the event actually takes individuals — no point
+  // querying a pool that cannot exist.
+  const mySignup = event.allowIndividualSignups
+    ? await getMyFreeAgentSignup(event.id)
+    : null;
   const fee =
     feeSettings.registrationFeeCents > 0
       ? {
@@ -195,6 +203,38 @@ export default async function RegisterPage({
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {event.allowIndividualSignups && event.signupWindowOpen && (
+          <Card id="individual" className="scroll-mt-4">
+            <CardHeader>
+              <CardTitle>No team? Sign up on your own</CardTitle>
+              <CardDescription>
+                Put your name down and the organizer will place you on a team.
+                {feeSettings.individualFeeCents > 0 && (
+                  <>
+                    {" "}
+                    Individual sign-up is{" "}
+                    <span className="text-foreground font-medium">
+                      {formatCents(feeSettings.individualFeeCents)}
+                    </span>
+                    .
+                  </>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <IndividualSignupForm
+                competitionId={event.id}
+                sport={event.sport}
+                isAuthed={!!user}
+                userEmail={user?.email}
+                loginHref={`/login?next=/register/${slug}`}
+                feeCents={feeSettings.individualFeeCents}
+                existing={mySignup}
+              />
             </CardContent>
           </Card>
         )}

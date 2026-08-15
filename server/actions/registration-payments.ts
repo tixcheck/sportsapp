@@ -14,6 +14,7 @@ import {
 import { getTeamRoster } from "@/lib/queries/roster";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import {
+  planIndividualCharge,
   planMemberShares,
   planTeamCharge,
   teamPaymentState,
@@ -606,6 +607,183 @@ export async function coverRemainingBalanceAction(
     return { url: session.url };
   } catch {
     console.error("[payments] cover-rest session create failed");
+    return { error: STRIPE_FAILED };
+  }
+}
+
+/**
+ * Send a free agent to Stripe Checkout to pay their own sign-up fee.
+ *
+ * Sibling of `startRegistrationCheckoutAction`, not a branch inside it: an
+ * individual has no team, so the authorization question ("is this your own
+ * sign-up?") and the price (`individualFeeCents`, at the per-player platform
+ * rate) are both different. `start_individual_payment` enforces the
+ * authorization half in the database.
+ *
+ * Idempotent the same way: an already-open charge is resumed rather than
+ * duplicated, so a double-click never bills twice.
+ */
+export async function startIndividualCheckoutAction(
+  competitionId: string,
+  freeAgentId: string,
+): Promise<ActionError | { url: string }> {
+  const comp = idSchema.safeParse(competitionId);
+  const agent = idSchema.safeParse(freeAgentId);
+  if (!comp.success || !agent.success) return { error: "Unknown sign-up." };
+
+  const mode = currentStripeMode();
+  if (!mode.configured) {
+    return { error: "Online payments aren't switched on yet." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in to pay." };
+
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("id, org_id, type, name, slug")
+    .eq("id", comp.data)
+    .maybeSingle();
+  if (!competition) return { error: "Unknown competition." };
+  const c = competition as {
+    id: string;
+    org_id: string;
+    type: CompetitionType;
+    name: string;
+    slug: string;
+  };
+
+  // RLS already limits this to the player's own row or an organizer's view, so
+  // a miss here means "not yours", not "doesn't exist".
+  const { data: freeAgent } = await supabase
+    .from("free_agents")
+    .select("id, email, status")
+    .eq("id", agent.data)
+    .eq("competition_id", c.id)
+    .maybeSingle();
+  if (!freeAgent) return { error: "Unknown sign-up." };
+  const fa = freeAgent as { id: string; email: string; status: string };
+  if (fa.status === "withdrawn") {
+    return { error: "That sign-up was withdrawn." };
+  }
+
+  const [settings, rates, account] = await Promise.all([
+    getCompetitionPaymentSettings(c.id),
+    getPlatformFeeRates(),
+    getPaymentAccount(c.org_id),
+  ]);
+
+  if (settings.individualFeeCents <= 0) {
+    return { error: "Signing up as an individual is free — nothing to pay." };
+  }
+  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+    return {
+      error:
+        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+    };
+  }
+
+  const [charge] = planIndividualCharge({
+    pricing: {
+      registrationFeeCents: settings.registrationFeeCents,
+      individualFeeCents: settings.individualFeeCents,
+      taxEnabled: settings.taxEnabled,
+      taxPercent: settings.taxPercent,
+    },
+    competitionType: c.type,
+    payerEmail: fa.email,
+    rates,
+  });
+  if (!charge) {
+    return { error: "Signing up as an individual is free — nothing to pay." };
+  }
+
+  const stripe = getStripe();
+  const origin = await getOrigin();
+  const backTo = `${origin}/register/${c.slug}`;
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: user.email ?? fa.email,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "cad",
+            unit_amount: charge.totalCents,
+            product_data: {
+              name: `${c.name} — individual sign-up`,
+              description:
+                charge.taxCents > 0
+                  ? "Includes tax, card and platform fees."
+                  : "Includes card and platform fees.",
+            },
+          },
+        },
+      ],
+      payment_intent_data: {
+        application_fee_amount: charge.applicationFeeCents,
+        transfer_data: { destination: account.stripeAccountId },
+      },
+      metadata: {
+        competition_id: c.id,
+        free_agent_id: fa.id,
+        kind: "individual",
+      },
+      success_url: `${backTo}?paid=1`,
+      cancel_url: `${backTo}?paid=0`,
+    });
+
+    if (!session.url) {
+      console.error("[payments] individual session had no url");
+      return { error: STRIPE_FAILED };
+    }
+
+    const { data: storedSessionId, error } = await supabase.rpc(
+      "start_individual_payment",
+      {
+        _competition_id: c.id,
+        _free_agent_id: fa.id,
+        _price_cents: charge.priceCents,
+        _tax_cents: charge.taxCents,
+        _platform_fee_cents: charge.platformFeeCents,
+        _total_cents: charge.totalCents,
+        _application_fee_cents: charge.applicationFeeCents,
+        _stripe_account_id: account.stripeAccountId,
+        _livemode: mode.livemode,
+        _session_id: session.id,
+      },
+    );
+
+    if (error || typeof storedSessionId !== "string") {
+      await expireQuietly(session.id);
+      if ((error?.message ?? "").includes("Only this player")) {
+        return { error: "Only this player or the organizer can pay this." };
+      }
+      console.error("[payments] start_individual_payment failed");
+      return { error: STRIPE_FAILED };
+    }
+
+    if (storedSessionId !== session.id) {
+      // Another tab already opened a charge. Use theirs and drop ours.
+      await expireQuietly(session.id);
+      const existing = await stripe.checkout.sessions.retrieve(storedSessionId);
+      if (existing.status === "open" && existing.url) {
+        return { url: existing.url };
+      }
+      await supabase.rpc("cancel_registration_payment", {
+        _session_id: storedSessionId,
+      });
+      return { error: "That payment link expired. Please try again." };
+    }
+
+    return { url: session.url };
+  } catch {
+    console.error("[payments] individual checkout create failed");
     return { error: STRIPE_FAILED };
   }
 }

@@ -31,6 +31,13 @@ export interface SportConfig {
    */
   hasPeriods: boolean;
   /**
+   * Positions a free agent can say they're comfortable in, in the order a
+   * player reads them. EMPTY means this sport has no position question and the
+   * sign-up form omits it — better than inventing terminology for a sport
+   * nobody has confirmed the roles for.
+   */
+  positions: string[];
+  /**
    * What `pf` / `pa` are called in standings. `unit` is the singular noun used
    * in prose ("Run differential"), `short` the two column headers.
    */
@@ -42,11 +49,25 @@ export interface SportConfig {
   };
 }
 
+/**
+ * Indoor 6s and co-ed 4s positions. Beach 2s deliberately does NOT get these:
+ * its roles are blocker and defender, and offering a 2s player "Middle Blocker"
+ * would be worse than asking nothing.
+ */
+const INDOOR_POSITIONS = [
+  "Outside Hitter",
+  "Middle Blocker",
+  "Setter",
+  "Right Side Hitter",
+  "Libero",
+];
+
 const VOLLEYBALL: SportConfig = {
   court: { one: "Court", many: "Courts" },
   period: { one: "Set", many: "Sets" },
   official: { one: "Ref", many: "Refs" },
   hasPeriods: true,
+  positions: INDOOR_POSITIONS,
   points: {
     for: "Points for",
     against: "Points against",
@@ -57,7 +78,7 @@ const VOLLEYBALL: SportConfig = {
 
 export const SPORT_CONFIG: Record<Sport, SportConfig> = {
   indoor6: VOLLEYBALL,
-  beach2: VOLLEYBALL,
+  beach2: { ...VOLLEYBALL, positions: [] },
   coed4: VOLLEYBALL,
   softball: {
     // "Field" rather than "Diamond": a park's pitches are usually named (East,
@@ -66,6 +87,8 @@ export const SPORT_CONFIG: Record<Sport, SportConfig> = {
     period: { one: "Game", many: "Games" },
     official: { one: "Umpire", many: "Umpires" },
     hasPeriods: false,
+    // No list yet — softball's positions would be invented, not confirmed.
+    positions: [],
     points: {
       for: "Runs for",
       against: "Runs against",
@@ -83,3 +106,26 @@ export function sportConfig(sport: Sport): SportConfig {
 export const SURFACE_WORDS: string[] = [
   ...new Set(Object.values(SPORT_CONFIG).map((c) => c.court.one)),
 ];
+
+/**
+ * How strong a player says they are, weakest first. Mirrors the `skill_level`
+ * enum in migration 0076: these values ARE the DB values, and this order is the
+ * order the sign-up form offers them.
+ */
+export const SKILL_LEVELS = [
+  { value: "rec", label: "Rec" },
+  { value: "rec_intermediate", label: "Rec Intermediate" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "competitive", label: "Competitive" },
+] as const;
+
+export type SkillLevel = (typeof SKILL_LEVELS)[number]["value"];
+
+export function skillLabel(level: SkillLevel): string {
+  return SKILL_LEVELS.find((l) => l.value === level)?.label ?? level;
+}
+
+/** Whether this sport asks a free agent which positions they play. */
+export function hasPositions(sport: Sport): boolean {
+  return sportConfig(sport).positions.length > 0;
+}

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 
+import { getFreeAgents } from "@/lib/queries/free-agents";
+import { FreeAgentsCard } from "@/components/registration/free-agents-card";
+import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
@@ -74,16 +77,25 @@ export default async function LeaguePage({
   const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
-  const [schedule, standings, rosters, teamInvites, coOrgs, brackets, ladder] =
-    await Promise.all([
-      getLeagueSchedule(leagueId),
-      getStandings(leagueId),
-      getTeamRosters(leagueId),
-      getTeamInvites(leagueId),
-      getCompetitionAdmins(leagueId),
-      getBrackets(leagueId),
-      getLadderState(leagueId),
-    ]);
+  const [
+    schedule,
+    standings,
+    rosters,
+    teamInvites,
+    coOrgs,
+    brackets,
+    ladder,
+    freeAgents,
+  ] = await Promise.all([
+    getLeagueSchedule(leagueId),
+    getStandings(leagueId),
+    getTeamRosters(leagueId),
+    getTeamInvites(leagueId),
+    getCompetitionAdmins(leagueId),
+    getBrackets(leagueId),
+    getLadderState(leagueId),
+    getFreeAgents(leagueId),
+  ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
   // Registration pricing. The payouts flag drives a "you can price it, but
@@ -336,6 +348,20 @@ export default async function LeaguePage({
     </Card>
   );
 
+  const teamsTabWithFreeAgents = (
+    <div className="space-y-6">
+      {teamsTab}
+      {(league.allowIndividualSignups || freeAgents.length > 0) && (
+        <FreeAgentsCard
+          competitionId={league.id}
+          agents={freeAgents}
+          teams={league.teams.map((t) => ({ id: t.id, name: t.name }))}
+          divisions={league.tiers.map((t) => ({ id: t.id, name: t.name }))}
+        />
+      )}
+    </div>
+  );
+
   // Ladder format: tier sizes drive the wizard's capacity preview, and the
   // courts figure tells the organizer how long a night will actually run.
   const ladderTiers = league.tiers.map((t) => ({
@@ -351,6 +377,12 @@ export default async function LeaguePage({
 
   const settingsTab = (
     <div className="space-y-6">
+      <IndividualSignupSettings
+        competitionId={league.id}
+        sport={league.sport}
+        allowIndividualSignups={league.allowIndividualSignups}
+        individualFeeCents={feeSettings.individualFeeCents}
+      />
       <Card>
         <CardHeader>
           <CardTitle>Ladder format</CardTitle>
@@ -587,7 +619,7 @@ export default async function LeaguePage({
           ...(league.teams.length >= 2
             ? [{ value: "playoffs", label: "Playoffs", content: playoffsTab }]
             : []),
-          { value: "teams", label: "Teams", content: teamsTab },
+          { value: "teams", label: "Teams", content: teamsTabWithFreeAgents },
           { value: "settings", label: "Settings", content: settingsTab },
         ]}
       />

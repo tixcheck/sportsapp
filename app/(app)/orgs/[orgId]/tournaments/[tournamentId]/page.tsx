@@ -4,6 +4,9 @@ import { DateTime } from "luxon";
 import { CalendarDays, Clock, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
+import { getFreeAgents } from "@/lib/queries/free-agents";
+import { FreeAgentsCard } from "@/components/registration/free-agents-card";
+import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getReseedBracket } from "@/lib/queries/reseed-bracket";
@@ -100,6 +103,7 @@ export default async function TournamentPage({
   // Registration pricing. The payouts flag drives a "you can price it, but
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
+  const freeAgents = await getFreeAgents(tournamentId);
   const [feeSettings, feeRates, orgAccount] = await Promise.all([
     getCompetitionPaymentSettings(t.id),
     getPlatformFeeRates(),
@@ -475,6 +479,12 @@ export default async function TournamentPage({
 
   const settingsTab = (
     <div className="space-y-6">
+      <IndividualSignupSettings
+        competitionId={t.id}
+        sport={t.sport}
+        allowIndividualSignups={t.allowIndividualSignups}
+        individualFeeCents={feeSettings.individualFeeCents}
+      />
       <Card>
         <CardHeader>
           <CardTitle>Scoring</CardTitle>
@@ -576,7 +586,23 @@ export default async function TournamentPage({
           { value: "bracket", label: "Playoffs", content: bracketTab },
         ]
       : []),
-    { value: "teams", label: "Teams", content: teamsTab },
+    {
+      value: "teams",
+      label: "Teams",
+      content: (
+        <div className="space-y-6">
+          {teamsTab}
+          {(t.allowIndividualSignups || freeAgents.length > 0) && (
+            <FreeAgentsCard
+              competitionId={t.id}
+              agents={freeAgents}
+              teams={t.teams.map((tm) => ({ id: tm.id, name: tm.name }))}
+              divisions={t.divisions.map((d) => ({ id: d.id, name: d.name }))}
+            />
+          )}
+        </div>
+      ),
+    },
     { value: "settings", label: "Settings", content: settingsTab },
   ];
 

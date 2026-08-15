@@ -41,6 +41,8 @@ export interface LeagueDetail {
   name: string;
   slug: string;
   sport: Sport;
+  /** Whether this league takes players who have no team (migration 0076). */
+  allowIndividualSignups: boolean;
   status: string;
   startDate: string | null;
   endDate: string | null;
@@ -169,7 +171,7 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation, allow_individual_signups",
     )
     .eq("id", leagueId)
     .eq("type", "league")
@@ -236,6 +238,7 @@ export async function getLeagueDetail(
     name: league.name,
     slug: league.slug,
     sport: league.sport as Sport,
+    allowIndividualSignups: league.allow_individual_signups === true,
     status: league.status,
     startDate: league.start_date,
     endDate: league.end_date,

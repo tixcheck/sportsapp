@@ -41,6 +41,18 @@ export interface RegistrationEvent {
   divisionLabel: "Tier" | "Division";
   /** Whether sign-up is currently accepting teams (open + within any deadline). */
   registrationOpen: boolean;
+  /**
+   * Whether this event also takes players who have no team. Independent of the
+   * team cap — a full event may still want a queue of individuals.
+   */
+  allowIndividualSignups: boolean;
+  /**
+   * Open and inside the deadline, IGNORING the team cap. Individual sign-ups
+   * use this rather than `registrationOpen`: max_teams limits entrants, and a
+   * free agent is not one — an event whose team spots are gone may still want
+   * a queue of individuals to build another team from.
+   */
+  signupWindowOpen: boolean;
   registrationDeadline: string | null;
   /** Team cap, or null when the event takes as many as sign up. */
   maxTeams: number | null;
@@ -67,7 +79,7 @@ export async function getRegistrationEvent(
   const { data: comp } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, type, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status, description, banner_url, match_format, organizations(name, logo_url, contact_email)",
+      "id, org_id, type, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status, description, banner_url, match_format, allow_individual_signups, organizations(name, logo_url, contact_email)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -136,10 +148,10 @@ export async function getRegistrationEvent(
     maxTeams === null ? null : Math.max(0, maxTeams - teamsRegistered);
   // A full event is closed even when the deadline hasn't passed — otherwise the
   // form invites a registration the RPC is going to refuse.
+  const signupWindowOpen =
+    open && (!deadline || new Date(deadline) > new Date());
   const registrationOpen =
-    open &&
-    (!deadline || new Date(deadline) > new Date()) &&
-    (spotsLeft === null || spotsLeft > 0);
+    signupWindowOpen && (spotsLeft === null || spotsLeft > 0);
 
   const orgRow = (
     comp as unknown as {
@@ -181,6 +193,8 @@ export async function getRegistrationEvent(
     })),
     divisionLabel: isLeague ? "Tier" : "Division",
     registrationOpen,
+    allowIndividualSignups: comp.allow_individual_signups === true,
+    signupWindowOpen,
     registrationDeadline: deadline,
     maxTeams,
     teamsRegistered,
