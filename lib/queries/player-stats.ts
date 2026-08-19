@@ -122,10 +122,14 @@ export async function getTeamStats(
 /**
  * Per-player statistics for a competition.
  *
- * Roster comes from linked accounts PLUS pending invites: a 2s pair where only
- * one partner ever claimed their invite would otherwise show half a team, and
- * the organizer knows both names perfectly well. Pending rows are marked so the
- * UI can say why there's no profile behind the name.
+ * Names come from `competition_player_names` (migration 0078) rather than from
+ * `users` directly. That function returns the display name and NOTHING else,
+ * which is what lets the same query serve the organizer's tab and the public
+ * league page: RLS can only grant a whole row, and the row carries an email.
+ *
+ * A consequence worth knowing: a roster spot whose invite was never claimed
+ * appears only if the organizer typed a name for it. The old code fell back to
+ * the invitee's email, which on a public page would publish an address.
  */
 export async function getPlayerStats(
   competitionId: string,
@@ -140,72 +144,30 @@ export async function getPlayerStats(
     .neq("status", "pending_payment");
   const teamRows = (teams ?? []) as { id: string; name: string }[];
   if (teamRows.length === 0) return [];
-  const teamIds = teamRows.map((t) => t.id);
   const teamName = new Map(teamRows.map((t) => [t.id, t.name]));
 
-  const [{ data: members }, { data: invites }] = await Promise.all([
-    supabase
-      .from("team_members")
-      .select("team_id, user_id")
-      .in("team_id", teamIds),
-    supabase
-      .from("team_invites")
-      .select("team_id, name, email, status")
-      .in("team_id", teamIds)
-      .eq("status", "pending"),
-  ]);
+  const { data: names } = await supabase.rpc("competition_player_names", {
+    _competition_id: competitionId,
+  });
 
-  const memberRows = (members ?? []) as { team_id: string; user_id: string }[];
-  const userIds = [...new Set(memberRows.map((m) => m.user_id))];
-  const { data: users } = userIds.length
-    ? await supabase
-        .from("users")
-        .select("id, display_name, email")
-        .in("id", userIds)
-    : { data: [] };
-
-  const nameById = new Map(
-    (
-      (users ?? []) as {
-        id: string;
-        display_name: string | null;
-        email: string;
-      }[]
-    ).map((u) => [u.id, u.display_name || u.email]),
-  );
-
-  const rows: PlayerStatRow[] = [];
-
-  for (const m of memberRows) {
-    const teamSets = sets.get(m.team_id) ?? [];
-    rows.push({
-      userId: m.user_id,
-      name: nameById.get(m.user_id) ?? "Player",
-      teamId: m.team_id,
-      teamName: teamName.get(m.team_id) ?? "",
-      pending: false,
-      stats: computePlayerStats(teamSets),
-    });
-  }
-
-  for (const i of (invites ?? []) as {
-    team_id: string;
-    name: string | null;
-    email: string;
-  }[]) {
-    const label = (i.name || i.email).trim();
-    if (!label) continue;
-    rows.push({
-      userId: null,
-      name: label,
-      teamId: i.team_id,
-      teamName: teamName.get(i.team_id) ?? "",
-      pending: true,
-      stats: computePlayerStats(sets.get(i.team_id) ?? []),
-    });
-  }
-
-  return rows.filter((r) => r.stats.gamesPlayed > 0);
+  return (
+    (names ?? []) as {
+      team_id: string;
+      user_id: string | null;
+      name: string;
+      pending: boolean;
+    }[]
+  )
+    .filter((n) => teamName.has(n.team_id))
+    .map((n) => ({
+      userId: n.user_id,
+      name: n.name,
+      teamId: n.team_id,
+      teamName: teamName.get(n.team_id) ?? "",
+      pending: n.pending,
+      stats: computePlayerStats(sets.get(n.team_id) ?? []),
+    }))
+    .filter((r) => r.stats.gamesPlayed > 0);
 }
 
 export type PlayerProfile = {

@@ -129,7 +129,18 @@ function netClutchTint(n: number): string {
   return "bg-rose-100 text-rose-900";
 }
 
-export function PlayerStatsTable({ rows }: { rows: PlayerStatRow[] }) {
+export function PlayerStatsTable({
+  rows,
+  linkProfiles = false,
+}: {
+  rows: PlayerStatRow[];
+  /**
+   * Whether a name links to that player's profile. Off for the public page:
+   * `/players/[id]` reads the user row, which RLS hides from anyone who
+   * doesn't share context — so a visitor clicking through would get a 404.
+   */
+  linkProfiles?: boolean;
+}) {
   const [sort, setSort] = useState<{ key: Key; desc: boolean }>({
     key: "netClutch",
     desc: true,
@@ -207,7 +218,7 @@ export function PlayerStatsTable({ rows }: { rows: PlayerStatRow[] }) {
                 className="border-rule h-11 border-b last:border-0"
               >
                 <td className="px-3 font-semibold whitespace-nowrap">
-                  {r.userId ? (
+                  {linkProfiles && r.userId ? (
                     <Link
                       href={`/players/${r.userId}`}
                       className="hover:text-primary underline-offset-2 hover:underline"

@@ -19,6 +19,8 @@ import {
 import { BracketTree } from "@/components/bracket/bracket-tree";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { PlayerStatRow } from "@/lib/queries/player-stats";
+import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -33,10 +35,13 @@ export function LeagueTabs({
   brackets = [],
   myTeamIds = [],
   scorableMatchIds = [],
+  playerStats = [],
   initialTab,
 }: {
   league: PublicLeague;
   standings: StandingsGroup[];
+  /** Per-player figures for the Stats tab. Empty hides the tab entirely. */
+  playerStats?: PlayerStatRow[];
   brackets?: BracketTrackView[];
   myTeamIds?: string[];
   /** Matches the viewer may score — surfaces "Enter score" on their own games. */
@@ -89,6 +94,7 @@ export function LeagueTabs({
     "schedule",
     "teams",
     "standings",
+    ...(playerStats.length > 0 ? ["stats"] : []),
     ...(hasPlayoffs ? ["playoffs"] : []),
   ]);
   const defaultTab =
@@ -103,6 +109,9 @@ export function LeagueTabs({
           <TabsTrigger value="schedule">Schedule</TabsTrigger>
           <TabsTrigger value="teams">Teams</TabsTrigger>
           <TabsTrigger value="standings">Standings</TabsTrigger>
+          {playerStats.length > 0 && (
+            <TabsTrigger value="stats">Stats</TabsTrigger>
+          )}
           {hasPlayoffs && <TabsTrigger value="playoffs">Playoffs</TabsTrigger>}
         </TabsList>
       </div>
@@ -207,6 +216,17 @@ export function LeagueTabs({
           </>
         )}
       </TabsContent>
+
+      {playerStats.length > 0 && (
+        <TabsContent value="stats" className="mt-6 space-y-3">
+          <p className="text-muted-foreground text-sm">
+            Every set each player&apos;s team has played, sorted by net clutch —
+            sets won by two points or fewer, minus sets lost the same way. Tap
+            any column to re-sort.
+          </p>
+          <PlayerStatsTable rows={playerStats} />
+        </TabsContent>
+      )}
 
       <TabsContent value="standings" className="mt-6 space-y-3">
         {standings.length > 1 ? (

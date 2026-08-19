@@ -6,6 +6,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { DateTime } from "luxon";
 
 import { getPublicLeague } from "@/lib/queries/leagues";
+import { getPlayerStats } from "@/lib/queries/player-stats";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
@@ -45,12 +46,14 @@ export default async function PublicLeaguePage({
   const { tab } = await searchParams;
   const [league, user] = await Promise.all([getPublicLeague(slug), getUser()]);
   if (!league) notFound();
-  const [standings, myTeamIds, scorableMatchIds, brackets] = await Promise.all([
-    getStandings(league.id),
-    getMyTeamIds(league.id),
-    getScorableMatchIds(league.id),
-    getBrackets(league.id),
-  ]);
+  const [standings, myTeamIds, scorableMatchIds, brackets, playerStats] =
+    await Promise.all([
+      getStandings(league.id),
+      getMyTeamIds(league.id),
+      getScorableMatchIds(league.id),
+      getBrackets(league.id),
+      getPlayerStats(league.id),
+    ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
   const deadlineText = league.registrationDeadline
@@ -121,6 +124,7 @@ export default async function PublicLeaguePage({
         )}
 
         <LeagueTabs
+          playerStats={playerStats}
           league={league}
           standings={standings}
           brackets={brackets}

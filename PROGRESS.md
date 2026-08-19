@@ -5,6 +5,46 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-19 — Player stats go public
+
+**Shipped.** The stats table from yesterday was organizer-only in practice, and
+players are the ones who care most about their own numbers. It is now on the
+public league page, and a player's own record is on their profile.
+
+**The privacy problem, and why RLS could not solve it.** Scores were always
+public — a league page has to work for someone with no account. Player NAMES
+were not: `users` is hidden except to people you share context with, correctly,
+because that row carries an email address. A public stats table needs the name
+and must never have the email, and **RLS cannot express that** — a policy grants
+or denies a ROW, and granting the row hands over the email with it.
+
+So the name is exposed through `competition_player_names` (migration `0078`), a
+SECURITY DEFINER function returning the display name and nothing else. It
+restates the `competitions_select` visibility rule rather than relying on it,
+because SECURITY DEFINER bypasses RLS — getting that wrong would publish a
+private competition's roster.
+
+**One consequence, deliberately accepted:** the old code fell back to an
+invitee's email when no name was recorded. On a public page that would publish
+an address, so unclaimed spots now appear only if the organizer typed a name.
+In Top Gun that hides 5 of 27 rows until those players claim or the organizer
+fills the name in.
+
+**Verified as a signed-out visitor** against the built app: the tab renders with
+full data, and the HTML contains **zero email addresses** and **zero profile
+links**. Names don't link publicly because `/players/[id]` reads the user row,
+which RLS hides — a visitor clicking through would get a 404.
+
+Also checked by impersonation: a signed-out visitor and a signed-in stranger
+both get nothing from the function for a non-public competition, and neither can
+read the `users` rows directly.
+
+**On the profile:** a compact per-league card — sets, record, win rate, net
+clutch — above payments, since players open their profile to see how they're
+doing far more often than to check a receipt.
+
+---
+
 ## 2026-08-18 — Player stats and profiles
 
 **Shipped.** An organizer keeps a spreadsheet of per-player numbers — games

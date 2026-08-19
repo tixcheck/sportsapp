@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getProfile } from "@/lib/auth/user";
+import { getPlayerProfile } from "@/lib/queries/player-stats";
+import { MyStatsCard } from "@/components/stats/my-stats-card";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { Button } from "@/components/ui/button";
 import { NotificationPrefsForm } from "@/components/profile/notification-prefs-form";
@@ -16,6 +18,7 @@ import {
 export default async function ProfilePage() {
   const profile = await getProfile();
   if (!profile) redirect("/login");
+  const stats = await getPlayerProfile(profile.id);
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -34,6 +37,8 @@ export default async function ProfilePage() {
           />
         </CardContent>
       </Card>
+
+      {stats && <MyStatsCard profile={stats} />}
 
       <Card>
         <CardHeader>
