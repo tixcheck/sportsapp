@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getFreeAgents } from "@/lib/queries/free-agents";
+import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
+import { LadderNightStandings } from "@/components/league/ladder-night-standings";
 import { getPlayerStats } from "@/lib/queries/player-stats";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
@@ -89,6 +91,7 @@ export default async function LeaguePage({
     ladder,
     freeAgents,
     playerStats,
+    ladderNights,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -99,6 +102,7 @@ export default async function LeaguePage({
     getLadderState(leagueId),
     getFreeAgents(leagueId),
     getPlayerStats(leagueId),
+    getLadderNightStandings(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -253,11 +257,21 @@ export default async function LeaguePage({
       <CardHeader>
         <CardTitle>Standings</CardTitle>
         <CardDescription>
-          Live from confirmed scores — the OVA tiebreaker order.
+          {ladderNights.length > 0
+            ? "Each night on its own. A ladder's teams change tiers every week, so a season-long table would rank records built against different opposition."
+            : "Live from confirmed scores — the OVA tiebreaker order."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {standings.length > 1 ? (
+        {ladderNights.length > 0 ? (
+          <LadderNightStandings
+            nights={ladderNights}
+            timezone={league.timezone}
+            format={league.matchFormat}
+            sport={league.sport}
+            differential={league.tiebreaker === "differential"}
+          />
+        ) : standings.length > 1 ? (
           <StandingsGroups
             groups={standings}
             showDivision={false}

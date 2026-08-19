@@ -5,6 +5,46 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-19 (later still) — Ladder standings, per night
+
+**Fixed.** The organizer's Standings tab showed V & the mandem on 0/10 with a
+0-0 record — the same team that had just been promoted for going 5-1.
+
+**Why.** Standings group by CURRENT tier, and `rankStandings` skips any match
+where either side isn't in the group. In a normal tiered league nobody moves, so
+that filter never fires. A ladder moves teams every week, so every promotion
+retroactively erased the games that earned it. V & the mandem played 6 sets in
+Tier 2, went up, and lost all six from their record because their opponents were
+no longer in their tier. Every number on that screen traced to this: 2/8 for the
+Tier 1 pair (only their 2 games against each other survived), 4/12 for the three
+Tier 2 teams (their 2 games against the promoted side dropped), 0/10 for both
+teams that moved.
+
+A second, smaller fault sat underneath: played was filtered to same-tier games
+while `gamesScheduled` counted every non-bracket match, so "2/8" compared two
+different things and could never reach 8/8.
+
+**The fix is a different artifact, not a better filter.** A cumulative table
+cannot be fair in a ladder however it's computed — teams never share a schedule,
+so ranking a season together either erases history or compares records built
+against different tiers of opposition. The night is the unit that means
+something: it's what they played, and it's exactly what decides who moves.
+
+`getLadderNightStandings` returns one table per night, grouped by the tiers as
+they stood THAT week — read from `ladder_placements`, not `teams.division_id`.
+That distinction is the whole fix. Scheduled is counted over the same games that
+are ranked, so the fraction compares like with like.
+
+Ladder leagues get this on both the organizer and public Standings tabs; every
+other competition is untouched (verified — Helix still shows its season table
+with weekly columns).
+
+Week 1 now reads correctly: Tier 1 SPIKERZ 4/4 (3-1), How I Set Your Mother 4/4
+(3-1), Inappropriate Touches 4/4 (0-4); Tier 2 V & the mandem 6/6 (5-1),
+Digamons 6/6 (5-1), Sauga Titans 6/6 (2-4), No Prob-Llamas 6/6 (0-6).
+
+---
+
 ## 2026-08-19 (later) — Ladder: the draw finally reads the tier settings
 
 **Fixed.** Mango's week 2 was drawn wrong in five ways. The organizer spotted it;

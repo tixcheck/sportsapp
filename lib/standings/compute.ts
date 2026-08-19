@@ -65,12 +65,12 @@ function fmtRatio(value: number): string {
  * Build the OVA-style explanation for one row: the teams it tied with and their
  * values at the step that resolved the tie. Reproduces the reference modal.
  */
-function buildExplainer(
+export function buildStandingsExplainer(
   row: StandingRow,
   ranked: StandingRow[],
   results: MatchResult[],
   teamName: Map<string, string>,
-  droppedByTeam: DroppedByTeam,
+  droppedByTeam: DroppedByTeam = new Map(),
 ): TiebreakerExplainer {
   const tied = new Set(row.tiedWith);
   const ordered = ranked.filter((r) => tied.has(r.teamId)); // finishing order
@@ -312,7 +312,13 @@ export async function loadStandings(
       teamName: teamName.get(r.teamId) ?? "—",
       withdrawn: isWithdrawn.get(r.teamId) ?? false,
       gamesScheduled: scheduledByTeam.get(r.teamId) ?? 0,
-      explainer: buildExplainer(r, ranked, results, teamName, droppedByTeam),
+      explainer: buildStandingsExplainer(
+        r,
+        ranked,
+        results,
+        teamName,
+        droppedByTeam,
+      ),
       weekly: [] as WeekTally[],
     }));
   };
