@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getFreeAgents } from "@/lib/queries/free-agents";
+import { getPlayerStats } from "@/lib/queries/player-stats";
+import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
 import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
@@ -86,6 +88,7 @@ export default async function LeaguePage({
     brackets,
     ladder,
     freeAgents,
+    playerStats,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -95,6 +98,7 @@ export default async function LeaguePage({
     getBrackets(leagueId),
     getLadderState(leagueId),
     getFreeAgents(leagueId),
+    getPlayerStats(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -375,6 +379,22 @@ export default async function LeaguePage({
       <LadderPanel competitionId={league.id} state={ladder} />
     ) : null;
 
+  const statsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Player stats</CardTitle>
+        <CardDescription>
+          Every set each player&apos;s team has played. Sorted by net clutch —
+          sets won by two points or fewer, minus sets lost the same way. Tap any
+          column to re-sort.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <PlayerStatsTable rows={playerStats} />
+      </CardContent>
+    </Card>
+  );
+
   const settingsTab = (
     <div className="space-y-6">
       <IndividualSignupSettings
@@ -620,6 +640,7 @@ export default async function LeaguePage({
             ? [{ value: "playoffs", label: "Playoffs", content: playoffsTab }]
             : []),
           { value: "teams", label: "Teams", content: teamsTabWithFreeAgents },
+          { value: "stats", label: "Stats", content: statsTab },
           { value: "settings", label: "Settings", content: settingsTab },
         ]}
       />

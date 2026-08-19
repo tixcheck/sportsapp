@@ -5,6 +5,53 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-18 — Player stats and profiles
+
+**Shipped.** An organizer keeps a spreadsheet of per-player numbers — games
+played, wins, points for/against, win %, points played, and a "clutch" block
+counting sets won or lost by two points or fewer. They asked whether the app
+could produce it. It can; all eleven columns come from data already stored.
+
+**The formulas were reverse-engineered from their own sheet** rather than
+guessed, because matching numbers they can check is what makes this
+trustworthy. From one row: points played ÷ GP = 45.3 while average points for =
+22.5, so "points played" counts BOTH directions and "average" counts only
+theirs — conflating those two was the easiest way to get this wrong. Their
+published 53.6% win, +8 net clutch and 26% clutch rate are asserted in the
+tests.
+
+**The real problem was never the arithmetic — it was attribution.** Scores are
+per MATCH and a match belongs to TEAMS, so putting a number against a person
+needs to know which sets that person was on court for. `lib/stats/player-stats.ts`
+is therefore pure and takes a flat list of "what I scored, what was scored on
+me"; deciding which sets those are lives separately in `lib/queries/player-stats.ts`.
+That seam is what lets the 6s work add an attendance rule later without
+touching any of the maths.
+
+Today's rule is fixed-roster: everyone on a team is credited with every set the
+team played. **Exactly right for 2s**, where a team IS its two players — Helix's
+three beach leagues get real profiles with no new data at all. An approximation
+for 6s, where people miss nights; that is what attendance will fix.
+
+**Decisions taken with the owner:** attendance (when built) will assume the
+roster played and let captains mark absences, rather than requiring a check-in;
+and pairs ship first.
+
+**Where it lives:** a Stats tab on the organizer's league page with the full
+sortable table, and `/players/[playerId]` for one person's career plus a
+per-competition breakdown. Career totals are recomputed from the combined set
+list, not summed from the per-competition rows — averages and ratios don't add.
+
+**Rosters are the practical limit.** The table draws on linked accounts plus
+unclaimed invites, because a pair where one partner never claimed would
+otherwise show as half a team. Unclaimed rows are badged and have no profile
+behind them. In Top Gun, 6 of 27 player rows are still unclaimed.
+
+Verified against Top Gun Summer 2026: 27 player rows, each pair's figures
+matching the team-level numbers exactly. 17 unit tests on the engine.
+
+---
+
 ## 2026-08-15 (later) — Individual sign-ups: free agents
 
 **Shipped.** Most leagues take teams AND individuals — people with no team who
