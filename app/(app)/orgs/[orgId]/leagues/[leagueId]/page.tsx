@@ -390,7 +390,7 @@ export default async function LeaguePage({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <PlayerStatsTable rows={playerStats} />
+        <PlayerStatsTable rows={playerStats} linkProfiles />
       </CardContent>
     </Card>
   );
