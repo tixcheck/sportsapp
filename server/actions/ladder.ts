@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
+import { planTierNight } from "@/lib/scheduler/ladder-night";
 import { planLadderWeek, rankLadderNight } from "@/lib/scheduler/ladder-week";
 import { applyLadderMovement } from "@/lib/scheduler/ladder-movement";
 import { estimateMatchMinutes } from "@/lib/formats";
@@ -101,7 +102,9 @@ async function loadLadderContext(competitionId: string) {
         .single(),
       supabase
         .from("divisions")
-        .select("id, name, tier_order")
+        .select(
+          "id, name, tier_order, courts, ladder_target, minutes_per_set, start_time, late_start_slots",
+        )
         .eq("competition_id", competitionId)
         .order("tier_order", { ascending: true }),
     ]);
@@ -215,18 +218,9 @@ export async function drawLadderWeekAction(
   const courtList = (settings.court_list as LeagueCourt[] | null) ?? null;
   const hasCourtList = courtList != null && courtList.length > 0;
   const courtCount = hasCourtList ? courtList.length : slot.courts;
-  const target = (settings.ladder_target as number) ?? 6;
-
-  const plan = planLadderWeek(rosters, target, courtCount, week);
-  if (plan.matches.length === 0) {
-    return { error: "No games to draw — check tier sizes and the target." };
-  }
 
   const tz = (comp.timezone as string) ?? DEFAULT_TIMEZONE;
   const format = comp.match_format as MatchFormat;
-  const gameMinutes =
-    (settings.minutes_per_game as number | null) ??
-    estimateMatchMinutes(format);
   const blackouts = new Set((settings.blackout_dates as string[] | null) ?? []);
 
   // Week N is the Nth playing night, skipping blackout dates.
@@ -250,34 +244,116 @@ export async function drawLadderWeekAction(
           setsToPoints: [format.setsToPoints?.[0] ?? 21],
         };
 
-  const courtLabel = (i: number) =>
-    hasCourtList ? `${courtList[(i - 1) % courtList.length].label}` : `${i}`;
+  const courtLabelAt = (n: number) =>
+    hasCourtList
+      ? courtList[Math.max(0, Math.min(courtList.length - 1, n - 1))].label
+      : String(n);
 
-  // No division_id on matches — a game's tier is implied by its teams, the
-  // same way the tiered round-robin generator does it.
-  const rows = plan.matches.map((m) => ({
-    competition_id: competitionId,
-    round: week,
-    home_team_id: m.homeTeamId,
-    away_team_id: m.awayTeamId,
-    court: courtLabel(m.courtIndex),
-    status: "scheduled" as const,
-    match_format: perGameFormat,
-    scheduled_at: DateTime.fromISO(`${date}T${slot.startTime}`, { zone: tz })
-      .plus({ minutes: m.wave * gameMinutes })
-      .toISO(),
-  }));
+  type Row = {
+    competition_id: string;
+    round: number;
+    home_team_id: string;
+    away_team_id: string;
+    ref_team_id?: string | null;
+    court: string;
+    status: "scheduled";
+    match_format: MatchFormat;
+    scheduled_at: string;
+  };
+
+  /**
+   * A tier that carries its own start time and slot length runs its own night
+   * on its own court, and the tiers do not share a wave. A league that never
+   * set those keeps the original shared-court packing.
+   */
+  const perTier = divisions.every(
+    (d) => d.start_time != null && d.minutes_per_set != null,
+  );
+
+  let rows: Row[];
+  let shorted: string[];
+
+  if (perTier) {
+    rows = [];
+    shorted = [];
+    for (const [i, d] of divisions.entries()) {
+      const roster = rosters.find((r) => r.divisionId === (d.id as string));
+      if (!roster || roster.teamIds.length < 2) continue;
+
+      // `courts` holds the court NUMBERS this tier plays on; fall back to one
+      // court per tier in tier order, which is what a two-court ladder means.
+      const courtNumbers = (d.courts as number[] | null) ?? null;
+      const courtNumber =
+        courtNumbers && courtNumbers.length > 0 ? courtNumbers[0] : i + 1;
+
+      const plan = planTierNight(
+        {
+          divisionId: d.id as string,
+          teamIds: roster.teamIds,
+          target:
+            (d.ladder_target as number | null) ??
+            (settings.ladder_target as number) ??
+            6,
+          minutesPerSet: d.minutes_per_set as number,
+          court: courtLabelAt(courtNumber),
+          lateStartSlots: (d.late_start_slots as number | null) ?? 0,
+        },
+        week,
+      );
+      shorted.push(...plan.shortedTeamIds);
+
+      const startsAt = DateTime.fromISO(`${date}T${d.start_time as string}`, {
+        zone: tz,
+      });
+      for (const m of plan.matches) {
+        rows.push({
+          competition_id: competitionId,
+          round: week,
+          home_team_id: m.homeTeamId,
+          away_team_id: m.awayTeamId,
+          ref_team_id: m.refTeamId,
+          court: m.court,
+          status: "scheduled",
+          match_format: perGameFormat,
+          scheduled_at: startsAt.plus({ minutes: m.offsetMinutes }).toISO()!,
+        });
+      }
+    }
+    if (rows.length === 0) {
+      return { error: "No games to draw — check tier sizes and the targets." };
+    }
+  } else {
+    const target = (settings.ladder_target as number) ?? 6;
+    const plan = planLadderWeek(rosters, target, courtCount, week);
+    if (plan.matches.length === 0) {
+      return { error: "No games to draw — check tier sizes and the target." };
+    }
+    const gameMinutes =
+      (settings.minutes_per_game as number | null) ??
+      estimateMatchMinutes(format);
+    shorted = plan.shortedTeamIds;
+    // No division_id on matches — a game's tier is implied by its teams, the
+    // same way the tiered round-robin generator does it.
+    rows = plan.matches.map((m) => ({
+      competition_id: competitionId,
+      round: week,
+      home_team_id: m.homeTeamId,
+      away_team_id: m.awayTeamId,
+      court: courtLabelAt(m.courtIndex),
+      status: "scheduled" as const,
+      match_format: perGameFormat,
+      scheduled_at: DateTime.fromISO(`${date}T${slot.startTime}`, { zone: tz })
+        .plus({ minutes: m.wave * gameMinutes })
+        .toISO()!,
+    }));
+  }
 
   const { error: insErr } = await supabase.from("matches").insert(rows);
   if (insErr) return { error: insErr.message };
 
   revalidatePath("/orgs");
   if (comp.slug) revalidatePath(`/l/${comp.slug}`);
-  return {
-    week,
-    matchCount: rows.length,
-    shorted: plan.shortedTeamIds.length,
-  };
+  return { week, matchCount: rows.length, shorted: shorted.length };
 }
 
 /**

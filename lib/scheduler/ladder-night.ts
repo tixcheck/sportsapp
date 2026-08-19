@@ -19,6 +19,8 @@
  * redraws a week must not get a different night.
  */
 
+import { splitTierNight } from "./ladder-split";
+
 export type TeamId = string;
 export type SetPairing = { homeTeamId: TeamId; awayTeamId: TeamId };
 
@@ -365,4 +367,125 @@ export function assignNightRefs(input: RefAssignInput): RefAssignment {
  */
 export function everyoneAlwaysBusy(teamCount: number): boolean {
   return teamCount <= 3;
+}
+
+// ---------------------------------------------------------------------------
+// One tier's whole night, start to finish.
+// ---------------------------------------------------------------------------
+
+export interface TierNightSpec {
+  divisionId: string;
+  /** Ladder order, best first — position 0 is the team that may start late. */
+  teamIds: TeamId[];
+  /** Sets each team should get. */
+  target: number;
+  /** Minutes per set, which is this tier's slot length. */
+  minutesPerSet: number;
+  /** The court this tier owns for the night. */
+  court: string;
+  /** Opening slots the top team sits out. 0 or absent = everyone together. */
+  lateStartSlots?: number;
+}
+
+export interface PlannedTierMatch {
+  divisionId: string;
+  homeTeamId: TeamId;
+  awayTeamId: TeamId;
+  refTeamId: TeamId | null;
+  /** 0-based slot within this tier's own night. */
+  slot: number;
+  court: string;
+  /** Minutes after the tier's own start time. */
+  offsetMinutes: number;
+}
+
+export interface TierNightPlan {
+  matches: PlannedTierMatch[];
+  shortedTeamIds: TeamId[];
+  /** Opening slots the late team actually sits out (may be clamped down). */
+  lateStartApplied: number;
+  lateStartImpossible: boolean;
+  /** Slots nobody could referee. Empty for any tier of 3 or more. */
+  uncoveredSlots: number[];
+}
+
+/**
+ * Plan one tier's night: who plays whom, in what order, on its own court and
+ * clock, with a referee for every game.
+ *
+ * This is the tier-owns-a-court model, and it is a different shape from
+ * `planLadderWeek`, which packs every tier into a shared pool of courts on one
+ * league-wide clock. When each tier has its own court, start time and slot
+ * length — a 3-team tier on 20-minute sets from 8pm beside a 4-team tier on
+ * 15-minute sets from 7pm — the tiers simply do not share a wave, and trying to
+ * express them on one timeline is what puts a Tier 2 game on Tier 1's court.
+ *
+ * Referees are shared out by load within the night rather than rotated by
+ * standing: measured across four scenarios, rank-rotation spread duty markedly
+ * worse (5/13/7/24 against 2/8/6/15), so the balanced sharing is what runs.
+ */
+export function planTierNight(spec: TierNightSpec, week = 0): TierNightPlan {
+  const { divisionId, teamIds, target, minutesPerSet, court } = spec;
+
+  const split = splitTierNight({ teamIds, target, week });
+  if (split.meetings.length === 0) {
+    return {
+      matches: [],
+      shortedTeamIds: split.shortedTeamIds,
+      lateStartApplied: 0,
+      lateStartImpossible: false,
+      uncoveredSlots: [],
+    };
+  }
+
+  // A meeting that happens twice is two sets, each scored on its own.
+  const sets: SetPairing[] = [];
+  for (const m of split.meetings) {
+    for (let i = 0; i < m.count; i++) {
+      sets.push({ homeTeamId: m.homeTeamId, awayTeamId: m.awayTeamId });
+    }
+  }
+
+  // The top team is the one rewarded with a late start, and only if this tier
+  // asked for one. Clamped to what the fixtures actually allow: only sets that
+  // don't involve them can be played before they arrive.
+  const wantsLate = (spec.lateStartSlots ?? 0) > 0;
+  const lateTeamId = wantsLate ? (teamIds[0] ?? null) : null;
+  const requested = spec.lateStartSlots ?? 0;
+  const ceiling = lateTeamId ? maxLateStartSlots(sets, lateTeamId) : 0;
+  const lateStartSlots = lateTeamId ? Math.min(requested, ceiling) : 0;
+
+  const ordered = orderTierNight({
+    sets,
+    teamIds,
+    lateTeamId,
+    lateStartSlots,
+    // Seeded by week so redrawing a week returns the same night.
+    seed: week,
+  });
+
+  const refs = assignNightRefs({
+    order: ordered.order,
+    teamIds,
+    lateTeamId,
+    lateStartSlots: ordered.lateStartApplied,
+    weekIndex: week,
+  });
+
+  return {
+    matches: ordered.order.map((s, slot) => ({
+      divisionId,
+      homeTeamId: s.homeTeamId,
+      awayTeamId: s.awayTeamId,
+      refTeamId: refs.refs[slot] ?? null,
+      slot,
+      court,
+      offsetMinutes: slot * minutesPerSet,
+    })),
+    shortedTeamIds: split.shortedTeamIds,
+    lateStartApplied: ordered.lateStartApplied,
+    lateStartImpossible:
+      ordered.lateStartImpossible || (requested > 0 && ceiling < requested),
+    uncoveredSlots: refs.uncovered,
+  };
 }
