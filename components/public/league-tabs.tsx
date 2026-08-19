@@ -20,6 +20,8 @@ import { BracketTree } from "@/components/bracket/bracket-tree";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PlayerStatRow } from "@/lib/queries/player-stats";
+import type { LadderNight } from "@/lib/queries/ladder-standings";
+import { LadderNightStandings } from "@/components/league/ladder-night-standings";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 
 function initials(name: string): string {
@@ -36,12 +38,18 @@ export function LeagueTabs({
   myTeamIds = [],
   scorableMatchIds = [],
   playerStats = [],
+  ladderNights = [],
   initialTab,
 }: {
   league: PublicLeague;
   standings: StandingsGroup[];
   /** Per-player figures for the Stats tab. Empty hides the tab entirely. */
   playerStats?: PlayerStatRow[];
+  /**
+   * Per-night tables for a ladder league. Non-empty replaces the season
+   * standings, which cannot be fair when teams change tiers every week.
+   */
+  ladderNights?: LadderNight[];
   brackets?: BracketTrackView[];
   myTeamIds?: string[];
   /** Matches the viewer may score — surfaces "Enter score" on their own games. */
@@ -229,7 +237,15 @@ export function LeagueTabs({
       )}
 
       <TabsContent value="standings" className="mt-6 space-y-3">
-        {standings.length > 1 ? (
+        {ladderNights.length > 0 ? (
+          <LadderNightStandings
+            nights={ladderNights}
+            timezone={league.timezone}
+            format={league.matchFormat}
+            sport={league.sport}
+            differential={league.tiebreaker === "differential"}
+          />
+        ) : standings.length > 1 ? (
           <StandingsGroups
             groups={standings}
             showDivision={false}
