@@ -5,6 +5,50 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-19 (later) — Ladder: the draw finally reads the tier settings
+
+**Fixed.** Mango's week 2 was drawn wrong in five ways. The organizer spotted it;
+the diagnosis was that `drawLadderWeekAction` had never been wired to the
+per-tier work.
+
+What week 2 had, against what was configured:
+
+| | drawn | configured |
+|---|---|---|
+| Tier 1 games | 9 (6 sets a team) | 6 (4 sets a team) |
+| Tier 1 clock | 19:00, 15-min slots | 20:00, 20-min slots |
+| Courts | 2 Tier 2 games on Court 1 | one court per tier, no crossover |
+| Referees | none on any of 21 games | every game covered |
+| Late start | nobody | top of Tier 2 sits out 4 slots |
+
+**Root cause, in two parts.** `loadLadderContext` selected only
+`id, name, tier_order` from divisions — it never read `ladder_target`,
+`minutes_per_set`, `start_time`, `late_start_slots` or `courts` (migration
+0073). And `lib/scheduler/ladder-night.ts` — `orderTierNight`,
+`assignNightRefs`, `maxLateStartSlots`, all built and tested — **had no callers
+anywhere outside its own tests**. Week 1 was right because it was written
+directly by script using those functions; week 2 went through the app.
+
+**The shape was wrong, not just the wiring.** `planLadderWeek` packs every tier
+into a shared pool of courts on one league-wide clock. When each tier owns a
+court and has its own start time and slot length — 3 teams on 20-minute sets
+from 8pm beside 4 teams on 15-minute sets from 7pm — the tiers don't share a
+wave at all, and forcing them onto one timeline is exactly what put a Tier 2
+game on Tier 1's court. So `planTierNight` plans each tier's night end to end
+on its own clock, and the action picks that path when every tier carries its
+own settings. A ladder that never set them keeps the old packing.
+
+19 tests, written against Mango's real configuration and asserting each of the
+five faults directly.
+
+**Week 2 redrawn** and verified: 18 games (was 21), Tier 1 six games on Court 1
+at 20:00–21:40 on 20s, Tier 2 twelve on Court 2 at 19:00–21:45 on 15s, every
+game refereed, no crossover, no double-bookings, and Inappropriate Touches — top
+of Tier 2 — sitting out the first four slots while still refereeing the slot
+before they play. Weeks 3–5 were not drawn, so nothing else needed redoing.
+
+---
+
 ## 2026-08-19 — Player stats go public
 
 **Shipped.** The stats table from yesterday was organizer-only in practice, and
