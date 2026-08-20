@@ -315,6 +315,7 @@ export function ScheduleView({
   scorableMatchIds = [],
   slotMinutes,
   sport,
+  initialDay = null,
 }: {
   matches: ScheduleMatch[];
   timezone: string;
@@ -330,6 +331,14 @@ export function ScheduleView({
   slotMinutes?: number;
   /** Names courts/fields and the officiating role. Defaults to volleyball. */
   sport?: Sport;
+  /**
+   * Day tab to open on, as `yyyy-MM-dd`. Null shows every day.
+   *
+   * Resolved by the caller rather than from the clock here: "today" has to be
+   * read in the COMPETITION's timezone, and computing it during render would
+   * differ between the server pass and the client one.
+   */
+  initialDay?: string | null;
 }) {
   const scorable = new Set(scorableMatchIds);
   const [view, setView] = useState<
@@ -340,7 +349,7 @@ export function ScheduleView({
     .size;
   const hasTiers = tierCount > 1;
   const [mineOnly, setMineOnly] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(initialDay);
   const canFilterMine = myTeamIds.length > 0;
 
   const dayOf = (m: ScheduleMatch) =>

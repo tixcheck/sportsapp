@@ -8,6 +8,7 @@ import { DateTime } from "luxon";
 import { getPublicLeague } from "@/lib/queries/leagues";
 import { getPlayerStats } from "@/lib/queries/player-stats";
 import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
+import { defaultScheduleDay } from "@/lib/schedule/default-day";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
@@ -62,6 +63,21 @@ export default async function PublicLeaguePage({
     getPlayerStats(league.id),
     getLadderNightStandings(league.id),
   ]);
+
+  // Open the schedule on the night people are actually asking about. "Today"
+  // is read in the LEAGUE's timezone, and resolved here rather than in the
+  // client component so the server and client agree on the first render.
+  const today = DateTime.now().setZone(league.timezone).toFormat("yyyy-MM-dd");
+  const playingDays = league.schedule
+    .map((m) =>
+      m.scheduledAt
+        ? DateTime.fromISO(m.scheduledAt, { zone: league.timezone }).toFormat(
+            "yyyy-MM-dd",
+          )
+        : null,
+    )
+    .filter((d): d is string => d != null);
+  const initialDay = defaultScheduleDay(playingDays, today);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
   const deadlineText = league.registrationDeadline
@@ -134,6 +150,7 @@ export default async function PublicLeaguePage({
         <LeagueTabs
           playerStats={playerStats}
           ladderNights={ladderNights}
+          initialDay={initialDay}
           league={league}
           standings={standings}
           brackets={brackets}
