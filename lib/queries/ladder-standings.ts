@@ -17,6 +17,8 @@
  * tier it actually played in.
  */
 
+import { DateTime } from "luxon";
+
 import { createClient } from "@/lib/supabase/server";
 import { rankStandings, type MatchResult } from "@/lib/scheduler/tiebreakers";
 import type { RankMode } from "@/lib/scheduler/tiebreakers";
@@ -57,25 +59,34 @@ export async function getLadderNightStandings(
 ): Promise<LadderNight[]> {
   const supabase = await createClient();
 
-  const [{ data: settings }, { data: placements }, { data: divisions }] =
-    await Promise.all([
-      supabase
-        .from("league_settings")
-        .select("ladder_enabled, tiebreaker")
-        .eq("competition_id", competitionId)
-        .maybeSingle(),
-      supabase
-        .from("ladder_placements")
-        .select("team_id, division_id, week, position")
-        .eq("competition_id", competitionId)
-        .order("week", { ascending: true })
-        .order("position", { ascending: true }),
-      supabase
-        .from("divisions")
-        .select("id, name, tier_order")
-        .eq("competition_id", competitionId)
-        .order("tier_order", { ascending: true }),
-    ]);
+  const [
+    { data: comp },
+    { data: settings },
+    { data: placements },
+    { data: divisions },
+  ] = await Promise.all([
+    supabase
+      .from("competitions")
+      .select("timezone")
+      .eq("id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("league_settings")
+      .select("ladder_enabled, tiebreaker")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("ladder_placements")
+      .select("team_id, division_id, week, position")
+      .eq("competition_id", competitionId)
+      .order("week", { ascending: true })
+      .order("position", { ascending: true }),
+    supabase
+      .from("divisions")
+      .select("id, name, tier_order")
+      .eq("competition_id", competitionId)
+      .order("tier_order", { ascending: true }),
+  ]);
 
   if (
     (settings as { ladder_enabled?: boolean } | null)?.ladder_enabled !== true
@@ -166,6 +177,9 @@ export async function getLadderNightStandings(
     byWeek.set(p.week, week);
   }
 
+  const tz =
+    (comp as { timezone?: string } | null)?.timezone ?? "America/Toronto";
+
   const nights: LadderNight[] = [];
 
   // Games each team has played across the season, accumulated as we walk the
@@ -184,9 +198,13 @@ export async function getLadderNightStandings(
     const complete = nightMatches.every(
       (m) => (setsByMatch.get(m.id) ?? []).length > 0,
     );
-    const date =
-      nightMatches.find((m) => m.scheduled_at)?.scheduled_at?.slice(0, 10) ??
-      null;
+    // The night's date in the LEAGUE's timezone, not UTC. Slicing the ISO
+    // string looks equivalent and isn't: a Tuesday 8pm game in Toronto is
+    // Wednesday 00:00Z, so the whole night would be labelled a day late.
+    const firstStart = nightMatches.find((m) => m.scheduled_at)?.scheduled_at;
+    const date = firstStart
+      ? DateTime.fromISO(firstStart, { zone: tz }).toFormat("yyyy-MM-dd")
+      : null;
 
     const tierViews: LadderNightTier[] = [];
     for (const [divisionId, ids] of tiers) {

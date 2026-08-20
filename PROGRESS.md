@@ -5,6 +5,43 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-20 (later) — Embeddable schedule and standings
+
+**Shipped.** An organizer wanted the schedule and standings on their own site.
+They asked for an API; what they actually needed was a picture, so this is an
+iframe embed rather than a data contract:
+
+    /embed/l/<slug>/schedule
+    /embed/l/<slug>/standings
+
+**Why not a JSON API yet.** CLAUDE.md forbids API routes outside webhooks, and a
+public response shape is a promise we can't take back once somebody builds
+against it — that's an ADR, not a Tuesday. The embed also keeps improving on its
+own: every fix we ship lands on their site, where a JSON consumer's page would
+freeze at whatever they built. The owner chose embed now, ADR for the API later
+if anyone actually wants the raw data.
+
+Notes on the build:
+
+- **Visibility is RLS's decision, not the route's.** The embed calls the same
+  `getPublicLeague`, so a private or draft league 404s here exactly as it does
+  on the public page. Verified signed-out: 200 for public leagues, 404 for
+  anything else, no emails in the HTML, no navbar.
+- **`noindex`.** Otherwise the embed competes with the real league page in
+  search and drops players on a bare fragment with no way into the rest.
+- **Auto-height.** An iframe can't size itself, so the embed measures itself and
+  posts `{ type: "mysportsapp:height" }` to the parent. Hosts that want
+  auto-sizing listen; hosts that don't are unaffected.
+- A quiet footer links back to the full page — the host site usually can't,
+  since it doesn't know the slug.
+
+**Found and fixed a bug of my own while testing:** `getLadderNightStandings`
+dated each night by slicing the UTC ISO string, so Tuesday 8pm in Toronto is
+00:00Z Wednesday and every ladder night was labelled a day late ("Week 2 —
+Wednesday, Aug 26"). Now converted in the league's timezone first.
+
+---
+
 ## 2026-08-20 — A season total in the ladder standings
 
 **Shipped.** The per-night tables answer "how did they do on Tuesday" but not
