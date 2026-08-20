@@ -39,6 +39,7 @@ export function LeagueTabs({
   scorableMatchIds = [],
   playerStats = [],
   ladderNights = [],
+  initialDay = null,
   initialTab,
 }: {
   league: PublicLeague;
@@ -50,6 +51,8 @@ export function LeagueTabs({
    * standings, which cannot be fair when teams change tiers every week.
    */
   ladderNights?: LadderNight[];
+  /** Day tab the schedule opens on — the next night still to come. */
+  initialDay?: string | null;
   brackets?: BracketTrackView[];
   myTeamIds?: string[];
   /** Matches the viewer may score — surfaces "Enter score" on their own games. */
@@ -131,6 +134,7 @@ export function LeagueTabs({
           myTeamIds={myTeamIds}
           scorableMatchIds={scorableMatchIds}
           sport={league.sport}
+          initialDay={initialDay}
           slotMinutes={estimateMatchMinutes(league.matchFormat)}
         />
       </TabsContent>

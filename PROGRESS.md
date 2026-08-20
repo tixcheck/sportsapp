@@ -5,6 +5,34 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-19 (later still) — Public schedules open on the next night
+
+**Shipped.** The public schedule opened on "All days", so a player had to scroll
+past nights that had already happened to find the one they cared about. It now
+opens on the next night still to come — today included, because game day is
+exactly when a schedule gets opened, and a night is still "next" while it's
+being played. Once a season is over it falls back to the most recent night,
+which is the one people look up results for.
+
+`defaultScheduleDay` is pure and takes `today` as an argument rather than
+reading the clock: "today" has to be resolved in the COMPETITION's timezone (a
+Toronto league opened at 11pm from Vancouver is still on tonight), and computing
+it during render would differ between the server pass and the client one. The
+page resolves it; `ScheduleView` just takes an `initialDay`. 8 tests.
+
+Organizer views are unchanged — "All days" is the right default when auditing a
+season, and the prop defaults to null so nothing else moved.
+
+**Also noticed, not fixed:** the schedule's By-tier grouping labels each game
+with its team's CURRENT tier, not the tier it played in that night. On Mango's
+Aug 18 all 6 Tier 1 games are labelled Tier 2 and 6 of the Tier 2 games are
+labelled Tier 1. Same root cause as the standings bug fixed earlier today —
+`teams.division_id` says where a team is now, and only `ladder_placements`
+knows where it was. Fixing it means threading placements into the schedule
+query, which is a bigger change than this one.
+
+---
+
 ## 2026-08-19 (later still) — Ladder standings, per night
 
 **Fixed.** The organizer's Standings tab showed V & the mandem on 0/10 with a
