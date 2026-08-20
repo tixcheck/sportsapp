@@ -168,7 +168,14 @@ export async function getLadderNightStandings(
 
   const nights: LadderNight[] = [];
 
-  for (const [week, tiers] of byWeek) {
+  // Games each team has played across the season, accumulated as we walk the
+  // weeks in order. A night's own table can only ever show that night, so this
+  // is the figure that answers "how much have they actually played" — and it
+  // has to be a RUNNING total, not a season-wide one, or every night would
+  // repeat the same number and week 1 would claim games it hadn't reached yet.
+  const seasonPlayed = new Map<string, number>();
+
+  for (const [week, tiers] of [...byWeek].sort((a, b) => a[0] - b[0])) {
     const nightMatches = matchRows.filter((m) => m.round === week);
     // A week with placements but no games is next week's ladder, already
     // written by the lock but not yet drawn. Nothing to rank.
@@ -211,6 +218,11 @@ export async function getLadderNightStandings(
       }
 
       const played = results.filter((r) => r.sets.length > 0);
+      for (const r of played) {
+        for (const id of [r.homeTeamId, r.awayTeamId]) {
+          seasonPlayed.set(id, (seasonPlayed.get(id) ?? 0) + 1);
+        }
+      }
       const ranked = rankStandings(ids, played, undefined, mode);
 
       tierViews.push({
@@ -221,6 +233,7 @@ export async function getLadderNightStandings(
           teamName: teamName.get(r.teamId) ?? "—",
           withdrawn: withdrawn.get(r.teamId) ?? false,
           gamesScheduled: scheduled.get(r.teamId) ?? 0,
+          seasonGamesPlayed: seasonPlayed.get(r.teamId) ?? 0,
           explainer: buildStandingsExplainer(r, ranked, played, teamName),
           weekly: [],
         })),

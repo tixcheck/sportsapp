@@ -52,6 +52,14 @@ export interface StandingsRowView extends StandingRow {
   withdrawn: boolean;
   /** Total pool-play / season games scheduled for this team (any status). */
   gamesScheduled: number;
+  /**
+   * Games played across the whole competition so far, when the table itself
+   * covers only part of it. A ladder's standings are per night, so `mw + ml`
+   * counts that night alone and this is the only figure that answers "how much
+   * have they actually played". Absent everywhere else, where GP is already the
+   * season total and a second copy of it would be noise.
+   */
+  seasonGamesPlayed?: number;
   explainer: TiebreakerExplainer;
   /** Per-night win/loss breakdown (leagues only; empty for tournaments). */
   weekly: WeekTally[];
