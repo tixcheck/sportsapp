@@ -5,6 +5,26 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-20 — A season total in the ladder standings
+
+**Shipped.** The per-night tables answer "how did they do on Tuesday" but not
+"how much have they played". Each row now carries a **Total** column beside GP.
+
+It is a RUNNING total, accumulated week by week rather than computed across the
+whole season. A season-wide figure would repeat the same number on every night's
+table and would have week 1 claiming games that hadn't been played yet; the
+running one grows as you read down. Week 2 currently shows `GP 0/4 · Total 6`
+for V & the mandem — no games yet on Tuesday, carrying six from week 1 up with
+them into Tier 1.
+
+The figure rides on the row (`seasonGamesPlayed`, optional on
+`StandingsRowView`) rather than in a parallel map, so a row can never be
+rendered against someone else's total. The column appears only when at least one
+row carries the field, which means every other standings table is untouched —
+there, GP already IS the season total and a second copy of it would be noise.
+
+---
+
 ## 2026-08-19 (later still) — Public schedules open on the next night
 
 **Shipped.** The public schedule opened on "All days", so a player had to scroll

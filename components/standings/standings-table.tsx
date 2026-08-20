@@ -37,6 +37,7 @@ const STAT_COLS: StatCol[] = [
  */
 function relabelPoints(cols: StatCol[], sport: Sport | undefined): StatCol[] {
   const pts = sportConfig(sport ?? "indoor6").points;
+
   return cols.map((c) =>
     c.key === "pf"
       ? { ...c, label: pts.short[0], hint: pts.for }
@@ -110,6 +111,10 @@ export function StandingsTable({
 
   // Week-over-week: the ordered league nights any team played (leagues attach
   // per-night W/L; tournaments don't, so these columns simply don't appear).
+  // Only worth a column when the table covers a slice of the season — see
+  // seasonGamesPlayed. Everywhere else GP already IS the season total.
+  const showSeasonTotal = rows.some((r) => r.seasonGamesPlayed != null);
+
   const weekDates = [
     ...new Set(rows.flatMap((r) => r.weekly.map((w) => w.date))),
   ].sort();
@@ -128,6 +133,14 @@ export function StandingsTable({
             >
               GP
             </th>
+            {showSeasonTotal && (
+              <th
+                title="Games played across the season so far"
+                className="px-2 pb-2 text-center font-bold"
+              >
+                Total
+              </th>
+            )}
             {cols.map((c) => (
               <th
                 key={c.key as string}
@@ -214,6 +227,11 @@ export function StandingsTable({
                   {r.mw + r.ml + r.mt}
                   <span className="text-ink-3">/{r.gamesScheduled}</span>
                 </td>
+                {showSeasonTotal && (
+                  <td className="text-ink-2 px-2 text-center">
+                    {r.seasonGamesPlayed ?? "—"}
+                  </td>
+                )}
                 {cols.map((c) => (
                   <td
                     key={c.key as string}
