@@ -69,6 +69,13 @@ export default async function RegisterPage({
           allowCaptainPays: feeSettings.allowCaptainPays,
           allowSplitPayment: feeSettings.allowSplitPayment,
           paymentRequired: feeSettings.paymentRequired,
+          etransferEmail: feeSettings.etransferEmail,
+          taxCents: feeSettings.taxEnabled
+            ? Math.round(
+                (feeSettings.registrationFeeCents * feeSettings.taxPercent) /
+                  100,
+              )
+            : 0,
         }
       : null;
 

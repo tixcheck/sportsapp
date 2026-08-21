@@ -194,9 +194,28 @@ const registrationFeeSchema = z
       .min(0, "Tax can't be negative.")
       .max(100, "Tax can't exceed 100%."),
     paymentRequired: z.boolean(),
+    /**
+     * Where a team sends an e-transfer. Empty means this event doesn't take
+     * them — the address IS the switch, so there's no second flag that can
+     * disagree with it.
+     */
+    etransferEmail: z
+      .string()
+      .trim()
+      .max(200)
+      .refine((v) => v === "" || /^[^@s]+@[^@s]+$/.test(v), {
+        message: "That doesn't look like an email address.",
+      })
+      .optional(),
+    /** "Put your team name in the message." */
+    etransferNote: z.string().trim().max(500).optional(),
   })
   .refine(
-    (v) => v.feeDollars === 0 || v.allowCaptainPays || v.allowSplitPayment,
+    (v) =>
+      v.feeDollars === 0 ||
+      v.allowCaptainPays ||
+      v.allowSplitPayment ||
+      !!v.etransferEmail,
     {
       message: "Pick at least one way for teams to pay.",
       path: ["allowCaptainPays"],
@@ -249,6 +268,8 @@ export async function updateRegistrationFeeAction(
       tax_enabled: parsed.data.taxEnabled,
       tax_percent: parsed.data.taxEnabled ? parsed.data.taxPercent : 0,
       payment_required: feeCents === 0 ? false : parsed.data.paymentRequired,
+      etransfer_email: parsed.data.etransferEmail || null,
+      etransfer_note: parsed.data.etransferNote || null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "competition_id" },

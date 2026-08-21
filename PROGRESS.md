@@ -5,6 +5,46 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-21 (later) — E-transfer, end to end
+
+**Shipped.** Teams can now pay the organizer directly by bank transfer instead
+of by card. The organizer gives an address; that address IS the switch, so there
+is no second flag to disagree with it.
+
+**The money is different, so the math is different.** A card payer is grossed up
+to cover Stripe and our platform fee, so the organizer nets their price. An
+e-transfer has no processing to cover and we never touch it, so the payer sends
+exactly price + tax. `planEtransferCharge` is pure and tested; e-transfer costs
+the payer LESS than the card route for the same fee, which is the honest
+outcome.
+
+**The platform fee is recorded as owed, not waived** (owner's call). Waiving it
+would make e-transfer the rational choice for every organizer and take card
+revenue with it. It sits on the row as a debt, `platform_fee_settled_at` marks
+it collected, and the organizer sees a running balance.
+
+**Confirmation records an amount, not a tick.** Part payments are ordinary — a
+team sends what it has and settles later — and "they paid" when $50 of $350
+arrived would admit a team that hasn't. The database decides admission with the
+same "sum every payment against the price" test the card path uses, so a team
+that part-paid by card and part by transfer is handled correctly.
+
+**No webhook exists for money that moved between two banks**, so the organizer's
+inbox is the only settlement path. That's why it's a card on the payments tab
+rather than something buried.
+
+Migrations `0083`; 15 checks against the live database covering the obligation,
+double-submit, non-organizer refusal, part payment, double-confirm, promotion on
+full payment, and the fee ledger. 7 unit tests on the charge planner.
+
+Also fixed a dead assertion I wrote in those tests — `.not.toContain?.()` on a
+number silently no-ops, so it was asserting nothing.
+
+**Next:** the waitlist's second half (UI, emails, cron). Its database layer
+landed earlier today.
+
+---
+
 ## 2026-08-21 — Per-tier caps, tier venues, and payment copy that isn't wrong
 
 **Three things, one theme: the organizer needs to say something the app

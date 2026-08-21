@@ -202,6 +202,60 @@ export function RegistrationFeeCard({
               onChange={(v) => set({ paymentRequired: v })}
             />
 
+            {/* E-transfer is the address, not a toggle: an organizer who
+                hasn't given one isn't offering it, so there's no second switch
+                that can disagree with the field beside it. */}
+            <div className="space-y-2">
+              <label className="grid gap-1">
+                <span className="text-sm font-medium">
+                  Accept e-transfer{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Teams send the fee straight to you and register as pending
+                  until you confirm it arrived. Leave blank to take cards only.
+                </span>
+                <Input
+                  type="email"
+                  inputMode="email"
+                  placeholder="treasurer@yourleague.ca"
+                  value={value.etransferEmail ?? ""}
+                  onChange={(e) => set({ etransferEmail: e.target.value })}
+                />
+              </label>
+
+              {!!value.etransferEmail && (
+                <label className="grid gap-1 pl-1">
+                  <span className="text-muted-foreground text-xs">
+                    Anything they should include in the transfer message
+                  </span>
+                  <Input
+                    placeholder="Put your team name in the message"
+                    value={value.etransferNote ?? ""}
+                    onChange={(e) => set({ etransferNote: e.target.value })}
+                  />
+                </label>
+              )}
+
+              {!!value.etransferEmail && !isFree && (
+                <p className="text-muted-foreground pl-1 text-xs">
+                  We never see this money, so our{" "}
+                  {formatCents(
+                    platformFeeCentsFor({
+                      competitionType,
+                      payerMode: "captain_pays_team",
+                      chargeBaseCents: feeCents,
+                      rates,
+                    }),
+                  )}{" "}
+                  fee per team can&apos;t come out of it — it&apos;s recorded as
+                  owed and settled separately.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Toggle
                 label="Collect tax"

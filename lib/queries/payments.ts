@@ -73,6 +73,13 @@ export type CompetitionPaymentSettings = {
   registrationFeeCents: number;
   /** What one free agent pays. 0 = individual sign-up is free. */
   individualFeeCents: number;
+  /**
+   * Where a team sends an e-transfer, or null when this event doesn't take
+   * them. Presence of the address is what enables the option.
+   */
+  etransferEmail: string | null;
+  /** Instructions shown beside the address. */
+  etransferNote: string | null;
   allowCaptainPays: boolean;
   allowSplitPayment: boolean;
   taxEnabled: boolean;
@@ -84,6 +91,8 @@ export type CompetitionPaymentSettings = {
 export const FREE_COMPETITION_PAYMENT_SETTINGS: CompetitionPaymentSettings = {
   registrationFeeCents: 0,
   individualFeeCents: 0,
+  etransferEmail: null,
+  etransferNote: null,
   allowCaptainPays: true,
   allowSplitPayment: false,
   taxEnabled: false,
@@ -104,7 +113,7 @@ export async function getCompetitionPaymentSettings(
   const { data } = await supabase
     .from("competition_payment_settings")
     .select(
-      "registration_fee_cents, individual_fee_cents, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
+      "registration_fee_cents, individual_fee_cents, etransfer_email, etransfer_note, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
     )
     .eq("competition_id", competitionId)
     .maybeSingle();
@@ -113,6 +122,8 @@ export async function getCompetitionPaymentSettings(
   const r = data as {
     registration_fee_cents: number;
     individual_fee_cents: number | null;
+    etransfer_email: string | null;
+    etransfer_note: string | null;
     allow_captain_pays: boolean;
     allow_split_payment: boolean;
     tax_enabled: boolean;
@@ -122,6 +133,8 @@ export async function getCompetitionPaymentSettings(
   return {
     registrationFeeCents: r.registration_fee_cents,
     individualFeeCents: r.individual_fee_cents ?? 0,
+    etransferEmail: r.etransfer_email,
+    etransferNote: r.etransfer_note,
     allowCaptainPays: r.allow_captain_pays,
     allowSplitPayment: r.allow_split_payment,
     taxEnabled: r.tax_enabled,
@@ -469,4 +482,72 @@ export async function getRefundablePayment(
     stripePaymentIntentId: r.stripe_payment_intent_id,
     payerEmail: r.payer_email,
   };
+}
+
+export type PendingEtransfer = {
+  paymentId: string;
+  teamId: string;
+  teamName: string;
+  payerEmail: string | null;
+  /** What they were told to send. */
+  expectedCents: number;
+  requestedAt: string;
+};
+
+export type EtransferFeesOwed = { payments: number; feeCents: number };
+
+/**
+ * Transfers a team says they've sent but the organizer hasn't confirmed.
+ *
+ * This is the organizer's to-do list, and it is the only place an e-transfer
+ * can be settled — there is no webhook, because the money moved between two
+ * banks and nothing told us.
+ */
+export async function getPendingEtransfers(
+  competitionId: string,
+): Promise<PendingEtransfer[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("registration_payments")
+    .select("id, team_id, payer_email, total_cents, created_at, teams(name)")
+    .eq("competition_id", competitionId)
+    .eq("method", "etransfer")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+
+  return (
+    (data ?? []) as unknown as {
+      id: string;
+      team_id: string;
+      payer_email: string | null;
+      total_cents: number;
+      created_at: string;
+      teams: { name: string } | null;
+    }[]
+  ).map((r) => ({
+    paymentId: r.id,
+    teamId: r.team_id,
+    teamName: r.teams?.name ?? "Team",
+    payerEmail: r.payer_email,
+    expectedCents: r.total_cents,
+    requestedAt: r.created_at,
+  }));
+}
+
+/**
+ * Platform fees owed on confirmed e-transfers.
+ *
+ * We never handled this money, so the fee couldn't be deducted at the time.
+ * It's a debt, tracked so it can be settled rather than quietly waived — which
+ * would make e-transfer the rational choice for every organizer.
+ */
+export async function getEtransferFeesOwed(
+  competitionId: string,
+): Promise<EtransferFeesOwed> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("etransfer_fees_owed", {
+    _competition_id: competitionId,
+  });
+  const row = (data as { payments: number; fee_cents: number }[] | null)?.[0];
+  return { payments: row?.payments ?? 0, feeCents: row?.fee_cents ?? 0 };
 }
