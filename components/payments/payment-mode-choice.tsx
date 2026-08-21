@@ -10,7 +10,7 @@ import {
 } from "@/lib/payments/platform-fee";
 import { formatCents } from "@/lib/payments/format";
 
-export type PaymentMode = "team_full" | "player_share";
+export type PaymentMode = "team_full" | "player_share" | "etransfer";
 
 /**
  * How the captain wants to settle the team fee.
@@ -28,12 +28,22 @@ export function PaymentModeChoice({
   players,
   value,
   onChange,
+  allowCaptainPays = true,
+  allowSplitPayment = true,
+  etransferEmail = null,
+  taxCents = 0,
 }: {
   teamCents: number;
   /** How many roster emails were filled in — the likely number of payers. */
   players: number;
   value: PaymentMode;
   onChange: (v: PaymentMode) => void;
+  allowCaptainPays?: boolean;
+  allowSplitPayment?: boolean;
+  /** Set when the organizer takes e-transfers. Null hides the option. */
+  etransferEmail?: string | null;
+  /** Tax on the fee, which an e-transfer pays but Stripe's gross-up hides. */
+  taxCents?: number;
 }) {
   const captainQuote = quotePayment({
     priceCents: teamCents,
@@ -58,25 +68,44 @@ export function PaymentModeChoice({
     }),
   });
 
-  const options: {
+  type Option = {
     id: PaymentMode;
     label: string;
     detail: string;
     amount: string;
-  }[] = [
-    {
-      id: "team_full",
-      label: "I'll pay for the team",
-      detail: "One payment now. Your spot is confirmed straight away.",
-      amount: `about ${formatCents(captainQuote.totalCents)}`,
-    },
-    {
-      id: "player_share",
-      label: "Everyone pays their own share",
-      detail: `Split ${payers === 1 ? "once more players join" : `${payers} ways`}. The team is confirmed once every share is in.`,
-      amount: `about ${formatCents(shareQuote.totalCents)} each`,
-    },
-  ];
+  };
+
+  const options: Option[] = (
+    [
+      {
+        id: "team_full",
+        label: "I'll pay for the team",
+        detail: "One payment now. Your spot is confirmed straight away.",
+        amount: `about ${formatCents(captainQuote.totalCents)}`,
+      },
+      {
+        id: "player_share",
+        label: "Everyone pays their own share",
+        detail: `Split ${payers === 1 ? "once more players join" : `${payers} ways`}. The team is confirmed once every share is in.`,
+        amount: `about ${formatCents(shareQuote.totalCents)} each`,
+      },
+    ] as Option[]
+  ).filter((o) =>
+    o.id === "team_full" ? allowCaptainPays : allowSplitPayment,
+  );
+
+  // E-transfer costs the payer LESS, because there is no card processing to
+  // cover and no platform fee layered on — so the amount here is exact, not
+  // "about". Saying "about" on a figure the organizer will reconcile against
+  // their bank would be actively unhelpful.
+  if (etransferEmail) {
+    options.push({
+      id: "etransfer",
+      label: "I'll e-transfer the organizer",
+      detail: `Send it to ${etransferEmail}. Your spot is held until they confirm it arrived.`,
+      amount: formatCents(teamCents + taxCents),
+    });
+  }
 
   return (
     <div className="grid gap-2">

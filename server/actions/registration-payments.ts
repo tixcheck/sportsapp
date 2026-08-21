@@ -14,6 +14,7 @@ import {
 import { getTeamRoster } from "@/lib/queries/roster";
 import { cardPaymentBlockedReason } from "@/lib/payments/account-status";
 import {
+  planEtransferCharge,
   planIndividualCharge,
   planMemberShares,
   planTeamCharge,
@@ -25,6 +26,8 @@ import {
   type CompetitionType,
 } from "@/lib/payments/platform-fee";
 import { getOrigin } from "@/lib/utils/url";
+import { formatCents } from "@/lib/payments/format";
+import { sendEtransferInstructions } from "@/lib/email/send";
 
 type ActionError = { error: string };
 
@@ -802,4 +805,125 @@ export async function startIndividualCheckoutAction(
     console.error("[payments] individual checkout create failed");
     return { error: STRIPE_FAILED };
   }
+}
+
+/**
+ * Record that a team will pay the organizer directly, and tell them where.
+ *
+ * There is no checkout and no webhook — the money moves between two banks and
+ * the organizer is the only witness. So this writes the obligation, returns the
+ * address for the screen, and emails the same thing, because a bank transfer
+ * gets done later from a phone rather than in the tab that's open now.
+ *
+ * The team stays `pending_payment` until the organizer confirms the money
+ * arrived; nothing here makes them an entrant.
+ */
+export async function startEtransferAction(
+  competitionId: string,
+  teamId: string,
+): Promise<
+  | ActionError
+  | { etransferEmail: string; amountCents: number; note: string | null }
+> {
+  const comp = idSchema.safeParse(competitionId);
+  const team = idSchema.safeParse(teamId);
+  if (!comp.success || !team.success) return { error: "Unknown team." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in." };
+
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("id, org_id, type, name, slug")
+    .eq("id", comp.data)
+    .maybeSingle();
+  if (!competition) return { error: "Unknown competition." };
+  const c = competition as {
+    id: string;
+    org_id: string;
+    type: CompetitionType;
+    name: string;
+    slug: string;
+  };
+
+  const [settings, rates] = await Promise.all([
+    getCompetitionPaymentSettings(c.id),
+    getPlatformFeeRates(),
+  ]);
+
+  if (!settings.etransferEmail) {
+    return { error: "This event doesn't take e-transfers." };
+  }
+  if (settings.registrationFeeCents <= 0) {
+    return { error: "This event is free — there's nothing to pay." };
+  }
+
+  const [charge] = planEtransferCharge({
+    pricing: {
+      registrationFeeCents: settings.registrationFeeCents,
+      individualFeeCents: settings.individualFeeCents,
+      taxEnabled: settings.taxEnabled,
+      taxPercent: settings.taxPercent,
+    },
+    competitionType: c.type,
+    payerEmail: user.email ?? null,
+    rates,
+  });
+  if (!charge) return { error: "This event is free — there's nothing to pay." };
+
+  const { error } = await supabase.rpc("start_etransfer_payment", {
+    _competition_id: c.id,
+    _team_id: team.data,
+    _price_cents: charge.priceCents,
+    _tax_cents: charge.taxCents,
+    _platform_fee_cents: charge.platformFeeCents,
+    _total_cents: charge.totalCents,
+  });
+  if (error) {
+    if (error.message.includes("Only the team or the organizer")) {
+      return { error: "Only the team or the organizer can do that." };
+    }
+    console.error("[payments] start_etransfer_payment failed");
+    return { error: "That couldn't be recorded. Please try again." };
+  }
+
+  // Best effort, and deliberately after the write: the obligation existing is
+  // what matters, and a mail outage must not lose a registration. The address
+  // is on screen either way.
+  const [{ data: org }, { data: teamRow }, origin] = await Promise.all([
+    supabase
+      .from("organizations")
+      .select("name, contact_email")
+      .eq("id", c.org_id)
+      .maybeSingle(),
+    supabase.from("teams").select("name").eq("id", team.data).maybeSingle(),
+    getOrigin(),
+  ]);
+
+  if (user.email) {
+    await sendEtransferInstructions(
+      user.email,
+      {
+        teamName: (teamRow as { name: string } | null)?.name ?? "Your team",
+        competitionName: c.name,
+        organizerName:
+          (org as { name: string } | null)?.name ?? "the organizer",
+        etransferEmail: settings.etransferEmail,
+        amount: formatCents(charge.totalCents),
+        note: settings.etransferNote,
+        teamUrl: `${origin}/teams/${team.data}`,
+      },
+      (org as { contact_email: string | null } | null)?.contact_email ??
+        undefined,
+    );
+  }
+
+  return {
+    etransferEmail: settings.etransferEmail,
+    amountCents: charge.totalCents,
+    note: settings.etransferNote,
+  };
 }

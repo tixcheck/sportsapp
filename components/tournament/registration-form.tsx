@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { PaymentModeChoice } from "@/components/payments/payment-mode-choice";
 import { Input } from "@/components/ui/input";
+import { startEtransferAction } from "@/server/actions/registration-payments";
+import type { PaymentMode } from "@/components/payments/payment-mode-choice";
 import { Label } from "@/components/ui/label";
 
 type RegisterResult = { error: string } | { teamId: string };
@@ -54,10 +56,20 @@ export function RegistrationForm({
     allowSplitPayment: boolean;
     /** Registration only counts once the fee is covered. */
     paymentRequired: boolean;
+    /** Where an e-transfer goes, or null when the organizer takes cards only. */
+    etransferEmail?: string | null;
+    /** Tax on the fee — an e-transfer pays it, so the quote must show it. */
+    taxCents?: number;
   } | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  /**
+   * What the captain picked. E-transfer is a payment METHOD, not a kind — the
+   * stored `paymentMode` stays team_full/player_share so nothing downstream
+   * has to learn a third value.
+   */
+  const [choice, setChoice] = useState<PaymentMode>("team_full");
 
   const emptyPlayers = () =>
     Array.from({ length: rosterSize }, (_, i) => ({
@@ -101,6 +113,21 @@ export function RegistrationForm({
       // entrant until it pays, so send them straight on rather than leaving
       // them to discover a Pay button somewhere else.
       if (fee?.paymentRequired && fee.teamCents > 0 && "teamId" in result) {
+        // Paying the organizer directly: record the obligation and show the
+        // address. No redirect — there is nowhere to send them.
+        if (choice === "etransfer") {
+          const et = await startEtransferAction(competitionId, result.teamId);
+          if ("error" in et) {
+            toast.error(et.error);
+          } else {
+            toast.success(
+              "Registered — check your email for where to send it.",
+            );
+          }
+          router.push(`/teams/${result.teamId}`);
+          return;
+        }
+
         toast.success("Team created — one more step to confirm your spot.");
         const checkout =
           values.paymentMode === "player_share"
@@ -192,15 +219,28 @@ export function RegistrationForm({
 
       {fee &&
         fee.teamCents > 0 &&
-        fee.allowCaptainPays &&
-        fee.allowSplitPayment && (
+        (fee.allowCaptainPays ||
+          fee.allowSplitPayment ||
+          fee.etransferEmail) && (
           <PaymentModeChoice
             teamCents={fee.teamCents}
             players={
               form.watch("players").filter((p) => p.email?.trim()).length
             }
-            value={form.watch("paymentMode")}
-            onChange={(v) => form.setValue("paymentMode", v)}
+            value={choice}
+            onChange={(v) => {
+              setChoice(v);
+              // An e-transfer always settles the whole team fee: splitting one
+              // would leave the organizer reconciling six separate transfers.
+              form.setValue(
+                "paymentMode",
+                v === "player_share" ? "player_share" : "team_full",
+              );
+            }}
+            allowCaptainPays={fee.allowCaptainPays}
+            allowSplitPayment={fee.allowSplitPayment}
+            etransferEmail={fee.etransferEmail}
+            taxCents={fee.taxCents}
           />
         )}
 

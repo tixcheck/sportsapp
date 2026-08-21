@@ -8,6 +8,7 @@ import {
   type ConfirmScoreEmailProps,
 } from "./templates/confirm-score";
 import { ResultEmail, type ResultEmailProps } from "./templates/result";
+import { EtransferInstructionsEmail } from "./templates/etransfer-instructions";
 import {
   ScheduleChangedEmail,
   type ScheduleChangedEmailProps,
@@ -328,4 +329,36 @@ export async function sendOrgMessageBatch(
       reason: err instanceof Error ? err.message : "batch send failed",
     };
   }
+}
+
+export interface EtransferInstructionsProps {
+  teamName: string;
+  competitionName: string;
+  organizerName: string;
+  etransferEmail: string;
+  amount: string;
+  note?: string | null;
+  teamUrl: string;
+}
+
+/**
+ * Where to send the e-transfer, after a team chooses it.
+ *
+ * `replyTo` is the organizer: every question this raises ("did you get it?",
+ * "can I send it in two parts?") is theirs to answer, and they are the only
+ * one who can see the money arrive.
+ */
+export function sendEtransferInstructions(
+  to: string,
+  props: EtransferInstructionsProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    // Leads with the action, not the event: this lands in an inbox alongside a
+    // registration confirmation and has to be distinguishable from it.
+    subject: `Send ${props.amount} to confirm ${props.teamName} — ${props.competitionName}`,
+    react: EtransferInstructionsEmail(props),
+    replyTo,
+  });
 }

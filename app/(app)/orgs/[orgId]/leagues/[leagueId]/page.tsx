@@ -55,6 +55,11 @@ import {
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
+import { EtransferInbox } from "@/components/payments/etransfer-inbox";
+import {
+  getEtransferFeesOwed,
+  getPendingEtransfers,
+} from "@/lib/queries/payments";
 import { CourtVenuesCard } from "@/components/venues/court-venues-card";
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { getOrgVenues, getVenueIssues } from "@/lib/queries/venues";
@@ -109,6 +114,10 @@ export default async function LeaguePage({
   // Registration pricing. The payouts flag drives a "you can price it, but
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
+  const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
+    getPendingEtransfers(league.id),
+    getEtransferFeesOwed(league.id),
+  ]);
   const [feeSettings, feeRates, orgAccount] = await Promise.all([
     getCompetitionPaymentSettings(league.id),
     getPlatformFeeRates(),
@@ -487,12 +496,18 @@ export default async function LeaguePage({
       </Card>
 
       {ledger && (
-        <PaymentsDashboard
-          competitionId={league.id}
-          ledger={ledger}
-          payoutsReady={payment.payoutsReady}
-          splitAllowed={payment.settings.allowSplitPayment}
-        />
+        <>
+          <EtransferInbox
+            pending={pendingEtransfers}
+            feesOwed={etransferFeesOwed}
+          />
+          <PaymentsDashboard
+            competitionId={league.id}
+            ledger={ledger}
+            payoutsReady={payment.payoutsReady}
+            splitAllowed={payment.settings.allowSplitPayment}
+          />
+        </>
       )}
 
       <CourtVenuesCard
@@ -527,6 +542,8 @@ export default async function LeaguePage({
           taxEnabled: payment.settings.taxEnabled,
           taxPercent: payment.settings.taxPercent,
           paymentRequired: payment.settings.paymentRequired,
+          etransferEmail: payment.settings.etransferEmail ?? "",
+          etransferNote: payment.settings.etransferNote ?? "",
         }}
         rates={payment.rates}
         payoutsReady={payment.payoutsReady}

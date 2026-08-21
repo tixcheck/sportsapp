@@ -596,3 +596,55 @@ export async function refundTeamPaymentsAction(
   revalidateCompetition(comp, parsed.data.teamId);
   return { ok: true, refunded, failed, totalCents };
 }
+
+const confirmEtransferSchema = z.object({
+  paymentId: z.string().uuid(),
+  /** Whole dollars as typed; cents in the database. */
+  amountDollars: z
+    .number()
+    .min(0, "An amount can't be negative.")
+    .max(99_999, "That's larger than any real registration fee."),
+  note: z.string().trim().max(500).optional(),
+});
+
+/**
+ * Record that an e-transfer arrived.
+ *
+ * An amount, not a tick, because part payments genuinely happen — a team sends
+ * what they have and settles the rest later. The database decides whether that
+ * covers the fee and therefore whether the team becomes an entrant, using the
+ * same "sum every payment against the organizer's price" test the card path
+ * uses, so a team that part-paid by card and part by transfer is handled right.
+ */
+export async function confirmEtransferAction(
+  input: z.input<typeof confirmEtransferSchema>,
+): Promise<ActionError | { confirmed: true; teamAdmitted: boolean }> {
+  const parsed = confirmEtransferSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the amount." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("confirm_etransfer_payment", {
+    _payment_id: parsed.data.paymentId,
+    _amount_cents: Math.round(parsed.data.amountDollars * 100),
+    _note: parsed.data.note ?? null,
+  });
+
+  if (error) {
+    const message = error.message ?? "";
+    // These are the organizer's own mistakes and worth showing verbatim.
+    if (
+      message.includes("Only the organizer") ||
+      message.includes("already confirmed") ||
+      message.includes("not an e-transfer")
+    ) {
+      return { error: message };
+    }
+    console.error("[payments] confirm_etransfer_payment failed");
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { confirmed: true, teamAdmitted: data === true };
+}

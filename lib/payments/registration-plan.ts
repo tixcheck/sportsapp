@@ -449,3 +449,56 @@ export function planIndividualCharge({
     }),
   ];
 }
+
+/**
+ * What a team owes when they pay the organizer directly by e-transfer.
+ *
+ * Nothing is grossed up. A card payment adds Stripe's processing and our
+ * platform fee on top so the organizer nets their price; an e-transfer has no
+ * processing to cover and we never touch the money, so the payer sends exactly
+ * the price plus tax and the organizer receives all of it.
+ *
+ * The platform fee is still RECORDED, and that is the whole point of this
+ * function returning it separately from `totalCents`. The owner's decision
+ * (2026-08-21) is that the fee is owed rather than waived: waiving it would
+ * make e-transfer the rational choice for every organizer and take card
+ * revenue with it. So the fee sits on the row as a debt to settle later, and
+ * `applicationFeeCents` is zero because Stripe collected nothing.
+ */
+export function planEtransferCharge({
+  pricing,
+  competitionType,
+  payerEmail,
+  rates,
+}: {
+  pricing: RegistrationPricing;
+  competitionType: CompetitionType;
+  /** Whoever is sending the transfer; null for a whole-team payment. */
+  payerEmail: string | null;
+  rates: PlatformFeeRates;
+}): PlannedCharge[] {
+  if (pricing.registrationFeeCents <= 0) return [];
+
+  const priceCents = pricing.registrationFeeCents;
+  const taxCents = taxFor(priceCents, pricing);
+  const platformFeeCents = platformFeeCentsFor({
+    competitionType,
+    payerMode: "captain_pays_team",
+    chargeBaseCents: priceCents,
+    rates,
+  });
+
+  return [
+    {
+      kind: "team_full",
+      payerEmail,
+      priceCents,
+      taxCents,
+      platformFeeCents,
+      // What the payer actually sends — price and tax, nothing layered on.
+      totalCents: priceCents + taxCents,
+      // Stripe took nothing, so there is no application fee to speak of.
+      applicationFeeCents: 0,
+    },
+  ];
+}

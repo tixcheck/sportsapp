@@ -61,6 +61,11 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
+import { EtransferInbox } from "@/components/payments/etransfer-inbox";
+import {
+  getEtransferFeesOwed,
+  getPendingEtransfers,
+} from "@/lib/queries/payments";
 import { getCompetitionLedger } from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
@@ -104,6 +109,10 @@ export default async function TournamentPage({
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
   const freeAgents = await getFreeAgents(tournamentId);
+  const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
+    getPendingEtransfers(t.id),
+    getEtransferFeesOwed(t.id),
+  ]);
   const [feeSettings, feeRates, orgAccount] = await Promise.all([
     getCompetitionPaymentSettings(t.id),
     getPlatformFeeRates(),
@@ -498,12 +507,18 @@ export default async function TournamentPage({
       </Card>
 
       {ledger && (
-        <PaymentsDashboard
-          competitionId={t.id}
-          ledger={ledger}
-          payoutsReady={payment.payoutsReady}
-          splitAllowed={payment.settings.allowSplitPayment}
-        />
+        <>
+          <EtransferInbox
+            pending={pendingEtransfers}
+            feesOwed={etransferFeesOwed}
+          />
+          <PaymentsDashboard
+            competitionId={t.id}
+            ledger={ledger}
+            payoutsReady={payment.payoutsReady}
+            splitAllowed={payment.settings.allowSplitPayment}
+          />
+        </>
       )}
 
       <EventBlurbCard
@@ -525,6 +540,8 @@ export default async function TournamentPage({
           taxEnabled: payment.settings.taxEnabled,
           taxPercent: payment.settings.taxPercent,
           paymentRequired: payment.settings.paymentRequired,
+          etransferEmail: payment.settings.etransferEmail ?? "",
+          etransferNote: payment.settings.etransferNote ?? "",
         }}
         rates={payment.rates}
         payoutsReady={payment.payoutsReady}
