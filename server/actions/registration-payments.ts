@@ -12,7 +12,7 @@ import {
   getTeamPaymentRows,
 } from "@/lib/queries/payments";
 import { getTeamRoster } from "@/lib/queries/roster";
-import { paymentAccountStatus } from "@/lib/payments/account-status";
+import { cardPaymentBlockedReason } from "@/lib/payments/account-status";
 import {
   planIndividualCharge,
   planMemberShares,
@@ -96,10 +96,14 @@ export async function startRegistrationCheckoutAction(
       error: "This event asks each player to pay their own share.",
     };
   }
-  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+  // `!account` is redundant against the reason (a null account is never
+  // payable) but narrows the type for everything below.
+  const blocked = cardPaymentBlockedReason(account);
+  if (!account || blocked) {
     return {
       error:
-        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+        blocked ??
+        "Card payment isn't available for this organizer at the moment.",
     };
   }
 
@@ -274,10 +278,14 @@ export async function startShareCheckoutAction(
   if (!settings.allowSplitPayment) {
     return { error: "This event asks the captain to pay the whole team fee." };
   }
-  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+  // `!account` is redundant against the reason (a null account is never
+  // payable) but narrows the type for everything below.
+  const blocked = cardPaymentBlockedReason(account);
+  if (!account || blocked) {
     return {
       error:
-        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+        blocked ??
+        "Card payment isn't available for this organizer at the moment.",
     };
   }
 
@@ -490,10 +498,14 @@ export async function coverRemainingBalanceAction(
   if (settings.registrationFeeCents <= 0) {
     return { error: "This event is free — there's nothing to pay." };
   }
-  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+  // `!account` is redundant against the reason (a null account is never
+  // payable) but narrows the type for everything below.
+  const blocked = cardPaymentBlockedReason(account);
+  if (!account || blocked) {
     return {
       error:
-        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+        blocked ??
+        "Card payment isn't available for this organizer at the moment.",
     };
   }
 
@@ -679,10 +691,14 @@ export async function startIndividualCheckoutAction(
   if (settings.individualFeeCents <= 0) {
     return { error: "Signing up as an individual is free — nothing to pay." };
   }
-  if (!account || !paymentAccountStatus(account).canAcceptPayments) {
+  // `!account` is redundant against the reason (a null account is never
+  // payable) but narrows the type for everything below.
+  const blocked = cardPaymentBlockedReason(account);
+  if (!account || blocked) {
     return {
       error:
-        "The organizer hasn't finished setting up payouts, so card payments aren't available yet.",
+        blocked ??
+        "Card payment isn't available for this organizer at the moment.",
     };
   }
 

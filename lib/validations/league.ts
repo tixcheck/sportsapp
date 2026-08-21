@@ -147,6 +147,18 @@ export const manageLeagueTiersSchema = z.object({
       z.object({
         id: z.string().uuid().optional(),
         name: z.string().trim().min(1, "Tier name required.").max(40),
+        /**
+         * How many teams may register into this tier. Null = uncapped. This is
+         * separate from the competition total: courts are split between tiers,
+         * so "12 teams" and "4 per tier" are different limits and both bind.
+         */
+        maxTeams: z.number().int().positive().nullable().optional(),
+        /**
+         * The building this tier plays in. The schedule generator has honoured
+         * `divisions.venue_id` since migration 0072; until now nothing could
+         * set it.
+         */
+        venueId: z.string().uuid().nullable().optional(),
       }),
     )
     .max(12, "That's a lot of tiers — cap is 12."),

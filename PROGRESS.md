@@ -5,6 +5,41 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-21 — Per-tier caps, tier venues, and payment copy that isn't wrong
+
+**Three things, one theme: the organizer needs to say something the app
+couldn't store.**
+
+**Payment copy.** Every blocked checkout said "the organizer hasn't finished
+setting up payouts" — wrong in the common case and actively misleading. Payouts
+are NOT what gates taking money: `canAcceptPayments` reads `chargesEnabled`,
+and `payouts_pending` deliberately still accepts payments, because Stripe holds
+a first payout for a week or two and registration mustn't stop. An organizer who
+had simply never connected Stripe was described as though waiting on a bank
+verification. It misled the owner, and it misled me. `cardPaymentBlockedReason`
+now says which of the four states it actually is. 7 tests, one of which asserts
+no blocked message mentions payouts.
+
+**Per-tier registration caps** (migrations `0079`, `0080`). Courts are split
+between tiers, so "12 teams" and "4 per tier" are different limits and both can
+bind. Enforced inside `register_team` beside the competition total, so two
+captains racing for a tier's last spot can't both take it, and after the
+division-exists guard so an unknown tier still reads as unknown rather than
+full. Withdrawn teams free their spot. Verified against the live DB.
+
+**A tier can now be pinned to a gym.** `divisions.venue_id` has existed since
+migration 0072 and the league generator has always honoured it — every match in
+that tier gets that building, its courts and its start time. **Nothing in the
+app ever wrote the column**: read in one place, set in none, and all 20+
+divisions across every org had it null. The tiers dialog now carries a gym
+picker and a cap per tier.
+
+**Next:** e-transfer as a payment option. The owner's call on the platform fee
+is to record it as owed and settle separately — waiving it would make e-transfer
+the rational choice for every organizer and take card revenue with it.
+
+---
+
 ## 2026-08-20 (later) — Embeddable schedule and standings
 
 **Shipped.** An organizer wanted the schedule and standings on their own site.

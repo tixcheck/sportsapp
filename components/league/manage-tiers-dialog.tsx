@@ -19,7 +19,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-type Row = { id?: string; name: string };
+type Row = {
+  id?: string;
+  name: string;
+  /** Registration cap for this tier. Null = uncapped. */
+  maxTeams: number | null;
+  /** The gym this tier plays in. Null = the competition's own venue. */
+  venueId: string | null;
+};
 
 /**
  * Manage a league's tiers (skill divisions). Each tier is its own mini-league —
@@ -30,17 +37,36 @@ type Row = { id?: string; name: string };
 export function ManageTiersDialog({
   competitionId,
   tiers,
+  venues = [],
 }: {
   competitionId: string;
-  tiers: { id: string; name: string }[];
+  tiers: {
+    id: string;
+    name: string;
+    maxTeams?: number | null;
+    venueId?: string | null;
+  }[];
+  /** The org's buildings, so a tier can be pinned to one. */
+  venues?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<Row[]>(tiers);
+  const toRow = (t: {
+    id: string;
+    name: string;
+    maxTeams?: number | null;
+    venueId?: string | null;
+  }): Row => ({
+    id: t.id,
+    name: t.name,
+    maxTeams: t.maxTeams ?? null,
+    venueId: t.venueId ?? null,
+  });
+  const [rows, setRows] = useState<Row[]>(tiers.map(toRow));
   const [pending, start] = useTransition();
 
   function reset() {
-    setRows(tiers);
+    setRows(tiers.map(toRow));
   }
 
   function save() {
@@ -50,7 +76,12 @@ export function ManageTiersDialog({
     start(async () => {
       const res = await manageLeagueTiersAction({
         competitionId,
-        tiers: cleaned,
+        tiers: cleaned.map((r) => ({
+          id: r.id,
+          name: r.name,
+          maxTeams: r.maxTeams,
+          venueId: r.venueId,
+        })),
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -93,36 +124,90 @@ export function ManageTiersDialog({
               &ldquo;Recreational&rdquo; and &ldquo;Competitive&rdquo;.
             </p>
           )}
-          {rows.map((r, i) => (
-            <div key={r.id ?? `new-${i}`} className="flex items-center gap-2">
-              <Input
-                value={r.name}
-                placeholder={`Tier ${i + 1}`}
-                onChange={(e) =>
-                  setRows((prev) =>
-                    prev.map((x, k) =>
-                      k === i ? { ...x, name: e.target.value } : x,
-                    ),
-                  )
-                }
-              />
-              <button
-                type="button"
-                aria-label="Remove tier"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() =>
-                  setRows((prev) => prev.filter((_, k) => k !== i))
-                }
+          {rows.map((r, i) => {
+            const set = (patch: Partial<Row>) =>
+              setRows((prev) =>
+                prev.map((x, k) => (k === i ? { ...x, ...patch } : x)),
+              );
+            return (
+              <div
+                key={r.id ?? `new-${i}`}
+                className="border-border grid gap-2 rounded-lg border p-2"
               >
-                <Trash2 className="size-4" />
-              </button>
-            </div>
-          ))}
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={r.name}
+                    placeholder={`Tier ${i + 1}`}
+                    onChange={(e) => set({ name: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove tier"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() =>
+                      setRows((prev) => prev.filter((_, k) => k !== i))
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-muted-foreground text-xs">
+                      Max teams in this tier
+                    </span>
+                    <Input
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      placeholder="No limit"
+                      value={r.maxTeams ?? ""}
+                      onChange={(e) =>
+                        set({
+                          maxTeams: e.target.value
+                            ? Math.max(1, Number(e.target.value))
+                            : null,
+                        })
+                      }
+                    />
+                  </label>
+
+                  {venues.length > 0 && (
+                    <label className="grid gap-1">
+                      <span className="text-muted-foreground text-xs">
+                        Plays at
+                      </span>
+                      <select
+                        value={r.venueId ?? ""}
+                        onChange={(e) =>
+                          set({ venueId: e.target.value || null })
+                        }
+                        className="border-input bg-surface h-9 rounded-md border px-3 text-sm"
+                      >
+                        <option value="">Wherever the league plays</option>
+                        {venues.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              </div>
+            );
+          })}
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setRows((prev) => [...prev, { name: "" }])}
+            onClick={() =>
+              setRows((prev) => [
+                ...prev,
+                { name: "", maxTeams: null, venueId: null },
+              ])
+            }
           >
             <Plus className="size-4" /> Add tier
           </Button>
@@ -130,7 +215,9 @@ export function ManageTiersDialog({
 
         <p className="text-muted-foreground text-xs">
           Removing a tier un-sorts its teams (they aren&apos;t deleted).
-          Changing tiers takes effect the next time you generate the schedule.
+          Changing tiers takes effect the next time you generate the schedule. A
+          tier pinned to a gym is scheduled there every week, using that
+          gym&apos;s courts and start time.
         </p>
 
         <DialogFooter>
