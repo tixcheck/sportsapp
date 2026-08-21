@@ -472,7 +472,7 @@ export async function setLeagueRegistrationAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
-  const { competitionId, open, deadline } = parsed.data;
+  const { competitionId, open, deadline, waitlistClaimHours } = parsed.data;
 
   const supabase = await createClient();
   const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
@@ -506,6 +506,15 @@ export async function setLeagueRegistrationAction(
     })
     .eq("competition_id", competitionId);
   if (error) return { error: error.message };
+
+  // The claim window lives on `competitions` because it applies to leagues and
+  // tournaments alike, so it can't ride along in the league_settings update.
+  if (waitlistClaimHours != null) {
+    await supabase
+      .from("competitions")
+      .update({ waitlist_claim_hours: waitlistClaimHours })
+      .eq("id", competitionId);
+  }
 
   if (comp?.slug) revalidatePath(`/l/${comp.slug}`);
   revalidatePath("/orgs");

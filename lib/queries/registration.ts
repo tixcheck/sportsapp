@@ -53,6 +53,8 @@ export interface RegistrationEvent {
    * a queue of individuals to build another team from.
    */
   signupWindowOpen: boolean;
+  /** Hours a team has to claim an offered waitlist spot (migration 0081). */
+  waitlistClaimHours: number;
   registrationDeadline: string | null;
   /** Team cap, or null when the event takes as many as sign up. */
   maxTeams: number | null;
@@ -79,7 +81,7 @@ export async function getRegistrationEvent(
   const { data: comp } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, type, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status, description, banner_url, match_format, allow_individual_signups, organizations(name, logo_url, contact_email)",
+      "id, org_id, type, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status, description, banner_url, match_format, allow_individual_signups, waitlist_claim_hours, organizations(name, logo_url, contact_email)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -195,6 +197,7 @@ export async function getRegistrationEvent(
     registrationOpen,
     allowIndividualSignups: comp.allow_individual_signups === true,
     signupWindowOpen,
+    waitlistClaimHours: (comp.waitlist_claim_hours as number | null) ?? 48,
     registrationDeadline: deadline,
     maxTeams,
     teamsRegistered,

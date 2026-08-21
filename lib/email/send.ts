@@ -9,6 +9,7 @@ import {
 } from "./templates/confirm-score";
 import { ResultEmail, type ResultEmailProps } from "./templates/result";
 import { EtransferInstructionsEmail } from "./templates/etransfer-instructions";
+import { WaitlistOfferEmail } from "./templates/waitlist-offer";
 import {
   ScheduleChangedEmail,
   type ScheduleChangedEmailProps,
@@ -359,6 +360,35 @@ export function sendEtransferInstructions(
     // registration confirmation and has to be distinguishable from it.
     subject: `Send ${props.amount} to confirm ${props.teamName} — ${props.competitionName}`,
     react: EtransferInstructionsEmail(props),
+    replyTo,
+  });
+}
+
+export interface WaitlistOfferProps {
+  teamName: string;
+  competitionName: string;
+  organizerName: string;
+  claimUrl: string;
+  expiresAt: string;
+}
+
+/**
+ * Tell a waiting team a spot has opened.
+ *
+ * `replyTo` is the organizer: "can I have another day?" is theirs to answer,
+ * and they're the one who can re-offer it.
+ */
+export function sendWaitlistOffer(
+  to: string,
+  props: WaitlistOfferProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    // Says what happened and where, because this competes for attention with a
+    // fortnight of other league email.
+    subject: `A spot has opened — ${props.competitionName}`,
+    react: WaitlistOfferEmail(props),
     replyTo,
   });
 }

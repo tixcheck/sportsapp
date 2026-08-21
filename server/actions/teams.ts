@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { offerNextWaitlistSpot } from "@/server/actions/waitlist";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { sendCaptainInvite, sendTeammateInvite } from "@/lib/email/send";
@@ -26,6 +27,8 @@ async function assertTeamAdmin(
         competitionId: string;
         captainUserId: string | null;
         name: string;
+        /** The tier this team occupied — each tier has its own waitlist. */
+        divisionId: string | null;
       };
     }
 > {
@@ -36,7 +39,7 @@ async function assertTeamAdmin(
 
   const { data: team } = await supabase
     .from("teams")
-    .select("id, competition_id, captain_user_id, name")
+    .select("id, competition_id, captain_user_id, name, division_id")
     .eq("id", teamId)
     .single();
   if (!team) return { error: "Team not found." };
@@ -53,6 +56,7 @@ async function assertTeamAdmin(
       competitionId: team.competition_id,
       captainUserId: team.captain_user_id,
       name: team.name,
+      divisionId: (team.division_id as string | null) ?? null,
     },
   };
 }
@@ -523,6 +527,11 @@ export async function removeTeamAction(
     .eq("id", teamId);
   if (delTeam) return { error: delTeam.message };
 
+  // The spot this team held is now free. Offering it is best-effort and
+  // deliberately after the delete: a queue that can't be reached must not
+  // block the removal the organizer actually asked for.
+  await offerNextWaitlistSpot(team.competitionId, team.divisionId ?? null);
+
   revalidatePath("/orgs");
   return { removed: true, needsRedraw };
 }
@@ -544,6 +553,12 @@ export async function withdrawTeamAction(
     .update({ status: "withdrawn" })
     .eq("id", guard.team.id);
   if (error) return { error: error.message };
+
+  // Withdrawing frees the spot too — the caps count only non-withdrawn teams.
+  await offerNextWaitlistSpot(
+    guard.team.competitionId,
+    guard.team.divisionId ?? null,
+  );
 
   revalidatePath("/orgs");
   return { withdrawn: true };

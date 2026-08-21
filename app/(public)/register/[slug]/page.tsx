@@ -6,6 +6,8 @@ import { ArrowRight } from "lucide-react";
 
 import { getRegistrationEvent } from "@/lib/queries/registration";
 import { getMyFreeAgentSignup } from "@/lib/queries/free-agents";
+import { getFullness, getMyWaitlistEntry } from "@/lib/queries/waitlist";
+import { WaitlistForm } from "@/components/registration/waitlist-form";
 import { IndividualSignupForm } from "@/components/registration/individual-signup-form";
 import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
 import { getUser } from "@/lib/auth/user";
@@ -62,6 +64,18 @@ export default async function RegisterPage({
   const mySignup = event.allowIndividualSignups
     ? await getMyFreeAgentSignup(event.id)
     : null;
+
+  // Capacity is asked of the database, not derived from team counts, because
+  // an unexpired waitlist OFFER occupies a spot too.
+  const [fullness, myWaitlistEntry] = await Promise.all([
+    getFullness(
+      event.id,
+      event.divisions.map((d) => d.id),
+    ),
+    getMyWaitlistEntry(event.id),
+  ]);
+  const anythingFull =
+    fullness.competitionFull || fullness.fullDivisionIds.size > 0;
   const fee =
     feeSettings.registrationFeeCents > 0
       ? {
@@ -210,6 +224,35 @@ export default async function RegisterPage({
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {event.signupWindowOpen && anythingFull && (
+          <Card id="waitlist" className="scroll-mt-4">
+            <CardHeader>
+              <CardTitle>
+                {fullness.competitionFull
+                  ? "Join the waitlist"
+                  : "Some tiers are full — join the waitlist"}
+              </CardTitle>
+              <CardDescription>
+                We&apos;ll email you if a place comes free, and it&apos;s yours
+                to claim before it passes on. Nothing is charged to wait.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <WaitlistForm
+                competitionId={event.id}
+                divisions={event.divisions}
+                fullDivisionIds={[...fullness.fullDivisionIds]}
+                competitionFull={fullness.competitionFull}
+                isAuthed={!!user}
+                userEmail={user?.email}
+                loginHref={`/login?next=/register/${slug}`}
+                existing={myWaitlistEntry}
+                claimHours={event.waitlistClaimHours}
+              />
             </CardContent>
           </Card>
         )}

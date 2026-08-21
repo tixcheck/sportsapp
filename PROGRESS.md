@@ -5,6 +5,43 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-21 (later still) — Waitlist, end to end
+
+**Shipped.** The database layer landed earlier today; this is everything that
+makes it a feature. A full tier or competition now offers a queue instead of a
+dead end.
+
+**A team joins** from the registration page, which asks for a name and an email
+and nothing else — this is an expression of interest, not an entry, and nobody
+should fill in a six-person roster for a place they may never get. Only tiers
+that are actually full are offered; one with room takes a normal registration.
+Someone already queued sees their position instead of a second form.
+
+**A spot is offered, not filled.** When a team is removed or withdrawn, the next
+in line is offered it automatically and emailed a claim link with a deadline
+(`waitlist_claim_hours`, organizer-set, default 48). Both exits are hooked —
+missing one would mean half the waitlist silently never fires.
+
+**Claiming is a button press, not a page load.** Mail clients and link scanners
+pre-fetch URLs; a claim that fired on mount would register a team on someone's
+behalf before they'd read the page.
+
+**Expiry is hourly cron, not lazy.** The common case for a full league is that
+nobody opens its registration page for days — exactly when a held spot most
+needs to move on. One statement retires lapsed offers and reports which queues
+freed up, so an offer can never expire without its spot being re-offered.
+Hourly because the window is measured in hours; a daily sweep would add up to
+24 hours of dead time to every lapse.
+
+Verified against the live database — 12 further checks on top of the earlier 16,
+covering per-tier fullness (a capped tier full while the competition isn't),
+refusing to queue for a tier with room, one live entry per captain, the
+organizer's claim window being honoured, an outstanding offer keeping the tier
+full, the claimed team landing in the right tier as a normal entrant, and
+requeueing a lapsed entry.
+
+---
+
 ## 2026-08-21 (later) — E-transfer, end to end
 
 **Shipped.** Teams can now pay the organizer directly by bank transfer instead

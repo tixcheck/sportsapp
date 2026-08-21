@@ -62,6 +62,8 @@ import { RegistrationFeeCard } from "@/components/payments/registration-fee-card
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { EtransferInbox } from "@/components/payments/etransfer-inbox";
+import { getWaitlist } from "@/lib/queries/waitlist";
+import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
   getEtransferFeesOwed,
   getPendingEtransfers,
@@ -109,6 +111,7 @@ export default async function TournamentPage({
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
   const freeAgents = await getFreeAgents(tournamentId);
+  const waitlist = await getWaitlist(tournamentId);
   const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
     getPendingEtransfers(t.id),
     getEtransferFeesOwed(t.id),
@@ -609,6 +612,7 @@ export default async function TournamentPage({
       content: (
         <div className="space-y-6">
           {teamsTab}
+          <WaitlistCard entries={waitlist} />
           {(t.allowIndividualSignups || freeAgents.length > 0) && (
             <FreeAgentsCard
               competitionId={t.id}
