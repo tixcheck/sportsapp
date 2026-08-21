@@ -174,6 +174,11 @@ export type ManageLeagueTiersInput = z.infer<typeof manageLeagueTiersSchema>;
 export const setLeagueRegistrationSchema = z.object({
   competitionId: z.string().uuid(),
   open: z.boolean(),
+  /**
+   * Hours a team has to claim an offered waitlist spot before it passes on.
+   * Capped at a fortnight — beyond that the spot is effectively frozen.
+   */
+  waitlistClaimHours: z.number().int().min(1).max(336).optional(),
   deadline: z
     .union([z.string().regex(DATE_RE, "Pick a valid date."), z.literal("")])
     .nullable()

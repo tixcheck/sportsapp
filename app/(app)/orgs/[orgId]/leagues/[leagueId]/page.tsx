@@ -56,6 +56,8 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { EtransferInbox } from "@/components/payments/etransfer-inbox";
+import { getWaitlist } from "@/lib/queries/waitlist";
+import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
   getEtransferFeesOwed,
   getPendingEtransfers,
@@ -114,6 +116,7 @@ export default async function LeaguePage({
   // Registration pricing. The payouts flag drives a "you can price it, but
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
+  const waitlist = await getWaitlist(leagueId);
   const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
     getPendingEtransfers(league.id),
     getEtransferFeesOwed(league.id),
@@ -382,6 +385,7 @@ export default async function LeaguePage({
   const teamsTabWithFreeAgents = (
     <div className="space-y-6">
       {teamsTab}
+      <WaitlistCard entries={waitlist} />
       {(league.allowIndividualSignups || freeAgents.length > 0) && (
         <FreeAgentsCard
           competitionId={league.id}
@@ -625,6 +629,7 @@ export default async function LeaguePage({
               slug={league.slug}
             />
             <LeagueRegistrationControls
+              waitlistClaimHours={league.waitlistClaimHours}
               competitionId={league.id}
               timezone={league.timezone}
               registrationOpen={league.registrationOpen}
