@@ -93,3 +93,36 @@ export function paymentAccountStatus(
 
   return { ...base, state: "active", needsAction: false };
 }
+
+/**
+ * Why a payer can't pay this organizer by card, in words the payer can act on.
+ *
+ * The old copy said "hasn't finished setting up payouts" at every blocked
+ * checkout, which was wrong in the common case and actively misleading: payouts
+ * are NOT what gates taking money (see `canAcceptPayments` above — it reads
+ * `chargesEnabled`, and `payouts_pending` still accepts payments). An organizer
+ * who has simply never connected Stripe was being described as though they were
+ * waiting on a bank verification, which sends everyone looking in the wrong
+ * place.
+ *
+ * Returns null when payment is possible, so a caller can use it as the guard.
+ */
+export function cardPaymentBlockedReason(
+  account: ConnectAccountFlags | null | undefined,
+): string | null {
+  const status = paymentAccountStatus(account);
+  if (status.canAcceptPayments) return null;
+
+  switch (status.state) {
+    case "not_connected":
+      return "This organizer hasn't set up card payments yet. Get in touch with them to arrange another way to pay.";
+    case "onboarding":
+      return "This organizer is part-way through setting up card payments. Get in touch with them to arrange another way to pay.";
+    case "pending_review":
+      return "Stripe is still reviewing this organizer's account, so card payment isn't available yet. It usually clears within a day or two.";
+    case "restricted":
+      return "Card payment isn't available for this organizer at the moment. Get in touch with them to arrange another way to pay.";
+    default:
+      return "Card payment isn't available for this organizer at the moment.";
+  }
+}

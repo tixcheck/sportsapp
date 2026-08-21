@@ -346,7 +346,11 @@ export default async function LeaguePage({
             {league.tiers.length > 1 && " Pick which tier each team plays in."}
           </CardDescription>
         </div>
-        <ManageTiersDialog competitionId={league.id} tiers={league.tiers} />
+        <ManageTiersDialog
+          competitionId={league.id}
+          tiers={league.tiers}
+          venues={orgVenues.map((v) => ({ id: v.id, name: v.name }))}
+        />
       </CardHeader>
       <CardContent className="space-y-4">
         <AddTeamForm competitionId={league.id} tiers={league.tiers} />

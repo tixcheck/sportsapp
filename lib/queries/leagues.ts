@@ -33,6 +33,12 @@ export interface LeagueTier {
   name: string;
   /** The building this tier plays in (migration 0072). Null = single venue. */
   venueId?: string | null;
+  /**
+   * Registration cap for this tier (migration 0079). Null = uncapped. Separate
+   * from the competition total — courts are split between tiers, so both can
+   * bind and whichever is reached first closes that choice.
+   */
+  maxTeams?: number | null;
 }
 
 export interface LeagueDetail {
@@ -203,7 +209,7 @@ export async function getLeagueDetail(
 
   const { data: divisionRows } = await supabase
     .from("divisions")
-    .select("id, name, venue_id")
+    .select("id, name, venue_id, max_teams")
     .eq("competition_id", leagueId)
     .order("tier_order", { ascending: true });
 
@@ -282,6 +288,7 @@ export async function getLeagueDetail(
       id: d.id as string,
       name: d.name as string,
       venueId: (d.venue_id as string | null) ?? null,
+      maxTeams: (d.max_teams as number | null) ?? null,
     })),
     registrationOpen: (regRow?.registration_open as boolean | null) === true,
     registrationDeadline:

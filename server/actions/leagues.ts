@@ -425,7 +425,12 @@ export async function manageLeagueTiersAction(
     if (t.id && existingIds.has(t.id)) {
       const { error } = await supabase
         .from("divisions")
-        .update({ name: t.name, tier_order: i })
+        .update({
+          name: t.name,
+          tier_order: i,
+          max_teams: t.maxTeams ?? null,
+          venue_id: t.venueId ?? null,
+        })
         .eq("id", t.id);
       if (error) return { error: error.message };
     } else {
@@ -433,6 +438,8 @@ export async function manageLeagueTiersAction(
         competition_id: parsed.data.competitionId,
         name: t.name,
         tier_order: i,
+        max_teams: t.maxTeams ?? null,
+        venue_id: t.venueId ?? null,
       });
       if (error) return { error: error.message };
     }
