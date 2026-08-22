@@ -5,6 +5,42 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-08-22 — Embeds take the host site's colours
+
+**Shipped.** Mango's site is white and #feb62a, and the embed arrived in our
+cream-and-claret palette. `?accent=` and `?bg=` now theme it.
+
+**Query params, not stored settings.** The person doing the work is the host
+site's developer, who can edit a URL far more easily than get into an
+organizer's account — and it keeps the theme per-embed, so one league shown on
+two sites can match both.
+
+**A brand colour is not automatically a readable colour**, which is why this is
+a module with tests rather than a substitution. #feb62a on white is **1.9:1**,
+against the 4.5:1 body text needs; using it where the app uses its accent would
+have produced a standings table nobody could read. So the accent is split: the
+colour itself for FILLS, with text chosen to sit on it, and a darkened variant
+(#9a6e19) where the accent has to BE text. A test asserts red still leads and
+blue still trails, so it darkens rather than drifting to brown.
+
+**Untrusted input into CSS**, so anything not provably a hex triple is discarded
+rather than sanitised — there is no such thing as a nearly-valid colour. 18
+tests, including `red;background:url(evil)` and `"><script>`.
+
+**Two mistakes worth recording.** I first put the theming in the embed LAYOUT;
+`tsc` passed, but App Router layouts don't receive `searchParams` — only pages
+do. Caught by testing the built output rather than trusting types. And my first
+injection check grepped for `script>`, which matches Next's own hydration tags,
+so it "failed" meaninglessly; the real check confirms both hostile strings
+appear only inside the RSC payload, JSON-escaped and inert.
+
+**Verified against mangosportsco.ca/test-page:** the iframes are installed
+correctly with the right URLs and params. Production ignores them because this
+isn't deployed — the redeploy is still outstanding, and now gates three things:
+live Stripe keys, the waitlist expiry cron, and this.
+
+---
+
 ## 2026-08-21 (later still) — Waitlist, end to end
 
 **Shipped.** The database layer landed earlier today; this is everything that
