@@ -150,6 +150,42 @@
   a back-to-back + a long wait — unavoidable); 5/6-team pools could benefit from
   a non-destructive reorder. Pending tomorrow's event feedback before building.
 
+## Embedding a league on someone else's site
+
+Two chrome-free pages an organizer's web developer drops into an iframe. No
+keys, no CORS, no account — visibility is RLS's decision, so a private or draft
+league 404s here exactly as it does on the public page.
+
+    https://www.mysportsapp.ca/embed/l/<slug>/schedule
+    https://www.mysportsapp.ca/embed/l/<slug>/standings
+
+Both take two optional query params so the embed can match the host's branding:
+
+| param | meaning |
+| --- | --- |
+| `accent` | brand colour, hex with or without `#` |
+| `bg` | page background; defaults to white |
+
+Anything that isn't provably a hex triple is **discarded**, not sanitised — the
+value goes into CSS from a public URL, and there is no such thing as a nearly
+valid colour. A typo degrades to our default palette rather than breaking.
+
+The accent is used two ways, because a brand colour is not automatically a
+readable one: exactly as given where it FILLS a shape (with text chosen to sit
+on it), and darkened until it passes 4.5:1 where it has to BE text. Mango's
+`#feb62a` is 1.9:1 on white, so substituting it directly would have produced a
+standings table nobody could read. See `lib/embed/theme.ts`.
+
+**Gotcha:** the theme is applied in the embed PAGES, not the layout. App Router
+layouts don't receive `searchParams`; `tsc` won't tell you, and the symptom is
+params that are silently ignored.
+
+The embed posts its height to the parent (`{ type: "mysportsapp:height" }`) so a
+host that wants auto-sizing can listen; one that doesn't is unaffected.
+
+**Live example:** mangosportsco.ca embeds `mango-ladder-fall-2026` with
+`?accent=feb62a&bg=ffffff`.
+
 ## What shipped recently (newest first)
 
 - **Venues** (migration `0071`) — a competition can span several buildings.
