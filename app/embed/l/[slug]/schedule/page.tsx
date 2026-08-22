@@ -6,6 +6,7 @@ import { getPublicLeague } from "@/lib/queries/leagues";
 import { defaultScheduleDay } from "@/lib/schedule/default-day";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { EmbedAutoHeight } from "@/components/public/embed-frame";
+import { EmbedTheme } from "@/components/public/embed-theme";
 import { EmbedFooter } from "@/components/public/embed-footer";
 
 export async function generateMetadata({
@@ -20,10 +21,13 @@ export async function generateMetadata({
 
 export default async function EmbedSchedulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const query = (await searchParams) ?? {};
   // RLS decides this, exactly as it does for the public page: a private or
   // draft league is invisible here too, so an embed can never be used to see
   // something the league page wouldn't show.
@@ -42,14 +46,16 @@ export default async function EmbedSchedulePage({
     .filter((d): d is string => d != null);
 
   return (
-    <EmbedAutoHeight>
-      <ScheduleView
-        matches={league.schedule}
-        timezone={league.timezone}
-        sport={league.sport}
-        initialDay={defaultScheduleDay(playingDays, today)}
-      />
-      <EmbedFooter slug={slug} label="Full schedule & standings" />
-    </EmbedAutoHeight>
+    <EmbedTheme accent={query.accent} background={query.bg}>
+      <EmbedAutoHeight>
+        <ScheduleView
+          matches={league.schedule}
+          timezone={league.timezone}
+          sport={league.sport}
+          initialDay={defaultScheduleDay(playingDays, today)}
+        />
+        <EmbedFooter slug={slug} label="Full schedule & standings" />
+      </EmbedAutoHeight>
+    </EmbedTheme>
   );
 }

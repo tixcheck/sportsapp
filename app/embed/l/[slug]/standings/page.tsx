@@ -11,6 +11,7 @@ import {
 } from "@/components/standings/standings-table";
 import { LadderNightStandings } from "@/components/league/ladder-night-standings";
 import { EmbedAutoHeight } from "@/components/public/embed-frame";
+import { EmbedTheme } from "@/components/public/embed-theme";
 import { EmbedFooter } from "@/components/public/embed-footer";
 
 export async function generateMetadata({
@@ -25,10 +26,13 @@ export async function generateMetadata({
 
 export default async function EmbedStandingsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
+  const query = (await searchParams) ?? {};
   const league = await getPublicLeague(slug);
   if (!league) notFound();
 
@@ -39,41 +43,43 @@ export default async function EmbedStandingsPage({
   const differential = league.tiebreaker === "differential";
 
   return (
-    <EmbedAutoHeight>
-      {ladderNights.length > 0 ? (
-        <LadderNightStandings
-          nights={ladderNights}
-          timezone={league.timezone}
-          format={league.matchFormat}
-          sport={league.sport}
-          differential={differential}
-        />
-      ) : standings.length > 1 ? (
-        <StandingsGroups
-          groups={standings}
-          showDivision={false}
-          format={league.matchFormat}
-          sport={league.sport}
-          differential={differential}
-        />
-      ) : (
-        <div className="space-y-3">
-          <StandingsTable
-            rows={standings[0]?.rows ?? []}
+    <EmbedTheme accent={query.accent} background={query.bg}>
+      <EmbedAutoHeight>
+        {ladderNights.length > 0 ? (
+          <LadderNightStandings
+            nights={ladderNights}
+            timezone={league.timezone}
             format={league.matchFormat}
             sport={league.sport}
             differential={differential}
           />
-          {(standings[0]?.rows.length ?? 0) > 0 && (
-            <StandingsLegend
+        ) : standings.length > 1 ? (
+          <StandingsGroups
+            groups={standings}
+            showDivision={false}
+            format={league.matchFormat}
+            sport={league.sport}
+            differential={differential}
+          />
+        ) : (
+          <div className="space-y-3">
+            <StandingsTable
+              rows={standings[0]?.rows ?? []}
               format={league.matchFormat}
               sport={league.sport}
               differential={differential}
             />
-          )}
-        </div>
-      )}
-      <EmbedFooter slug={slug} label="Full schedule & standings" />
-    </EmbedAutoHeight>
+            {(standings[0]?.rows.length ?? 0) > 0 && (
+              <StandingsLegend
+                format={league.matchFormat}
+                sport={league.sport}
+                differential={differential}
+              />
+            )}
+          </div>
+        )}
+        <EmbedFooter slug={slug} label="Full schedule & standings" />
+      </EmbedAutoHeight>
+    </EmbedTheme>
   );
 }
