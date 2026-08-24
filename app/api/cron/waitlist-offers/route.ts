@@ -13,8 +13,14 @@ import { sendWaitlistOffer } from "@/lib/email/send";
  * league's registration page for days, which is exactly when a spot most needs
  * to move on.
  *
- * Hourly rather than daily because the claim window is measured in hours; a
- * daily sweep would add up to 24 hours of dead time to every lapse.
+ * DAILY, not hourly, because this project is on a Vercel Hobby plan and that
+ * is the only cadence it allows. The degradation is smaller than it looks: a
+ * lapsed offer stops holding its spot the instant it expires, because
+ * `competition_spots_taken` only counts offers with `offer_expires_at > now()`.
+ * What waits for the sweep is the EMAIL to the next team in line — up to a day
+ * later than ideal, but nobody is blocked from registering in the meantime.
+ *
+ * On Pro this should go back to hourly (`0 * * * *`).
  *
  * Auth mirrors the other crons: Vercel sends `Authorization: Bearer
  * $CRON_SECRET`. As a trusted server job it uses the Supabase secret key (the
