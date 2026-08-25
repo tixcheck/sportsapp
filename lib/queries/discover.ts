@@ -1,3 +1,4 @@
+import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
@@ -121,7 +122,15 @@ export interface PlatformCounts {
  * is worse than no figure.
  */
 async function countNow(): Promise<PlatformCounts> {
-  const supabase = await createClient();
+  // A cookie-free client on purpose. `unstable_cache` runs outside a request,
+  // so anything that reads `cookies()` throws in there — and the shared result
+  // must not depend on who asked for it anyway. The publishable key is the
+  // low-privilege one and the RPC is granted to anon, so this needs no session.
+  const supabase = createAnonClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    { auth: { persistSession: false } },
+  );
 
   const { data } = await supabase.rpc("public_platform_counts");
   const row = (Array.isArray(data) ? data[0] : data) as {
