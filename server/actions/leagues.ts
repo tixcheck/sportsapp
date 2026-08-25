@@ -560,9 +560,35 @@ export async function registerLeagueTeamAction(
   return { teamId: data as string };
 }
 
+/**
+ * How many matches in this competition would lose a result if deleted.
+ *
+ * Counts a match as played if it carries any set OR has moved off "scheduled" —
+ * a forfeit has no sets but is still a recorded outcome, and losing one is just
+ * as bad as losing a score.
+ */
+async function countPlayedMatches(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<number> {
+  const { data } = await supabase
+    .from("matches")
+    .select("id, status, sets(id)")
+    .eq("competition_id", competitionId);
+  if (!data) return 0;
+  return (data as { status: string; sets: { id: string }[] | null }[]).filter(
+    (m) => (m.sets?.length ?? 0) > 0 || m.status !== "scheduled",
+  ).length;
+}
+
 export async function generateLeagueScheduleAction(
   competitionId: string,
-): Promise<ActionError | { matchCount: number }> {
+  options: { replacePlayed?: boolean } = {},
+): Promise<
+  | ActionError
+  | { matchCount: number }
+  | { needsConfirmation: true; played: number }
+> {
   const supabase = await createClient();
 
   const { data: league, error: lErr } = await supabase
@@ -762,7 +788,16 @@ export async function generateLeagueScheduleAction(
     );
   }
 
-  // Regenerate replaces the existing (draft) schedule.
+  // Regenerate replaces the existing schedule — and `sets` cascade off
+  // `matches`, so this delete takes every recorded score with it. That is fine
+  // for a draft and catastrophic for a season in progress, and the two are one
+  // button apart. Refuse rather than destroy (as the ladder check above does),
+  // unless the caller has been told the number and said yes anyway.
+  const played = await countPlayedMatches(supabase, competitionId);
+  if (played > 0 && options.replacePlayed !== true) {
+    return { needsConfirmation: true, played };
+  }
+
   const { error: delErr } = await supabase
     .from("matches")
     .delete()
