@@ -7,12 +7,16 @@ import {
   CircleDot,
   Link2,
   Trophy,
+  Search,
   Users,
 } from "lucide-react";
 
 import { getUser } from "@/lib/auth/user";
+import { getPlatformCounts } from "@/lib/queries/discover";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Reveal } from "@/components/marketing/reveal";
+import { ScheduleLab } from "@/components/marketing/schedule-lab";
 import {
   ScreenshotShowcase,
   type Shot,
@@ -62,6 +66,8 @@ export default async function HomePage() {
   const user = await getUser();
   if (user) redirect("/dashboard");
 
+  const counts = await getPlatformCounts();
+
   return (
     <div className="bg-background text-foreground flex min-h-svh flex-col overflow-x-clip">
       <header className="border-rule bg-background/85 sticky top-0 z-20 border-b backdrop-blur">
@@ -84,46 +90,148 @@ export default async function HomePage() {
       </header>
 
       <main className="flex-1">
-        {/* Hero — the claim on the left, the proof of it on the right. */}
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pt-14 pb-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-14 lg:pt-20">
-          <div className="min-w-0">
+        {/* Hero — one headline, then two doors, because both an organizer and a
+            player land here and only one of them wants a sales pitch. */}
+        <section className="mx-auto w-full max-w-6xl px-5 pt-14 pb-14 lg:pt-20">
+          <div className="mx-auto max-w-3xl text-center">
             <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
               Leagues · Tournaments · Ladders
             </p>
             <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
               Everything your league needs, already built.
             </h1>
-            <p className="text-ink-2 mt-5 max-w-xl text-lg">
-              Scheduling, standings, registration, payments and a public page
-              your players actually use — without the spreadsheet, the group
-              chat, or the day-of chaos.{" "}
-              <span className="text-ink font-semibold">
-                Free to organize, and you keep every dollar of the fee you set.
-              </span>
+            <p className="text-ink-2 mx-auto mt-5 max-w-2xl text-lg">
+              Scheduling, standings, registration and payments for organizers —
+              and a public page your players actually use.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button asChild size="lg">
-                <Link href="/signup">Get started — it&apos;s free</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href={DEMO}>See a live league →</Link>
-              </Button>
-            </div>
-            <ul className="mt-7 flex flex-wrap gap-2">
-              {["Indoor 6s", "Beach 2s", "Co-ed 4s", "Softball"].map((s) => (
-                <li
-                  key={s}
-                  className="border-rule bg-paper-raised text-ink-2 rounded-full border px-3 py-1 text-sm"
-                >
-                  {s}
-                </li>
-              ))}
-            </ul>
           </div>
 
-          <ScreenshotShowcase shots={SHOTS} />
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            <div className="border-rule bg-surface flex flex-col rounded-xl border p-6 shadow-sm">
+              <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+                I run a league
+              </p>
+              <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight">
+                Draw a season in a minute.
+              </h2>
+              <p className="text-ink-2 mt-2 flex-1">
+                Round robins, tiers, ladders, pools and brackets across every
+                gym you have.{" "}
+                <span className="text-ink font-semibold">
+                  Free to organize, and you keep every dollar of the fee you
+                  set.
+                </span>
+              </p>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <Button asChild size="lg">
+                  <Link href="/signup">Get started — it&apos;s free</Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href={DEMO}>See a live league →</Link>
+                </Button>
+              </div>
+              <ul className="mt-5 flex flex-wrap gap-2">
+                {["Indoor 6s", "Beach 2s", "Co-ed 4s", "Softball"].map((s) => (
+                  <li
+                    key={s}
+                    className="border-rule bg-paper-raised text-ink-2 rounded-full border px-3 py-1 text-sm"
+                  >
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="border-rule bg-surface flex flex-col rounded-xl border p-6 shadow-sm">
+              <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+                I play in one
+              </p>
+              <h2 className="font-display mt-2 text-2xl font-semibold tracking-tight">
+                When do we play, and who&apos;s top?
+              </h2>
+              <p className="text-ink-2 mt-2 flex-1">
+                Find your league and get the schedule and standings.{" "}
+                <span className="text-ink font-semibold">
+                  No account, no download.
+                </span>
+              </p>
+              {/* A GET form: it works before JavaScript lands, and the result
+                  is a URL a player can paste into a team group chat. */}
+              <form action="/find" method="get" className="mt-5 flex gap-2">
+                <Input
+                  name="q"
+                  placeholder="Tuesday 6s, Lakeshore…"
+                  aria-label="Search leagues, tournaments and venues"
+                  className="bg-background"
+                />
+                <Button type="submit" size="lg">
+                  <Search className="size-4" />
+                  Find
+                </Button>
+              </form>
+              <p className="text-ink-3 mt-3 text-sm">
+                Or{" "}
+                <Link href="/find" className="text-claret underline">
+                  browse every public event
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
         </section>
 
+        {/* The scheduler, running in the visitor's browser. */}
+        <section className="border-rule bg-paper-raised border-y">
+          <div className="mx-auto w-full max-w-6xl px-5 py-16">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+                Try it right here
+              </p>
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
+                Drag three sliders. Watch a season appear.
+              </h2>
+              <p className="text-ink-2 mt-4 text-lg">
+                This is the scheduler the app actually runs, not a demo of one —
+                every team plays every other, spread across your courts, with
+                byes handled.
+              </p>
+            </div>
+            <ScheduleLab className="mt-10" />
+          </div>
+        </section>
+
+        {/* Live counts — measured, not claimed. */}
+        <section className="mx-auto w-full max-w-6xl px-5 py-14">
+          <dl className="grid grid-cols-2 gap-y-8 text-center sm:grid-cols-4">
+            <Count value={counts.teams} label="teams" />
+            <Count value={counts.games} label="games scheduled" />
+            <Count value={counts.sets} label="sets scored" />
+            <Count value={counts.organizations} label="organizations" />
+          </dl>
+          <p className="text-ink-3 mt-6 text-center text-sm">
+            Counted from public events, refreshed every few minutes — not a
+            number typed in once. Test and demo events are excluded.
+          </p>
+        </section>
+
+        {/* What your players see */}
+        <section className="border-rule bg-paper-raised border-y">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-14">
+            <div className="min-w-0">
+              <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+                The player&apos;s view
+              </p>
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
+                One link, and the group chat goes quiet.
+              </h2>
+              <p className="text-ink-2 mt-4 text-lg">
+                Schedule, standings and registration on one public page. These
+                are real screens from a league running right now.
+              </p>
+            </div>
+            <ScreenshotShowcase shots={SHOTS} />
+          </div>
+        </section>
         {/* What you stop doing */}
         <section className="border-rule bg-paper-raised border-y">
           <div className="mx-auto w-full max-w-6xl px-5 py-14">
@@ -231,20 +339,20 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* The player's view, on a phone */}
-        <section className="border-rule bg-paper-raised border-y">
+        {/* The same pages on a phone. */}
+        <section>
           <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-2 lg:gap-14">
             <div>
               <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
-                The player’s view
+                On a phone
               </p>
               <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
-                One link, and the group chat goes quiet.
+                Where they’ll actually open it.
               </h2>
               <p className="text-ink-2 mt-4 text-lg">
-                No account, no download. Players open the link in a gym five
-                minutes before serve and find their court, their opponent and
-                where they sit in the table.
+                In a gym, five minutes before serve. Players find their court,
+                their opponent and where they sit in the table — without an
+                account and without asking you.
               </p>
               <p className="text-ink-2 mt-4">
                 The standings table keeps every column on a phone — it scrolls
@@ -429,6 +537,18 @@ export default async function HomePage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function Count({ value, label }: { value: number; label: string }) {
+  return (
+    <Reveal>
+      <dt className="sr-only">{label}</dt>
+      <dd className="font-display text-claret text-4xl font-bold tabular-nums sm:text-5xl">
+        {value.toLocaleString("en-CA")}
+      </dd>
+      <p className="text-ink-2 mt-1 text-sm">{label}</p>
+    </Reveal>
   );
 }
 
