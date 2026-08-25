@@ -23,9 +23,9 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Volleyball — leagues & tournaments",
+  title: "MySportsApp — leagues, tournaments & ladders",
   description:
-    "A volleyball management app for organizers and players in Toronto.",
+    "Scheduling, standings, registration and payments for league and tournament organizers. Free to organize.",
 };
 
 // Browser chrome (and PWA) color — warm paper, matching the app background.

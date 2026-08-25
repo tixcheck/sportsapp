@@ -24,9 +24,29 @@ export type PlaceSuggestion = {
   detail: string;
 };
 
-/** Biased to Toronto: this is a Toronto volleyball community app, and an
- *  unbiased search surfaces same-named gyms on other continents. */
-const TORONTO = { latitude: 43.6532, longitude: -79.3832 };
+/**
+ * Where venue search is biased, and which countries it searches.
+ *
+ * A bias is necessary — unbiased, "Community Centre" returns same-named gyms on
+ * other continents. But WHICH place it leans toward is deployment config, not a
+ * fact about the product: an organizer outside the default region would
+ * otherwise get a venue field that quietly can't find their gym. The defaults
+ * are the current leagues' region, so nothing changes for them.
+ */
+function num(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+const BIAS = {
+  latitude: num(process.env.PLACES_BIAS_LAT, 43.6532),
+  longitude: num(process.env.PLACES_BIAS_LNG, -79.3832),
+};
+
+const REGION_CODES = (process.env.PLACES_REGION_CODES ?? "ca")
+  .split(",")
+  .map((c) => c.trim().toLowerCase())
+  .filter(Boolean);
 
 export async function searchVenuesAction(
   query: string,
@@ -48,9 +68,9 @@ export async function searchVenuesAction(
         },
         body: JSON.stringify({
           input: parsed.data,
-          includedRegionCodes: ["ca"],
+          includedRegionCodes: REGION_CODES,
           locationBias: {
-            circle: { center: TORONTO, radius: 50_000 },
+            circle: { center: BIAS, radius: 50_000 },
           },
         }),
         // Venue names don't change often and organizers retype the same few.

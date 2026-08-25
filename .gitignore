@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# Screenshot scratch for marketing captures. The ones the app actually serves
+# live in public/shots/ and are committed.
+/shots/

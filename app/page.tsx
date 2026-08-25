@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -11,6 +12,50 @@ import {
 
 import { getUser } from "@/lib/auth/user";
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/components/marketing/reveal";
+import {
+  ScreenshotShowcase,
+  type Shot,
+} from "@/components/marketing/screenshot-showcase";
+
+/** The demo league every screenshot and link on this page points at. */
+const DEMO = "/l/lakeshore-indoor-6s-demo";
+
+const SHOTS: Shot[] = [
+  {
+    id: "schedule",
+    label: "Schedule",
+    caption:
+      "Every playing night as a tab — it opens on the next one. Results appear the moment a captain confirms them.",
+    src: "/shots/schedule.png",
+    width: 2000,
+    height: 1924,
+    alt: "A league schedule page with six playing days as tabs and match cards showing each team's set score, the set-by-set points, and the court.",
+    url: "mysportsapp.ca/l/lakeshore-indoor-6s-demo",
+  },
+  {
+    id: "standings",
+    label: "Standings",
+    caption:
+      "Nobody types this. It is derived from confirmed scores — matches won, then set ratio, then point ratio, then head-to-head.",
+    src: "/shots/standings.png",
+    width: 2000,
+    height: 2030,
+    alt: "A standings table ranking eight teams by matches won, sets and points, with a column for each week of the season.",
+    url: "mysportsapp.ca/l/lakeshore-indoor-6s-demo?tab=standings",
+  },
+  {
+    id: "register",
+    label: "Registration",
+    caption:
+      "The price you set, stated plainly, with both ways to pay it. The cap counts itself down and then opens a waitlist.",
+    src: "/shots/register.png",
+    width: 2000,
+    height: 1914,
+    alt: "A registration page showing the night, venue, an entry price of $1,000 per team with a note that players can split it or the captain pays, and a badge reading 2 of 10 spots left.",
+    url: "mysportsapp.ca/register/lakeshore-indoor-6s-demo",
+  },
+];
 
 export default async function HomePage() {
   // Logged-in visitors skip the marketing front door.
@@ -20,7 +65,7 @@ export default async function HomePage() {
   return (
     <div className="bg-background text-foreground flex min-h-svh flex-col overflow-x-clip">
       <header className="border-rule bg-background/85 sticky top-0 z-20 border-b backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-5 py-4">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- marketing logo (crisp SVG wordmark) */}
           <img
             src="/mysportsapp-logo.svg"
@@ -39,108 +84,143 @@ export default async function HomePage() {
       </header>
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="mx-auto w-full max-w-3xl px-5 pt-20 pb-16 text-center">
-          <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
-            Volleyball, organized · Built in Toronto
-          </p>
-          <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Run your league or tournament like it runs itself.
-          </h1>
-          <p className="text-ink-2 mx-auto mt-5 max-w-xl text-lg">
-            Auto-scheduling, real standings, live scores, and public pages your
-            players actually love — without the spreadsheet, the group chat, and
-            the day-of chaos. Free for organizers to start.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button asChild size="lg">
-              <Link href="/signup">Get started — it&apos;s free</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="#how">See how it works</Link>
-            </Button>
+        {/* Hero — the claim on the left, the proof of it on the right. */}
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pt-14 pb-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:gap-14 lg:pt-20">
+          <div className="min-w-0">
+            <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+              Leagues · Tournaments · Ladders
+            </p>
+            <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+              Everything your league needs, already built.
+            </h1>
+            <p className="text-ink-2 mt-5 max-w-xl text-lg">
+              Scheduling, standings, registration, payments and a public page
+              your players actually use — without the spreadsheet, the group
+              chat, or the day-of chaos.{" "}
+              <span className="text-ink font-semibold">
+                Free to organize, and you keep every dollar of the fee you set.
+              </span>
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Button asChild size="lg">
+                <Link href="/signup">Get started — it&apos;s free</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link href={DEMO}>See a live league →</Link>
+              </Button>
+            </div>
+            <ul className="mt-7 flex flex-wrap gap-2">
+              {["Indoor 6s", "Beach 2s", "Co-ed 4s", "Softball"].map((s) => (
+                <li
+                  key={s}
+                  className="border-rule bg-paper-raised text-ink-2 rounded-full border px-3 py-1 text-sm"
+                >
+                  {s}
+                </li>
+              ))}
+            </ul>
           </div>
-          <p className="text-ink-3 mt-5 text-sm">
-            Indoor 6s · Beach 2s · Co-ed 4s — no platform fee on your money.
-          </p>
+
+          <ScreenshotShowcase shots={SHOTS} />
         </section>
 
-        {/* Who it's for */}
+        {/* What you stop doing */}
         <section className="border-rule bg-paper-raised border-y">
-          <div className="mx-auto grid w-full max-w-5xl gap-6 px-5 py-14 sm:grid-cols-2">
-            <div>
-              <h2 className="font-display text-xl font-semibold">
-                For organizers
-              </h2>
-              <p className="text-ink-2 mt-2">
-                Pools, schedules, referees, brackets, and standings — generated,
-                not spreadsheet-ed. Edit once and everyone sees it. You run the
-                event instead of the paperwork.
-              </p>
-            </div>
-            <div>
-              <h2 className="font-display text-xl font-semibold">
-                For players &amp; fans
-              </h2>
-              <p className="text-ink-2 mt-2">
-                Your next match, court, opponent, and referee — plus the live
-                standings — on your phone, in the sun. No login needed to follow
-                along.
-              </p>
-            </div>
+          <div className="mx-auto w-full max-w-6xl px-5 py-14">
+            <h2 className="font-display text-2xl font-semibold tracking-tight">
+              What you stop doing
+            </h2>
+            <ul className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
+              {[
+                [
+                  "Rebuilding the schedule by hand",
+                  "every time a team drops out or a gym falls through.",
+                ],
+                [
+                  "Chasing scores",
+                  "on Tuesday night and typing them into a spreadsheet on Wednesday.",
+                ],
+                [
+                  "Tracking who has paid",
+                  "across e-transfers, cash and memory.",
+                ],
+                [
+                  "Answering “when do we play?”",
+                  "forty times a week in a group chat.",
+                ],
+              ].map(([lead, rest], i) => (
+                <Reveal
+                  key={lead}
+                  as="li"
+                  delay={i * 70}
+                  className="text-ink-2 grid grid-cols-[0.6rem_1fr] items-start gap-3 text-[0.95rem]"
+                >
+                  <span
+                    className="bg-pine mt-2 size-2.5 rounded-[3px]"
+                    aria-hidden="true"
+                  />
+                  <span>
+                    <b className="text-ink font-semibold">{lead}</b> {rest}
+                  </span>
+                </Reveal>
+              ))}
+            </ul>
           </div>
         </section>
 
         {/* Features */}
-        <section className="mx-auto w-full max-w-5xl px-5 py-16">
+        <section className="mx-auto w-full max-w-6xl px-5 py-16">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
               Built for the sport, not “events”
             </p>
-            <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight">
+            <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
               Everything a spreadsheet can’t do.
             </h2>
           </div>
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <Feature
+              i={0}
               icon={<CalendarDays className="size-5" />}
-              title="One-click scheduling"
+              title="A season in a minute"
             >
-              Round-robin leagues, snake-drafted tournament pools, and
-              single-elim brackets — generated, court-balanced, and time-capped
-              for you.
+              Round robins, tiers, ladders, pools and brackets — drawn across
+              every gym and court you have, balanced and time-capped for you.
             </Feature>
             <Feature
+              i={1}
               icon={<Trophy className="size-5" />}
               title="Standings that don’t cheat"
             >
-              The full OVA tiebreaker hierarchy, recomputed live. Tap any
-              position to see exactly which step broke the tie.
+              The full OVA tiebreaker hierarchy, recomputed live from confirmed
+              scores. Tap any position to see which step broke the tie.
             </Feature>
             <Feature
+              i={2}
               icon={<CircleDot className="size-5" />}
               title="Live on game day"
             >
               A “Now playing” board shows the current game on every court and
-              advances the moment a score goes in. Captains score from their
-              phone.
+              advances the moment a score goes in. Captains score from a phone.
             </Feature>
             <Feature
+              i={3}
               icon={<Users className="size-5" />}
-              title="Every player’s own day"
+              title="Registration that fills itself"
             >
-              A personal Play / Ref / Off strip so anyone sees when they play,
-              referee, and get a hydrate-and-rest break.
+              Team sign-ups and free agents, caps per league or per tier, and a
+              waitlist that emails the next team the moment a spot opens.
             </Feature>
             <Feature
+              i={4}
               icon={<Link2 className="size-5" />}
               title="A public page players love"
             >
-              Pools, schedule, brackets, and teams on one clean, mobile-first
-              link. Players bookmark their team and land on their schedule in a
-              tap.
+              Schedule, standings, teams and brackets on one mobile-first link —
+              no login. It embeds in your own site in your own colours.
             </Feature>
             <Feature
+              i={5}
               icon={<Bell className="size-5" />}
               title="Reminders on autopilot"
             >
@@ -151,32 +231,143 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* The player's view, on a phone */}
+        <section className="border-rule bg-paper-raised border-y">
+          <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-2 lg:gap-14">
+            <div>
+              <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+                The player’s view
+              </p>
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
+                One link, and the group chat goes quiet.
+              </h2>
+              <p className="text-ink-2 mt-4 text-lg">
+                No account, no download. Players open the link in a gym five
+                minutes before serve and find their court, their opponent and
+                where they sit in the table.
+              </p>
+              <p className="text-ink-2 mt-4">
+                The standings table keeps every column on a phone — it scrolls
+                sideways in its own box rather than being cut down to fit.
+              </p>
+              <Button asChild variant="outline" className="mt-6">
+                <Link href={DEMO}>Open the live league →</Link>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:gap-6">
+              {[
+                {
+                  src: "/shots/phone-schedule.png",
+                  alt: "The league schedule on a phone, with the playing-day tabs wrapped onto three rows and one match card per row.",
+                },
+                {
+                  src: "/shots/phone-standings.png",
+                  alt: "The standings table on a phone, scrolling sideways inside its own box.",
+                },
+              ].map((phone, i) => (
+                <Reveal key={phone.src} delay={i * 120}>
+                  <div className="border-rule bg-paper-sunken overflow-hidden rounded-2xl border shadow-lg">
+                    <Image
+                      src={phone.src}
+                      alt={phone.alt}
+                      width={780}
+                      height={1520}
+                      sizes="(min-width: 640px) 280px, 45vw"
+                      className="h-auto w-full"
+                    />
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Money */}
+        <section className="mx-auto w-full max-w-6xl px-5 py-16">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
+              Money
+            </p>
+            <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
+              Set $1,000 a team. Bank $1,000 a team.
+            </h2>
+            <p className="text-ink-2 mt-4 text-lg">
+              Processing and platform fees are added on top, not taken out —
+              there is no deposit that arrives short and nothing to explain to
+              your treasurer.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            <Route
+              i={0}
+              title="Captain pays the team fee"
+              rows={[
+                ["Captain pays", "$1,050.78"],
+                ["You receive", "$1,000.00"],
+                ["Card processing", "$30.77"],
+                ["mysportsapp", "$20.01"],
+              ]}
+              foot="One payment, spot confirmed immediately."
+            />
+            <Route
+              i={1}
+              title="Six players split it"
+              rows={[
+                ["Each player pays", "$175.05"],
+                ["You receive", "$1,000.00"],
+                ["Card processing", "$32.28"],
+                ["mysportsapp", "$18.00"],
+              ]}
+              foot="Team confirms once the last share lands. No captain fronting $1,000."
+            />
+            <Route
+              i={2}
+              title="E-transfer to you"
+              rows={[
+                ["Team sends", "$1,000.00"],
+                ["You receive", "$1,000.00"],
+                ["Card processing", "—"],
+                ["mysportsapp", "$20.00"],
+              ]}
+              foot="Straight to your bank. You confirm what arrived; our fee is invoiced separately."
+            />
+          </div>
+
+          <p className="text-ink-3 mx-auto mt-6 max-w-3xl text-center text-sm">
+            Today’s rates: $20 per team, or $3 per player when a team splits it.
+            Tournaments and King of the Court are 1% of entry. A free league
+            costs nothing. No setup fee, no subscription.
+          </p>
+        </section>
+
         {/* How it works */}
         <section
           id="how"
           className="border-rule bg-paper-raised scroll-mt-20 border-y"
         >
-          <div className="mx-auto w-full max-w-5xl px-5 py-16">
+          <div className="mx-auto w-full max-w-6xl px-5 py-16">
             <div className="mx-auto max-w-2xl text-center">
               <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
                 Set up in an evening
               </p>
-              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight">
+              <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
                 From empty page to public link in four steps.
               </h2>
             </div>
             <ol className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               <Step n={1} title="Create it">
-                Pick league or tournament, choose your sport and format, set
-                dates, venue, and courts.
+                Pick league, tournament or ladder, choose your sport and format,
+                set dates, venues and courts.
               </Step>
               <Step n={2} title="Add teams">
-                Add them yourself or open a public registration link. Captains
-                claim their roster by email.
+                Add them yourself or open a registration link. Captains claim
+                their roster by email; free agents sign up on their own.
               </Step>
               <Step n={3} title="Generate">
-                One click builds pools, the schedule, referees and — after pools
-                — the bracket.
+                One click builds the schedule, the referee rota and — after
+                pools — the bracket.
               </Step>
               <Step n={4} title="Publish">
                 Share the link. Scores roll in, standings settle themselves, the
@@ -186,32 +377,31 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Pricing */}
+        {/* The promise */}
         <section className="mx-auto w-full max-w-3xl px-5 py-16 text-center">
           <p className="text-claret text-xs font-semibold tracking-[0.16em] uppercase">
-            Simple, fair pricing
+            The promise
           </p>
-          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight">
-            Free to build. Pay only when you go live.
+          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-balance">
+            If it doesn’t fit your league, it changes.
           </h2>
           <p className="text-ink-2 mx-auto mt-4 max-w-xl text-lg">
-            Set up and preview everything for free. When you publish a live
-            event it’s a flat{" "}
-            <span className="text-ink font-semibold">$5–$15 per team</span>, per
-            season or tournament — bigger events pay less per team. No
-            per-registration fee, no cut of your payments.
+            Every league has a rule nobody else has — a tier where the top team
+            comes up an hour late so they get a proper break, a pool capped at
+            21 rather than 25. Tell us the three exactly-like-this rules and
+            you’ll usually have them the same afternoon, not next quarter.
           </p>
         </section>
 
         {/* Final CTA */}
         <section className="bg-claret-deep text-paper-raised">
           <div className="mx-auto w-full max-w-3xl px-5 py-16 text-center">
-            <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-              Give your players the tournament they deserve.
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+              Give your players the season they deserve.
             </h2>
             <p className="mx-auto mt-4 max-w-lg text-lg opacity-90">
-              Free to build, quick to launch, and priced so any event can afford
-              it.
+              Free to organize, quick to launch, and you keep every dollar of
+              the fee you set.
             </p>
             <div className="mt-8">
               <Button asChild size="lg" variant="secondary">
@@ -222,9 +412,9 @@ export default async function HomePage() {
         </section>
       </main>
 
-      <footer className="border-rule mx-auto w-full max-w-5xl border-t px-5 py-6">
+      <footer className="border-rule mx-auto w-full max-w-6xl border-t px-5 py-6">
         <div className="text-ink-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <span>© 2026 MySportsApp — made in Toronto</span>
+          <span>© 2026 MySportsApp</span>
           <nav className="flex gap-4">
             <Link href="/reviews" className="hover:text-ink-2">
               Reviews
@@ -243,22 +433,64 @@ export default async function HomePage() {
 }
 
 function Feature({
+  i,
   icon,
   title,
   children,
 }: {
+  i: number;
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-rule bg-surface rounded-lg border p-5 shadow-sm">
-      <div className="bg-claret-tint text-claret-deep grid size-9 place-items-center rounded-md">
-        {icon}
+    <Reveal delay={i * 70} className="h-full">
+      <div className="border-rule bg-surface group hover:border-claret h-full rounded-lg border p-5 shadow-sm transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:shadow-lg motion-reduce:hover:translate-y-0">
+        <div className="bg-claret-tint text-claret-deep group-hover:bg-claret group-hover:text-paper-raised grid size-9 place-items-center rounded-md transition-colors duration-300">
+          {icon}
+        </div>
+        <h3 className="font-display mt-3 text-lg font-semibold">{title}</h3>
+        <p className="text-ink-2 mt-1.5 text-sm">{children}</p>
       </div>
-      <h3 className="font-display mt-3 text-lg font-semibold">{title}</h3>
-      <p className="text-ink-2 mt-1.5 text-sm">{children}</p>
-    </div>
+    </Reveal>
+  );
+}
+
+function Route({
+  i,
+  title,
+  rows,
+  foot,
+}: {
+  i: number;
+  title: string;
+  rows: [string, string][];
+  foot: string;
+}) {
+  return (
+    <Reveal delay={i * 90} className="h-full">
+      <div className="border-rule bg-surface flex h-full flex-col rounded-lg border p-5 shadow-sm">
+        <h3 className="font-display text-lg font-semibold">{title}</h3>
+        <dl className="mt-4 space-y-2 text-sm tabular-nums">
+          {rows.map(([label, value]) => {
+            const yours = label === "You receive";
+            return (
+              <div key={label} className="flex items-baseline justify-between">
+                <dt className={yours ? "text-ink font-medium" : "text-ink-2"}>
+                  {label}
+                </dt>
+                <dd
+                  className={yours ? "text-pine font-semibold" : "text-ink-2"}
+                >
+                  {value}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+        <p className="text-ink-3 mt-4 text-xs">{foot}</p>
+      </div>
+    </Reveal>
   );
 }
 
@@ -272,10 +504,10 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <li className="list-none">
+    <Reveal as="li" delay={(n - 1) * 80}>
       <div className="font-display text-claret text-3xl font-bold">{n}</div>
       <h3 className="font-display mt-2 text-lg font-semibold">{title}</h3>
       <p className="text-ink-2 mt-1 text-sm">{children}</p>
-    </li>
+    </Reveal>
   );
 }

@@ -76,7 +76,7 @@ export function EmailLayout({
           {children}
           <Hr style={{ borderColor: C.border, margin: "24px 0 12px" }} />
           <Text style={{ fontSize: "12px", color: C.muted, margin: 0 }}>
-            Volleyball · for the Toronto volleyball community.
+            MySportsApp · leagues, tournaments and ladders.
             {unsubscribeUrl ? (
               <>
                 {" "}

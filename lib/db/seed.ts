@@ -246,7 +246,7 @@ async function main() {
     .insert(organizations)
     .values({
       slug: "toronto-volleyball-collective",
-      name: "Toronto Volleyball Collective",
+      name: "Lakeshore Volleyball Collective",
       contactEmail: "mark@example.com",
       ownerUserId: ownerId,
     })
@@ -388,7 +388,7 @@ async function main() {
     .values({
       orgId: org.id,
       slug: "toronto-sand-classic-jul-2026",
-      name: "Toronto Sand Classic — July 2026",
+      name: "Summer Sand Classic — July 2026",
       type: "tournament",
       sport: "beach2",
       status: "in_progress",

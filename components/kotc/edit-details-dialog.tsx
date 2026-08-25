@@ -112,7 +112,7 @@ export function EditDetailsDialog(props: {
             <Input
               value={f.location}
               onChange={(e) => set("location", e.target.value)}
-              placeholder="1675 Lake Shore Blvd E, Toronto"
+              placeholder="1675 Lakeshore Blvd E"
             />
           </Field>
           <Field label="Notes for participants">
