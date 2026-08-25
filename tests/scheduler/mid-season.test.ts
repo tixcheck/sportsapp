@@ -276,3 +276,94 @@ describe("planMidSeasonSchedule — general behavior", () => {
     }
   });
 });
+
+/**
+ * The redraw case: no new teams at all.
+ *
+ * This is what "Regenerate schedule" now does on a league in progress — the
+ * planner is handed the existing roster and asked to re-plan only the weeks
+ * nobody has played. It is the scenario that cost Top Gun Summer 2026 its
+ * season when regenerate instead deleted every match, so the guarantees below
+ * are the ones that actually matter: played games untouched, no rematches, and
+ * nobody pushed past their target.
+ */
+describe("planMidSeasonSchedule — redraw with no new teams", () => {
+  /** 10 teams, 1 game/week, 6 played weeks done, 4 weeks left, target 10. */
+  function redrawInput(): MidSeasonInput {
+    const ids = teams(10);
+    const playedGamesByTeam: Record<string, number> = {};
+    const playedPairs: string[] = [];
+    // Weeks 1-6: a clean partial round robin, everyone on 6 games.
+    for (let week = 0; week < 6; week++) {
+      for (let i = 0; i < 5; i++) {
+        const a = ids[i];
+        const b = ids[(9 - i + week) % 10 === i ? (10 - i) % 10 : 9 - i];
+        if (a === b) continue;
+        playedPairs.push(pairKey(a, b));
+      }
+    }
+    for (const id of ids) playedGamesByTeam[id] = 6;
+    return {
+      teamIds: ids,
+      playedGamesByTeam,
+      playedPairs: [...new Set(playedPairs)],
+      targetGames: 10,
+      remainingWeekDates: [
+        "2026-10-06",
+        "2026-10-13",
+        "2026-10-20",
+        "2026-10-27",
+      ],
+      gamesPerWeek: 1,
+      seed: 7,
+    };
+  }
+
+  it("schedules only into the remaining weeks", () => {
+    const plan = planMidSeasonSchedule(redrawInput());
+    const dates = new Set(plan.matches.map((m) => m.weekDate));
+    expect([...dates].sort()).toEqual([
+      "2026-10-06",
+      "2026-10-13",
+      "2026-10-20",
+      "2026-10-27",
+    ]);
+  });
+
+  it("never repeats a fixture that was already played", () => {
+    const input = redrawInput();
+    const already = new Set(input.playedPairs);
+    const plan = planMidSeasonSchedule(input);
+    for (const m of plan.matches) {
+      expect(already.has(pairKey(m.homeTeamId, m.awayTeamId))).toBe(false);
+    }
+  });
+
+  it("counts the games already played toward the target", () => {
+    const plan = planMidSeasonSchedule(redrawInput());
+    // 6 played + 4 remaining weeks at 1/week = exactly the 10-game target.
+    for (const games of Object.values(plan.finalGamesByTeam)) {
+      expect(games).toBe(10);
+    }
+  });
+
+  it("adds no more than the remaining weeks can hold", () => {
+    const plan = planMidSeasonSchedule(redrawInput());
+    const counts = gameCounts(plan.matches);
+    for (const n of counts.values()) expect(n).toBeLessThanOrEqual(4);
+  });
+
+  it("is deterministic, so a preview matches what gets applied", () => {
+    const a = planMidSeasonSchedule(redrawInput());
+    const b = planMidSeasonSchedule(redrawInput());
+    expect(a.matches).toEqual(b.matches);
+  });
+
+  it("schedules nothing when there are no weeks left to redraw", () => {
+    const plan = planMidSeasonSchedule({
+      ...redrawInput(),
+      remainingWeekDates: [],
+    });
+    expect(plan.matches).toHaveLength(0);
+  });
+});

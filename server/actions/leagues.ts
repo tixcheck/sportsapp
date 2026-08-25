@@ -583,11 +583,11 @@ async function countPlayedMatches(
 
 export async function generateLeagueScheduleAction(
   competitionId: string,
-  options: { replacePlayed?: boolean } = {},
+  options: { confirmName?: string } = {},
 ): Promise<
   | ActionError
   | { matchCount: number }
-  | { needsConfirmation: true; played: number }
+  | { needsConfirmation: true; played: number; name: string }
 > {
   const supabase = await createClient();
 
@@ -793,9 +793,20 @@ export async function generateLeagueScheduleAction(
   // for a draft and catastrophic for a season in progress, and the two are one
   // button apart. Refuse rather than destroy (as the ladder check above does),
   // unless the caller has been told the number and said yes anyway.
+  // Typing the league name is the lock, matching how deleting a competition
+  // works. A checkbox or a second click is not enough here: this destroys the
+  // same data a delete does, so it should cost the same deliberate effort.
   const played = await countPlayedMatches(supabase, competitionId);
-  if (played > 0 && options.replacePlayed !== true) {
-    return { needsConfirmation: true, played };
+  if (played > 0) {
+    const { data: named } = await supabase
+      .from("competitions")
+      .select("name")
+      .eq("id", competitionId)
+      .single();
+    const name = (named?.name as string | undefined) ?? "";
+    if (options.confirmName?.trim() !== name.trim()) {
+      return { needsConfirmation: true, played, name };
+    }
   }
 
   const { error: delErr } = await supabase

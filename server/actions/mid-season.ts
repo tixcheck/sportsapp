@@ -24,6 +24,8 @@ export type MidSeasonInputArgs = {
   competitionId: string;
   /** "A" = new pairs play what the weeks allow; "B" = catch them up to target. */
   mode: "A" | "B";
+  /** See `addTeamsMidSeasonSchema`. Defaults to adding teams. */
+  purpose?: "add-teams" | "redraw";
 };
 
 export type MidSeasonPreview = {
@@ -170,7 +172,10 @@ async function loadContext(
   const newTeamIds = teams
     .map((t) => t.id as string)
     .filter((id) => !teamsInSchedule.has(id));
-  if (newTeamIds.length === 0) {
+  // A redraw is the same operation with an empty set of new teams: reshuffle the
+  // weeks nobody has played yet. Only the add-teams entry point needs there to
+  // be someone new, so the requirement belongs here rather than in the planner.
+  if (args.purpose !== "redraw" && newTeamIds.length === 0) {
     return { error: "No newly added teams to schedule." };
   }
 
@@ -292,7 +297,12 @@ export async function addTeamsMidSeasonAction(
   const { supabase, plan, slot, timezone, gameMinutes, courtDefs } = ctx;
 
   if (plan.matches.length === 0) {
-    return { error: "Nothing to schedule for the new teams." };
+    return {
+      error:
+        parsed.data.purpose === "redraw"
+          ? "There are no upcoming weeks left to redraw."
+          : "Nothing to schedule for the new teams.",
+    };
   }
 
   const atOf = (m: PlannedMatch) =>
@@ -362,4 +372,36 @@ export async function addTeamsMidSeasonAction(
   revalidatePath("/orgs");
   revalidatePath("/my-matches");
   return { created: rows.length, replaced: ctx.unplayedMatchIds.length };
+}
+
+/**
+ * Redraw only the weeks nobody has played yet.
+ *
+ * This is what "regenerate the schedule" should almost always mean. A gym falls
+ * through, a team drops, the order got lopsided — none of that is a reason to
+ * delete results that already happened. Played games stay exactly as they are;
+ * the remaining week slots are re-planned around them, never repeating a
+ * fixture that has already been played.
+ *
+ * Same planner and the same apply path as adding teams mid-season, because it
+ * is the same problem with an empty set of new teams.
+ */
+export async function previewRedrawRemainingAction(
+  competitionId: string,
+): Promise<{ error: string } | MidSeasonPreview> {
+  return previewAddTeamsMidSeasonAction({
+    competitionId,
+    mode: "A",
+    purpose: "redraw",
+  });
+}
+
+export async function redrawRemainingAction(
+  competitionId: string,
+): Promise<{ error: string } | { created: number; replaced: number }> {
+  return addTeamsMidSeasonAction({
+    competitionId,
+    mode: "A",
+    purpose: "redraw",
+  });
 }

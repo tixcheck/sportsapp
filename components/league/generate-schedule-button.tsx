@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, TriangleAlert } from "lucide-react";
+import { CalendarPlus, RefreshCw, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { generateLeagueScheduleAction } from "@/server/actions/leagues";
+import {
+  previewRedrawRemainingAction,
+  redrawRemainingAction,
+} from "@/server/actions/mid-season";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -16,18 +21,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+type Blocked = { played: number; name: string };
+
 /**
- * Generate, or regenerate, a league schedule.
+ * Generate a schedule, or change one that already exists.
  *
- * Regenerating deletes every match, and `sets` cascade off `matches` — so on a
- * season in progress this button destroys the entire record of who beat whom.
- * The server now refuses that outright and returns the count instead; this
- * dialog is where the organizer is told the number, in those words, before
- * anything is deleted.
+ * Once a league has results, "regenerate" splits into two very different
+ * operations and this dialog is where they stop looking alike:
  *
- * The confirm is deliberately not the default-styled button and does not say
- * "OK": a season that took three months to play should not be one reflexive
- * click from gone.
+ *   Redraw remaining weeks  — played games frozen, only future weeks re-planned
+ *   Start over completely   — deletes every match, and scores cascade with them
+ *
+ * The first is what an organizer almost always wants and is the default. The
+ * second is gated behind typing the league name, the same lock as deleting a
+ * competition, because it destroys the same data.
  */
 export function GenerateScheduleButton({
   competitionId,
@@ -37,91 +44,158 @@ export function GenerateScheduleButton({
   hasSchedule: boolean;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [played, setPlayed] = useState<number | null>(null);
+  const [pending, start] = useTransition();
+  const [blocked, setBlocked] = useState<Blocked | null>(null);
+  const [confirmName, setConfirmName] = useState("");
+  const [redraw, setRedraw] = useState<{
+    created: number;
+    replacing: number;
+    playedFrozen: number;
+  } | null>(null);
 
-  function run(replacePlayed: boolean) {
-    startTransition(async () => {
-      const result = await generateLeagueScheduleAction(competitionId, {
-        replacePlayed,
+  // Preview the safe option as soon as the dialog opens, so the counts the
+  // organizer is choosing between are real rather than promised.
+  useEffect(() => {
+    if (!blocked) return;
+    let live = true;
+    previewRedrawRemainingAction(competitionId).then((r) => {
+      if (!live || "error" in r) return;
+      setRedraw({
+        created: r.created,
+        replacing: r.replacing,
+        playedFrozen: r.playedFrozen,
       });
+    });
+    return () => {
+      live = false;
+    };
+  }, [blocked, competitionId]);
 
+  function close() {
+    setBlocked(null);
+    setConfirmName("");
+    setRedraw(null);
+  }
+
+  function generate(confirm?: string) {
+    start(async () => {
+      const result = await generateLeagueScheduleAction(competitionId, {
+        confirmName: confirm,
+      });
       if ("error" in result) {
         toast.error(result.error);
         return;
       }
       if ("needsConfirmation" in result) {
-        setPlayed(result.played);
+        setBlocked({ played: result.played, name: result.name });
         return;
       }
-
-      setPlayed(null);
+      close();
       toast.success(`Schedule generated — ${result.matchCount} matches.`);
       router.refresh();
     });
   }
 
-  const n = played ?? 0;
+  function runRedraw() {
+    start(async () => {
+      const result = await redrawRemainingAction(competitionId);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      close();
+      toast.success(
+        `Remaining weeks redrawn — ${result.created} games replaced ${result.replaced}.`,
+      );
+      router.refresh();
+    });
+  }
+
+  const armed =
+    blocked !== null && confirmName.trim() === blocked.name.trim() && !pending;
 
   return (
     <>
       <Button
-        onClick={() => run(false)}
+        onClick={() => generate()}
         disabled={pending}
         variant={hasSchedule ? "outline" : "default"}
       >
         <CalendarPlus />
         {pending
-          ? "Generating…"
+          ? "Working…"
           : hasSchedule
             ? "Regenerate schedule"
             : "Generate schedule"}
       </Button>
 
       <Dialog
-        open={played !== null}
-        onOpenChange={(open) => !open && !pending && setPlayed(null)}
+        open={blocked !== null}
+        onOpenChange={(o) => !o && !pending && close()}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <TriangleAlert className="text-claret size-5 shrink-0" />
-              This erases {n} played {n === 1 ? "match" : "matches"}
+            <DialogTitle>
+              This league has {blocked?.played} played{" "}
+              {blocked?.played === 1 ? "match" : "matches"}
             </DialogTitle>
-            <DialogDescription asChild>
-              <div className="space-y-3">
-                <p>
-                  Regenerating draws a new schedule from scratch. Every score,
-                  set and result already recorded in this league is deleted with
-                  the old fixtures, and the standings reset to zero.
-                </p>
-                <p className="text-ink font-semibold">
-                  This cannot be undone from inside the app.
-                </p>
-                <p>
-                  If you only need to add a team, drop one, or move a game,
-                  close this and use the mid-season tools instead — those keep
-                  your results.
-                </p>
-              </div>
-            </DialogDescription>
+            <DialogDescription>Choose what happens to them.</DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+
+          <div className="border-rule bg-paper-raised flex flex-col gap-2 rounded-lg border p-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="text-pine size-4 shrink-0" />
+              <h3 className="font-semibold">Redraw the remaining weeks</h3>
+            </div>
+            <p className="text-ink-2 text-sm">
+              {redraw
+                ? `Keeps all ${redraw.playedFrozen} played games exactly as they are, and replaces the ${redraw.replacing} upcoming ones with ${redraw.created} newly drawn games. No team is paired with an opponent it has already played.`
+                : "Keeps every played game and re-plans only the weeks nobody has played yet."}
+            </p>
             <Button
-              variant="outline"
-              onClick={() => setPlayed(null)}
-              disabled={pending}
+              onClick={runRedraw}
+              disabled={pending || redraw?.created === 0}
+              className="mt-1 self-start"
             >
-              Keep my scores
+              {pending ? "Working…" : "Redraw remaining weeks"}
             </Button>
+          </div>
+
+          <div className="border-rule flex flex-col gap-2 rounded-lg border border-dashed p-4">
+            <div className="flex items-center gap-2">
+              <TriangleAlert className="text-claret size-4 shrink-0" />
+              <h3 className="font-semibold">Start the season over</h3>
+            </div>
+            <p className="text-ink-2 text-sm">
+              Deletes all {blocked?.played} results and every fixture, and
+              resets the standings to zero.{" "}
+              <span className="text-ink font-semibold">
+                This cannot be undone from inside the app.
+              </span>{" "}
+              Type{" "}
+              <span className="text-ink font-semibold">{blocked?.name}</span> to
+              unlock it.
+            </p>
+            <Input
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              placeholder={blocked?.name}
+              aria-label={`Type ${blocked?.name} to confirm erasing all results`}
+              className="mt-1"
+            />
             <Button
               variant="destructive"
-              onClick={() => run(true)}
-              disabled={pending}
+              onClick={() => generate(confirmName)}
+              disabled={!armed}
+              className="self-start"
             >
-              {pending
-                ? "Deleting…"
-                : `Delete ${n} ${n === 1 ? "result" : "results"} and regenerate`}
+              {pending ? "Working…" : "Erase everything and start over"}
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={close} disabled={pending}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

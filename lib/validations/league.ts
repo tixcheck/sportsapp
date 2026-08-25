@@ -208,6 +208,12 @@ export const shiftScheduleSchema = z.object({
 export const addTeamsMidSeasonSchema = z.object({
   competitionId: z.string().uuid(),
   mode: z.enum(["A", "B"]),
+  /**
+   * "add-teams" schedules newly added teams and requires there to be some.
+   * "redraw" reshuffles the remaining weeks for the existing roster — same
+   * planner, same guarantee that played games are frozen, just no new teams.
+   */
+  purpose: z.enum(["add-teams", "redraw"]).default("add-teams"),
 });
 
 export type AddTeamsMidSeasonInput = z.infer<typeof addTeamsMidSeasonSchema>;
