@@ -182,7 +182,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
         {step === 1 && (
           <div className="grid gap-4">
             <Field label="Tournament name" error={errors.name?.message}>
-              <Input placeholder="Toronto Sand Classic" {...register("name")} />
+              <Input placeholder="Summer Sand Classic" {...register("name")} />
             </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Start date" error={errors.startDate?.message}>

@@ -48,7 +48,10 @@ export function CreateOrgForm() {
             <FormItem>
               <FormLabel>Organization name</FormLabel>
               <FormControl>
-                <Input placeholder="Toronto Volleyball Collective" {...field} />
+                <Input
+                  placeholder="Lakeshore Volleyball Collective"
+                  {...field}
+                />
               </FormControl>
               <FormDescription>
                 Public URL: <span className="font-mono">/{previewSlug}</span>

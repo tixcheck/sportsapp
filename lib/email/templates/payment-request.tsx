@@ -15,7 +15,7 @@ export interface PaymentRequestEmailProps {
   teamName: string;
   /** Formatted, e.g. "$120.00" — the organizer's price still outstanding. */
   outstanding: string;
-  /** "Sat, Sep 12 · Toronto" — enough to recognise the event. */
+  /** "Sat, Sep 12 · Lakeshore" — enough to recognise the event. */
   when: string;
   /**
    * The TEAM page, not a Stripe URL.
