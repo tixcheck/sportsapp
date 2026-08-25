@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
+import { recordMatchAudit } from "@/lib/audit/match-audit";
 import {
   planMidSeasonSchedule,
   pairKey,
@@ -368,6 +369,25 @@ export async function addTeamsMidSeasonAction(
 
   const { error: insErr } = await supabase.from("matches").insert(rows);
   if (insErr) return { error: insErr.message };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  await recordMatchAudit(supabase, {
+    competitionId: parsed.data.competitionId,
+    matchId: null,
+    actorUserId: user?.id ?? null,
+    action: "schedule_redrawn",
+    summary:
+      parsed.data.purpose === "redraw"
+        ? `Remaining weeks redrawn — ${ctx.unplayedMatchIds.length} upcoming fixtures replaced with ${rows.length}; ${ctx.playedFrozen} played games untouched`
+        : `${ctx.newTeamIds.length} team(s) added mid-season — ${ctx.unplayedMatchIds.length} upcoming fixtures replaced with ${rows.length}; ${ctx.playedFrozen} played games untouched`,
+    detail: {
+      matchesRemoved: ctx.unplayedMatchIds.length,
+      matchesCreated: rows.length,
+      resultsDestroyed: 0,
+    },
+  });
 
   revalidatePath("/orgs");
   revalidatePath("/my-matches");

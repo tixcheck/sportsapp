@@ -767,24 +767,79 @@ export const matchConfirmations = pgTable(
   (t) => [index("match_confirmations_match_id_idx").on(t.matchId)],
 );
 
+/**
+ * Append-only history of score and schedule changes.
+ *
+ * The competition owns the row, not the match. `matchId` is SET NULL rather
+ * than CASCADE so the trail OUTLIVES the thing it describes — a schedule
+ * regeneration deletes matches, and an audit row that vanishes in the same
+ * statement records nothing about the event anyone would want to look up.
+ *
+ * `detail` is denormalised for the same reason: team names are copied in at the
+ * time of the change, because a foreign key to a deleted team reads as null and
+ * "someone changed something" is not a trail.
+ */
 export const matchAudit = pgTable(
   "match_audit",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    matchId: uuid("match_id")
+    competitionId: uuid("competition_id")
       .notNull()
-      .references(() => matches.id, { onDelete: "cascade" }),
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    /** Null once the match it described has been deleted. */
+    matchId: uuid("match_id").references(() => matches.id, {
+      onDelete: "set null",
+    }),
     // Preserve the audit trail even if the editor's account is deleted.
     changedByUserId: uuid("changed_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    action: text("action").$type<MatchAuditAction>().notNull(),
     changeSummary: text("change_summary").notNull(),
+    /** Scores and team names as they were, so an orphaned row still reads. */
+    detail: jsonb("detail").$type<MatchAuditDetail>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("match_audit_match_id_idx").on(t.matchId)],
+  (t) => [
+    index("match_audit_match_id_idx").on(t.matchId),
+    index("match_audit_competition_id_idx").on(t.competitionId, t.createdAt),
+  ],
 );
+
+/**
+ * What an audit row records.
+ *
+ * A text column with a CHECK constraint rather than a pg enum: adding a new
+ * action later is an ALTER of the check, not an enum migration that has to be
+ * coordinated with deploys. The list here and the constraint in 0085 must stay
+ * in step — `MATCH_AUDIT_ACTIONS` is the one place to change.
+ */
+export const MATCH_AUDIT_ACTIONS = [
+  "score_submitted",
+  "score_confirmed",
+  "score_disputed",
+  "score_cleared",
+  "schedule_redrawn",
+  "schedule_erased",
+] as const;
+
+export type MatchAuditAction = (typeof MATCH_AUDIT_ACTIONS)[number];
+
+export type MatchAuditDetail = {
+  /** Team names copied in at write time — they may not exist later. */
+  homeTeam?: string;
+  awayTeam?: string;
+  /** Set scores after the change, e.g. [[25,19],[25,23]]. */
+  sets?: [number, number][];
+  /** Set scores before the change, when replacing an existing score. */
+  previousSets?: [number, number][];
+  /** For schedule actions: how many fixtures and results were affected. */
+  matchesRemoved?: number;
+  matchesCreated?: number;
+  resultsDestroyed?: number;
+};
 
 // ---------------------------------------------------------------------------
 // Standings cache (never the source of truth — recomputed on score commit)

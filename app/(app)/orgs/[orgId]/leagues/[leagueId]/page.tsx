@@ -25,6 +25,8 @@ import { ManageTiersDialog } from "@/components/league/manage-tiers-dialog";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
+import { AuditLogCard } from "@/components/competition/audit-log-card";
+import { getCompetitionAudit } from "@/lib/queries/match-audit";
 import { endDatePassed } from "@/lib/competition/completion";
 import { Button } from "@/components/ui/button";
 import { TeamManagementList } from "@/components/team/team-management-list";
@@ -121,10 +123,12 @@ export default async function LeaguePage({
     getPendingEtransfers(league.id),
     getEtransferFeesOwed(league.id),
   ]);
-  const [feeSettings, feeRates, orgAccount] = await Promise.all([
+  const [feeSettings, feeRates, orgAccount, auditEntries] = await Promise.all([
     getCompetitionPaymentSettings(league.id),
     getPlatformFeeRates(),
     getPaymentAccount(orgId),
+    // RLS scopes this; a non-organizer simply gets an empty list.
+    getCompetitionAudit(league.id),
   ]);
   const payment = {
     settings: feeSettings,
@@ -571,6 +575,10 @@ export default async function LeaguePage({
             />
           </CardContent>
         </Card>
+      )}
+
+      {coOrgs.canManage && (
+        <AuditLogCard entries={auditEntries} timezone={league.timezone} />
       )}
 
       {coOrgs.canManage && (

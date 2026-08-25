@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { formatSets, recordMatchAudit } from "@/lib/audit/match-audit";
 import {
   canFinalize,
   validateScore,
@@ -211,6 +212,15 @@ export async function submitScoreAction(
   // match abnormal (audit/display only; standings still read the real sets).
   const isAbnormal = result.blocks.length > 0;
 
+  // Read the outgoing score BEFORE deleting it: an edit that silently replaces
+  // a result is exactly the thing the trail exists to show, and once the rows
+  // are gone there is nothing left to compare against.
+  const { data: previous } = await supabase
+    .from("sets")
+    .select("set_number, home_score, away_score")
+    .eq("match_id", matchId)
+    .order("set_number");
+
   // Replace any existing sets, then record this submission.
   await supabase.from("sets").delete().eq("match_id", matchId);
   const rows = sets.map((s, i) => ({
@@ -228,6 +238,31 @@ export async function submitScoreAction(
     match_id: matchId,
     captain_user_id: user.id,
     action: "submitted",
+  });
+
+  const names = await teamNames(
+    supabase,
+    match.home_team_id,
+    match.away_team_id,
+  );
+  const entered = sets.map((x) => [x.home, x.away] as [number, number]);
+  const priorSets = (previous ?? []).map(
+    (x) => [x.home_score, x.away_score] as [number, number],
+  );
+  await recordMatchAudit(supabase, {
+    competitionId: match.competition_id,
+    matchId,
+    actorUserId: user.id,
+    action: "score_submitted",
+    summary: priorSets.length
+      ? `Score changed from ${formatSets(priorSets)} to ${formatSets(entered)}${isAbnormal ? " (organizer override)" : ""}`
+      : `Score entered: ${formatSets(entered)}${isAbnormal ? " (organizer override)" : ""}`,
+    detail: {
+      homeTeam: names.home,
+      awayTeam: names.away,
+      sets: entered,
+      ...(priorSets.length ? { previousSets: priorSets } : {}),
+    },
   });
 
   // An organizer's entry is authoritative — it completes immediately, with no
@@ -340,6 +375,12 @@ export async function clearScoreAction(
   });
   if (!guard.ok) return { error: guard.reason };
 
+  const { data: cleared } = await supabase
+    .from("sets")
+    .select("set_number, home_score, away_score")
+    .eq("match_id", matchId)
+    .order("set_number");
+
   // Wipe sets + submission/confirmation history, then return to unplayed.
   await supabase.from("sets").delete().eq("match_id", matchId);
   await supabase.from("match_confirmations").delete().eq("match_id", matchId);
@@ -350,6 +391,20 @@ export async function clearScoreAction(
   if (updErr) return { error: updErr.message };
 
   await recomputeStandings(supabase, match.competition_id);
+
+  const wiped = (cleared ?? []).map(
+    (x) => [x.home_score, x.away_score] as [number, number],
+  );
+  await recordMatchAudit(supabase, {
+    competitionId: match.competition_id,
+    matchId,
+    actorUserId: user.id,
+    action: "score_cleared",
+    summary: wiped.length
+      ? `Result cleared (was ${formatSets(wiped)})`
+      : "Result cleared",
+    detail: { previousSets: wiped },
+  });
 
   const { data: comp } = await supabase
     .from("competitions")
@@ -394,6 +449,16 @@ export async function confirmScoreAction(
     .eq("id", matchId)
     .select("competition_id, bracket_position")
     .single();
+
+  if (updated?.competition_id) {
+    await recordMatchAudit(supabase, {
+      competitionId: updated.competition_id,
+      matchId,
+      actorUserId: user.id,
+      action: "score_confirmed",
+      summary: "Score confirmed by the opposing captain",
+    });
+  }
 
   // Now final → advance the bracket or refresh standings.
   if (updated?.competition_id) {
@@ -446,6 +511,42 @@ export async function disputeScoreAction(
   if (error) return { error: error.message };
   // Status stays in_progress; the organizer resolves it (Phase 6b).
 
+  const { data: disputed } = await supabase
+    .from("matches")
+    .select("competition_id")
+    .eq("id", matchId)
+    .single();
+  if (disputed?.competition_id) {
+    await recordMatchAudit(supabase, {
+      competitionId: disputed.competition_id,
+      matchId,
+      actorUserId: user.id,
+      action: "score_disputed",
+      summary: "Score disputed by the opposing captain",
+    });
+  }
+
   revalidatePath("/my-matches");
   return { success: true };
+}
+
+/** Team names for an audit row, copied in so the row survives a team delete. */
+async function teamNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  homeId: string | null,
+  awayId: string | null,
+): Promise<{ home?: string; away?: string }> {
+  const ids = [homeId, awayId].filter((x): x is string => !!x);
+  if (ids.length === 0) return {};
+  const { data } = await supabase
+    .from("teams")
+    .select("id, name")
+    .in("id", ids);
+  const by = new Map(
+    (data ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+  return {
+    home: homeId ? by.get(homeId) : undefined,
+    away: awayId ? by.get(awayId) : undefined,
+  };
 }

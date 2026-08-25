@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
+import { recordMatchAudit } from "@/lib/audit/match-audit";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
@@ -809,6 +810,11 @@ export async function generateLeagueScheduleAction(
     }
   }
 
+  const { count: removed } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("competition_id", competitionId);
+
   const { error: delErr } = await supabase
     .from("matches")
     .delete()
@@ -819,6 +825,28 @@ export async function generateLeagueScheduleAction(
     const { error: insErr } = await supabase.from("matches").insert(rows);
     if (insErr) return { error: insErr.message };
   }
+
+  // Written AFTER the delete on purpose: match_audit.match_id is SET NULL, so
+  // this row outlives the fixtures it describes. It is the only thing that will
+  // still say what happened here once the matches are gone.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  await recordMatchAudit(supabase, {
+    competitionId,
+    matchId: null,
+    actorUserId: user?.id ?? null,
+    action: "schedule_erased",
+    summary:
+      played > 0
+        ? `Schedule erased and redrawn from scratch — ${removed ?? 0} fixtures deleted, destroying ${played} recorded ${played === 1 ? "result" : "results"}; ${rows.length} new fixtures created`
+        : `Schedule generated — ${rows.length} fixtures created`,
+    detail: {
+      matchesRemoved: removed ?? 0,
+      matchesCreated: rows.length,
+      resultsDestroyed: played,
+    },
+  });
 
   await supabase
     .from("competitions")
