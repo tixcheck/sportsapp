@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import { recordMatchAudit } from "@/lib/audit/match-audit";
+import { captureRestorePoint } from "@/server/actions/restore-points";
 import {
   planMidSeasonSchedule,
   pairKey,
@@ -357,6 +358,19 @@ export async function addTeamsMidSeasonAction(
     court: courtByMatch.get(m)!,
     scheduled_at: atOf(m).toUTC().toISO(),
   }));
+
+  const snap = await captureRestorePoint(supabase, {
+    competitionId: parsed.data.competitionId,
+    reason:
+      parsed.data.purpose === "redraw" ? "schedule_redrawn" : "teams_added",
+    label:
+      parsed.data.purpose === "redraw"
+        ? `Before redrawing the remaining weeks (${ctx.playedFrozen} played kept)`
+        : `Before adding ${ctx.newTeamIds.length} team(s) mid-season`,
+  });
+  if ("error" in snap) {
+    return { error: `Could not save a restore point: ${snap.error}` };
+  }
 
   // Replace only the unplayed games; every settled game is left untouched.
   if (ctx.unplayedMatchIds.length > 0) {

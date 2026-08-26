@@ -252,5 +252,34 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ sent, skipped, candidates: due.length, dry });
+  // Housekeeping, piggy-backed on this daily run rather than a fourth cron
+  // entry: this project is on a Vercel Hobby plan, where a bad `crons` block
+  // rejects the whole deployment, and that has already cost five days once.
+  //
+  // Restore points for a DELETED league outlive the league on purpose, so an
+  // accidental deletion can be undone — but they hold team names, and keeping a
+  // deleted roster forever is not something anyone asked for. `expires_at` is
+  // stamped at deletion; this is where those rows actually go.
+  let purged = 0;
+  if (!dry) {
+    const { data: expired, error: purgeErr } = await admin
+      .from("restore_points")
+      .delete()
+      .not("expires_at", "is", null)
+      .lt("expires_at", new Date().toISOString())
+      .select("id");
+    if (purgeErr) {
+      console.error("[cron] restore point purge failed", purgeErr.message);
+    } else {
+      purged = expired?.length ?? 0;
+    }
+  }
+
+  return NextResponse.json({
+    sent,
+    skipped,
+    candidates: due.length,
+    purged,
+    dry,
+  });
 }

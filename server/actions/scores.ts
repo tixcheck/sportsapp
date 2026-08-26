@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import { formatSets, recordMatchAudit } from "@/lib/audit/match-audit";
+import { captureRestorePoint } from "@/server/actions/restore-points";
 import {
   canFinalize,
   validateScore,
@@ -221,6 +222,17 @@ export async function submitScoreAction(
     .eq("match_id", matchId)
     .order("set_number");
 
+  // Only an EDIT is worth a restore point — a first entry has nothing to go
+  // back to, and snapshotting every score would evict the schedule snapshots.
+  if ((previous ?? []).length > 0) {
+    await captureRestorePoint(supabase, {
+      competitionId: match.competition_id,
+      matchId,
+      reason: "score_edited",
+      label: `Before changing the score of this match`,
+    });
+  }
+
   // Replace any existing sets, then record this submission.
   await supabase.from("sets").delete().eq("match_id", matchId);
   const rows = sets.map((s, i) => ({
@@ -380,6 +392,15 @@ export async function clearScoreAction(
     .select("set_number, home_score, away_score")
     .eq("match_id", matchId)
     .order("set_number");
+
+  if ((cleared ?? []).length > 0) {
+    await captureRestorePoint(supabase, {
+      competitionId: match.competition_id,
+      matchId,
+      reason: "score_cleared",
+      label: "Before clearing the result of this match",
+    });
+  }
 
   // Wipe sets + submission/confirmation history, then return to unplayed.
   await supabase.from("sets").delete().eq("match_id", matchId);

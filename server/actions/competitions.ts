@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  clearRestorePointsFor,
+  expireRestorePointsFor,
+} from "@/server/actions/restore-points";
 import { endDatePassed } from "@/lib/competition/completion";
 import {
   scoringSettingsSchema,
@@ -91,6 +95,11 @@ export async function setCompetitionCompletedAction(
     .eq("id", competitionId);
   if (error) return { error: error.message };
 
+  // The season is over, so there is nothing left to undo. Dropping the
+  // snapshots here is what keeps "kept until the season is complete" true
+  // without a cron having to work out when that happened.
+  if (completed) await clearRestorePointsFor(supabase, competitionId);
+
   revalidatePath("/orgs");
   revalidatePath("/dashboard");
   revalidatePath("/my-matches");
@@ -107,6 +116,14 @@ export async function deleteCompetitionAction(
   competitionId: string,
 ): Promise<ActionResult> {
   const supabase = await createClient();
+
+  // Restore points are org-owned, so they survive this delete on purpose — a
+  // league deleted by mistake is one of the accidents worth undoing. But they
+  // hold team names, so give them a life span first: recoverable for a month,
+  // then purged by the daily cron. Done BEFORE the delete, while the rows can
+  // still be found by competition_id.
+  await expireRestorePointsFor(supabase, competitionId);
+
   const { error } = await supabase.rpc("delete_competition", {
     _competition_id: competitionId,
   });

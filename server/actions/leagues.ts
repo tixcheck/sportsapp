@@ -6,6 +6,7 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import { recordMatchAudit } from "@/lib/audit/match-audit";
+import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
@@ -814,6 +815,22 @@ export async function generateLeagueScheduleAction(
     .from("matches")
     .select("id", { count: "exact", head: true })
     .eq("competition_id", competitionId);
+
+  // Snapshot BEFORE the delete, and abort if it fails — proceeding without one
+  // is precisely the situation restore points exist to prevent.
+  if ((removed ?? 0) > 0) {
+    const snap = await captureRestorePoint(supabase, {
+      competitionId,
+      reason: "schedule_erased",
+      label:
+        played > 0
+          ? `Before erasing the schedule (${played} played ${played === 1 ? "match" : "matches"})`
+          : "Before regenerating the schedule",
+    });
+    if ("error" in snap) {
+      return { error: `Could not save a restore point: ${snap.error}` };
+    }
+  }
 
   const { error: delErr } = await supabase
     .from("matches")

@@ -27,6 +27,8 @@ import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
 import { AuditLogCard } from "@/components/competition/audit-log-card";
 import { getCompetitionAudit } from "@/lib/queries/match-audit";
+import { getRestorePoints } from "@/lib/queries/restore-points";
+import { RestorePointsCard } from "@/components/competition/restore-points-card";
 import { endDatePassed } from "@/lib/competition/completion";
 import { Button } from "@/components/ui/button";
 import { TeamManagementList } from "@/components/team/team-management-list";
@@ -123,13 +125,15 @@ export default async function LeaguePage({
     getPendingEtransfers(league.id),
     getEtransferFeesOwed(league.id),
   ]);
-  const [feeSettings, feeRates, orgAccount, auditEntries] = await Promise.all([
-    getCompetitionPaymentSettings(league.id),
-    getPlatformFeeRates(),
-    getPaymentAccount(orgId),
-    // RLS scopes this; a non-organizer simply gets an empty list.
-    getCompetitionAudit(league.id),
-  ]);
+  const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
+    await Promise.all([
+      getCompetitionPaymentSettings(league.id),
+      getPlatformFeeRates(),
+      getPaymentAccount(orgId),
+      // RLS scopes both; a non-organizer simply gets empty lists.
+      getCompetitionAudit(league.id),
+      getRestorePoints(league.id),
+    ]);
   const payment = {
     settings: feeSettings,
     rates: feeRates,
@@ -575,6 +579,10 @@ export default async function LeaguePage({
             />
           </CardContent>
         </Card>
+      )}
+
+      {coOrgs.canManage && (
+        <RestorePointsCard points={restorePoints} timezone={league.timezone} />
       )}
 
       {coOrgs.canManage && (
