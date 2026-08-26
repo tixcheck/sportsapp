@@ -13,6 +13,16 @@ name: Nightly database backup
 #
 # Runs on GitHub's scheduler, not Vercel's, so it has nothing to do with the
 # Hobby-plan cron limits that have bitten this project before.
+#
+# ---------------------------------------------------------------------------
+# CURRENTLY DISABLED (2026-08-26). The six secrets below are not set yet, and a
+# workflow that fails every night teaches you to ignore the failure email —
+# which is the one alarm that matters when a real backup breaks. Re-enable with
+#
+#     gh workflow enable "Nightly database backup"
+#
+# AFTER setting the secrets. See docs/runbooks/database-restore.md.
+# ---------------------------------------------------------------------------
 
 on:
   schedule:

@@ -333,6 +333,41 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
+## ⚠️ PARKED — off-platform backups are built but switched OFF
+
+Added 2026-08-26. `.github/workflows/backup.yml` exists, is merged, and is
+**`disabled_manually` on GitHub**. Nothing is being backed up outside Supabase
+right now. The only protection against losing the Supabase project itself is
+Supabase's own daily backups (7 days, same account).
+
+Disabled deliberately: left running it would fail and email every night until
+the secrets exist, which trains everyone to ignore the one alarm that matters.
+
+To finish it — full walkthrough in `docs/runbooks/database-restore.md`:
+
+1. Cloudflare R2 → private bucket `sportsapp-backups` + API token scoped to it
+2. Supabase → Settings → Database → **Session pooler** URL, port **5432**
+   (NOT the `:6543` transaction pooler in `.env.local` — `pg_dump` needs session
+   mode; against 6543 it fails partway and leaves a dump that looks fine and
+   isn't. The workflow refuses a 6543 URL for this reason.)
+3. `openssl rand -base64 32` → store in a password manager, **not** in this
+   database and not in the Supabase account. Lose it and every backup is
+   unreadable.
+4. ```bash
+   gh secret set BACKUP_DB_URL
+   gh secret set BACKUP_PASSPHRASE
+   gh secret set BACKUP_S3_ENDPOINT
+   gh secret set BACKUP_S3_BUCKET
+   gh secret set BACKUP_S3_ACCESS_KEY_ID
+   gh secret set BACKUP_S3_SECRET_ACCESS_KEY
+   ```
+5. **`gh workflow enable "Nightly database backup"`** — easy to miss, and
+   without it steps 1–4 achieve nothing.
+6. `gh workflow run "Nightly database backup" && gh run watch`
+
+PITR was priced and declined: $100/month per 7 days, against a busiest-ever day
+of 65 sets and only 33 of 90 days with any writes at all.
+
 ## Pending manual cleanup (Supabase SQL editor)
 
 ```sql
