@@ -1,0 +1,241 @@
+name: Nightly database backup
+
+# Off-platform, encrypted backups of the Supabase database.
+#
+# Supabase's own daily backups are the floor, but they live inside the account
+# they protect. This one does not: if the project, the region, or the billing
+# relationship goes away, the dump is still sitting in a bucket you control.
+#
+# Deliberately NOT stored as a GitHub Actions artifact. This repository is
+# PUBLIC, and artifacts of a public repo are downloadable by anyone with the run
+# URL. A dump contains every user's email address, and encryption is not a
+# reason to publish one — a passphrase that leaks later cannot un-publish it.
+#
+# Runs on GitHub's scheduler, not Vercel's, so it has nothing to do with the
+# Hobby-plan cron limits that have bitten this project before.
+
+on:
+  schedule:
+    # 09:00 UTC = 05:00 in Toronto — after the latest game night finishes
+    # entering scores, before anyone is awake to be affected by load.
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why you're running this by hand (shows in the log)"
+        required: false
+        default: "manual run"
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # A throwaway Postgres to restore INTO. A backup nobody has ever restored is
+    # a file, not a backup — this is what makes the difference every night.
+    services:
+      scratch:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: scratch
+          POSTGRES_DB: scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Check the secrets are all present
+        env:
+          DB_URL: ${{ secrets.BACKUP_DB_URL }}
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          S3_KEY: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          S3_SECRET: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for name in DB_URL PASSPHRASE S3_BUCKET S3_ENDPOINT S3_KEY S3_SECRET; do
+            [ -n "${!name:-}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            echo "See docs/runbooks/database-restore.md for how to set them."
+            exit 1
+          fi
+          # pg_dump needs a session-mode connection. The transaction pooler
+          # (:6543) cannot hold the prepared statements it uses and fails
+          # halfway through, producing a dump that looks fine and isn't.
+          case "$DB_URL" in
+            *:6543/*)
+              echo "::error::BACKUP_DB_URL points at the transaction pooler (:6543)."
+              echo "Use the SESSION pooler (port 5432) — see the runbook."
+              exit 1 ;;
+          esac
+          echo "All six secrets present."
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          set -euo pipefail
+          # The runner ships an older client, and pg_dump refuses to dump a
+          # server newer than itself. Supabase is on 17.
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] \
+            https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          pg_dump --version
+
+      - name: Record what the source database actually holds
+        env:
+          PGURL: ${{ secrets.BACKUP_DB_URL }}
+        run: |
+          set -euo pipefail
+          # Exact counts, not pg_stat's n_live_tup — that is an estimate
+          # maintained by autovacuum, so comparing it across two databases
+          # produces both false passes and false alarms.
+          psql "$PGURL" -At -F',' -o source-counts.csv <<'SQL'
+          select table_name,
+                 (xpath('/row/c/text()',
+                        query_to_xml(format('select count(*) as c from public.%I',
+                                            table_name), false, true, '')))[1]::text::bigint
+            from information_schema.tables
+           where table_schema = 'public' and table_type = 'BASE TABLE'
+           order by table_name;
+          SQL
+          echo "Tables recorded: $(wc -l < source-counts.csv)"
+
+      - name: Dump
+        env:
+          PGURL: ${{ secrets.BACKUP_DB_URL }}
+        run: |
+          set -euo pipefail
+          # `auth` as well as `public`: without it the accounts are gone and
+          # every player has to sign up again, which is its own outage.
+          # --no-owner/--no-privileges so it restores anywhere, not just onto a
+          # database that happens to have Supabase's roles.
+          pg_dump "$PGURL" \
+            --format=custom \
+            --schema=public \
+            --schema=auth \
+            --no-owner \
+            --no-privileges \
+            --file=dump.pgc
+          ls -l dump.pgc
+
+      - name: Refuse a suspiciously small dump
+        run: |
+          set -euo pipefail
+          size=$(stat -c%s dump.pgc)
+          echo "dump is $size bytes"
+          # An empty or truncated dump is worse than a failed job: it silently
+          # replaces last night's good copy.
+          if [ "$size" -lt 20000 ]; then
+            echo "::error::Dump is only $size bytes — refusing to upload it."
+            exit 1
+          fi
+
+      - name: Restore it into a throwaway database and check the data survived
+        env:
+          PGPASSWORD: scratch
+        run: |
+          set -euo pipefail
+          SCRATCH="postgresql://postgres:scratch@localhost:5432/scratch"
+
+          # Supabase's public schema has RLS policies that call auth.uid(), so
+          # give the scratch database just enough of an `auth` schema for those
+          # policies to be creatable. Stubs — nothing here is used for data.
+          psql "$SCRATCH" -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists auth;
+          create or replace function auth.uid() returns uuid
+            language sql stable as $$ select null::uuid $$;
+          create or replace function auth.role() returns text
+            language sql stable as $$ select null::text $$;
+          create or replace function auth.jwt() returns jsonb
+            language sql stable as $$ select '{}'::jsonb $$;
+          SQL
+
+          # Extension-owned and role-owned objects will complain; that is
+          # expected and is not what we are testing. The row counts are.
+          pg_restore --dbname="$SCRATCH" --schema=public \
+            --no-owner --no-privileges --disable-triggers \
+            dump.pgc 2> restore-warnings.txt || true
+          echo "restore warnings: $(wc -l < restore-warnings.txt) line(s)"
+
+          psql "$SCRATCH" -At -F',' -o restored-counts.csv <<'SQL'
+          select table_name,
+                 (xpath('/row/c/text()',
+                        query_to_xml(format('select count(*) as c from public.%I',
+                                            table_name), false, true, '')))[1]::text::bigint
+            from information_schema.tables
+           where table_schema = 'public' and table_type = 'BASE TABLE'
+           order by table_name;
+          SQL
+
+          echo "--- source vs restored ---"
+          if diff <(sort source-counts.csv) <(sort restored-counts.csv); then
+            echo "Every table restored with the same row count."
+          else
+            echo "::error::Restored row counts do not match the source."
+            echo "First 40 warnings from pg_restore:"
+            head -40 restore-warnings.txt
+            exit 1
+          fi
+
+      - name: Encrypt
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          # Symmetric AES-256. Decryptable with nothing but gpg and the
+          # passphrase — no key file to lose in the same accident.
+          printf '%s' "$PASSPHRASE" | gpg --batch --yes --quiet \
+            --passphrase-fd 0 --pinentry-mode loopback \
+            --symmetric --cipher-algo AES256 \
+            --output dump.pgc.gpg dump.pgc
+          rm -f dump.pgc
+          ls -l dump.pgc.gpg
+
+      - name: Upload to private object storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+        run: |
+          set -euo pipefail
+          STAMP=$(date -u +'%Y-%m-%dT%H-%M-%SZ')
+          KEY="sportsapp/${STAMP}.pgc.gpg"
+          aws s3 cp dump.pgc.gpg "s3://${BUCKET}/${KEY}" \
+            --endpoint-url "$ENDPOINT" --only-show-errors
+          # A stable pointer for "just give me the newest one" in a panic.
+          aws s3 cp dump.pgc.gpg "s3://${BUCKET}/sportsapp/latest.pgc.gpg" \
+            --endpoint-url "$ENDPOINT" --only-show-errors
+          echo "Uploaded $KEY ($(stat -c%s dump.pgc.gpg) bytes)"
+          echo "### Backup uploaded" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${KEY}\` — $(stat -c%s dump.pgc.gpg) bytes" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Confirm it is really in the bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+        run: |
+          set -euo pipefail
+          # Read it back rather than trusting the exit code of the write.
+          aws s3 ls "s3://${BUCKET}/sportsapp/" --endpoint-url "$ENDPOINT" \
+            | tail -5
