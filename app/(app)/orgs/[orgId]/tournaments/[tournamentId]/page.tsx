@@ -526,6 +526,7 @@ export default async function TournamentPage({
 
       <EventBlurbCard
         competitionId={t.id}
+        orgId={orgId}
         registerPath={`/register/${t.slug}`}
         initial={{
           description: t.description ?? null,

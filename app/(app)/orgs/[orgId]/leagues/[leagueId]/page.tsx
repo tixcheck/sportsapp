@@ -537,6 +537,7 @@ export default async function LeaguePage({
 
       <EventBlurbCard
         competitionId={league.id}
+        orgId={orgId}
         registerPath={`/register/${league.slug}`}
         initial={{
           description: league.description ?? null,

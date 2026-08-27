@@ -15,8 +15,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 /**
  * What the registration page says about this event.
@@ -27,10 +27,13 @@ import { Label } from "@/components/ui/label";
  */
 export function EventBlurbCard({
   competitionId,
+  orgId,
   registerPath,
   initial,
 }: {
   competitionId: string;
+  /** Uploads are stored per organization, and the storage policy checks it. */
+  orgId: string;
   /** Where the result is visible, so the organizer can go and look. */
   registerPath: string;
   initial: { description: string | null; bannerUrl: string | null };
@@ -93,27 +96,15 @@ export function EventBlurbCard({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="event-banner">Banner image link</Label>
-          <Input
-            id="event-banner"
+          <Label>Banner image</Label>
+          <ImageUpload
+            orgId={orgId}
+            purpose="banner"
             value={bannerUrl}
-            maxLength={500}
-            placeholder="https://…/your-banner.jpg"
-            onChange={(e) => setBannerUrl(e.target.value)}
+            onChange={setBannerUrl}
+            disabled={pending}
+            aspectHint="A wide image (about 3:1) sits best."
           />
-          <p className="text-muted-foreground text-xs">
-            Paste a link to an image you already host. Uploads aren&apos;t
-            supported yet — a wide image (about 3:1) sits best.
-          </p>
-          {bannerUrl.trim() !== "" &&
-            /^https?:\/\//i.test(bannerUrl.trim()) && (
-              // eslint-disable-next-line @next/next/no-img-element -- external URL preview
-              <img
-                src={bannerUrl.trim()}
-                alt=""
-                className="border-border mt-2 h-24 w-full rounded-md border object-cover"
-              />
-            )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

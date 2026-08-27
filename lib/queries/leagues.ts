@@ -6,6 +6,8 @@ export interface OrgSummary {
   id: string;
   name: string;
   slug: string;
+  /** Shown on the org's public registration pages. */
+  logo_url: string | null;
 }
 
 export interface LeagueSummary {
@@ -154,7 +156,7 @@ export async function getOrg(orgId: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("organizations")
-    .select("id, name, slug")
+    .select("id, name, slug, logo_url")
     .eq("id", orgId)
     .single();
   return data;
