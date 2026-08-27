@@ -1,0 +1,37 @@
+<!--
+  Square app mark: the ball from the wordmark on the app's claret.
+
+  Why not the wordmark: this gets rendered avatar-sized (Stripe Connect
+  onboarding, the Express dashboard, checkout), and "mysportsapp" at 32px is a
+  smudge. The ball is the only part of the logo that survives being small.
+
+  Why claret and not the app's cream paper: it is composited on white almost
+  everywhere it appears, and a cream square on white has no edge.
+
+  Ball geometry is copied from mysportsapp-logo.svg, scaled 1.45x so it sits
+  with even padding in the 128 unit box. Keep the two in step if the logo
+  changes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-64 -64 128 128" width="512" height="512">
+  <defs>
+    <linearGradient id="ball" x1="0.2" y1="0.0" x2="0.8" y2="1.0">
+      <stop offset="0" stop-color="#FBD9A0"/>
+      <stop offset="0.5" stop-color="#F9C29A"/>
+      <stop offset="1" stop-color="#F2814F"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="-64" y="-64" width="128" height="128" fill="#8E2C3B"/>
+
+  <g transform="scale(1.45)">
+    <circle r="27" fill="url(#ball)"/>
+    <path d="M -16.7 -9.2 Q -7.6 -16.7 2.7 -15.1"
+          stroke="#ffffff" stroke-width="3" fill="none"
+          stroke-linecap="round" opacity="0.32"/>
+    <g fill="none" stroke="#FFFDF9" stroke-width="3.4" stroke-linecap="round">
+      <path d="M 4.7 -26.6 Q -1.8 0.6 20.7 17.4"/>
+      <path d="M 20.7 17.4 Q 0.3 -1.9 -25.4 9.2"/>
+      <path d="M -25.4 9.2 Q 1.4 1.2 4.7 -26.6"/>
+    </g>
+  </g>
+</svg>
