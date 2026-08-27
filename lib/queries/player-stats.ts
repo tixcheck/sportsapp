@@ -4,12 +4,17 @@
  * The maths lives in `lib/stats/player-stats.ts`; this decides WHICH sets
  * belong to whom, which is the part that differs by format.
  *
- * Today it handles the fixed-roster case: everyone on a team is credited with
- * every set that team played. That is exactly right for a 2s league, where a
- * team IS its two players and they play every set together. It is an
- * approximation for a 6s league where people miss nights — which is what the
- * attendance model will fix, by narrowing the set list per player rather than
- * by changing any of the arithmetic below.
+ * Two attribution rules, chosen per competition:
+ *
+ *   Fixed roster (default) — everyone on a team is credited with every set that
+ *   team played. Exactly right for a 2s league, where a team IS its two players
+ *   and they play every set together.
+ *
+ *   Appearances (`competitions.track_appearances`) — a player is credited with
+ *   the matches they actually turned out for. Necessary for a drafted 6s league
+ *   where people miss nights, subs fill in, and rosters change every few weeks.
+ *
+ * Neither changes the arithmetic below; they change which sets go into it.
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -18,6 +23,11 @@ import {
   type PlayerStats,
   type SetResult,
 } from "@/lib/stats/player-stats";
+import {
+  attributeByAppearance,
+  type Appearance,
+  type MatchSets,
+} from "@/lib/stats/attribution";
 
 export type PlayerStatRow = {
   /** Null for a roster spot whose invite was never claimed. */
@@ -119,6 +129,132 @@ export async function getTeamStats(
     .filter((r) => r.stats.gamesPlayed > 0);
 }
 
+/** Does this competition score by who turned up, rather than by roster? */
+async function tracksAppearances(competitionId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("competitions")
+    .select("track_appearances")
+    .eq("id", competitionId)
+    .maybeSingle();
+  return (
+    (data as { track_appearances?: boolean } | null)?.track_appearances === true
+  );
+}
+
+/**
+ * Per-player stats for a competition that records who played.
+ *
+ * Names come from the appearance row rather than the roster: a sub may have no
+ * account, and the person who actually played is the person whose record this
+ * is. Team is the LAST team they turned out for, so a re-drafted player shows
+ * under their current side while their sets keep the whole season.
+ */
+async function playerStatsByAppearance(
+  competitionId: string,
+): Promise<PlayerStatRow[]> {
+  const supabase = await createClient();
+
+  const [{ data: rows }, { data: teams }] = await Promise.all([
+    supabase
+      .from("match_appearances")
+      .select("match_id, team_id, user_id, player_name, role")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("teams")
+      .select("id, name")
+      .eq("competition_id", competitionId),
+  ]);
+
+  const appearances: Appearance[] = (
+    (rows ?? []) as {
+      match_id: string;
+      team_id: string;
+      user_id: string | null;
+      player_name: string;
+      role: "rostered" | "sub";
+    }[]
+  ).map((r) => ({
+    matchId: r.match_id,
+    teamId: r.team_id,
+    userId: r.user_id,
+    playerName: r.player_name,
+    role: r.role,
+  }));
+  if (appearances.length === 0) return [];
+
+  const teamName = new Map(
+    ((teams ?? []) as { id: string; name: string }[]).map((t) => [
+      t.id,
+      t.name,
+    ]),
+  );
+
+  // Reuse the per-team set lists, re-keyed by match so an appearance can pick
+  // out just the games that player was there for.
+  const matchSets = await setsByMatchAndTeam(competitionId);
+
+  return attributeByAppearance(appearances, matchSets)
+    .map((p) => {
+      const teamId = p.teamIds[p.teamIds.length - 1] ?? "";
+      return {
+        userId: p.userId,
+        name: p.name,
+        teamId,
+        teamName: teamName.get(teamId) ?? "",
+        pending: false,
+        stats: computePlayerStats(p.sets),
+      };
+    })
+    .filter((r) => r.stats.gamesPlayed > 0);
+}
+
+/** Every match's sets, from each side's perspective. */
+async function setsByMatchAndTeam(competitionId: string): Promise<MatchSets[]> {
+  const supabase = await createClient();
+  const { data: matches } = await supabase
+    .from("matches")
+    .select("id, home_team_id, away_team_id")
+    .eq("competition_id", competitionId);
+  const matchRows = (matches ?? []) as MatchRow[];
+  if (matchRows.length === 0) return [];
+
+  const { data: sets } = await supabase
+    .from("sets")
+    .select("match_id, home_score, away_score")
+    .in(
+      "match_id",
+      matchRows.map((m) => m.id),
+    );
+
+  const out = new Map<string, MatchSets>();
+  const push = (matchId: string, teamId: string, result: SetResult) => {
+    const key = `${matchId}:${teamId}`;
+    const entry = out.get(key);
+    if (entry) entry.sets.push(result);
+    else out.set(key, { matchId, teamId, sets: [result] });
+  };
+
+  const byMatch = new Map(matchRows.map((m) => [m.id, m]));
+  for (const s of (sets ?? []) as SetRow[]) {
+    const m = byMatch.get(s.match_id);
+    if (!m) continue;
+    if (m.home_team_id) {
+      push(s.match_id, m.home_team_id, {
+        for: s.home_score,
+        against: s.away_score,
+      });
+    }
+    if (m.away_team_id) {
+      push(s.match_id, m.away_team_id, {
+        for: s.away_score,
+        against: s.home_score,
+      });
+    }
+  }
+  return [...out.values()];
+}
+
 /**
  * Per-player statistics for a competition.
  *
@@ -134,6 +270,10 @@ export async function getTeamStats(
 export async function getPlayerStats(
   competitionId: string,
 ): Promise<PlayerStatRow[]> {
+  if (await tracksAppearances(competitionId)) {
+    return playerStatsByAppearance(competitionId);
+  }
+
   const supabase = await createClient();
   const sets = await setsByTeam(competitionId);
 
