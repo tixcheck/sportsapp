@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { currentStripeMode } from "@/lib/payments/stripe-mode";
 import { getStripe } from "@/lib/payments/stripe";
+import { describeStripeFailure } from "@/lib/payments/stripe-errors";
 import {
   getCompetitionPaymentSettings,
   getRefundablePayment,
@@ -21,9 +22,6 @@ type ActionError = { error: string };
 type ActionOk = { ok: true };
 
 const idSchema = z.string().uuid();
-
-const STRIPE_FAILED =
-  "Stripe couldn't be reached just now. Please try again in a moment.";
 
 /**
  * Confirm the caller administers the competition a team belongs to.
@@ -240,15 +238,16 @@ export async function refundRegistrationPaymentAction(
       },
     });
   } catch (err) {
-    // Stripe's own message is the useful one here — "insufficient funds in the
-    // connected account" is something the organizer can actually act on, and
-    // unlike a checkout failure it isn't full of API parameter names.
+    // "Insufficient funds in the connected account" is the one Stripe message
+    // worth passing through — the organizer can act on it, and unlike a
+    // checkout failure it names no API parameters.
     const message = err instanceof Error ? err.message : "";
-    console.error("[payments] refund failed");
+    const failure = describeStripeFailure(err);
+    console.error("[payments] refund failed", failure.tag);
     return {
       error: message.includes("insufficient")
         ? "The organizer's Stripe balance is too low to cover this refund right now."
-        : STRIPE_FAILED,
+        : failure.message,
     };
   }
 

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { currentStripeMode } from "@/lib/payments/stripe-mode";
 import { getStripe } from "@/lib/payments/stripe";
+import { describeStripeFailure } from "@/lib/payments/stripe-errors";
 import { getPaymentAccount } from "@/lib/queries/payments";
 import { getOrigin } from "@/lib/utils/url";
 
@@ -13,12 +14,9 @@ type ActionError = { error: string };
 
 const orgIdSchema = z.string().uuid("Unknown organization.");
 
-/** Anything Stripe rejects reads the same to the organizer: try again, and if
- *  it keeps failing it's ours to fix. Stripe's own messages name API objects
- *  and parameters, which is noise to an organizer and detail we shouldn't echo
- *  into the UI. */
+/** Used where the failure is ours (a database write), not Stripe's. */
 const STRIPE_FAILED =
-  "Stripe couldn't be reached just now. Please try again in a moment.";
+  "That couldn't be saved just now. Please try again in a moment.";
 
 /**
  * Guard shared by every payouts action: signed in, an admin of this org, and
@@ -109,11 +107,14 @@ export async function startPayoutsOnboardingAction(
     });
 
     return { url: link.url };
-  } catch {
-    // Deliberately no error body in the log — Stripe errors echo back request
+  } catch (err) {
+    // Still no error BODY in the log — Stripe's messages echo back request
     // parameters, and for Connect that can include the organizer's details.
-    console.error("[payments] stripe onboarding link failed");
-    return { error: STRIPE_FAILED };
+    // The type/code tag carries none of that and is the difference between
+    // "something broke" and knowing which thing broke.
+    const failure = describeStripeFailure(err);
+    console.error("[payments] onboarding link failed", failure.tag);
+    return { error: failure.message };
   }
 }
 
