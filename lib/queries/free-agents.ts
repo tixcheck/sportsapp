@@ -19,7 +19,8 @@ export type FreeAgentStatus =
 export type FreeAgent = {
   id: string;
   name: string;
-  email: string;
+  /** Null when an organizer added them without one (migration 0091). */
+  email: string | null;
   phone: string | null;
   positions: string[];
   skillLevel: SkillLevel;

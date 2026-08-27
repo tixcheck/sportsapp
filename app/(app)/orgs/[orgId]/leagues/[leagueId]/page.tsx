@@ -8,6 +8,7 @@ import { LadderNightStandings } from "@/components/league/ladder-night-standings
 import { getPlayerStats } from "@/lib/queries/player-stats";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
+import { DraftBoard } from "@/components/registration/draft-board";
 import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
@@ -394,6 +395,14 @@ export default async function LeaguePage({
     <div className="space-y-6">
       {teamsTab}
       <WaitlistCard entries={waitlist} />
+      {freeAgents.length > 0 && (
+        <DraftBoard
+          competitionId={league.id}
+          agents={freeAgents}
+          teams={league.teams.map((t) => ({ id: t.id, name: t.name }))}
+        />
+      )}
+
       {(league.allowIndividualSignups || freeAgents.length > 0) && (
         <FreeAgentsCard
           competitionId={league.id}
