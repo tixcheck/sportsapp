@@ -68,6 +68,11 @@ export async function generateBracketAction(
    * vs lowest, built round-by-round. Only for a single bracket (not dual).
    */
   reseed = false,
+  /**
+   * Add a 3rd-place game between the two semi-final losers. Ignored for a
+   * bracket smaller than four, which has no semis.
+   */
+  thirdPlace = false,
 ): Promise<ActionError | { matchCount: number }> {
   const supabase = await createClient();
   const {
@@ -144,6 +149,7 @@ export async function generateBracketAction(
   const matches = dualBracketMatches({
     championship,
     consolation: consolation.length ? consolation : undefined,
+    thirdPlace,
   });
   if (matches.length === 0) return { error: "Not enough teams for a bracket." };
 
@@ -236,11 +242,17 @@ export async function generateBracketAction(
   const consoSize = nextPowerOfTwo(consolation.length);
   const courtFor = (m: (typeof matches)[number]) => {
     const conso = m.track === "consolation";
+    const list = conso ? courts.consolation : courts.championship;
+    // The 3rd-place game is in the final round, where bracketMatchCourt hands
+    // the organizer the decision. It gets a court anyway: it runs alongside the
+    // final, not instead of it, so leaving it blank would read as unscheduled.
+    // Second court where there is one, so the final keeps the first.
+    if (m.isThirdPlace) return list[1] ?? list[0] ?? null;
     return bracketMatchCourt(
       m.round,
       m.position,
       conso ? consoSize : champSize,
-      conso ? courts.consolation : courts.championship,
+      list,
     );
   };
   const times =
@@ -252,6 +264,7 @@ export async function generateBracketAction(
             position: m.position,
             track: m.track,
             court: courtFor(m),
+            isThirdPlace: m.isThirdPlace,
           })),
           startMs,
           bracketSlotMin * 60_000,

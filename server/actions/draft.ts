@@ -133,6 +133,70 @@ export async function saveDraftAction(
   return { teams: teams.length, placed, returned: orphaned.length };
 }
 
+const ranksSchema = z.object({
+  competitionId: idSchema,
+  ranks: z
+    .array(
+      z.object({
+        playerId: idSchema,
+        /** 1 = best in their position. Null clears the rank. */
+        rank: z.number().int().min(1).max(999).nullable(),
+      }),
+    )
+    .max(400),
+});
+
+export type DraftRanksInput = z.input<typeof ranksSchema>;
+
+/**
+ * Set players' strength ranks within their positions.
+ *
+ * Sent as a batch for the same reason the board is: the organizer is ordering a
+ * list, and half an ordering is not a smaller ordering, it is a wrong one.
+ *
+ * Duplicates are allowed through deliberately. Typing a column of numbers goes
+ * through states with two number 3s in it, and rejecting those would make an
+ * ordinary edit impossible; `snakeDraft` breaks ties by list order, so a
+ * duplicate is untidy rather than broken.
+ */
+export async function setDraftRanksAction(
+  input: DraftRanksInput,
+): Promise<ActionError | { updated: number }> {
+  const parsed = ranksSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the ranks." };
+  }
+  const { competitionId, ranks } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin, error: checkErr } = await supabase.rpc(
+    "is_competition_admin",
+    { _competition_id: competitionId },
+  );
+  if (checkErr) {
+    console.error("[draft] permission check failed", checkErr.message);
+    return { error: "That couldn't be saved. Please try again." };
+  }
+  if (isAdmin !== true) return { error: "Only an organizer can rank players." };
+
+  for (const { playerId, rank } of ranks) {
+    const { error } = await supabase
+      .from("free_agents")
+      .update({ draft_rank: rank })
+      .eq("id", playerId)
+      // Scope the write to this competition so a stray id from the client
+      // cannot reach another organizer's pool. RLS says the same thing.
+      .eq("competition_id", competitionId);
+    if (error) {
+      console.error("[draft] rank update failed", error.message);
+      return { error: "Those ranks couldn't be saved. Please try again." };
+    }
+  }
+
+  revalidatePath("/orgs");
+  return { updated: ranks.length };
+}
+
 /**
  * Empty every team for a re-draft, keeping the teams themselves.
  *

@@ -1617,7 +1617,12 @@ export const freeAgents = pgTable(
       onDelete: "set null",
     }),
     name: text("name").notNull(),
-    email: text("email").notNull(),
+    /**
+     * Nullable since migration 0091: an organizer transcribing a roster from a
+     * spreadsheet often has the name and the position but no address. Self-serve
+     * sign-up still requires one — `register_individual` enforces it.
+     */
+    email: text("email"),
     phone: text("phone"),
     /**
      * Positions they're comfortable in, most-preferred first. Values come from
@@ -1633,6 +1638,12 @@ export const freeAgents = pgTable(
     placedTeamId: uuid("placed_team_id").references(() => teams.id, {
       onDelete: "set null",
     }),
+    /**
+     * Strength within their own position group, 1 = best (migration 0093).
+     * Drives the serpentine re-draft in lib/draft/snake.ts. Null = unranked,
+     * which drafts in list order.
+     */
+    draftRank: integer("draft_rank"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

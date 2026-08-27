@@ -200,6 +200,7 @@ export function GenerateBracketPanel({
   const [formatId, setFormatId] = useState(playoffFormat?.default ?? "");
   // Re-seed each round (single bracket only): highest survivor plays lowest.
   const [reseed, setReseed] = useState(false);
+  const [thirdPlace, setThirdPlace] = useState(false);
 
   const poolRows = pools.map((g) => g.rows);
   const nameById = new Map(
@@ -288,6 +289,7 @@ export function GenerateBracketPanel({
         },
         bracketFormat,
         !isDual && reseed,
+        thirdPlace,
       );
       if ("error" in res) {
         toast.error(res.error);
@@ -467,6 +469,22 @@ export function GenerateBracketPanel({
             best-of-3 playoffs off a single-set season.
           </p>
         </div>
+      )}
+
+      {order.length > 2 && (
+        <label className="border-border bg-surface flex items-start gap-2 rounded-lg border p-3 text-sm">
+          <input
+            type="checkbox"
+            className="accent-primary mt-0.5 size-4"
+            checked={thirdPlace}
+            onChange={(e) => setThirdPlace(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Play a 3rd-place game.</span> The two
+            beaten semi-finalists meet alongside the final — the winners play
+            and the losers play. Both teams appear once the semis are done.
+          </span>
+        </label>
       )}
 
       {allowReseed && !isDual && (

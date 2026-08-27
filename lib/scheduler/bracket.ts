@@ -210,6 +210,15 @@ export type BracketTrack = "championship" | "consolation";
 
 export interface TrackedBracketMatch extends PersistBracketMatch {
   track: BracketTrack | null;
+  /**
+   * The 3rd-place game: the two semi-final LOSERS, played alongside the final.
+   *
+   * It sits in the final round at position 2, so it is the only bracket match
+   * whose teams arrive by losing. Everything that walks the tree by the
+   * (2p−1, 2p) parent rule has to know to skip it — nothing feeds it from
+   * position 3 or 4, and nothing feeds off it.
+   */
+  isThirdPlace?: boolean;
 }
 
 /**
@@ -240,6 +249,12 @@ export function splitSeeds(
 export function dualBracketMatches(payload: {
   championship: TeamId[];
   consolation?: TeamId[];
+  /**
+   * Add a 3rd-place game between the two semi-final losers ("then the winners
+   * play and the losers play"). Needs a bracket of at least four, since a
+   * two-team bracket is a final with no semis to lose.
+   */
+  thirdPlace?: boolean;
 }): TrackedBracketMatch[] {
   const hasConso = (payload.consolation?.length ?? 0) > 0;
   const champTrack: BracketTrack | null = hasConso ? "championship" : null;
@@ -247,6 +262,18 @@ export function dualBracketMatches(payload: {
   const out: TrackedBracketMatch[] = seededBracketMatches(
     payload.championship,
   ).map((m) => ({ ...m, track: champTrack }));
+
+  const champSize = nextPowerOfTwo(payload.championship.length);
+  if (payload.thirdPlace && champSize >= 4) {
+    out.push({
+      round: Math.log2(champSize),
+      position: 2,
+      homeTeamId: null,
+      awayTeamId: null,
+      track: champTrack,
+      isThirdPlace: true,
+    });
+  }
 
   if (hasConso) {
     out.push(
@@ -364,6 +391,8 @@ export interface TimedBracketInput {
   track: BracketTrack | null;
   /** From bracketMatchCourt; null = the final (no per-court constraint). */
   court: number | null;
+  /** The 3rd-place game — fed by the semi LOSERS, not by positions 3 and 4. */
+  isThirdPlace?: boolean;
 }
 
 /**
@@ -399,7 +428,13 @@ export function assignBracketTimes(
   for (const m of ordered) {
     let dep = startMs;
     if (m.round > 1) {
-      for (const fp of [2 * m.position - 1, 2 * m.position]) {
+      // The 3rd-place game waits on the same two semis as the final. The
+      // (2p−1, 2p) rule would look for positions 3 and 4, find nothing, and
+      // schedule it before the games that decide who plays in it.
+      const feeders = m.isThirdPlace
+        ? [1, 2]
+        : [2 * m.position - 1, 2 * m.position];
+      for (const fp of feeders) {
         const e = end.get(bracketSlotKey(m.track, m.round - 1, fp));
         if (e != null) dep = Math.max(dep, e);
       }

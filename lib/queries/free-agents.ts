@@ -27,6 +27,8 @@ export type FreeAgent = {
   notes: string | null;
   status: FreeAgentStatus;
   placedTeamId: string | null;
+  /** Strength within their position, 1 = best. Null = unranked (migration 0093). */
+  draftRank: number | null;
   /** Resolved for display; null when unplaced or the team is gone. */
   placedTeamName: string | null;
   createdAt: string;
@@ -42,11 +44,12 @@ type Row = {
   notes: string | null;
   status: FreeAgentStatus;
   placed_team_id: string | null;
+  draft_rank: number | null;
   created_at: string;
 };
 
 const COLUMNS =
-  "id, name, email, phone, positions, skill_level, notes, status, placed_team_id, created_at";
+  "id, name, email, phone, positions, skill_level, notes, status, placed_team_id, draft_rank, created_at";
 
 function toFreeAgent(r: Row, teamNames: Map<string, string>): FreeAgent {
   return {
@@ -59,6 +62,7 @@ function toFreeAgent(r: Row, teamNames: Map<string, string>): FreeAgent {
     notes: r.notes,
     status: r.status,
     placedTeamId: r.placed_team_id,
+    draftRank: r.draft_rank,
     placedTeamName: r.placed_team_id
       ? (teamNames.get(r.placed_team_id) ?? null)
       : null,
