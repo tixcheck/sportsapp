@@ -4,8 +4,8 @@ import { useRef, useState } from "react";
 import { ImageUp, Loader2, Trash2 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
+import { createImageUploadUrlAction } from "@/server/actions/uploads";
 import {
-  buildImagePath,
   checkImageFile,
   IMAGE_ACCEPT_ATTRIBUTE,
   isSafeImageUrl,
@@ -21,11 +21,12 @@ const BUCKET = "event-images";
 /**
  * Pick an image, or paste a link to one.
  *
- * The file goes straight from the browser to Supabase Storage rather than
- * through a Server Action: a 5 MB body would hit Next's action size limit, and
- * routing it through our server would buy nothing — the storage policy checks
- * org membership either way, so the browser client is already constrained to
- * folders this organizer may write to.
+ * Two steps: a Server Action authorises the upload and returns a one-shot
+ * signed URL, then the file goes from the browser straight to Supabase Storage.
+ * The bytes never pass through our server (5 MB would exceed the Server Action
+ * body limit), but the authorization does — which matters, because the browser
+ * Supabase client is not otherwise used anywhere in this app and cannot be
+ * assumed to carry a session.
  *
  * Pasting a URL stays supported. Some organizers already host their artwork,
  * and taking that away to add uploads would be a downgrade for them.
@@ -64,32 +65,31 @@ export function ImageUpload({
 
     setBusy(true);
     try {
-      const supabase = createClient();
-      const path = buildImagePath({
+      // The server decides the path and whether this is allowed at all.
+      const ticket = await createImageUploadUrlAction({
         orgId,
         purpose,
-        type: check.type,
-        randomId: crypto.randomUUID().replace(/-/g, ""),
+        contentType: check.type,
       });
-
-      const { error: upErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { contentType: check.type, upsert: false });
-
-      if (upErr) {
-        // The storage policy denies rather than explains, which is correct of
-        // it but unhelpful here, so say the likely cause.
-        setError(
-          /row-level security|denied|unauthor/i.test(upErr.message)
-            ? "You don't have permission to upload for this organization."
-            : "That upload didn't go through. Please try again.",
-        );
+      if ("error" in ticket) {
+        setError(ticket.error);
         return;
       }
 
-      const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      const supabase = createClient();
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .uploadToSignedUrl(ticket.path, ticket.token, file, {
+          contentType: check.type,
+        });
+
+      if (upErr) {
+        setError("That upload didn't go through. Please try again.");
+        return;
+      }
+
       setBroken(false);
-      onChange(data.publicUrl);
+      onChange(ticket.publicUrl);
     } catch {
       setError("That upload didn't go through. Please try again.");
     } finally {
