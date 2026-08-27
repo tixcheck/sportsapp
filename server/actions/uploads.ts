@@ -67,11 +67,24 @@ export async function createImageUploadUrlAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please sign in again." };
 
-  // Defence in depth: the storage policy checks this too.
-  const { data: isAdmin } = await supabase.rpc("is_org_admin", {
-    _org_id: parsed.data.orgId,
-  });
-  if (isAdmin !== true) {
+  // Defence in depth: the storage policy checks the same thing.
+  //
+  // `can_manage_org`, not `is_org_admin` — the narrow one asks only "is this
+  // user in org_members", which is false for the platform admin working on an
+  // organization they don't belong to. That is exactly how support reaches
+  // these pages, and it is why the first version of this refused the owner of
+  // the platform.
+  const { data: allowed, error: checkErr } = await supabase.rpc(
+    "can_manage_org",
+    { _org_id: parsed.data.orgId },
+  );
+  if (checkErr) {
+    // Distinguish "you may not" from "we couldn't tell" — reporting a failed
+    // check as a permission denial sends people looking in the wrong place.
+    console.error("[uploads] permission check failed", checkErr.message);
+    return { error: "Couldn't start the upload. Please try again." };
+  }
+  if (allowed !== true) {
     return { error: "Only an organization admin can upload images." };
   }
 

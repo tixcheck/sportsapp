@@ -107,10 +107,17 @@ export async function updateOrgLogoAction(
 
   const supabase = await createClient();
   // Defence in depth — RLS on `organizations` requires org admin as well.
-  const { data: isAdmin } = await supabase.rpc("is_org_admin", {
-    _org_id: parsed.data.orgId,
-  });
-  if (isAdmin !== true) {
+  // `can_manage_org` so the platform admin can fix an organization's logo from
+  // the admin portal without first joining it.
+  const { data: allowed, error: checkErr } = await supabase.rpc(
+    "can_manage_org",
+    { _org_id: parsed.data.orgId },
+  );
+  if (checkErr) {
+    console.error("[orgs] permission check failed", checkErr.message);
+    return { error: "That couldn't be saved. Please try again." };
+  }
+  if (allowed !== true) {
     return { error: "Only an organization admin can change the logo." };
   }
 
