@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, UserPlus, Users } from "lucide-react";
+import { Check, UserPlus, Users, X } from "lucide-react";
 
 import {
   createTeamFromFreeAgentsAction,
@@ -11,7 +11,7 @@ import {
   setFreeAgentStatusAction,
 } from "@/server/actions/free-agents";
 import type { FreeAgent } from "@/lib/queries/free-agents";
-import { skillLabel } from "@/lib/sports";
+import { DEFAULT_GROUP_ORDER } from "@/lib/draft/snake";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,33 @@ export function FreeAgentsCard({
   const [teamName, setTeamName] = useState("");
   const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
   const [targetTeam, setTargetTeam] = useState(teams[0]?.id ?? "");
+
+  /**
+   * The pool by position — an organizer building teams is counting setters and
+   * middles, not reading one long alphabetical list. A player's FIRST position
+   * is their column (the same rule the draft uses), with any second listed
+   * under their name so a setter who also plays outside is still findable.
+   *
+   * Columns follow the standard order, then anything unexpected, so a position
+   * nobody planned for still shows its players rather than losing them.
+   */
+  const columns = (() => {
+    const byPosition = new Map<string, FreeAgent[]>();
+    for (const a of agents) {
+      const key = a.positions[0] ?? "No position given";
+      const list = byPosition.get(key);
+      if (list) list.push(a);
+      else byPosition.set(key, [a]);
+    }
+    const known = DEFAULT_GROUP_ORDER.filter((p) => byPosition.has(p));
+    const rest = [...byPosition.keys()].filter(
+      (p) => !(DEFAULT_GROUP_ORDER as readonly string[]).includes(p),
+    );
+    return [...known, ...rest].map((position) => ({
+      position,
+      players: byPosition.get(position)!,
+    }));
+  })();
 
   const pool = agents.filter((a) => a.status === "available");
   const placed = agents.filter((a) => a.status === "placed");
@@ -153,93 +180,96 @@ export function FreeAgentsCard({
       </CardHeader>
 
       <CardContent className="space-y-5">
-        <ul className="divide-rule divide-y">
-          {agents.map((a) => {
-            const on = selected.has(a.id);
-            const selectable = a.status === "available";
-            return (
-              <li
-                key={a.id}
-                className={cn(
-                  "flex flex-wrap items-start gap-3 py-3",
-                  a.status === "withdrawn" && "opacity-60",
-                )}
-              >
-                <button
-                  type="button"
-                  aria-pressed={on}
-                  aria-label={`Select ${a.name}`}
-                  disabled={!selectable || pending}
-                  onClick={() => toggle(a.id)}
-                  className={cn(
-                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors",
-                    on
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-surface",
-                    !selectable && "cursor-not-allowed opacity-40",
-                  )}
-                >
-                  {on && <Check className="size-3.5" />}
-                </button>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {columns.map(({ position, players }) => (
+            <div
+              key={position}
+              className="border-rule bg-surface flex flex-col gap-2 rounded-lg border p-3"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold">{position}</h3>
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {players.length}
+                </span>
+              </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">
-                    {a.name}
-                    <span className="text-muted-foreground ml-2 text-xs font-normal">
-                      {skillLabel(a.skillLevel)}
-                    </span>
-                  </p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    {a.positions.length > 0
-                      ? a.positions.join(" · ")
-                      : "No positions given"}
-                  </p>
-                  {a.notes && (
-                    <p className="text-ink-2 mt-1 text-xs italic">
-                      &ldquo;{a.notes}&rdquo;
-                    </p>
-                  )}
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {a.email}
-                    {a.phone ? ` · ${a.phone}` : ""}
-                  </p>
-                </div>
+              <ul className="divide-rule divide-y">
+                {players.map((a) => {
+                  const on = selected.has(a.id);
+                  const selectable = a.status === "available";
+                  return (
+                    <li
+                      key={a.id}
+                      className={cn(
+                        "flex items-start gap-2 py-2",
+                        a.status === "withdrawn" && "opacity-60",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={on}
+                        aria-label={`Select ${a.name}`}
+                        disabled={!selectable || pending}
+                        onClick={() => toggle(a.id)}
+                        className={cn(
+                          "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors",
+                          on
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-surface",
+                          !selectable && "cursor-not-allowed opacity-40",
+                        )}
+                      >
+                        {on && <Check className="size-3.5" />}
+                      </button>
 
-                <div className="flex shrink-0 items-center gap-2">
-                  {a.status === "placed" && (
-                    <span className="bg-paper-sunken text-ink-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
-                      {a.placedTeamName ?? "Placed"}
-                    </span>
-                  )}
-                  {a.status === "pending_payment" && (
-                    <span className="rounded-[4px] bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-800 uppercase">
-                      Unpaid
-                    </span>
-                  )}
-                  {a.status === "withdrawn" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => setStatus(a.id, "available")}
-                    >
-                      Restore
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={pending}
-                      onClick={() => setStatus(a.id, "withdrawn")}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{a.name}</p>
+                        {/* Only the SECOND position — the first is the column. */}
+                        {a.positions.length > 1 && (
+                          <p className="text-muted-foreground truncate text-xs">
+                            also {a.positions.slice(1).join(" · ")}
+                          </p>
+                        )}
+                        {a.status === "placed" && (
+                          <span className="bg-paper-sunken text-ink-2 mt-1 inline-block rounded-[4px] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+                            {a.placedTeamName ?? "Placed"}
+                          </span>
+                        )}
+                        {a.status === "pending_payment" && (
+                          <span className="mt-1 inline-block rounded-[4px] bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-amber-800 uppercase">
+                            Unpaid
+                          </span>
+                        )}
+                      </div>
+
+                      {a.status === "withdrawn" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => setStatus(a.id, "available")}
+                        >
+                          Restore
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground shrink-0 px-2"
+                          disabled={pending}
+                          onClick={() => setStatus(a.id, "withdrawn")}
+                          aria-label={`Remove ${a.name}`}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
 
         <div className="border-border grid gap-4 rounded-lg border p-3">
           <p className="text-sm font-medium">
