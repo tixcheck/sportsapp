@@ -202,6 +202,16 @@ export function EditLeagueSettingsDialog({
               </select>
             </Field>
             <Field
+              label="Fixture order"
+              error={errors.pairingOrder?.message}
+              hint="Even spread rotates matchups and courts each round. Fixed order keeps the first team leading every round (1v2, then 1v3, then 1v4) and pins each match to the same court — easier to read on a printed sheet, best when your courts are interchangeable."
+            >
+              <select className={selectClass} {...register("pairingOrder")}>
+                <option value="circle">Even spread (recommended)</option>
+                <option value="sequential">Fixed order, fixed courts</option>
+              </select>
+            </Field>
+            <Field
               label="Games per team"
               error={errors.gamesPerTeam?.message}
               hint="Blank = full round robin. A number caps each team at that many different opponents (partial round robin)."

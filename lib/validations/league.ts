@@ -29,6 +29,9 @@ export const createLeagueSchema = z
     // Minutes each game occupies (spacing + rest gaps). Default 45.
     minutesPerGame: z.number().int().min(15).max(180),
     tiebreaker: z.enum(["ova", "differential"]),
+    // Fixture order within a round. "circle" spreads evenly and rotates courts;
+    // "sequential" fixes the first team and pins courts to the listed order.
+    pairingOrder: z.enum(["circle", "sequential"]).optional(),
     // Pro-rate teams that have played fewer games (mid-season joiners) up to the
     // full slate for ranking only. Stored encoded on `tiebreaker` (no migration).
     projectShortTeams: z.boolean().optional(),
@@ -89,6 +92,9 @@ export const editLeagueSchema = z
     // Minutes each game occupies (spacing + rest gaps). Default 45.
     minutesPerGame: z.number().int().min(15).max(180),
     tiebreaker: z.enum(["ova", "differential"]),
+    // Fixture order within a round. "circle" spreads evenly and rotates courts;
+    // "sequential" fixes the first team and pins courts to the listed order.
+    pairingOrder: z.enum(["circle", "sequential"]).optional(),
     // Pro-rate teams that have played fewer games (mid-season joiners) up to the
     // full slate for ranking only. Stored encoded on `tiebreaker` (no migration).
     projectShortTeams: z.boolean().optional(),

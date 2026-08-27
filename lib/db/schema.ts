@@ -422,6 +422,11 @@ export const leagueSettings = pgTable("league_settings", {
   // "ova" = match wins → head-to-head → set ratio → point ratio (default);
   // "differential" = match wins → head-to-head → point differential (PF−PA).
   tiebreaker: text("tiebreaker").notNull().default("ova"),
+  // Fixture ordering within a round (migration 0092). "circle" is the Berger
+  // method with rotating courts — correct where courts differ and the printed
+  // order carries no meaning. "sequential" fixes the first team and pins courts
+  // to the listed order, for a small league whose sheet goes on a gym wall.
+  pairingOrder: text("pairing_order").notNull().default("circle"),
   // The league's specific courts (custom-courts feature). Null/empty = plain
   // 1…N numbering from the weekly slot's court count.
   courtList: jsonb("court_list").$type<LeagueCourt[]>(),

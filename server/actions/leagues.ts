@@ -20,7 +20,10 @@ import {
   type Sport,
 } from "@/lib/formats";
 import { sendCaptainInvite, sendTeammateInvite } from "@/lib/email/send";
-import { generateRoundRobin } from "@/lib/scheduler/round-robin";
+import {
+  generateRoundRobin,
+  type PairingOrder,
+} from "@/lib/scheduler/round-robin";
 import { planTieredLeagueSchedule } from "@/lib/scheduler/tiered-league";
 import { assignCourts } from "@/lib/scheduler/court-assign";
 import {
@@ -156,6 +159,7 @@ export async function createLeagueAction(
       tiebreaker: v.projectShortTeams
         ? `${v.tiebreaker}_projected`
         : v.tiebreaker,
+      pairing_order: v.pairingOrder ?? "circle",
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
       promotion_relegation: false,
@@ -258,6 +262,7 @@ export async function updateLeagueSettingsAction(
       tiebreaker: v.projectShortTeams
         ? `${v.tiebreaker}_projected`
         : v.tiebreaker,
+      pairing_order: v.pairingOrder ?? "circle",
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
     })
@@ -604,7 +609,7 @@ export async function generateLeagueScheduleAction(
   const { data: settings, error: sErr } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week, minutes_per_game, ladder_enabled",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, court_list, games_per_week, minutes_per_game, ladder_enabled, pairing_order",
     )
     .eq("competition_id", competitionId)
     .single();
@@ -652,7 +657,11 @@ export async function generateLeagueScheduleAction(
   let seed = 0;
   for (const ch of competitionId) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
 
+  const pairingOrder: PairingOrder =
+    settings.pairing_order === "sequential" ? "sequential" : "circle";
+
   const rrInput = {
+    pairingOrder,
     roundsPerTeam: settings.rounds_per_team ?? 1,
     gamesPerTeam: (settings.games_per_team as number | null) ?? null,
     startDate,
@@ -763,19 +772,24 @@ export async function generateLeagueScheduleAction(
     });
     // Custom courts + prime balancing: assign each match a court from the list,
     // spreading prime courts evenly across teams. Else plain "Court N".
-    const assigned = hasCourtList
-      ? assignCourts(
-          schedule.rounds.map((r) => ({
-            round: r.round,
-            pairs: r.matches.map((m) => ({
-              homeTeamId: m.homeTeamId,
-              awayTeamId: m.awayTeamId,
+    // Sequential pins courts to the listed order: prime balancing rotates the
+    // labels every round, which is the right trade when one court is genuinely
+    // better and the wrong one when the two are identical and the organizer
+    // wants the same match on the same court every week.
+    const assigned =
+      hasCourtList && pairingOrder !== "sequential"
+        ? assignCourts(
+            schedule.rounds.map((r) => ({
+              round: r.round,
+              pairs: r.matches.map((m) => ({
+                homeTeamId: m.homeTeamId,
+                awayTeamId: m.awayTeamId,
+              })),
+              byeTeamId: r.byeTeamId,
             })),
-            byeTeamId: r.byeTeamId,
-          })),
-          courtList,
-        )
-      : null;
+            courtList,
+          )
+        : null;
 
     rows = schedule.rounds.flatMap((round, ri) =>
       round.matches.map((mt, mi) => ({
@@ -783,7 +797,7 @@ export async function generateLeagueScheduleAction(
         round: mt.round,
         home_team_id: mt.homeTeamId,
         away_team_id: mt.awayTeamId,
-        court: assigned ? `${assigned[ri].courts[mi]}` : `${mt.court}`,
+        court: assigned ? `${assigned[ri].courts[mi]}` : courtLabel(mt.court),
         status: "scheduled" as const,
         scheduled_at: at(mt.date, round.wave),
       })),

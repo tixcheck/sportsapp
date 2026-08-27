@@ -71,6 +71,8 @@ export interface LeagueDetail {
   minutesPerGame: number;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: "ova" | "differential";
+  /** Fixture order within a round — see league_settings.pairing_order. */
+  pairingOrder: "circle" | "sequential";
   /** Pro-rate short-handed (mid-season) teams to the full slate for ranking. */
   projectShortTeams: boolean;
   /** The league's specific courts (+ prime flags); null = plain 1…N numbering. */
@@ -191,7 +193,7 @@ export async function getLeagueDetail(
   const { data: settings } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order",
     )
     .eq("competition_id", leagueId)
     .maybeSingle();
@@ -270,6 +272,8 @@ export async function getLeagueDetail(
     projectShortTeams: ((settings?.tiebreaker as string | null) ?? "").endsWith(
       "_projected",
     ),
+    pairingOrder:
+      settings?.pairing_order === "sequential" ? "sequential" : "circle",
     courtList: (settings?.court_list as LeagueCourt[] | null) ?? null,
     courts: slot?.courts ?? 2,
     slotDayOfWeek: slot?.dayOfWeek ?? 2,

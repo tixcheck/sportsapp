@@ -7,6 +7,20 @@
 
 export type TeamId = string;
 
+/**
+ * How a round's fixtures are ordered.
+ *
+ * `circle` is the Berger/circle method: mathematically even, and the right
+ * default for a league where the printed order carries no meaning.
+ *
+ * `sequential` keeps the first team fixed and walks it down the list — round 1
+ * is 1v2, round 2 is 1v3, round 3 is 1v4 — with the remaining teams paired off
+ * behind it. Identical coverage (it is still a full round robin), but the sheet
+ * reads in an order a human would write by hand, which is what a small league
+ * pinned to a gym wall actually wants.
+ */
+export type PairingOrder = "circle" | "sequential";
+
 export interface PairingRound {
   round: number;
   pairs: { homeTeamId: TeamId; awayTeamId: TeamId }[];
@@ -48,6 +62,12 @@ export interface RoundRobinInput {
   gamesPerWeek?: number;
   /** Dates to skip, "YYYY-MM-DD". */
   blackoutDates?: string[];
+  /**
+   * Fixture ordering within each round (see `PairingOrder`). Default `circle`.
+   * `sequential` also pins courts to the listed order rather than rotating them,
+   * because the two together are what make the sheet predictable.
+   */
+  pairingOrder?: PairingOrder;
 }
 
 export interface ScheduledMatch {
@@ -138,6 +158,45 @@ function randomMatching(
 }
 
 /**
+ * One round in `sequential` order: the first team fixed, the rest rotated by
+ * `r`, and the fixed team drawn against whoever has rotated to the front.
+ *
+ * The remaining teams pair off from the outside in, which is the circle method
+ * applied to the tail — so the coverage guarantee is the same and the fixed
+ * team simply meets each opponent in list order.
+ */
+function sequentialRound(
+  teams: (TeamId | null)[],
+  r: number,
+): { pairs: PairingRound["pairs"]; byeTeamId: TeamId | null } {
+  const pairs: PairingRound["pairs"] = [];
+  let byeTeamId: TeamId | null = null;
+
+  const tail = teams.slice(1);
+  const m = tail.length;
+  const at = (i: number) => tail[(i + r) % m];
+
+  const add = (a: TeamId | null, b: TeamId | null) => {
+    if (a === BYE) byeTeamId = b;
+    else if (b === BYE) byeTeamId = a;
+    else pairs.push({ homeTeamId: a, awayTeamId: b });
+  };
+
+  // The fixed team always leads its own fixture.
+  add(teams[0], at(0));
+
+  // The rest are listed with the earlier-numbered team first, because "2 vs 4"
+  // is how the organizer writes it and "4 vs 2" reads like a different game.
+  for (let i = 1; i <= (m - 1) / 2; i++) {
+    const [x, y] = [at(i), at(m - i)];
+    const earlier = teams.indexOf(x) < teams.indexOf(y);
+    add(earlier ? x : y, earlier ? y : x);
+  }
+
+  return { pairs, byeTeamId };
+}
+
+/**
  * Generate the round-robin pairings. Every pair of teams meets `roundsPerTeam`
  * times; odd counts get a rotating bye each round; home/away alternates for
  * balance and the second meeting reverses the fixture.
@@ -147,6 +206,7 @@ export function generatePairings(
   roundsPerTeam = 1,
   gamesPerTeam?: number | null,
   seed = 1,
+  order: PairingOrder = "circle",
 ): PairingRound[] {
   const result: PairingRound[] = [];
   if (teamIds.length < 2) return result;
@@ -162,6 +222,16 @@ export function generatePairings(
     const slots = teams.map((_, i) => i);
     for (let r = 0; r < roundsPerCycle; r++) {
       roundNo += 1;
+
+      // Sequential leaves the fixture listed the same way every cycle. There is
+      // no home advantage in a one-gym league, and a stable listing is the
+      // whole point of asking for this order.
+      if (order === "sequential") {
+        const { pairs, byeTeamId } = sequentialRound(teams, r);
+        result.push({ round: roundNo, pairs, byeTeamId });
+        continue;
+      }
+
       const pairs: PairingRound["pairs"] = [];
       let byeTeamId: TeamId | null = null;
 
@@ -237,11 +307,13 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
   const intervalDays = input.intervalDays ?? 7;
   const gamesPerWeek = Math.max(1, Math.floor(input.gamesPerWeek ?? 1));
   const blackout = new Set(input.blackoutDates ?? []);
+  const order = input.pairingOrder ?? "circle";
   const pairings = generatePairings(
     input.teamIds,
     input.roundsPerTeam ?? 1,
     input.gamesPerTeam,
     input.seed ?? 1,
+    order,
   );
 
   let cursor = parseDate(input.startDate);
@@ -262,7 +334,13 @@ export function generateRoundRobin(input: RoundRobinInput): RoundRobinResult {
     const matches: ScheduledMatch[] = pr.pairs.map((p, i) => ({
       round: pr.round,
       date,
-      court: ((i + pr.round) % input.courts) + 1,
+      // Circle rotates courts so nobody lives on court 1. Sequential pins them
+      // to the listed order — a rotation only helps when the courts differ, and
+      // it costs the predictability the order was chosen for.
+      court:
+        order === "sequential"
+          ? (i % input.courts) + 1
+          : ((i + pr.round) % input.courts) + 1,
       homeTeamId: p.homeTeamId,
       awayTeamId: p.awayTeamId,
     }));
