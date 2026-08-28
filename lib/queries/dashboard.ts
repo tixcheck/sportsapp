@@ -24,6 +24,12 @@ export interface MyCompetition {
   /** Whether the team has any scheduled matches — distinguishes "run's over"
    * (has matches, none upcoming) from "no schedule yet" (no matches). */
   hasMatches: boolean;
+  /**
+   * The team's latest match time, played or not. Null when the schedule carries
+   * no times. Used to tell a season waiting on a playoff draw from one that
+   * genuinely finished (migration 0095).
+   */
+  lastMatchAt: string | null;
 }
 
 export interface PendingInvite {
@@ -76,18 +82,53 @@ export async function getMyCompetitions(): Promise<MyCompetition[]> {
           }
         : null,
       hasMatches: (r.has_matches as boolean | null) ?? false,
+      lastMatchAt: (r.last_match_at as string | null) ?? null,
     }),
   );
 }
 
 /**
- * Whether the user's run in a competition is over: their team has played its
- * matches with none left, or the competition itself is finished. Used to hide
- * wrapped-up competitions from the dashboard's active list.
+ * How long a competition with nothing left to play stays on the dashboard.
+ *
+ * Long enough to cover the gap between a season ending and its playoff bracket
+ * being drawn, which is days to a couple of weeks and is the whole reason this
+ * grace period exists. Short enough that last spring's league is not still
+ * sitting there in the autumn.
  */
-export function isCompetitionDone(c: MyCompetition): boolean {
+export const WRAP_UP_GRACE_DAYS = 21;
+
+/**
+ * Whether the user's run in a competition is over. Used to hide wrapped-up
+ * competitions from the dashboard's active list.
+ *
+ * "No upcoming match" is NOT enough on its own. A league sits in exactly that
+ * state between its last round-robin game being scored and the organizer
+ * generating the playoff bracket: every match completed, none scheduled. The
+ * competition is live — the standings are what decide the seeding, and that is
+ * precisely when players go looking for them — but it looked identical to a
+ * finished season and vanished from their dashboard, taking the links to their
+ * team and the standings with it.
+ *
+ * So an unfinished competition with nothing to play is given a grace period,
+ * measured from its last match. A competition the organizer has actually marked
+ * completed still drops off at once, because that is an explicit statement
+ * rather than an inference.
+ */
+export function isCompetitionDone(
+  c: MyCompetition,
+  now: Date = new Date(),
+): boolean {
   if (c.status === "completed" || c.status === "cancelled") return true;
-  return c.hasMatches && c.nextMatch === null;
+  if (!c.hasMatches || c.nextMatch !== null) return false;
+
+  // No times on the schedule at all: there is no evidence it is over, and
+  // guessing wrong hides a live competition. Keep it.
+  if (!c.lastMatchAt) return false;
+
+  const last = new Date(c.lastMatchAt).getTime();
+  if (Number.isNaN(last)) return false;
+  const days = (now.getTime() - last) / 86_400_000;
+  return days > WRAP_UP_GRACE_DAYS;
 }
 
 /** Pending invites addressed to the signed-in user's email (server-matched). */

@@ -104,11 +104,18 @@ export default async function DashboardPage() {
                           : c.memberRole}
                       </span>
                     </CardDescription>
-                    {next && (
-                      <p className="text-muted-foreground mt-1 truncate text-sm">
-                        Next: {next}
-                      </p>
-                    )}
+                    <p className="text-muted-foreground mt-1 truncate text-sm">
+                      {next ? (
+                        `Next: ${next}`
+                      ) : c.hasMatches ? (
+                        // Nothing to play but still on the list: the season is
+                        // done and the playoff draw hasn't happened. Say so,
+                        // rather than leaving a blank where a fixture was.
+                        <>All games played &mdash; standings are final</>
+                      ) : (
+                        <>Schedule not published yet</>
+                      )}
+                    </p>
                   </CardHeader>
                   <CardContent className="mt-auto flex flex-wrap items-center gap-2 pt-0">
                     <Button asChild variant="outline" size="sm">
