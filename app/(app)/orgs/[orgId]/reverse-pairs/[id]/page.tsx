@@ -5,15 +5,7 @@ import { getUserOrgs } from "@/lib/auth/user";
 import { GenerateReversePairsPanel } from "@/components/reverse-pairs/generate-panel";
 import { PartnerMatrixCard } from "@/components/reverse-pairs/partner-matrix";
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-
+import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 export default async function ReversePairsPage({
   params,
 }: {
@@ -27,7 +19,6 @@ export default async function ReversePairsPage({
   const role = orgs.find((o) => o.id === orgId)?.role;
   const isAdmin = role === "owner" || role === "admin";
 
-  const byId = new Map(detail.pairs.map((p) => [p.id, p]));
   const played = detail.games.filter((g) => g.scoreA !== null).length;
   const counts = [...detail.gamesPerPair.values()];
   const minGames = counts.length ? Math.min(...counts) : 0;
@@ -67,59 +58,10 @@ export default async function ReversePairsPage({
       )}
 
       {detail.games.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Standings</CardTitle>
-            <CardDescription>
-              Ranked on total point differential — every pair on a side takes
-              the margin, so a 25–23 loss costs far less than a 25–12 one.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm tabular-nums">
-              <thead>
-                <tr className="text-ink-3 border-rule border-b text-left text-xs">
-                  <th className="p-2 font-medium">#</th>
-                  <th className="p-2 font-medium">Pair</th>
-                  <th className="p-2 text-right font-medium">GP</th>
-                  <th className="p-2 text-right font-medium">W</th>
-                  <th className="p-2 text-right font-medium">L</th>
-                  <th className="p-2 text-right font-medium">PF</th>
-                  <th className="p-2 text-right font-medium">PA</th>
-                  <th className="p-2 text-right font-medium">Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.standings.map((s) => (
-                  <tr key={s.teamId} className="border-rule/60 border-b">
-                    <td className="text-ink-3 p-2">{s.rank}</td>
-                    <td className="p-2 font-medium">
-                      {byId.get(s.teamId)?.name ?? "—"}
-                    </td>
-                    <td className="p-2 text-right">{s.played}</td>
-                    <td className="p-2 text-right">{s.won}</td>
-                    <td className="p-2 text-right">{s.lost}</td>
-                    <td className="text-ink-3 p-2 text-right">{s.pointsFor}</td>
-                    <td className="text-ink-3 p-2 text-right">
-                      {s.pointsAgainst}
-                    </td>
-                    <td
-                      className={cn(
-                        "p-2 text-right font-semibold",
-                        s.differential > 0 && "text-pine",
-                        s.differential < 0 && "text-claret",
-                      )}
-                    >
-                      {s.differential > 0
-                        ? `+${s.differential}`
-                        : s.differential}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
+        <ReversePairsStandingsCard
+          pairs={detail.pairs}
+          standings={detail.standings}
+        />
       )}
 
       <PartnerMatrixCard pairs={detail.pairs} matrix={detail.matrix} />

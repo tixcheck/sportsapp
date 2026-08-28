@@ -36,6 +36,15 @@ export interface ReversePairsStanding {
   lost: number;
   /** 1-based. Ties share a rank and the next one skips, as in athletics. */
   rank: number;
+  /**
+   * The margin from each of THIS pair's games, in the order they play them —
+   * so index 0 is their first game, not round 1. Byes leave no gap, because a
+   * pair counts their own games and not the ones they sat out.
+   *
+   * Null where a game has been drawn but not yet scored, so the columns stay
+   * aligned through a night that is only half entered.
+   */
+  perGame: (number | null)[];
 }
 
 /**
@@ -49,23 +58,23 @@ export function reversePairsStandings(
   teamIds: string[],
   games: ReversePairsGameResult[],
 ): ReversePairsStanding[] {
+  const blank = (id: string): ReversePairsStanding => ({
+    teamId: id,
+    differential: 0,
+    played: 0,
+    pointsFor: 0,
+    pointsAgainst: 0,
+    won: 0,
+    lost: 0,
+    rank: 0,
+    perGame: [],
+  });
+
   const rows = new Map<string, ReversePairsStanding>();
-  for (const id of teamIds) {
-    rows.set(id, {
-      teamId: id,
-      differential: 0,
-      played: 0,
-      pointsFor: 0,
-      pointsAgainst: 0,
-      won: 0,
-      lost: 0,
-      rank: 0,
-    });
-  }
+  for (const id of teamIds) rows.set(id, blank(id));
 
   for (const g of games) {
-    if (g.scoreA === null || g.scoreB === null) continue;
-    const sides: [string[], number, number][] = [
+    const sides: [string[], number | null, number | null][] = [
       [g.sideA, g.scoreA, g.scoreB],
       [g.sideB, g.scoreB, g.scoreA],
     ];
@@ -73,19 +82,17 @@ export function reversePairsStandings(
       for (const id of side) {
         // A pair that appears in a game but not in `teamIds` still counts —
         // dropping them would silently lose results.
-        const row =
-          rows.get(id) ??
-          ({
-            teamId: id,
-            differential: 0,
-            played: 0,
-            pointsFor: 0,
-            pointsAgainst: 0,
-            won: 0,
-            lost: 0,
-            rank: 0,
-          } as ReversePairsStanding);
+        const row = rows.get(id) ?? blank(id);
         rows.set(id, row);
+
+        // Every game they are IN gets a column, scored or not. Skipping the
+        // unscored ones would shift later games left and quietly renumber them
+        // halfway through a night.
+        if (mine === null || theirs === null) {
+          row.perGame.push(null);
+          continue;
+        }
+        row.perGame.push(mine - theirs);
         row.played += 1;
         row.pointsFor += mine;
         row.pointsAgainst += theirs;

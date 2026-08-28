@@ -103,6 +103,64 @@ describe("reversePairsStandings", () => {
     ]);
   });
 
+  /**
+   * The organizer's sheet is a column per game, then a total — the per-game
+   * numbers are how a player checks their own night, so they carry the same
+   * weight as the ranking.
+   */
+  it("records the margin from each of a pair's own games, in order", () => {
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [
+        game(["a", "b", "c"], 25, 20, ["d", "e", "f"]),
+        game(["a", "d", "e"], 18, 25, ["b", "c", "f"]),
+        game(["a", "b", "f"], 25, 24, ["c", "d", "e"]),
+      ],
+    );
+    const by = new Map(rows.map((r) => [r.teamId, r]));
+
+    expect(by.get("a")!.perGame).toEqual([5, -7, 1]);
+    expect(by.get("f")!.perGame).toEqual([-5, 7, 1]);
+    // The totals stay the sum of the columns.
+    expect(by.get("a")!.differential).toBe(-1);
+    expect(by.get("f")!.differential).toBe(3);
+  });
+
+  it("counts only a pair's own games, leaving no gap for a bye", () => {
+    // "e" sits out the middle game entirely, so their second column is their
+    // second GAME, not the second round.
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f", "g", "h"],
+      [
+        game(["a", "b", "e"], 25, 20, ["c", "d", "f"]),
+        game(["a", "b", "c"], 21, 25, ["d", "f", "g"]),
+        game(["a", "e", "h"], 25, 23, ["b", "c", "d"]),
+      ],
+    );
+    const by = new Map(rows.map((r) => [r.teamId, r]));
+
+    expect(by.get("e")!.perGame).toEqual([5, 2]);
+    expect(by.get("e")!.played).toBe(2);
+    expect(by.get("a")!.perGame).toEqual([5, -4, 2]);
+    expect(by.get("g")!.perGame).toEqual([4]);
+  });
+
+  it("holds a column open for a game that isn't scored yet", () => {
+    // Skipping it would shift later games left and renumber them mid-night.
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [
+        game(["a", "b", "c"], 25, 20, ["d", "e", "f"]),
+        game(["a", "b", "c"], null, null, ["d", "e", "f"]),
+        game(["a", "b", "c"], 25, 24, ["d", "e", "f"]),
+      ],
+    );
+    const a = rows.find((r) => r.teamId === "a")!;
+    expect(a.perGame).toEqual([5, null, 1]);
+    expect(a.played).toBe(2);
+    expect(a.differential).toBe(6);
+  });
+
   it("keeps a result for a pair not in the given list", () => {
     // Dropping them would silently lose a played game.
     const rows = reversePairsStandings(
