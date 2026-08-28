@@ -101,13 +101,20 @@ export const WRAP_UP_GRACE_DAYS = 21;
  * Whether the user's run in a competition is over. Used to hide wrapped-up
  * competitions from the dashboard's active list.
  *
- * "No upcoming match" is NOT enough on its own. A league sits in exactly that
- * state between its last round-robin game being scored and the organizer
- * generating the playoff bracket: every match completed, none scheduled. The
- * competition is live — the standings are what decide the seeding, and that is
- * precisely when players go looking for them — but it looked identical to a
- * finished season and vanished from their dashboard, taking the links to their
- * team and the standings with it.
+ * "No upcoming match" is NOT enough on its own, because the question is asked
+ * of ONE TEAM's fixtures, not the competition's. Two live situations look
+ * exactly like a finished season:
+ *
+ *  - The whole league is between phases: the last round-robin game has been
+ *    scored and the playoff bracket has not been generated yet.
+ *  - A single team has simply played all of its fixtures while the rest of the
+ *    league plays on — which happens mid-season, every season, whenever the
+ *    draw is not perfectly even.
+ *
+ * In both the competition is live, and in both the standings are what everyone
+ * wants to look at — they decide the playoff seeding. Instead the league
+ * vanished from those players' dashboards, taking the links to their team and
+ * the standings with it.
  *
  * So an unfinished competition with nothing to play is given a grace period,
  * measured from its last match. A competition the organizer has actually marked

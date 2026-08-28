@@ -108,10 +108,10 @@ export default async function DashboardPage() {
                       {next ? (
                         `Next: ${next}`
                       ) : c.hasMatches ? (
-                        // Nothing to play but still on the list: the season is
-                        // done and the playoff draw hasn't happened. Say so,
-                        // rather than leaving a blank where a fixture was.
-                        <>All games played &mdash; standings are final</>
+                        // Nothing left for THIS team, though the league may
+                        // still be running. Don't claim the standings are
+                        // final — other teams are often still playing.
+                        <>You&rsquo;ve played all your games</>
                       ) : (
                         <>Schedule not published yet</>
                       )}
