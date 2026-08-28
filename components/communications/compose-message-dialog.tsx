@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 export type MessageableCompetition = {
   id: string;
   name: string;
-  type: "league" | "tournament" | "kotc";
+  type: "league" | "tournament" | "kotc" | "reverse_pairs";
 };
 
 /**

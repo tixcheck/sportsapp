@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { getOrg, getOrgLeagues } from "@/lib/queries/leagues";
 import { getOrgTournaments } from "@/lib/queries/tournaments";
 import { getOrgKotc } from "@/lib/queries/kotc";
+import { getOrgReversePairs } from "@/lib/queries/reverse-pairs";
 import { getUserOrgs } from "@/lib/auth/user";
 import { getOrgOrganizers } from "@/lib/queries/organizers";
 import { getAccessState } from "@/lib/queries/access";
@@ -40,10 +41,11 @@ export default async function OrgPage({
   const { orgId } = await params;
   const org = await getOrg(orgId);
   if (!org) notFound();
-  const [leagues, tournaments, kotc, orgs] = await Promise.all([
+  const [leagues, tournaments, kotc, reversePairs, orgs] = await Promise.all([
     getOrgLeagues(orgId),
     getOrgTournaments(orgId),
     getOrgKotc(orgId),
+    getOrgReversePairs(orgId),
     getUserOrgs(),
   ]);
   const myRole = orgs.find((o) => o.id === orgId)?.role;
@@ -66,6 +68,11 @@ export default async function OrgPage({
       type: "tournament" as const,
     })),
     ...kotc.map((k) => ({ id: k.id, name: k.name, type: "kotc" as const })),
+    ...reversePairs.map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: "reverse_pairs" as const,
+    })),
   ];
 
   // Payouts are an org-admin concern. Until this deployment has Stripe keys the
@@ -115,6 +122,13 @@ export default async function OrgPage({
         emptyText="No King of the Court events yet. Create one to add pairs and seed."
         items={kotc}
         hrefFor={(c) => `/orgs/${orgId}/kotc/${c.id}`}
+      />
+
+      <Section
+        title="Reverse Pairs"
+        emptyText="No Reverse Pairs events yet."
+        items={reversePairs}
+        hrefFor={(c) => `/orgs/${orgId}/reverse-pairs/${c.id}`}
       />
 
       {showPayouts && (
@@ -167,8 +181,9 @@ function Section({
   hrefFor,
 }: {
   title: string;
-  newHref: string;
-  newLabel: string;
+  /** Omitted for a format with no creation wizard yet. */
+  newHref?: string;
+  newLabel?: string;
   emptyText: string;
   items: CompCard[];
   hrefFor: (c: CompCard) => string;
@@ -177,12 +192,14 @@ function Section({
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-semibold">{title}</h2>
-        <Button asChild variant="outline" size="sm">
-          <Link href={newHref}>
-            <Plus />
-            {newLabel}
-          </Link>
-        </Button>
+        {newHref && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={newHref}>
+              <Plus />
+              {newLabel}
+            </Link>
+          </Button>
+        )}
       </div>
 
       {items.length === 0 ? (
