@@ -436,3 +436,62 @@ export async function removeReversePairAction(
   revalidatePath("/orgs");
   return { removed: true };
 }
+
+/**
+ * Publish: make the /rp/[slug] page live.
+ *
+ * Public rather than unlisted, because RLS only lets a signed-out visitor read
+ * a competition marked public — an unlisted event's page would 404 for exactly
+ * the people the link was shared with.
+ */
+export async function publishReversePairsAction(
+  competitionId: string,
+): Promise<ActionError | { slug: string }> {
+  if (!idSchema.safeParse(competitionId).success) {
+    return { error: "Unknown event." };
+  }
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only the organizer can publish." };
+
+  const { data, error } = await supabase
+    .from("competitions")
+    .update({ status: "open", visibility: "public" })
+    .eq("id", competitionId)
+    .select("slug")
+    .single();
+  if (error || !data) return { error: error?.message ?? "Could not publish." };
+
+  revalidatePath(`/rp/${data.slug}`);
+  revalidatePath("/orgs");
+  return { slug: data.slug as string };
+}
+
+/** Unpublish: take the public page offline. */
+export async function unpublishReversePairsAction(
+  competitionId: string,
+): Promise<ActionError | { slug: string }> {
+  if (!idSchema.safeParse(competitionId).success) {
+    return { error: "Unknown event." };
+  }
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only the organizer can unpublish." };
+
+  const { data, error } = await supabase
+    .from("competitions")
+    .update({ visibility: "private" })
+    .eq("id", competitionId)
+    .select("slug")
+    .single();
+  if (error || !data)
+    return { error: error?.message ?? "Could not unpublish." };
+
+  revalidatePath(`/rp/${data.slug}`);
+  revalidatePath("/orgs");
+  return { slug: data.slug as string };
+}

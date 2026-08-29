@@ -35,7 +35,9 @@ export interface ReversePairsDetail {
   name: string;
   slug: string;
   status: string;
+  visibility: string;
   timezone: string;
+  venue: string | null;
   orgId: string;
   settings: {
     courts: number;
@@ -84,7 +86,7 @@ export async function getReversePairs(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("id, name, slug, status, timezone, org_id")
+    .select("id, name, slug, status, visibility, timezone, venue, org_id")
     .eq("id", competitionId)
     .maybeSingle();
   if (!comp) return null;
@@ -186,7 +188,9 @@ export async function getReversePairs(
     name: comp.name as string,
     slug: comp.slug as string,
     status: comp.status as string,
+    visibility: comp.visibility as string,
     timezone: (comp.timezone as string | null) ?? "America/Toronto",
+    venue: (comp.venue as string | null) ?? null,
     orgId: comp.org_id as string,
     settings: {
       courts,
@@ -208,4 +212,24 @@ export async function getReversePairs(
     suggestions: suggestRounds(pairs.length, courts, { min: 1, max: 20 }),
     gamesPerPair,
   };
+}
+
+/**
+ * The same detail, found by its public slug.
+ *
+ * RLS decides whether it comes back: a signed-out visitor sees only a
+ * competition marked public, so an unpublished event 404s rather than leaking.
+ */
+export async function getReversePairsBySlug(
+  slug: string,
+): Promise<ReversePairsDetail | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("competitions")
+    .select("id")
+    .eq("slug", slug)
+    .eq("type", "reverse_pairs")
+    .maybeSingle();
+  if (!data) return null;
+  return getReversePairs(data.id as string);
 }

@@ -20,7 +20,7 @@ export interface DiscoverResult {
   id: string;
   name: string;
   slug: string;
-  type: "league" | "tournament" | "kotc";
+  type: "league" | "tournament" | "kotc" | "reverse_pairs";
   sport: string;
   orgName: string;
   venue: string | null;
@@ -32,6 +32,7 @@ export interface DiscoverResult {
 export function discoverHref(r: DiscoverResult): string {
   if (r.type === "tournament") return `/t/${r.slug}`;
   if (r.type === "kotc") return `/k/${r.slug}`;
+  if (r.type === "reverse_pairs") return `/rp/${r.slug}`;
   return `/l/${r.slug}`;
 }
 
@@ -89,7 +90,7 @@ export async function findPublicCompetitions(
     // Only types that have a public page. Listing one that doesn't hands the
     // searcher a link to a route that cannot serve it, which is worse than not
     // appearing at all.
-    .in("type", ["league", "tournament", "kotc"]);
+    .in("type", ["league", "tournament", "kotc", "reverse_pairs"]);
 
   if (q) {
     // Escape the PostgREST `or` separators so a comma or paren in the query is

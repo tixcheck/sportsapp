@@ -164,16 +164,22 @@ export function competitionPath(type: string, slug: string): string {
   // a league page that could not find their event.
   if (type === "tournament") return `/t/${slug}`;
   if (type === "kotc") return `/k/${slug}`;
+  if (type === "reverse_pairs") return `/rp/${slug}`;
   return `/l/${slug}`;
 }
 
 /**
  * Whether a competition type has a public page yet.
  *
- * Reverse Pairs does not. Until it does it must stay out of anywhere that links
- * to one — a search result pointing at a route that cannot serve it is worse
+ * All four types do now. The check stays because the next format added will
+ * not, and a search result pointing at a route that cannot serve it is worse
  * than not being listed.
  */
 export function hasPublicPage(type: string): boolean {
-  return type === "league" || type === "tournament" || type === "kotc";
+  return (
+    type === "league" ||
+    type === "tournament" ||
+    type === "kotc" ||
+    type === "reverse_pairs"
+  );
 }

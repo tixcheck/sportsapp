@@ -119,6 +119,7 @@ describe("competitionPath", () => {
     expect(competitionPath("tournament", "summer")).toBe("/t/summer");
     // Was falling through to /l/, which cannot serve a KotC event.
     expect(competitionPath("kotc", "summer")).toBe("/k/summer");
+    expect(competitionPath("reverse_pairs", "summer")).toBe("/rp/summer");
   });
 });
 
@@ -127,7 +128,8 @@ describe("hasPublicPage", () => {
     expect(hasPublicPage("league")).toBe(true);
     expect(hasPublicPage("tournament")).toBe(true);
     expect(hasPublicPage("kotc")).toBe(true);
-    // Reverse Pairs has no public page, so it must not be linked to.
-    expect(hasPublicPage("reverse_pairs")).toBe(false);
+    expect(hasPublicPage("reverse_pairs")).toBe(true);
+    // The next format added will not have one, and must not be linked to.
+    expect(hasPublicPage("something_new")).toBe(false);
   });
 });

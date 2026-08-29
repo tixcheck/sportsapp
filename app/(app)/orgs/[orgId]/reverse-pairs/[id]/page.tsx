@@ -5,6 +5,7 @@ import { getUserOrgs } from "@/lib/auth/user";
 import { GenerateReversePairsPanel } from "@/components/reverse-pairs/generate-panel";
 import { PartnerMatrixCard } from "@/components/reverse-pairs/partner-matrix";
 import { ReversePairsPairsCard } from "@/components/reverse-pairs/pairs-card";
+import { ReversePairsPublishCard } from "@/components/reverse-pairs/publish-card";
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 export default async function ReversePairsPage({
@@ -46,6 +47,14 @@ export default async function ReversePairsPage({
           {played > 0 && ` · ${played} of ${detail.games.length} scored`}
         </p>
       </div>
+
+      {isAdmin && (
+        <ReversePairsPublishCard
+          competitionId={detail.competitionId}
+          slug={detail.slug}
+          isPublic={detail.visibility === "public"}
+        />
+      )}
 
       {isAdmin && (
         <ReversePairsPairsCard
