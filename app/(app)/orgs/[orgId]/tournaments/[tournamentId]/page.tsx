@@ -55,7 +55,7 @@ import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
-  getPlatformFeeRates,
+  getPlatformFeeRatesFor,
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
@@ -118,7 +118,7 @@ export default async function TournamentPage({
   ]);
   const [feeSettings, feeRates, orgAccount] = await Promise.all([
     getCompetitionPaymentSettings(t.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(t.id),
     getPaymentAccount(orgId),
   ]);
   const payment = {

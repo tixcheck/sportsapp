@@ -6,7 +6,7 @@ import { competitionPath } from "@/lib/queries/dashboard";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
-  getPlatformFeeRates,
+  getPlatformFeeRatesFor,
   getTeamPaymentRows,
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
@@ -55,7 +55,7 @@ export default async function TeamPage({
   // org id it exposes is one this viewer may read.
   const [feeSettings, feeRates, paymentRows] = await Promise.all([
     getCompetitionPaymentSettings(competition.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(competition.id),
     getTeamPaymentRows(team.id),
   ]);
   const orgAccount = await getPaymentAccount(view.orgId);

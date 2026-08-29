@@ -10,11 +10,13 @@ export interface AdminCompetition {
   id: string;
   name: string;
   slug: string;
-  type: "league" | "tournament" | "kotc";
+  type: "league" | "tournament" | "kotc" | "reverse_pairs";
   sport: string;
   status: string;
   visibility: string;
   teamCount: number;
+  /** True when the platform takes no cut of this event (migration 0097). */
+  platformFeeWaived: boolean;
 }
 
 export interface AdminOrg {
@@ -35,7 +37,9 @@ export async function getAllOrgsWithCompetitions(): Promise<AdminOrg[]> {
 
   const { data: comps } = await supabase
     .from("competitions")
-    .select("id, org_id, name, slug, type, sport, status, visibility")
+    .select(
+      "id, org_id, name, slug, type, sport, status, visibility, platform_fee_waived",
+    )
     .order("created_at", { ascending: false });
   const allComps = comps ?? [];
 
@@ -83,6 +87,7 @@ export async function getAllOrgsWithCompetitions(): Promise<AdminOrg[]> {
       status: c.status as string,
       visibility: c.visibility as string,
       teamCount: teamCount.get(c.id as string) ?? 0,
+      platformFeeWaived: (c.platform_fee_waived as boolean | null) ?? false,
     });
     byOrg.set(c.org_id as string, list);
   }

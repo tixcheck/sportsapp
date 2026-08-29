@@ -5,10 +5,13 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import {
   generateReversePairs,
   reversePairsProblem,
 } from "@/lib/scheduler/reverse-pairs";
+
+const DEFAULT_TIMEZONE = "America/Toronto";
 
 type ActionError = { error: string };
 
@@ -231,4 +234,205 @@ export async function setReversePairsScoreAction(
 
   revalidatePath("/orgs");
   return { saved: true };
+}
+
+const createSchema = z.object({
+  name: z.string().trim().min(2, "Name is too short.").max(100),
+  sport: z.enum(["indoor6", "beach2", "coed4"]),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
+  venue: z.string().trim().max(120).optional(),
+  courts: z.number().int().min(1).max(12),
+  minutesPerGame: z.number().int().min(5).max(120),
+  pointsPerGame: z.number().int().min(5).max(99),
+});
+
+export type CreateReversePairsInput = z.input<typeof createSchema>;
+
+/**
+ * Create a Reverse Pairs event.
+ *
+ * No rounds here on purpose. The round count depends on how many pairs turn up,
+ * and that isn't known at creation — twelve pairs and sixteen pairs want
+ * different nights on the same two courts. The draw panel works it out once the
+ * field is in, and suggests the counts that divide evenly.
+ *
+ * Starts private, like a league does: an event with no pairs in it is not ready
+ * to be found.
+ */
+export async function createReversePairsAction(
+  orgId: string,
+  values: CreateReversePairsInput,
+): Promise<ActionError | { competitionId: string }> {
+  const parsed = createSchema.safeParse(values);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.issues[0]?.message ?? "Please check the form.",
+    };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+
+  const base = slugify(v.name);
+  const { data: existing } = await supabase
+    .from("competitions")
+    .select("slug")
+    .or(`slug.eq.${base},slug.like.${base}-%`);
+  const slug = uniqueSlug(base, new Set((existing ?? []).map((r) => r.slug)));
+
+  const { data: comp, error } = await supabase
+    .from("competitions")
+    .insert({
+      org_id: orgId,
+      slug,
+      name: v.name,
+      type: "reverse_pairs",
+      sport: v.sport,
+      status: "draft",
+      start_date: v.date,
+      end_date: v.date,
+      venue: v.venue || null,
+      timezone: DEFAULT_TIMEZONE,
+      // One game to a points target, played out — the margin is the result, so
+      // there is no best-of and no win-by to reason about.
+      match_format: {
+        bestOf: 1,
+        setsToPoints: [v.pointsPerGame],
+        winBy: 1,
+      },
+      visibility: "private",
+    })
+    .select("id")
+    .single();
+  if (error || !comp) {
+    return { error: error?.message ?? "Could not create the event." };
+  }
+
+  // Rounds get a placeholder until there is a field to draw. The draw panel
+  // overwrites it, and nothing reads it before then.
+  const { error: setErr } = await supabase
+    .from("reverse_pairs_settings")
+    .insert({
+      competition_id: comp.id,
+      courts: v.courts,
+      rounds: 8,
+      seed: 1,
+      minutes_per_game: v.minutesPerGame,
+    });
+  if (setErr) return { error: setErr.message };
+
+  revalidatePath("/orgs");
+  return { competitionId: comp.id as string };
+}
+
+const pairSchema = z.object({
+  competitionId: idSchema,
+  /** "Sam & Mel" — one entry per pair, however the organizer writes it. */
+  names: z.array(z.string().trim().min(1).max(80)).min(1).max(200),
+});
+
+export type AddReversePairsInput = z.input<typeof pairSchema>;
+
+/**
+ * Add pairs to the field.
+ *
+ * Takes a list rather than one at a time, because an organizer arrives with a
+ * registration list and typing sixteen names through sixteen round trips is the
+ * manual work this is meant to remove.
+ *
+ * Names already in the field are skipped rather than rejected: pasting a list
+ * twice should not fail, and it should not produce two of everybody either.
+ */
+export async function addReversePairsAction(
+  input: AddReversePairsInput,
+): Promise<ActionError | { added: number; skipped: number }> {
+  const parsed = pairSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the names." };
+  }
+  const { competitionId, names } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only the organizer can add pairs." };
+
+  const { data: current } = await supabase
+    .from("teams")
+    .select("name")
+    .eq("competition_id", competitionId);
+  const taken = new Set(
+    (current ?? []).map((t) => (t.name as string).trim().toLowerCase()),
+  );
+
+  const fresh: string[] = [];
+  for (const raw of names) {
+    const key = raw.toLowerCase();
+    if (taken.has(key)) continue;
+    taken.add(key);
+    fresh.push(raw);
+  }
+
+  if (fresh.length > 0) {
+    const { error } = await supabase.from("teams").insert(
+      fresh.map((name) => ({
+        competition_id: competitionId,
+        name,
+        status: "active" as const,
+      })),
+    );
+    if (error) {
+      console.error("[reverse-pairs] add pairs failed", error.message);
+      return { error: "Those pairs couldn't be added." };
+    }
+  }
+
+  revalidatePath("/orgs");
+  return { added: fresh.length, skipped: names.length - fresh.length };
+}
+
+/** Remove a pair from the field. Refuses once a schedule exists. */
+export async function removeReversePairAction(
+  teamId: string,
+): Promise<ActionError | { removed: true }> {
+  if (!idSchema.safeParse(teamId).success) return { error: "Unknown pair." };
+
+  const supabase = await createClient();
+  const { data: team } = await supabase
+    .from("teams")
+    .select("competition_id")
+    .eq("id", teamId)
+    .maybeSingle();
+  if (!team) return { error: "Pair not found." };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: team.competition_id,
+  });
+  if (isAdmin !== true)
+    return { error: "Only the organizer can remove pairs." };
+
+  // Deleting a pair mid-schedule would cascade their lineups away and leave
+  // games with two a side. Redraw first — which is cheap, and honest about
+  // what removing somebody actually costs.
+  const { count } = await supabase
+    .from("reverse_pairs_games")
+    .select("id", { count: "exact", head: true })
+    .eq("competition_id", team.competition_id);
+  if ((count ?? 0) > 0) {
+    return {
+      error:
+        "There's a schedule drawn. Remove the pair after redrawing, or redraw once they're gone.",
+    };
+  }
+
+  const { error } = await supabase.from("teams").delete().eq("id", teamId);
+  if (error) return { error: "That pair couldn't be removed." };
+
+  revalidatePath("/orgs");
+  return { removed: true };
 }

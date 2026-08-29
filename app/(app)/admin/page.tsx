@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { getAccessState } from "@/lib/queries/access";
 import { getAllOrgsWithCompetitions } from "@/lib/queries/admin";
+import { PlatformFeeToggle } from "@/components/admin/platform-fee-toggle";
 import {
   Card,
   CardContent,
@@ -15,12 +16,14 @@ const SEGMENT: Record<string, string> = {
   league: "leagues",
   tournament: "tournaments",
   kotc: "kotc",
+  reverse_pairs: "reverse-pairs",
 };
 
 const TYPE_LABEL: Record<string, string> = {
   league: "League",
   tournament: "Tournament",
   kotc: "KotC",
+  reverse_pairs: "Reverse Pairs",
 };
 
 export default async function AdminOverviewPage() {
@@ -110,6 +113,10 @@ export default async function AdminOverviewPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        <PlatformFeeToggle
+                          competitionId={c.id}
+                          waived={c.platformFeeWaived}
+                        />
                         {c.visibility !== "public" && (
                           <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase">
                             {c.visibility}

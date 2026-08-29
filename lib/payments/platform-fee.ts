@@ -36,6 +36,23 @@ export const DEFAULT_PLATFORM_FEE_RATES: PlatformFeeRates = {
 };
 
 /**
+ * Rates for a competition the platform fee has been waived on.
+ *
+ * Expressed as zeroed RATES rather than a flag threaded through every caller,
+ * because the fee is already computed from rates in six places and a seventh
+ * argument at each one is six chances to forget it. Zero rates give zero fee
+ * everywhere by construction.
+ *
+ * This waives only the PLATFORM's cut. Stripe still takes its processing fee —
+ * that is Stripe's money, not ours to forgive.
+ */
+export const WAIVED_PLATFORM_FEE_RATES: PlatformFeeRates = {
+  tournamentPercent: 0,
+  leaguePerPlayerCents: 0,
+  leaguePerTeamCents: 0,
+};
+
+/**
  * The platform's cut for one charge, in cents.
  *
  * `chargeBaseCents` is the organizer's net for THIS charge — a whole team fee

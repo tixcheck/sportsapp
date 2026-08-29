@@ -126,7 +126,9 @@ export default async function OrgPage({
 
       <Section
         title="Reverse Pairs"
-        emptyText="No Reverse Pairs events yet."
+        newHref={`/orgs/${orgId}/reverse-pairs/new`}
+        newLabel="New Reverse Pairs"
+        emptyText="No Reverse Pairs events yet. Create one, add your pairs, and draw the night."
         items={reversePairs}
         hrefFor={(c) => `/orgs/${orgId}/reverse-pairs/${c.id}`}
       />

@@ -55,7 +55,7 @@ import {
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
-  getPlatformFeeRates,
+  getPlatformFeeRatesFor,
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
@@ -129,7 +129,7 @@ export default async function LeaguePage({
   const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
     await Promise.all([
       getCompetitionPaymentSettings(league.id),
-      getPlatformFeeRates(),
+      getPlatformFeeRatesFor(league.id),
       getPaymentAccount(orgId),
       // RLS scopes both; a non-organizer simply gets empty lists.
       getCompetitionAudit(league.id),

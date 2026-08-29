@@ -67,7 +67,10 @@ export async function getPaymentAccount(
 // ---------------------------------------------------------------------------
 
 import type { PlatformFeeRates } from "@/lib/payments/platform-fee";
-import { DEFAULT_PLATFORM_FEE_RATES } from "@/lib/payments/platform-fee";
+import {
+  DEFAULT_PLATFORM_FEE_RATES,
+  WAIVED_PLATFORM_FEE_RATES,
+} from "@/lib/payments/platform-fee";
 
 export type CompetitionPaymentSettings = {
   registrationFeeCents: number;
@@ -171,6 +174,35 @@ export async function getPlatformFeeRates(): Promise<PlatformFeeRates> {
     leaguePerPlayerCents: r.league_per_player_cents,
     leaguePerTeamCents: r.league_per_team_cents,
   };
+}
+
+/**
+ * The rates that apply to ONE competition.
+ *
+ * The same global rates as everyone else, unless a platform admin has waived
+ * the fee for this event — a free run while the platform is being promoted.
+ * Returns zeroed rates in that case, so every fee calculation downstream comes
+ * out at zero without knowing the waiver exists.
+ *
+ * Fails toward CHARGING: an unreadable competition row falls back to the global
+ * rates. Silently waiving because a read failed would hand the platform's fee
+ * to nobody and nobody would notice.
+ */
+export async function getPlatformFeeRatesFor(
+  competitionId: string,
+): Promise<PlatformFeeRates> {
+  const supabase = await createClient();
+  const [rates, { data }] = await Promise.all([
+    getPlatformFeeRates(),
+    supabase
+      .from("competitions")
+      .select("platform_fee_waived")
+      .eq("id", competitionId)
+      .maybeSingle(),
+  ]);
+  return (data as { platform_fee_waived: boolean } | null)?.platform_fee_waived
+    ? WAIVED_PLATFORM_FEE_RATES
+    : rates;
 }
 
 export type TeamPaymentRow = {

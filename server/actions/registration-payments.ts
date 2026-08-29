@@ -8,7 +8,7 @@ import { getStripe } from "@/lib/payments/stripe";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
-  getPlatformFeeRates,
+  getPlatformFeeRatesFor,
   getTeamPaymentRows,
 } from "@/lib/queries/payments";
 import { getTeamRoster } from "@/lib/queries/roster";
@@ -87,7 +87,7 @@ export async function startRegistrationCheckoutAction(
 
   const [settings, rates, account] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(c.id),
     getPaymentAccount(c.org_id),
   ]);
 
@@ -269,7 +269,7 @@ export async function startShareCheckoutAction(
 
   const [settings, rates, account, rows, roster] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(c.id),
     getPaymentAccount(c.org_id),
     getTeamPaymentRows(team.data),
     getTeamRoster(team.data),
@@ -493,7 +493,7 @@ export async function coverRemainingBalanceAction(
 
   const [settings, rates, account, rows] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(c.id),
     getPaymentAccount(c.org_id),
     getTeamPaymentRows(team.data),
   ]);
@@ -687,7 +687,7 @@ export async function startIndividualCheckoutAction(
 
   const [settings, rates, account] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(c.id),
     getPaymentAccount(c.org_id),
   ]);
 
@@ -851,7 +851,7 @@ export async function startEtransferAction(
 
   const [settings, rates] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRates(),
+    getPlatformFeeRatesFor(c.id),
   ]);
 
   if (!settings.etransferEmail) {
