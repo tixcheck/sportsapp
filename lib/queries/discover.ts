@@ -85,7 +85,11 @@ export async function findPublicCompetitions(
   let request = supabase
     .from("competitions")
     .select(COLUMNS)
-    .eq("visibility", "public");
+    .eq("visibility", "public")
+    // Only types that have a public page. Listing one that doesn't hands the
+    // searcher a link to a route that cannot serve it, which is worse than not
+    // appearing at all.
+    .in("type", ["league", "tournament", "kotc"]);
 
   if (q) {
     // Escape the PostgREST `or` separators so a comma or paren in the query is

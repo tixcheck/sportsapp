@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  competitionPath,
+  hasPublicPage,
   isCompetitionDone,
   WRAP_UP_GRACE_DAYS,
   type MyCompetition,
@@ -108,5 +110,24 @@ describe("isCompetitionDone", () => {
     expect(isCompetitionDone(comp({ lastMatchAt: daysAgo(200) }), NOW)).toBe(
       true,
     );
+  });
+});
+
+describe("competitionPath", () => {
+  it("sends each type to the route that serves it", () => {
+    expect(competitionPath("league", "summer")).toBe("/l/summer");
+    expect(competitionPath("tournament", "summer")).toBe("/t/summer");
+    // Was falling through to /l/, which cannot serve a KotC event.
+    expect(competitionPath("kotc", "summer")).toBe("/k/summer");
+  });
+});
+
+describe("hasPublicPage", () => {
+  it("is false for a type with no public route yet", () => {
+    expect(hasPublicPage("league")).toBe(true);
+    expect(hasPublicPage("tournament")).toBe(true);
+    expect(hasPublicPage("kotc")).toBe(true);
+    // Reverse Pairs has no public page, so it must not be linked to.
+    expect(hasPublicPage("reverse_pairs")).toBe(false);
   });
 });

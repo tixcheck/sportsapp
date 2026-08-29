@@ -159,5 +159,21 @@ export async function getMyPendingInvites(): Promise<PendingInvite[]> {
 
 /** The public path for a competition, by type. */
 export function competitionPath(type: string, slug: string): string {
-  return type === "tournament" ? `/t/${slug}` : `/l/${slug}`;
+  // Each type has its own public route. KotC was falling through to /l/, which
+  // does not serve it — a pair whose member opened it from their dashboard got
+  // a league page that could not find their event.
+  if (type === "tournament") return `/t/${slug}`;
+  if (type === "kotc") return `/k/${slug}`;
+  return `/l/${slug}`;
+}
+
+/**
+ * Whether a competition type has a public page yet.
+ *
+ * Reverse Pairs does not. Until it does it must stay out of anywhere that links
+ * to one — a search result pointing at a route that cannot serve it is worse
+ * than not being listed.
+ */
+export function hasPublicPage(type: string): boolean {
+  return type === "league" || type === "tournament" || type === "kotc";
 }
