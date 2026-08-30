@@ -221,8 +221,11 @@ export function RegistrationFeeCard({
                   </span>
                 </span>
                 <span className="text-muted-foreground text-xs">
-                  Teams send the fee straight to you and register as pending
-                  until you confirm it arrived. Leave blank to take cards only.
+                  {unitLabel === "team"
+                    ? "Teams"
+                    : `${unitLabel[0].toUpperCase()}${unitLabel.slice(1)}s`}{" "}
+                  send the fee straight to you and register as pending until you
+                  confirm it arrived. Leave blank to take cards only.
                 </span>
                 <Input
                   type="email"
@@ -293,7 +296,12 @@ export function RegistrationFeeCard({
 
             <dl className="bg-paper-sunken space-y-1.5 rounded-lg p-3 text-sm tabular-nums">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Team pays</dt>
+                <dt className="text-muted-foreground">
+                  {unitLabel === "team"
+                    ? "Team"
+                    : unitLabel[0].toUpperCase() + unitLabel.slice(1)}{" "}
+                  pays
+                </dt>
                 <dd className="font-semibold">
                   {formatCents(quote.totalCents)}
                 </dd>
