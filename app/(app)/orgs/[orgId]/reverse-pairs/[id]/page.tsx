@@ -2,10 +2,18 @@ import { notFound } from "next/navigation";
 
 import { getReversePairs } from "@/lib/queries/reverse-pairs";
 import { getUserOrgs } from "@/lib/auth/user";
+import {
+  getCompetitionPaymentSettings,
+  getPlatformFeeRatesFor,
+  getPaymentAccount,
+} from "@/lib/queries/payments";
+import { paymentAccountStatus } from "@/lib/payments/account-status";
+import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { GenerateReversePairsPanel } from "@/components/reverse-pairs/generate-panel";
 import { PartnerMatrixCard } from "@/components/reverse-pairs/partner-matrix";
 import { ReversePairsPairsCard } from "@/components/reverse-pairs/pairs-card";
 import { ReversePairsPublishCard } from "@/components/reverse-pairs/publish-card";
+import { ReversePairsSettingsCard } from "@/components/reverse-pairs/settings-card";
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 export default async function ReversePairsPage({
@@ -20,6 +28,14 @@ export default async function ReversePairsPage({
   const orgs = await getUserOrgs();
   const role = orgs.find((o) => o.id === orgId)?.role;
   const isAdmin = role === "owner" || role === "admin";
+
+  const [feeSettings, feeRates, orgAccount] = isAdmin
+    ? await Promise.all([
+        getCompetitionPaymentSettings(detail.competitionId),
+        getPlatformFeeRatesFor(detail.competitionId),
+        getPaymentAccount(orgId),
+      ])
+    : [null, null, null];
 
   const played = detail.games.filter((g) => g.scoreA !== null).length;
   const counts = [...detail.gamesPerPair.values()];
@@ -53,6 +69,45 @@ export default async function ReversePairsPage({
           competitionId={detail.competitionId}
           slug={detail.slug}
           isPublic={detail.visibility === "public"}
+        />
+      )}
+
+      {isAdmin && (
+        <ReversePairsSettingsCard
+          competitionId={detail.competitionId}
+          timezone={detail.timezone}
+          pairCount={detail.pairs.length}
+          initial={{
+            name: detail.name,
+            date: detail.startDate ?? "",
+            venue: detail.venue ?? "",
+            courts: detail.settings.courts,
+            minutesPerGame: detail.settings.minutesPerGame,
+            pointsPerGame: detail.pointsPerGame,
+            registrationOpen: detail.settings.registrationOpen,
+            registrationDeadline: detail.settings.registrationDeadline,
+            maxPairs: detail.settings.maxPairs,
+          }}
+        />
+      )}
+
+      {isAdmin && feeSettings && feeRates && (
+        <RegistrationFeeCard
+          competitionId={detail.competitionId}
+          competitionType="reverse_pairs"
+          initial={{
+            feeDollars: feeSettings.registrationFeeCents / 100,
+            allowCaptainPays: feeSettings.allowCaptainPays,
+            allowSplitPayment: feeSettings.allowSplitPayment,
+            taxEnabled: feeSettings.taxEnabled,
+            taxPercent: feeSettings.taxPercent,
+            paymentRequired: feeSettings.paymentRequired,
+            etransferEmail: feeSettings.etransferEmail ?? "",
+            etransferNote: feeSettings.etransferNote ?? "",
+          }}
+          rates={feeRates}
+          payoutsReady={paymentAccountStatus(orgAccount).canAcceptPayments}
+          unitLabel="pair"
         />
       )}
 

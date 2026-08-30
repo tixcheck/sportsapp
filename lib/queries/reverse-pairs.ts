@@ -38,13 +38,23 @@ export interface ReversePairsDetail {
   visibility: string;
   timezone: string;
   venue: string | null;
+  /** "YYYY-MM-DD" — the day it's played. */
+  startDate: string | null;
   orgId: string;
   settings: {
     courts: number;
     rounds: number;
     seed: number;
     minutesPerGame: number;
+    registrationOpen: boolean;
+    /** ISO instant, or null for no deadline. */
+    registrationDeadline: string | null;
+    maxPairs: number | null;
   };
+  /** Points a game is played to — the target, not a best-of. */
+  pointsPerGame: number;
+  /** Whether a pair may sign up right now: open, in time, and not full. */
+  registrationLive: boolean;
   pairs: ReversePairsPair[];
   games: ReversePairsGameRow[];
   /** Who sat out each round, in round order. */
@@ -86,7 +96,9 @@ export async function getReversePairs(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("id, name, slug, status, visibility, timezone, venue, org_id")
+    .select(
+      "id, name, slug, status, visibility, timezone, venue, start_date, org_id, match_format",
+    )
     .eq("id", competitionId)
     .maybeSingle();
   if (!comp) return null;
@@ -95,7 +107,9 @@ export async function getReversePairs(
     await Promise.all([
       supabase
         .from("reverse_pairs_settings")
-        .select("courts, rounds, seed, minutes_per_game")
+        .select(
+          "courts, rounds, seed, minutes_per_game, registration_open, registration_deadline, max_pairs",
+        )
         .eq("competition_id", competitionId)
         .maybeSingle(),
       supabase
@@ -183,6 +197,16 @@ export async function getReversePairs(
 
   const courts = (settings?.courts as number | undefined) ?? 2;
 
+  // Whether a pair could actually sign up this second. The same three rules the
+  // register function enforces, so the form matches what pressing it would do.
+  const deadline = (settings?.registration_deadline as string | null) ?? null;
+  const maxPairs = (settings?.max_pairs as number | null) ?? null;
+  const registrationLive =
+    comp.visibility === "public" &&
+    ((settings?.registration_open as boolean | undefined) ?? false) &&
+    (!deadline || new Date(deadline).getTime() > Date.now()) &&
+    (maxPairs === null || pairs.length < maxPairs);
+
   return {
     competitionId: comp.id as string,
     name: comp.name as string,
@@ -191,13 +215,23 @@ export async function getReversePairs(
     visibility: comp.visibility as string,
     timezone: (comp.timezone as string | null) ?? "America/Toronto",
     venue: (comp.venue as string | null) ?? null,
+    startDate: comp.start_date ? String(comp.start_date).slice(0, 10) : null,
     orgId: comp.org_id as string,
     settings: {
       courts,
       rounds: (settings?.rounds as number | undefined) ?? 8,
       seed: (settings?.seed as number | undefined) ?? 1,
       minutesPerGame: (settings?.minutes_per_game as number | undefined) ?? 15,
+      registrationOpen:
+        (settings?.registration_open as boolean | undefined) ?? false,
+      registrationDeadline:
+        (settings?.registration_deadline as string | null) ?? null,
+      maxPairs: (settings?.max_pairs as number | null) ?? null,
     },
+    pointsPerGame:
+      (comp.match_format as { setsToPoints?: number[] } | null)
+        ?.setsToPoints?.[0] ?? 25,
+    registrationLive,
     pairs,
     games: rows,
     byes,

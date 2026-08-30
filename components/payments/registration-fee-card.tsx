@@ -68,6 +68,10 @@ function Toggle({
 /**
  * Set what a team pays to register.
  *
+ * `unitLabel` renames the entrant for formats where "team" is the wrong noun —
+ * a Reverse Pairs entrant is a pair, and calling it a team on the screen where
+ * you set its price reads like a different product.
+ *
  * The organizer types what they want to NET; the breakdown shows what the payer
  * is actually charged. Showing both is the point — a pass-through model is only
  * honest if the person setting the price can see the number the payer will see,
@@ -76,12 +80,15 @@ function Toggle({
 export function RegistrationFeeCard({
   competitionId,
   competitionType,
+  unitLabel = "team",
   initial,
   rates,
   payoutsReady,
 }: {
   competitionId: string;
   competitionType: CompetitionType;
+  /** What one entrant is called: "team" (default) or e.g. "pair". */
+  unitLabel?: string;
   initial: RegistrationFeeInput;
   rates: PlatformFeeRates;
   /** Whether the org's Stripe account can actually take money yet. */
@@ -134,22 +141,22 @@ export function RegistrationFeeCard({
       <CardHeader>
         <CardTitle>Registration fee</CardTitle>
         <CardDescription>
-          What a team pays to register. Leave it at zero to keep registration
-          free.
+          What a {unitLabel} pays to register. Leave it at zero to keep
+          registration free.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
         {!payoutsReady && !isFree && (
           <p className="rounded-lg bg-amber-100 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            You can set a price now, but teams cannot pay by card until this
-            organization finishes connecting Stripe. Cash and e-transfer still
-            work as they always have.
+            You can set a price now, but {unitLabel}s cannot pay by card until
+            this organization finishes connecting Stripe. Cash and e-transfer
+            still work as they always have.
           </p>
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="fee">You receive, per team</Label>
+          <Label htmlFor="fee">You receive, per {unitLabel}</Label>
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-sm">$</span>
             <Input
@@ -174,30 +181,30 @@ export function RegistrationFeeCard({
           <>
             <div className="space-y-2">
               <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                How teams can pay
+                How {unitLabel}s can pay
               </p>
               <Toggle
-                label="Captain pays for the team"
-                desc="One payment covering the whole team fee."
+                label={`One person pays for the ${unitLabel}`}
+                desc={`A single payment covering the whole ${unitLabel} fee.`}
                 checked={value.allowCaptainPays}
                 onChange={(v) => set({ allowCaptainPays: v })}
               />
               <Toggle
                 label="Players pay their own share"
-                desc="The team is confirmed once every share is in."
+                desc={`The ${unitLabel} is confirmed once every share is in.`}
                 checked={value.allowSplitPayment}
                 onChange={(v) => set({ allowSplitPayment: v })}
               />
               {noMode && (
                 <p className="text-destructive text-sm">
-                  Pick at least one way for teams to pay.
+                  Pick at least one way for {unitLabel}s to pay.
                 </p>
               )}
             </div>
 
             <Toggle
               label="Registration requires payment"
-              desc="A team is not confirmed until it has paid."
+              desc={`A ${unitLabel} is not confirmed until it has paid.`}
               checked={value.paymentRequired}
               onChange={(v) => set({ paymentRequired: v })}
             />
@@ -232,7 +239,7 @@ export function RegistrationFeeCard({
                     Anything they should include in the transfer message
                   </span>
                   <Input
-                    placeholder="Put your team name in the message"
+                    placeholder={`Put your ${unitLabel} name in the message`}
                     value={value.etransferNote ?? ""}
                     onChange={(e) => set({ etransferNote: e.target.value })}
                   />
@@ -250,8 +257,8 @@ export function RegistrationFeeCard({
                       rates,
                     }),
                   )}{" "}
-                  fee per team can&apos;t come out of it — it&apos;s recorded as
-                  owed and settled separately.
+                  fee per {unitLabel} can&apos;t come out of it — it&apos;s
+                  recorded as owed and settled separately.
                 </p>
               )}
             </div>
@@ -311,7 +318,7 @@ export function RegistrationFeeCard({
               </div>
             </dl>
             <p className="text-muted-foreground text-xs">
-              Based on a captain paying the full team fee. Shares paid
+              Based on one person paying the full {unitLabel} fee. Shares paid
               individually are priced per player.
             </p>
           </>

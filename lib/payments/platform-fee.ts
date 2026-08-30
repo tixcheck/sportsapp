@@ -59,9 +59,9 @@ export const WAIVED_PLATFORM_FEE_RATES: PlatformFeeRates = {
  * for `captain_pays_team`, one player's share for `player_share`. The
  * percentage types care about it; the flat league rates don't.
  *
- * KotC is priced like a tournament: it's a one-off event with an entry fee,
- * which is what the tournament percentage was chosen for. Leagues are the odd
- * one out because they're the recurring, per-player product.
+ * KotC and Reverse Pairs are priced like a tournament: they're one-off events
+ * with an entry fee, which is what the tournament percentage was chosen for.
+ * Leagues are the odd one out because they're the recurring, per-player product.
  */
 export function platformFeeCentsFor({
   competitionType,

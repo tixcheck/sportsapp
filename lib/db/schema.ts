@@ -189,6 +189,9 @@ export const competitionType = pgEnum("competition_type", [
   "league",
   "tournament",
   "kotc",
+  // Migration 0096. Its fixtures live in reverse_pairs_* rather than matches —
+  // three pairs a side doesn't fit a home/away row.
+  "reverse_pairs",
 ]);
 
 export const sport = pgEnum("sport", ["indoor6", "beach2", "coed4"]);

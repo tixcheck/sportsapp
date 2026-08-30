@@ -495,3 +495,149 @@ export async function unpublishReversePairsAction(
   revalidatePath("/orgs");
   return { slug: data.slug as string };
 }
+
+const settingsSchema = z.object({
+  competitionId: idSchema,
+  name: z.string().trim().min(2, "Name is too short.").max(100),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
+  venue: z.string().trim().max(120).optional(),
+  courts: z.number().int().min(1).max(12),
+  minutesPerGame: z.number().int().min(5).max(120),
+  pointsPerGame: z.number().int().min(5).max(99),
+  registrationOpen: z.boolean(),
+  /** "YYYY-MM-DDTHH:mm" in the event's timezone, or empty for no deadline. */
+  registrationDeadline: z.string().trim().optional(),
+  maxPairs: z.number().int().min(2).max(200).nullable(),
+});
+
+export type ReversePairsSettingsInput = z.input<typeof settingsSchema>;
+
+/**
+ * Edit the event.
+ *
+ * Everything the wizard asked plus the three registration controls, in one
+ * form: an organizer changing the venue and opening sign-ups is doing one
+ * thing, and two cards would make it two saves that can half-fail.
+ *
+ * Courts is here rather than only on the draw panel because it decides how many
+ * pairs the event needs, which the registration cap has to agree with — and
+ * that is a decision made before anyone signs up, not at draw time.
+ */
+export async function updateReversePairsSettingsAction(
+  input: ReversePairsSettingsInput,
+): Promise<ActionError | { saved: true }> {
+  const parsed = settingsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: v.competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change these settings." };
+  }
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("timezone")
+    .eq("id", v.competitionId)
+    .single();
+  const tz = (comp?.timezone as string | null) ?? DEFAULT_TIMEZONE;
+
+  // The organizer types a local wall-clock time; the column is TIMESTAMPTZ.
+  // Parsing it in the event's zone is what makes "midnight on the 18th" mean
+  // midnight where the tournament is, not wherever the server happens to be.
+  let deadline: string | null = null;
+  if (v.registrationDeadline) {
+    const dt = DateTime.fromISO(v.registrationDeadline, { zone: tz });
+    if (!dt.isValid) return { error: "That deadline isn't a valid date." };
+    deadline = dt.toISO();
+  }
+
+  const { error: compErr } = await supabase
+    .from("competitions")
+    .update({
+      name: v.name,
+      start_date: v.date,
+      end_date: v.date,
+      venue: v.venue || null,
+      match_format: {
+        bestOf: 1,
+        setsToPoints: [v.pointsPerGame],
+        winBy: 1,
+      },
+    })
+    .eq("id", v.competitionId);
+  if (compErr) return { error: compErr.message };
+
+  const { error: setErr } = await supabase
+    .from("reverse_pairs_settings")
+    .update({
+      courts: v.courts,
+      minutes_per_game: v.minutesPerGame,
+      registration_open: v.registrationOpen,
+      registration_deadline: deadline,
+      max_pairs: v.maxPairs,
+    })
+    .eq("competition_id", v.competitionId);
+  if (setErr) return { error: setErr.message };
+
+  revalidatePath("/orgs");
+  return { saved: true };
+}
+
+const registerSchema = z.object({
+  competitionId: idSchema,
+  pairName: z.string().trim().min(2, "Your pair needs a name.").max(80),
+  partnerEmail: z
+    .string()
+    .trim()
+    .email("That doesn't look like an email.")
+    .optional()
+    .or(z.literal("")),
+  partnerName: z.string().trim().max(80).optional(),
+});
+
+export type RegisterReversePairInput = z.input<typeof registerSchema>;
+
+/**
+ * Sign yourself and your partner up.
+ *
+ * The gates live in `register_reverse_pair` rather than here: registration
+ * being open, the deadline, and the last spot are all races, and checking them
+ * in the app then inserting would let two pairs through the same final place.
+ * This translates the outcome into something a person can read.
+ */
+export async function registerReversePairAction(
+  input: RegisterReversePairInput,
+): Promise<ActionError | { teamId: string }> {
+  const parsed = registerSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sign in first, then register your pair." };
+
+  const { data, error } = await supabase.rpc("register_reverse_pair", {
+    _competition_id: v.competitionId,
+    _pair_name: v.pairName,
+    _partner_email: v.partnerEmail || null,
+    _partner_name: v.partnerName || null,
+  });
+  if (error) {
+    // The function raises readable messages for every rule it enforces, so the
+    // organizer's own wording reaches the player rather than a Postgres code.
+    return { error: error.message.replace(/^.*?:\s*/, "") };
+  }
+
+  revalidatePath("/orgs");
+  return { teamId: data as string };
+}
