@@ -327,11 +327,14 @@ export default async function LeaguePage({
   );
 
   /**
-   * The nth league night after the last scheduled game. Defaults the playoff
-   * dates to the slots the league already plays in, which is nearly always
-   * right and is a date picker away from being corrected when it isn't.
+   * The nth league night after the last scheduled game.
+   *
+   * A week at a time from the last fixture, so it lands on whatever night the
+   * league actually plays — Ross & Rachel run Thursdays while Top Gun and
+   * Sirens run Tuesdays, and a helper that assumed one of them would be wrong
+   * for the other.
    */
-  function nextTuesdayAfter(
+  function nextLeagueNightAfter(
     games: { scheduledAt: string | null }[],
     weeks = 1,
   ): string {
@@ -368,8 +371,8 @@ export default async function LeaguePage({
           )}
           hasPlayoff={brackets.length > 0}
           initial={{
-            date1: nextTuesdayAfter(schedule),
-            date2: nextTuesdayAfter(schedule, 2),
+            date1: nextLeagueNightAfter(schedule),
+            date2: nextLeagueNightAfter(schedule, 2),
             startTime: league.slotStartTime,
             minutes: league.minutesPerGame,
           }}
