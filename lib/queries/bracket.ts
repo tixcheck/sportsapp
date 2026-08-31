@@ -57,7 +57,11 @@ export interface BracketView {
   championName: string | null;
 }
 
-export type BracketTrackKey = "championship" | "consolation" | null;
+export type BracketTrackKey =
+  | "championship"
+  | "consolation"
+  | "placement"
+  | null;
 
 export interface BracketTrackView {
   /** Null = a single-elim bracket; otherwise the dual-format track. */
@@ -79,10 +83,16 @@ type BracketMatchRow = {
   scheduled_at: string | null;
 };
 
-const TRACK_ORDER: BracketTrackKey[] = ["championship", "consolation", null];
+const TRACK_ORDER: BracketTrackKey[] = [
+  "championship",
+  "consolation",
+  "placement",
+  null,
+];
 const TRACK_LABEL: Record<string, string> = {
   championship: "Championship",
   consolation: "Consolation",
+  placement: "Placement games",
 };
 
 /**
@@ -154,7 +164,10 @@ export async function getBrackets(
     setsByMatch.set(s.match_id, list);
   }
 
-  const buildView = (trackMatches: BracketMatchRow[]): BracketView => {
+  const buildView = (
+    trackMatches: BracketMatchRow[],
+    isTree: boolean,
+  ): BracketView => {
     const trackTeams = new Set(
       trackMatches
         .flatMap((m) => [m.home_team_id, m.away_team_id])
@@ -207,7 +220,12 @@ export async function getBrackets(
     for (let r = 1; r <= maxRound; r++) {
       rounds.push(views.filter((v) => v.round === r));
     }
-    const finalMatch = views.find((v) => v.round === maxRound);
+    // A placement track is a set of fixtures, not a tree: its last round is
+    // simply the last group of games, and the team that happens to win one of
+    // them has won nothing overall. Crowning from it would be a lie.
+    const finalMatch = isTree
+      ? views.find((v) => v.round === maxRound)
+      : undefined;
     const championTeamId =
       finalMatch && finalMatch.status === "completed"
         ? finalMatch.winnerTeamId
@@ -228,7 +246,7 @@ export async function getBrackets(
     out.push({
       track,
       label: track ? TRACK_LABEL[track] : null,
-      view: buildView(trackMatches),
+      view: buildView(trackMatches, track !== "placement"),
     });
   }
   return out;

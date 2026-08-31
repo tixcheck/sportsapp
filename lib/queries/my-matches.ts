@@ -421,7 +421,7 @@ export interface PlayoffProjection {
   teamId: string;
   teamName: string;
   /** Null for a single-elim bracket. */
-  track: "championship" | "consolation" | null;
+  track: "championship" | "consolation" | "placement" | null;
   seed: number;
   /** Round-1 opponent; null = a bye (or, when madeBracket is false, no matchup). */
   opponentName: string | null;

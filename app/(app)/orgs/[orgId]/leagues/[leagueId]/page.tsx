@@ -38,6 +38,7 @@ import { PushScheduleDialog } from "@/components/league/push-schedule-dialog";
 import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason-dialog";
 import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
+import { GenerateLeaguePlayoffPanel } from "@/components/league/generate-playoff-panel";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
 import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
@@ -322,6 +323,25 @@ export default async function LeaguePage({
     </Card>
   );
 
+  /**
+   * The nth league night after the last scheduled game. Defaults the playoff
+   * dates to the slots the league already plays in, which is nearly always
+   * right and is a date picker away from being corrected when it isn't.
+   */
+  function nextTuesdayAfter(
+    games: { scheduledAt: string | null }[],
+    weeks = 1,
+  ): string {
+    const last = games
+      .map((m) => m.scheduledAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+    const base = last ? new Date(last) : new Date();
+    base.setDate(base.getDate() + 7 * weeks);
+    return base.toISOString().slice(0, 10);
+  }
+
   const playoffsTab = (
     <Card>
       <CardHeader>
@@ -332,6 +352,26 @@ export default async function LeaguePage({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* The two-night format, where everyone plays twice on the first
+            night. Offered first because it is what a league with a full
+            midweek slot usually wants; the plain bracket below still suits a
+            one-night finish. */}
+        <GenerateLeaguePlayoffPanel
+          competitionId={league.id}
+          competitionName={league.name}
+          teamCount={standings.reduce(
+            (n, g) => n + g.rows.filter((r) => !r.withdrawn).length,
+            0,
+          )}
+          hasPlayoff={brackets.length > 0}
+          initial={{
+            date1: nextTuesdayAfter(schedule),
+            date2: nextTuesdayAfter(schedule, 2),
+            startTime: league.slotStartTime,
+            minutes: league.minutesPerGame,
+          }}
+        />
+
         <LeaguePlayoffPanel
           competitionId={league.id}
           sport={league.sport}
