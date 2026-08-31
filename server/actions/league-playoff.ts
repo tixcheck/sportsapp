@@ -6,9 +6,9 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import {
+  courtPriority,
   leaguePlayoffProblem,
   planLeaguePlayoff,
-  type PlayoffGame,
   type TeamSource,
 } from "@/lib/scheduler/league-playoff";
 import { loadStandings, type StandingsGroup } from "@/lib/standings/compute";
@@ -168,33 +168,33 @@ export async function generateLeaguePlayoffAction(
 
   // Prime courts first within each wave, so the games that matter most land on
   // the best floor. The final gets the first prime court of all.
+  // Prime courts first, and within each group the organizer's own list order.
+  // That order is a preference — Helix list court 6 last because it is the odd
+  // one out — and re-sorting it numerically would quietly overrule them.
   const ranked = courtList?.length
     ? [...courtList]
-        .sort(
-          (a, b) =>
-            Number(b.prime) - Number(a.prime) ||
-            // Numeric where the labels are numbers, so court 6 doesn't sort
-            // after court 15 on a printed sheet.
-            (Number(a.label) || 0) - (Number(b.label) || 0) ||
-            a.label.localeCompare(b.label),
-        )
+        .map((c, i) => ({ ...c, i }))
+        .sort((a, b) => Number(b.prime) - Number(a.prime) || a.i - b.i)
         .map((c) => c.label)
     : courts;
 
-  const importance = (g: PlayoffGame) =>
-    g.label === "Final" ? 0 : g.track === "championship" ? 1 : 2;
+  // Which seed is in a game, for court ranking. Known only where the teams
+  // are — a semi-final's are decided on the night.
+  const seedOfSource = (t: TeamSource) => (t.kind === "seed" ? t.seed : null);
 
   const rows = [] as Record<string, unknown>[];
   for (let night = 1; night <= nightsNeeded; night++) {
     for (const wave of [0, 1, 2]) {
       const inWave = plan.games
         .filter((g) => g.night === night && g.wave === wave)
-        .sort(
-          (a, b) =>
-            importance(a) - importance(b) ||
-            a.round - b.round ||
-            a.position - b.position,
-        );
+        // Best game on the best floor: the top seeds' fixtures take the prime
+        // courts, and a semi-final outranks a consolation game even when its
+        // teams are still unknown.
+        .sort((a, b) => {
+          const [ta, sa] = courtPriority(a, seedOfSource);
+          const [tb, sb] = courtPriority(b, seedOfSource);
+          return ta - tb || sa - sb || a.position - b.position;
+        });
       if (inWave.length === 0) continue;
 
       const at = DateTime.fromISO(`${dates[night - 1]}T${startTime}`, {

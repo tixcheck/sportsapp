@@ -12,7 +12,7 @@ import { DraftBoard } from "@/components/registration/draft-board";
 import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
-import { getBrackets } from "@/lib/queries/bracket";
+import { getBrackets, getPlayoffSchedule } from "@/lib/queries/bracket";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
@@ -39,6 +39,7 @@ import { AddTeamsMidSeasonDialog } from "@/components/league/add-teams-midseason
 import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { GenerateLeaguePlayoffPanel } from "@/components/league/generate-playoff-panel";
+import { PlayoffSchedule } from "@/components/league/playoff-schedule";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
 import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
@@ -105,6 +106,7 @@ export default async function LeaguePage({
     freeAgents,
     playerStats,
     ladderNights,
+    playoffGames,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -116,6 +118,7 @@ export default async function LeaguePage({
     getFreeAgents(leagueId),
     getPlayerStats(leagueId),
     getLadderNightStandings(leagueId),
+    getPlayoffSchedule(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -370,6 +373,12 @@ export default async function LeaguePage({
             startTime: league.slotStartTime,
             minutes: league.minutesPerGame,
           }}
+        />
+
+        <PlayoffSchedule
+          games={playoffGames}
+          sport={league.sport}
+          timezone={league.timezone}
         />
 
         <LeaguePlayoffPanel

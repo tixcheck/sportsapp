@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   consolationPairs,
+  courtPriority,
   leaguePlayoffProblem,
   planLeaguePlayoff,
+  playoffGameLabel,
+  playoffSlotSource,
   type PlayoffGame,
   type TeamSource,
 } from "@/lib/scheduler/league-playoff";
@@ -193,5 +196,105 @@ describe("planLeaguePlayoff", () => {
     expect(() => planLeaguePlayoff({ seeds: seeds(13), topCount: 8 })).toThrow(
       /odd number/,
     );
+  });
+});
+
+describe("playoffGameLabel", () => {
+  it("names the championship rounds from the tree's depth", () => {
+    expect(playoffGameLabel("championship", 1, 1, 3)).toBe("Quarter-final");
+    expect(playoffGameLabel("championship", 2, 1, 3)).toBe("Semi-final");
+    expect(playoffGameLabel("championship", 3, 1, 3)).toBe("Final");
+    expect(playoffGameLabel("championship", 3, 2, 3)).toBe("Bronze");
+  });
+
+  it("names the beaten quarter-finalists' game by the places it decides", () => {
+    expect(playoffGameLabel("placement", 1, 1, 3)).toBe("5th–8th");
+    // A sixteen-team bracket: its first-round losers play for 9th to 16th.
+    expect(playoffGameLabel("placement", 1, 1, 4)).toBe("9th–16th");
+  });
+
+  it("calls the rest consolation", () => {
+    expect(playoffGameLabel("placement", 2, 1, 3)).toBe("Consolation");
+    expect(playoffGameLabel("placement", 3, 3, 3)).toBe("Consolation");
+  });
+});
+
+describe("playoffSlotSource", () => {
+  /**
+   * A blank slot on a schedule reads as a mistake. Until the quarter-final is
+   * played, "Loser of QF1" IS the fixture.
+   */
+  it("says where an undecided team comes from", () => {
+    expect(playoffSlotSource("championship", 2, 1, 3)).toEqual({
+      home: "Winner of QF1",
+      away: "Winner of QF2",
+    });
+    expect(playoffSlotSource("championship", 3, 1, 3)).toEqual({
+      home: "Winner of SF1",
+      away: "Winner of SF2",
+    });
+    expect(playoffSlotSource("placement", 1, 2, 3)).toEqual({
+      home: "Loser of QF3",
+      away: "Loser of QF4",
+    });
+  });
+
+  it("routes the bronze game from the beaten semi-finalists", () => {
+    // Not the winners of the round below — the exception in the whole tree.
+    expect(playoffSlotSource("championship", 3, 2, 3)).toEqual({
+      home: "Loser of SF1",
+      away: "Loser of SF2",
+    });
+  });
+
+  it("has nothing to say about games whose teams are already known", () => {
+    expect(playoffSlotSource("championship", 1, 1, 3)).toBeNull();
+    expect(playoffSlotSource("placement", 2, 1, 3)).toBeNull();
+  });
+});
+
+describe("courtPriority", () => {
+  const plan = planLeaguePlayoff({ seeds: seeds(14), topCount: 8 });
+  const seedOf = (s: TeamSource) => (s.kind === "seed" ? s.seed : null);
+  const order = (night: number, wave: number) =>
+    pick(plan.games, night, wave)
+      .slice()
+      .sort((a, b) => {
+        const [ta, sa] = courtPriority(a, seedOf);
+        const [tb, sb] = courtPriority(b, seedOf);
+        return ta - tb || sa - sb || a.position - b.position;
+      });
+
+  /**
+   * The organizer's rule: the top two seeds always play on prime courts. Courts
+   * are handed out in this order, so those two games have to come first.
+   */
+  it("puts the top two seeds' games first in the opening wave", () => {
+    const first = order(1, 0);
+    expect(first.slice(0, 2).map(render)).toEqual(["#1 v #8", "#2 v #7"]);
+    // Then the rest of the bracket, then the consolation field.
+    expect(first.map(render)).toEqual([
+      "#1 v #8",
+      "#2 v #7",
+      "#3 v #6",
+      "#4 v #5",
+      "#9 v #14",
+      "#10 v #13",
+      "#11 v #12",
+    ]);
+  });
+
+  it("ranks a semi-final above a consolation game with known teams", () => {
+    // The semi's teams aren't decided yet; it still deserves the better floor.
+    const second = order(1, 1);
+    expect(second.slice(0, 2).every((g) => g.label === "Semi-final")).toBe(
+      true,
+    );
+    expect(second.slice(2, 4).every((g) => g.track === "placement")).toBe(true);
+    expect(second.slice(4).every((g) => g.label === "Consolation")).toBe(true);
+  });
+
+  it("gives the final the best court of all", () => {
+    expect(order(2, 0)[0].label).toBe("Final");
   });
 });

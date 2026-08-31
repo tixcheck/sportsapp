@@ -396,3 +396,93 @@ export async function getBracketPreview(
 
   return { template, provisional: true, poolsComplete, tiedAtCutoff, teams };
 }
+
+// --- the playoff as a schedule (all tracks, in wave order) ------------------
+
+export interface PlayoffScheduleRow {
+  id: string;
+  track: string | null;
+  round: number;
+  position: number;
+  court: string | null;
+  scheduledAt: string | null;
+  homeName: string | null;
+  awayName: string | null;
+  homeSeed: number | null;
+  awaySeed: number | null;
+  status: string;
+  primeCourt: boolean;
+}
+
+/**
+ * Every playoff game a competition has, whatever track it sits on.
+ *
+ * `getBrackets` shapes matches into trees and so can only speak for the
+ * knockout half. A league playoff where the beaten quarter-finalists and the
+ * consolation field both keep playing needs the OTHER view: the whole night in
+ * the order it runs, which is the sheet an organizer actually reads.
+ *
+ * Seeds come from the season standings, so a team's number on the sheet is the
+ * one it earned over the season rather than a position within its track.
+ */
+export async function getPlayoffSchedule(
+  competitionId: string,
+): Promise<PlayoffScheduleRow[]> {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("matches")
+    .select(
+      "id, round, bracket_position, bracket_track, home_team_id, away_team_id, status, court, scheduled_at",
+    )
+    .eq("competition_id", competitionId)
+    .not("bracket_position", "is", null)
+    .order("scheduled_at", { ascending: true })
+    .order("round", { ascending: true })
+    .order("bracket_position", { ascending: true });
+  const matches = data ?? [];
+  if (matches.length === 0) return [];
+
+  const [{ data: teams }, { data: settings }, groups] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name")
+      .eq("competition_id", competitionId),
+    supabase
+      .from("league_settings")
+      .select("court_list")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    loadStandings(supabase, competitionId),
+  ]);
+
+  const name = new Map(
+    (teams ?? []).map((t) => [t.id as string, t.name as string]),
+  );
+  const seed = new Map<string, number>();
+  let n = 0;
+  for (const g of groups) {
+    for (const r of g.rows) if (!r.withdrawn) seed.set(r.teamId, ++n);
+  }
+
+  const prime = new Set(
+    ((settings?.court_list as { label: string; prime: boolean }[] | null) ?? [])
+      .filter((c) => c.prime)
+      .map((c) => c.label),
+  );
+
+  return matches.map((m) => ({
+    id: m.id as string,
+    track: (m.bracket_track as string | null) ?? null,
+    round: m.round as number,
+    position: m.bracket_position as number,
+    court: (m.court as string | null) ?? null,
+    scheduledAt: (m.scheduled_at as string | null) ?? null,
+    homeName: m.home_team_id ? (name.get(m.home_team_id) ?? null) : null,
+    awayName: m.away_team_id ? (name.get(m.away_team_id) ?? null) : null,
+    homeSeed: m.home_team_id ? (seed.get(m.home_team_id) ?? null) : null,
+    awaySeed: m.away_team_id ? (seed.get(m.away_team_id) ?? null) : null,
+    status: m.status as string,
+    primeCourt: m.court ? prime.has(m.court as string) : false,
+  }));
+}

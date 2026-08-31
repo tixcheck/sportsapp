@@ -260,3 +260,105 @@ function roundLabel(matchCount: number): string {
   if (matchCount === 4) return "Quarter-final";
   return `Round of ${matchCount * 2}`;
 }
+
+/**
+ * What to call a stored playoff game, from its track, round and position.
+ *
+ * Derived rather than stored: the label is a reading of the shape, and a copy
+ * in a column is a second thing that can disagree with the fixtures.
+ */
+export function playoffGameLabel(
+  track: string | null,
+  round: number,
+  position: number,
+  finalRound: number,
+): string {
+  if (track === "placement") {
+    // Round 1 is the beaten first-round teams, so the game decides places
+    // below the bracket's halfway point: for a top eight, 5th to 8th.
+    // Anything later is the consolation field, who were never in the bracket.
+    if (round !== 1) return "Consolation";
+    const bracketSize = 2 ** finalRound;
+    return `${bracketSize / 2 + 1}th–${bracketSize}th`;
+  }
+  if (round === finalRound) return position === 1 ? "Final" : "Bronze";
+  const gamesInRound = 2 ** (finalRound - round);
+  return roundLabel(gamesInRound);
+}
+
+/**
+ * How a game is ranked for a court: the better the game, the better the floor.
+ *
+ * Tiers first, so a semi-final outranks a consolation game whose teams are
+ * still unknown; then by the best seed playing, so the top seeds' games take
+ * the prime courts rather than whichever fixture happened to be numbered first.
+ */
+export function courtPriority(
+  g: PlayoffGame,
+  seedOf: (s: TeamSource) => number | null,
+): [number, number] {
+  const tier =
+    g.label === "Final"
+      ? 0
+      : g.track === "championship"
+        ? 1
+        : g.round === 1
+          ? 2 // the beaten quarter-finalists — still top-eight teams
+          : 3;
+  const seeds = [seedOf(g.home), seedOf(g.away)].filter(
+    (n): n is number => n != null,
+  );
+  return [tier, seeds.length ? Math.min(...seeds) : g.position];
+}
+
+/**
+ * Where an undecided game's teams come from, e.g. "Winner of QF1".
+ *
+ * A blank slot on a schedule reads as a mistake. Until the quarter-final is
+ * played, "Loser of QF1" IS the fixture, and it is what an organizer needs to
+ * see to know the night hangs together.
+ *
+ * Derived from the same position arithmetic the advancement uses, so the sheet
+ * and the routing cannot drift apart.
+ */
+export function playoffSlotSource(
+  track: string | null,
+  round: number,
+  position: number,
+  finalRound: number,
+): { home: string; away: string } | null {
+  const shortName = (r: number) => {
+    const games = 2 ** (finalRound - r);
+    if (games === 1) return "F";
+    if (games === 2) return "SF";
+    if (games === 4) return "QF";
+    return `R${r}`;
+  };
+
+  if (track === "placement") {
+    // Only the beaten first-round teams arrive here; the consolation field is
+    // known from the start and never has an undecided slot.
+    if (round !== 1) return null;
+    return {
+      home: `Loser of ${shortName(1)}${position * 2 - 1}`,
+      away: `Loser of ${shortName(1)}${position * 2}`,
+    };
+  }
+
+  if (round <= 1) return null;
+
+  // The bronze game is the exception: it takes the two beaten semi-finalists,
+  // not the winners of the round below.
+  if (round === finalRound && position === 2) {
+    return {
+      home: `Loser of ${shortName(finalRound - 1)}1`,
+      away: `Loser of ${shortName(finalRound - 1)}2`,
+    };
+  }
+
+  const prev = shortName(round - 1);
+  return {
+    home: `Winner of ${prev}${position * 2 - 1}`,
+    away: `Winner of ${prev}${position * 2}`,
+  };
+}
