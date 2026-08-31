@@ -283,12 +283,18 @@ export function playoffGameLabel(
   }
   if (round === finalRound) return position === 1 ? "Final" : "Bronze";
 
-  // Numbered, because the games above them refer to these by number:
-  // "Winner of QF2" is meaningless unless a game on the sheet says it is QF2.
-  // The sheet is ordered by court, not by position, so without this the
-  // reference points at nothing a reader can find.
   const gamesInRound = 2 ** (finalRound - round);
-  return `${roundLabel(gamesInRound)} ${position}`;
+
+  // Round one is never numbered: its teams are known, so anything feeding off
+  // it names the matchup directly ("Winner of 1v8") and a number would only be
+  // the thing that reads like a typo — the sheet is ordered by court, so
+  // bracket positions run 1, 3, 4, 2 down the page.
+  //
+  // Later rounds keep a number, because their own teams are undecided and
+  // "Winner of SF1" is the only way to point at one.
+  return round === 1
+    ? roundLabel(gamesInRound)
+    : `${roundLabel(gamesInRound)} ${position}`;
 }
 
 /**
@@ -317,20 +323,28 @@ export function courtPriority(
 }
 
 /**
- * Where an undecided game's teams come from, e.g. "Winner of QF1".
+ * Where an undecided game's teams come from, e.g. "Winner of 1v8".
  *
  * A blank slot on a schedule reads as a mistake. Until the quarter-final is
- * played, "Loser of QF1" IS the fixture, and it is what an organizer needs to
+ * played, "Loser of 1v8" IS the fixture, and it is what an organizer needs to
  * see to know the night hangs together.
  *
- * Derived from the same position arithmetic the advancement uses, so the sheet
- * and the routing cannot drift apart.
+ * Names the feeding game by its matchup wherever that game's teams are already
+ * known, which for a first round is always. That removes a cross-reference the
+ * reader would otherwise have to resolve: the sheet is ordered by court and
+ * bracket positions are not, so "Winner of QF2" sent them hunting for a QF2
+ * that appears fourth down the page.
+ *
+ * `describeGame` returns something like "1v8" for a game whose teams are
+ * settled, or null when they are not — in which case the round's own number is
+ * the only handle there is, and is used.
  */
 export function playoffSlotSource(
   track: string | null,
   round: number,
   position: number,
   finalRound: number,
+  describeGame?: (round: number, position: number) => string | null,
 ): { home: string; away: string } | null {
   const shortName = (r: number) => {
     const games = 2 ** (finalRound - r);
@@ -340,13 +354,17 @@ export function playoffSlotSource(
     return `R${r}`;
   };
 
+  /** "1v8" where the feeding game is settled, else "QF2". */
+  const handle = (r: number, p: number) =>
+    describeGame?.(r, p) ?? `${shortName(r)}${p}`;
+
   if (track === "placement") {
     // Only the beaten first-round teams arrive here; the consolation field is
     // known from the start and never has an undecided slot.
     if (round !== 1) return null;
     return {
-      home: `Loser of ${shortName(1)}${position * 2 - 1}`,
-      away: `Loser of ${shortName(1)}${position * 2}`,
+      home: `Loser of ${handle(1, position * 2 - 1)}`,
+      away: `Loser of ${handle(1, position * 2)}`,
     };
   }
 
@@ -356,14 +374,13 @@ export function playoffSlotSource(
   // not the winners of the round below.
   if (round === finalRound && position === 2) {
     return {
-      home: `Loser of ${shortName(finalRound - 1)}1`,
-      away: `Loser of ${shortName(finalRound - 1)}2`,
+      home: `Loser of ${handle(finalRound - 1, 1)}`,
+      away: `Loser of ${handle(finalRound - 1, 2)}`,
     };
   }
 
-  const prev = shortName(round - 1);
   return {
-    home: `Winner of ${prev}${position * 2 - 1}`,
-    away: `Winner of ${prev}${position * 2}`,
+    home: `Winner of ${handle(round - 1, position * 2 - 1)}`,
+    away: `Winner of ${handle(round - 1, position * 2)}`,
   };
 }

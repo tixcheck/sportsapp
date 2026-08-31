@@ -58,6 +58,22 @@ export function PlayoffSchedule({
     ...games.filter((g) => g.track !== "placement").map((g) => g.round),
   );
 
+  /**
+   * "1v8" for a championship game whose teams are already settled, so a game
+   * feeding off it can name the matchup instead of a bracket number the reader
+   * would have to hunt for. Null once the teams are themselves undecided.
+   */
+  const describeGame = (round: number, position: number): string | null => {
+    const g = games.find(
+      (x) =>
+        x.track === "championship" &&
+        x.round === round &&
+        x.position === position,
+    );
+    if (!g || g.homeSeed == null || g.awaySeed == null) return null;
+    return `${g.homeSeed}v${g.awaySeed}`;
+  };
+
   // Group by the moment they start: that is a wave, and a wave is how the
   // night is actually run.
   const waves = new Map<string, PlayoffScheduleGame[]>();
@@ -107,6 +123,7 @@ export function PlayoffSchedule({
                     g.round,
                     g.position,
                     finalRound,
+                    describeGame,
                   );
                   return (
                     <div

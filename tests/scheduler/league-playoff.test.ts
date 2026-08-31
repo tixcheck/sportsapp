@@ -201,9 +201,13 @@ describe("planLeaguePlayoff", () => {
 
 describe("playoffGameLabel", () => {
   it("names the championship rounds from the tree's depth", () => {
-    // Numbered, so "Winner of QF2" on a later game has something to point at.
-    expect(playoffGameLabel("championship", 1, 1, 3)).toBe("Quarter-final 1");
-    expect(playoffGameLabel("championship", 1, 4, 3)).toBe("Quarter-final 4");
+    // Round one is unnumbered: its teams are known, so the games feeding off
+    // it name the matchup and a number would only read like a typo, since the
+    // sheet is ordered by court and bracket positions are not.
+    expect(playoffGameLabel("championship", 1, 1, 3)).toBe("Quarter-final");
+    expect(playoffGameLabel("championship", 1, 4, 3)).toBe("Quarter-final");
+    // Later rounds keep one — their own teams are undecided, so "SF1" is the
+    // only handle the final has to point at.
     expect(playoffGameLabel("championship", 2, 1, 3)).toBe("Semi-final 1");
     expect(playoffGameLabel("championship", 2, 2, 3)).toBe("Semi-final 2");
     expect(playoffGameLabel("championship", 3, 1, 3)).toBe("Final");
@@ -227,24 +231,41 @@ describe("playoffSlotSource", () => {
    * A blank slot on a schedule reads as a mistake. Until the quarter-final is
    * played, "Loser of QF1" IS the fixture.
    */
-  it("says where an undecided team comes from", () => {
-    expect(playoffSlotSource("championship", 2, 1, 3)).toEqual({
-      home: "Winner of QF1",
-      away: "Winner of QF2",
+  /** The real quarter-final matchups for a top-eight bracket. */
+  const describe = (round: number, position: number) =>
+    round === 1 ? (["1v8", "4v5", "2v7", "3v6"][position - 1] ?? null) : null;
+
+  it("names the feeding game by its matchup, not a bracket number", () => {
+    // What the reader wants: no cross-reference to resolve.
+    expect(playoffSlotSource("championship", 2, 1, 3, describe)).toEqual({
+      home: "Winner of 1v8",
+      away: "Winner of 4v5",
     });
-    expect(playoffSlotSource("championship", 3, 1, 3)).toEqual({
+    expect(playoffSlotSource("placement", 1, 2, 3, describe)).toEqual({
+      home: "Loser of 2v7",
+      away: "Loser of 3v6",
+    });
+  });
+
+  it("falls back to the round's number when the feeding teams are unknown", () => {
+    // The final is fed by semi-finals whose own teams are still undecided, so
+    // "SF1" is the only handle there is — and the semis carry that number.
+    expect(playoffSlotSource("championship", 3, 1, 3, describe)).toEqual({
       home: "Winner of SF1",
       away: "Winner of SF2",
     });
-    expect(playoffSlotSource("placement", 1, 2, 3)).toEqual({
-      home: "Loser of QF3",
-      away: "Loser of QF4",
+  });
+
+  it("works without a describer at all", () => {
+    expect(playoffSlotSource("championship", 2, 1, 3)).toEqual({
+      home: "Winner of QF1",
+      away: "Winner of QF2",
     });
   });
 
   it("routes the bronze game from the beaten semi-finalists", () => {
     // Not the winners of the round below — the exception in the whole tree.
-    expect(playoffSlotSource("championship", 3, 2, 3)).toEqual({
+    expect(playoffSlotSource("championship", 3, 2, 3, describe)).toEqual({
       home: "Loser of SF1",
       away: "Loser of SF2",
     });
