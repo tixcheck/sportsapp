@@ -201,8 +201,11 @@ describe("planLeaguePlayoff", () => {
 
 describe("playoffGameLabel", () => {
   it("names the championship rounds from the tree's depth", () => {
-    expect(playoffGameLabel("championship", 1, 1, 3)).toBe("Quarter-final");
-    expect(playoffGameLabel("championship", 2, 1, 3)).toBe("Semi-final");
+    // Numbered, so "Winner of QF2" on a later game has something to point at.
+    expect(playoffGameLabel("championship", 1, 1, 3)).toBe("Quarter-final 1");
+    expect(playoffGameLabel("championship", 1, 4, 3)).toBe("Quarter-final 4");
+    expect(playoffGameLabel("championship", 2, 1, 3)).toBe("Semi-final 1");
+    expect(playoffGameLabel("championship", 2, 2, 3)).toBe("Semi-final 2");
     expect(playoffGameLabel("championship", 3, 1, 3)).toBe("Final");
     expect(playoffGameLabel("championship", 3, 2, 3)).toBe("Bronze");
   });

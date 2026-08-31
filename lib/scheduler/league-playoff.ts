@@ -282,8 +282,13 @@ export function playoffGameLabel(
     return `${bracketSize / 2 + 1}th–${bracketSize}th`;
   }
   if (round === finalRound) return position === 1 ? "Final" : "Bronze";
+
+  // Numbered, because the games above them refer to these by number:
+  // "Winner of QF2" is meaningless unless a game on the sheet says it is QF2.
+  // The sheet is ordered by court, not by position, so without this the
+  // reference points at nothing a reader can find.
   const gamesInRound = 2 ** (finalRound - round);
-  return roundLabel(gamesInRound);
+  return `${roundLabel(gamesInRound)} ${position}`;
 }
 
 /**
