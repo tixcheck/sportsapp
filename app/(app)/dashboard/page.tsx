@@ -11,6 +11,13 @@ import {
   type MyCompetition,
 } from "@/lib/queries/dashboard";
 import { getAccessState } from "@/lib/queries/access";
+import { getPlayerHome } from "@/lib/queries/player-home";
+import { NextGame } from "@/components/dashboard/next-game";
+import {
+  RecentResults,
+  UpcomingGames,
+  YourTeams,
+} from "@/components/dashboard/player-sections";
 import type { Sport } from "@/lib/formats";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { getHelperCompetitions } from "@/lib/queries/organizers";
@@ -43,12 +50,13 @@ export default async function DashboardPage() {
   // they were added to show up in the lists below without an "accept" step.
   await acceptPendingInvites();
 
-  const [orgs, comps, invites, access, helperComps] = await Promise.all([
+  const [orgs, comps, invites, access, helperComps, home] = await Promise.all([
     getUserOrgs(),
     getMyCompetitions(),
     getMyPendingInvites(),
     getAccessState(),
     getHelperCompetitions(),
+    getPlayerHome(),
   ]);
   const canCreateOrg = access.organizerStatus === "approved";
   // A finished competition (team's run over) drops off the active "you play in"
@@ -73,6 +81,14 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      {home.next && <NextGame match={home.next} />}
+
+      <YourTeams rows={home.standings} />
+
+      <RecentResults matches={home.recent} />
+
+      <UpcomingGames matches={home.upcoming} />
 
       {activeComps.length > 0 && (
         <section className="space-y-3">
