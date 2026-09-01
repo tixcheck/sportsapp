@@ -369,6 +369,11 @@ export const competitions = pgTable(
     bannerUrl: text("banner_url"),
     timezone: text("timezone").notNull().default("America/Toronto"),
     matchFormat: jsonb("match_format").$type<MatchFormat>().notNull(),
+    /**
+     * The approved waiver entrants must accept (migration 0100). Null = the
+     * organizer hasn't turned waivers on, which is every competition by default.
+     */
+    waiverId: uuid("waiver_id"),
     visibility: competitionVisibility("visibility")
       .notNull()
       .default("private"),
@@ -1660,5 +1665,76 @@ export const freeAgents = pgTable(
     // One sign-up per person per competition — without it, a double-submit
     // quietly bills someone twice.
     unique("free_agents_one_per_user").on(t.competitionId, t.userId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Liability waivers (migration 0100). Owned by the organization, opted into per
+// competition. Approved text is frozen by a trigger and acceptances are
+// append-only — an audit record you can edit is not evidence.
+// ---------------------------------------------------------------------------
+
+export const waivers = pgTable(
+  "waivers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    /** 1, 2, 3… within the org. A new version supersedes but never replaces. */
+    version: integer("version").notNull().default(1),
+    /** draft | approved | retired — only an approved waiver can be required. */
+    status: text("status").notNull().default("draft"),
+    /** Checksum of the body, computed server-side at approval. */
+    bodySha256: text("body_sha256"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedBy: uuid("approved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    unique("waivers_org_version_unique").on(t.orgId, t.version),
+    index("waivers_org_idx").on(t.orgId, t.status),
+  ],
+);
+
+export const waiverAcceptances = pgTable(
+  "waiver_acceptances",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    /**
+     * `restrict` on both of these on purpose: deleting a waiver or a person
+     * must not silently destroy the record that they agreed to it.
+     */
+    waiverId: uuid("waiver_id")
+      .notNull()
+      .references(() => waivers.id, { onDelete: "restrict" }),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    /** What they typed as their signature. */
+    signedName: text("signed_name").notNull(),
+    /** Checksum of the text they were actually shown — a copy, deliberately. */
+    bodySha256: text("body_sha256").notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    userAgent: text("user_agent"),
+  },
+  (t) => [
+    unique("waiver_acceptances_once").on(t.waiverId, t.competitionId, t.userId),
+    index("waiver_acceptances_comp_idx").on(t.competitionId, t.acceptedAt),
+    index("waiver_acceptances_user_idx").on(t.userId),
   ],
 );
