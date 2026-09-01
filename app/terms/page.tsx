@@ -56,10 +56,10 @@ export default function TermsPage() {
             <strong className="text-ink font-semibold">Contact.</strong>{" "}
             Questions about these terms? Email{" "}
             <a
-              href="mailto:hello@mysportsapp.app"
+              href="mailto:hello@mysportsapp.ca"
               className="text-claret hover:underline"
             >
-              hello@mysportsapp.app
+              hello@mysportsapp.ca
             </a>
             .
           </p>

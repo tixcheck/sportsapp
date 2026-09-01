@@ -21,7 +21,9 @@ export default function PrivacyPage() {
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           Privacy Policy
         </h1>
-        <p className="text-ink-3 mt-1 text-sm">Last updated June 19, 2026</p>
+        <p className="text-ink-3 mt-1 text-sm">
+          Last updated September 1, 2026
+        </p>
 
         <div className="text-ink-2 mt-8 space-y-4 text-sm leading-relaxed">
           <p>
@@ -47,13 +49,27 @@ export default function PrivacyPage() {
             settings, and request deletion of your account by contacting us.
           </p>
           <p>
+            <strong className="text-ink font-semibold">
+              Where it&apos;s stored.
+            </strong>{" "}
+            On Supabase infrastructure hosted with Amazon Web Services in the
+            United States. The database is encrypted at rest, connections are
+            encrypted in transit, and it is backed up daily.
+          </p>
+          <p>
+            <strong className="text-ink font-semibold">Payments.</strong> Card
+            details are entered on Stripe&apos;s own checkout and never reach
+            our servers. We keep only Stripe&apos;s reference for a payment, the
+            amount, and who it was for.
+          </p>
+          <p>
             <strong className="text-ink font-semibold">Contact.</strong>{" "}
             Questions about privacy? Email{" "}
             <a
-              href="mailto:privacy@mysportsapp.app"
+              href="mailto:privacy@mysportsapp.ca"
               className="text-claret hover:underline"
             >
-              privacy@mysportsapp.app
+              privacy@mysportsapp.ca
             </a>
             .
           </p>
