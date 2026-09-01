@@ -118,7 +118,7 @@ export async function getTeamStats(
     .from("teams")
     .select("id, name")
     .eq("competition_id", competitionId)
-    .neq("status", "pending_payment");
+    .eq("status", "active");
 
   return ((teams ?? []) as { id: string; name: string }[])
     .map((t) => ({
@@ -281,7 +281,7 @@ export async function getPlayerStats(
     .from("teams")
     .select("id, name")
     .eq("competition_id", competitionId)
-    .neq("status", "pending_payment");
+    .eq("status", "active");
   const teamRows = (teams ?? []) as { id: string; name: string }[];
   if (teamRows.length === 0) return [];
   const teamName = new Map(teamRows.map((t) => [t.id, t.name]));

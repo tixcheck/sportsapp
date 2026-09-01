@@ -224,7 +224,7 @@ export async function loadStandings(
     .eq("competition_id", competitionId)
     // Unpaid teams are not entrants — they must never reach a pool, a
     // schedule or the standings (migration 0066).
-    .neq("status", "pending_payment");
+    .eq("status", "active");
   const teams = (teamsData ?? []) as TeamRow[];
   if (teams.length === 0) return [];
 

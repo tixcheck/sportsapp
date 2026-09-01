@@ -19,7 +19,7 @@ export interface MyCompetition {
   teamId: string;
   teamName: string;
   memberRole: "captain" | "player";
-  teamStatus: "active" | "withdrawn" | "pending_payment";
+  teamStatus: "active" | "withdrawn" | "pending_payment" | "pending_waiver";
   nextMatch: MyCompetitionMatch | null;
   /** Whether the team has any scheduled matches — distinguishes "run's over"
    * (has matches, none upcoming) from "no schedule yet" (no matches). */
@@ -70,7 +70,11 @@ export async function getMyCompetitions(): Promise<MyCompetition[]> {
       teamId: r.team_id as string,
       teamName: r.team_name as string,
       memberRole: r.member_role as "captain" | "player",
-      teamStatus: r.team_status as "active" | "withdrawn" | "pending_payment",
+      teamStatus: r.team_status as
+        | "active"
+        | "withdrawn"
+        | "pending_payment"
+        | "pending_waiver",
       nextMatch: r.next_match_id
         ? {
             id: r.next_match_id as string,

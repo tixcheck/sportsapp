@@ -74,7 +74,7 @@ export async function generateReversePairsScheduleAction(
     .from("teams")
     .select("id")
     .eq("competition_id", competitionId)
-    .neq("status", "pending_payment")
+    .eq("status", "active")
     .order("name");
   const pairIds = (teams ?? []).map((t) => t.id as string);
 

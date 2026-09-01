@@ -118,7 +118,7 @@ export async function getReversePairs(
         .eq("competition_id", competitionId)
         // Unpaid teams are not entrants — they must never reach a schedule or
         // the standings (migration 0066).
-        .neq("status", "pending_payment")
+        .eq("status", "active")
         .order("name"),
       supabase
         .from("reverse_pairs_games")

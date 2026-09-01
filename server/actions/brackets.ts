@@ -95,7 +95,7 @@ export async function generateBracketAction(
     .eq("competition_id", competitionId)
     // Unpaid teams are not entrants — they must never reach a pool, a
     // schedule or the standings (migration 0066).
-    .neq("status", "pending_payment")
+    .eq("status", "active")
     .eq("needs_drop", true);
   if (dropPools && dropPools.length) {
     const { data: dropTeams } = await supabase

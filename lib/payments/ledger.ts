@@ -26,7 +26,7 @@ export type LedgerCharge = RefundableCharge & {
 export type LedgerTeam = {
   teamId: string;
   teamName: string;
-  status: "active" | "withdrawn" | "pending_payment";
+  status: "active" | "withdrawn" | "pending_payment" | "pending_waiver";
   /** True when an organizer let this team play with a balance outstanding. */
   admittedUnpaid: boolean;
   charges: LedgerCharge[];

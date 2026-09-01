@@ -112,7 +112,7 @@ export async function generatePoolsAction(
     .eq("competition_id", competitionId)
     // Unpaid teams are not entrants — they must never reach a pool, a
     // schedule or the standings (migration 0066).
-    .neq("status", "pending_payment");
+    .eq("status", "active");
   const ordered = resolveSeedOrder(
     (allTeams ?? [])
       .filter((t) => t.division_id)

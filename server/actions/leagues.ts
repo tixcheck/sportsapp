@@ -631,7 +631,7 @@ export async function generateLeagueScheduleAction(
     .eq("competition_id", competitionId)
     // Unpaid teams are not entrants — they must never reach a pool, a
     // schedule or the standings (migration 0066).
-    .neq("status", "pending_payment");
+    .eq("status", "active");
   if (!teams || teams.length < 2) {
     return { error: "Add at least 2 teams before generating a schedule." };
   }

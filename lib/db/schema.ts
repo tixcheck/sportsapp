@@ -170,6 +170,9 @@ export const teamStatus = pgEnum("team_status", [
   // Registered but not yet an entrant: the event requires payment and the fee
   // is not covered. Excluded from pools, schedules and standings.
   "pending_payment",
+  // Roster incomplete, or somebody on it hasn't signed the waiver (0101).
+  // A separate reason from payment because a different person resolves it.
+  "pending_waiver",
 ]);
 
 /** Platform-level organizer approval state (distinct from per-org roles). */
@@ -374,6 +377,12 @@ export const competitions = pgTable(
      * organizer hasn't turned waivers on, which is every competition by default.
      */
     waiverId: uuid("waiver_id"),
+    /**
+     * Rostered players a team needs before it counts as entered (0101). Null =
+     * no requirement. With a waiver set, EVERY rostered player must also have
+     * signed — adding someone later re-opens the gate until they do.
+     */
+    minRosterForEntry: integer("min_roster_for_entry"),
     visibility: competitionVisibility("visibility")
       .notNull()
       .default("private"),
