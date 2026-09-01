@@ -527,6 +527,9 @@ export default async function HomePage() {
             <Link href="/reviews" className="hover:text-ink-2">
               Reviews
             </Link>
+            <Link href="/security" className="hover:text-ink-2">
+              Security
+            </Link>
             <Link href="/privacy" className="hover:text-ink-2">
               Privacy
             </Link>

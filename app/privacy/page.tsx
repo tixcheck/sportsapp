@@ -63,6 +63,17 @@ export default function PrivacyPage() {
             amount, and who it was for.
           </p>
           <p>
+            <strong className="text-ink font-semibold">More detail.</strong>{" "}
+            Organizers evaluating us for a season usually want more than a
+            policy: who exactly can see a player&apos;s contact details, how
+            waivers are captured and stored, and where the data physically
+            lives. That is all on our{" "}
+            <Link href="/security" className="text-claret hover:underline">
+              security page
+            </Link>
+            .
+          </p>
+          <p>
             <strong className="text-ink font-semibold">Contact.</strong>{" "}
             Questions about privacy? Email{" "}
             <a
