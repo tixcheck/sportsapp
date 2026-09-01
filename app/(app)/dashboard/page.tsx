@@ -12,6 +12,8 @@ import {
 } from "@/lib/queries/dashboard";
 import { getAccessState } from "@/lib/queries/access";
 import { getPlayerHome } from "@/lib/queries/player-home";
+import { getMyOutstandingWaivers } from "@/lib/queries/waivers";
+import { SignWaiver } from "@/components/waivers/sign-waiver";
 import { NextGame } from "@/components/dashboard/next-game";
 import {
   RecentResults,
@@ -50,14 +52,16 @@ export default async function DashboardPage() {
   // they were added to show up in the lists below without an "accept" step.
   await acceptPendingInvites();
 
-  const [orgs, comps, invites, access, helperComps, home] = await Promise.all([
-    getUserOrgs(),
-    getMyCompetitions(),
-    getMyPendingInvites(),
-    getAccessState(),
-    getHelperCompetitions(),
-    getPlayerHome(),
-  ]);
+  const [orgs, comps, invites, access, helperComps, home, owedWaivers] =
+    await Promise.all([
+      getUserOrgs(),
+      getMyCompetitions(),
+      getMyPendingInvites(),
+      getAccessState(),
+      getHelperCompetitions(),
+      getPlayerHome(),
+      getMyOutstandingWaivers(),
+    ]);
   const canCreateOrg = access.organizerStatus === "approved";
   // A finished competition (team's run over) drops off the active "you play in"
   // list — the full record still lives on the competition's own pages.
@@ -81,6 +85,19 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      {owedWaivers.map((w) => (
+        <SignWaiver
+          key={`${w.competitionId}:${w.id}`}
+          competitionId={w.competitionId}
+          competitionName={w.competitionName}
+          waiverId={w.id}
+          title={w.title}
+          body={w.body}
+          bodySha256={w.bodySha256 ?? ""}
+          suggestedName={w.signerName}
+        />
+      ))}
 
       {home.next && <NextGame match={home.next} />}
 

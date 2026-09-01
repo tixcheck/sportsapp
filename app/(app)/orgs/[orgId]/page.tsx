@@ -6,6 +6,8 @@ import { getOrg, getOrgLeagues } from "@/lib/queries/leagues";
 import { getOrgTournaments } from "@/lib/queries/tournaments";
 import { getOrgKotc } from "@/lib/queries/kotc";
 import { getOrgReversePairs } from "@/lib/queries/reverse-pairs";
+import { getOrgWaivers } from "@/lib/queries/waivers";
+import { OrgWaiversCard } from "@/components/waivers/org-waivers-card";
 import { getUserOrgs } from "@/lib/auth/user";
 import { getOrgOrganizers } from "@/lib/queries/organizers";
 import { getAccessState } from "@/lib/queries/access";
@@ -51,6 +53,7 @@ export default async function OrgPage({
   const myRole = orgs.find((o) => o.id === orgId)?.role;
   const isOrgAdmin = myRole === "owner" || myRole === "admin";
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
+  const waivers = isOrgAdmin ? await getOrgWaivers(orgId) : [];
   // Venues are org-wide: the same gyms come back season after season.
   const venues = isOrgAdmin ? await getOrgVenues(orgId) : [];
 
@@ -132,6 +135,8 @@ export default async function OrgPage({
         items={reversePairs}
         hrefFor={(c) => `/orgs/${orgId}/reverse-pairs/${c.id}`}
       />
+
+      {isOrgAdmin && <OrgWaiversCard orgId={orgId} waivers={waivers} />}
 
       {showPayouts && (
         <PayoutsCard

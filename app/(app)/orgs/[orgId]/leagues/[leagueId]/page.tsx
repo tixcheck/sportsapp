@@ -13,6 +13,11 @@ import { IndividualSignupSettings } from "@/components/registration/individual-s
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets, getPlayoffSchedule } from "@/lib/queries/bracket";
+import {
+  getCompetitionWaiverState,
+  getOrgWaivers,
+} from "@/lib/queries/waivers";
+import { CompetitionWaiverCard } from "@/components/waivers/competition-waiver-card";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
@@ -107,6 +112,8 @@ export default async function LeaguePage({
     playerStats,
     ladderNights,
     playoffGames,
+    waiverState,
+    orgWaivers,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -119,6 +126,8 @@ export default async function LeaguePage({
     getPlayerStats(leagueId),
     getLadderNightStandings(leagueId),
     getPlayoffSchedule(leagueId),
+    getCompetitionWaiverState(leagueId),
+    getOrgWaivers(orgId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -622,6 +631,15 @@ export default async function LeaguePage({
         }}
         rates={payment.rates}
         payoutsReady={payment.payoutsReady}
+      />
+
+      {/* Beside the fee, because both decide whether a team is a real entrant:
+          one wants money, the other wants signatures. */}
+      <CompetitionWaiverCard
+        competitionId={league.id}
+        orgId={orgId}
+        state={waiverState}
+        available={orgWaivers.filter((w) => w.status === "approved")}
       />
 
       {coOrgs.canManage && (
