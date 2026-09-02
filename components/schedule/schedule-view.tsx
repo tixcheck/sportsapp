@@ -415,6 +415,23 @@ export function ScheduleView({
   // schedule, so a league with venues on file but only one in use stays clean.
   const multiVenue = isMultiVenue(matches);
 
+  /**
+   * The deepest championship round, which is what makes a round number mean
+   * "Final" rather than "Round 3". Measured from the fixtures rather than a
+   * team count, because byes leave the tree's shape as the only reliable
+   * statement of how many rounds there are. Placement games are excluded —
+   * they run alongside the bracket, not beneath it, and counting them would
+   * move the final.
+   */
+  const playoffFinalRound =
+    matches.reduce(
+      (mx, m) =>
+        m.bracketPosition != null && m.bracketTrack !== "placement"
+          ? Math.max(mx, m.round ?? 0)
+          : mx,
+      0,
+    ) || null;
+
   const groups =
     effectiveView === "court"
       ? groupByCourt(shown, multiVenue, sport)
@@ -579,6 +596,7 @@ export function ScheduleView({
               myTeamIds={myTeamIds}
               multiVenue={multiVenue}
               sport={sport}
+              playoffFinalRound={playoffFinalRound}
               renderTrailing={renderTrailing}
             />
           ) : (
@@ -608,6 +626,7 @@ export function ScheduleView({
                     myTeamIds={myTeamIds}
                     multiVenue={multiVenue}
                     sport={sport}
+                    playoffFinalRound={playoffFinalRound}
                     trailing={renderTrailing(m)}
                   />
                 ))}
@@ -644,6 +663,7 @@ function TeamDay({
   myTeamIds,
   renderTrailing,
   sport,
+  playoffFinalRound = null,
 }: {
   multiVenue: boolean;
   sport?: Sport;
@@ -656,6 +676,7 @@ function TeamDay({
   editable: boolean;
   myTeamIds: string[];
   renderTrailing: (m: ScheduleMatch) => React.ReactNode;
+  playoffFinalRound?: number | null;
 }) {
   const timeline = teamTimeline(teamId, allMatches, timezone);
   const entries = teamScheduleEntries(teamId, allMatches, timezone);
@@ -695,6 +716,7 @@ function TeamDay({
               myTeamIds={myTeamIds}
               multiVenue={multiVenue}
               sport={sport}
+              playoffFinalRound={playoffFinalRound}
               // "You play/ref" is the viewer's role — only meaningful in the
               // followed team's own section. Elsewhere let MatchCard derive it,
               // so another team's game isn't mislabelled "You play".

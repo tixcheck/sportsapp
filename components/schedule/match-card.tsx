@@ -8,6 +8,7 @@ import { sportConfig } from "@/lib/sports";
 import { formatPlacement } from "@/lib/venues/resolve";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { StatusPill } from "./status-pill";
+import { playoffGameLabel } from "@/lib/scheduler/league-playoff";
 
 const ROLE_STYLE = {
   play: "bg-primary text-primary-foreground",
@@ -24,6 +25,7 @@ export function MatchCard({
   role,
   multiVenue = false,
   sport,
+  playoffFinalRound = null,
 }: {
   match: ScheduleMatch;
   timezone: string;
@@ -49,6 +51,13 @@ export function MatchCard({
   multiVenue?: boolean;
   /** Names the surface — "Court A" or "Field East". Defaults to volleyball. */
   sport?: Sport;
+  /**
+   * The last championship round in this competition, when it has a playoff.
+   * A card cannot work this out alone — it only sees one game — and without it
+   * a final and a bronze game are two identical "Round 3" rows, which is the
+   * one night nobody should have to guess at.
+   */
+  playoffFinalRound?: number | null;
 }) {
   const dt = match.scheduledAt
     ? DateTime.fromISO(match.scheduledAt, { zone: timezone })
@@ -87,8 +96,34 @@ export function MatchCard({
   const resultColor = (r: "win" | "loss" | null) =>
     r === "win" ? "text-claret" : r === "loss" ? "text-ink-3" : undefined;
 
+  // "Final", "Bronze", "Semi-final 1", "5th–8th", "Consolation" — derived from
+  // the game's place in the tree rather than stored, so it can never disagree
+  // with the fixture it labels.
+  const playoffLabel =
+    match.bracketPosition != null && playoffFinalRound
+      ? playoffGameLabel(
+          match.bracketTrack ?? null,
+          match.round ?? 1,
+          match.bracketPosition,
+          playoffFinalRound,
+        )
+      : null;
+  const headline = playoffLabel === "Final" || playoffLabel === "Bronze";
+
   return (
     <div className="border-border bg-surface rounded-lg border p-4 shadow-sm">
+      {playoffLabel && (
+        <span
+          className={cn(
+            "mr-2 mb-2 inline-block rounded px-2 py-0.5 text-[0.7rem] font-bold tracking-wide uppercase",
+            headline
+              ? "bg-claret text-primary-foreground"
+              : "bg-paper-sunken text-ink-2",
+          )}
+        >
+          {playoffLabel}
+        </span>
+      )}
       {shownRole && (
         <span
           className={cn(

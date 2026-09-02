@@ -99,6 +99,14 @@ export interface LeagueDetail {
 export interface ScheduleMatch {
   id: string;
   round: number | null;
+  /**
+   * Playoff identity (migrations 0094/0101). Null on a season fixture. Set
+   * together with `bracketPosition`, and the pair is what names a game: the
+   * schedule otherwise shows a final and a bronze game as two identical
+   * "Round 3" cards, which is the one night nobody should have to guess.
+   */
+  bracketTrack?: string | null;
+  bracketPosition?: number | null;
   scheduledAt: string | null;
   court: string | null;
   /**
@@ -345,7 +353,7 @@ async function loadSchedule(
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, venue_id, venues(name)",
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, venue_id, bracket_track, bracket_position, venues(name)",
     )
     .eq("competition_id", leagueId)
     .order("scheduled_at", { ascending: true })
@@ -383,6 +391,8 @@ async function loadSchedule(
     return {
       id: m.id,
       round: m.round,
+      bracketTrack: (m.bracket_track as string | null) ?? null,
+      bracketPosition: (m.bracket_position as number | null) ?? null,
       scheduledAt: m.scheduled_at,
       court: m.court,
       venueId: (m.venue_id as string | null) ?? null,
