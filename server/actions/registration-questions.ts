@@ -14,6 +14,7 @@ const KINDS = [
   "phone",
   "select",
   "yes_no",
+  "address",
 ] as const;
 
 const questionSchema = z

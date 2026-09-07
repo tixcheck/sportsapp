@@ -61,6 +61,7 @@ export function SteppedRegistration({
   playerQuestions = [],
   playerAnswers = {},
   suggestedAnswers = {},
+  addressAutocomplete = false,
   teamHref,
 }: {
   competitionId: string;
@@ -112,6 +113,8 @@ export function SteppedRegistration({
   playerAnswers?: AnswerMap;
   /** Carried from another competition of the same org, awaiting confirmation. */
   suggestedAnswers?: AnswerMap;
+  /** Whether a Places key is configured; false renders a plain input. */
+  addressAutocomplete?: boolean;
   /** Where "done" goes; the team page once we know the id. */
   teamHref?: string;
 }) {
@@ -326,6 +329,7 @@ export function SteppedRegistration({
                 values={answers}
                 onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
                 disabled={pending}
+                addressAutocomplete={addressAutocomplete}
               />
             </div>
           )}
@@ -351,6 +355,7 @@ export function SteppedRegistration({
                 onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
                 disabled={pending}
                 suggested={suggestedAnswers}
+                addressAutocomplete={addressAutocomplete}
               />
             </div>
           )}
@@ -380,6 +385,7 @@ export function SteppedRegistration({
           bodySha256={waiver.bodySha256}
           suggestedName={userName ?? ""}
           requireInitials={waiver.requireInitials ?? false}
+          addressAutocomplete={addressAutocomplete}
           onSigned={() => setSigned(true)}
           blockedReason={
             missingRequired(playerQuestions, mine).length > 0

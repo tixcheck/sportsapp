@@ -15,6 +15,7 @@ import { getPlayerHome } from "@/lib/queries/player-home";
 import { getMyOutstandingWaivers } from "@/lib/queries/waivers";
 import { SignWaiver } from "@/components/waivers/sign-waiver";
 import { PlayerDetailsForm } from "@/components/registration/player-details-form";
+import { addressAutocompleteAvailableAction } from "@/server/actions/places";
 import {
   getMyPlayerAnswers,
   getRegistrationQuestions,
@@ -68,6 +69,8 @@ export default async function DashboardPage() {
       getPlayerHome(),
       getMyOutstandingWaivers(),
     ]);
+  // One check for the page: whether address suggestions are configured at all.
+  const addressAutocomplete = await addressAutocompleteAvailableAction();
   const canCreateOrg = access.organizerStatus === "approved";
   // A finished competition (team's run over) drops off the active "you play in"
   // list — the full record still lives on the competition's own pages.
@@ -130,6 +133,7 @@ export default async function DashboardPage() {
                 questions={details.questions}
                 initial={details.answers}
                 suggested={details.suggested}
+                addressAutocomplete={addressAutocomplete}
               />
             )}
 
@@ -142,6 +146,7 @@ export default async function DashboardPage() {
               bodySha256={w.bodySha256 ?? ""}
               suggestedName={w.signerName}
               requireInitials={w.requireInitials}
+              addressAutocomplete={addressAutocomplete}
               blockedReason={
                 outstanding.length > 0
                   ? "Fill in your details above first."

@@ -30,6 +30,7 @@ const KIND_LABEL: Record<QuestionKind, string> = {
   phone: "Phone",
   select: "Choose one",
   yes_no: "Yes / No",
+  address: "Address",
 };
 
 let counter = 0;
@@ -101,7 +102,7 @@ const STARTER: Omit<Draft, "key">[] = [
   },
   {
     scope: "player",
-    kind: "long_text",
+    kind: "address",
     label: "Full address",
     helpText: "Street, city, province and postal code.",
     options: [],

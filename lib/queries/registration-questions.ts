@@ -8,7 +8,8 @@ export type QuestionKind =
   | "email"
   | "phone"
   | "select"
-  | "yes_no";
+  | "yes_no"
+  | "address";
 
 export type QuestionScope = "team" | "player";
 

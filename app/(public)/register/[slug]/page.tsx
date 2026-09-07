@@ -29,6 +29,7 @@ import {
 } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { getUser } from "@/lib/auth/user";
+import { addressAutocompleteAvailableAction } from "@/server/actions/places";
 import {
   EventDescription,
   EventFacts,
@@ -120,6 +121,7 @@ export default async function RegisterPage({
     // entering their second BVL league isn't retyping their address.
     getSuggestedPlayerAnswers(event.id),
   ]);
+  const addressAutocomplete = await addressAutocompleteAvailableAction();
 
   const fee =
     feeSettings.registrationFeeCents > 0
@@ -222,6 +224,7 @@ export default async function RegisterPage({
       playerQuestions={playerQuestions}
       playerAnswers={myAnswers}
       suggestedAnswers={suggestedAnswers}
+      addressAutocomplete={addressAutocomplete}
       action={action}
       isAuthed={!!user}
       userEmail={user?.email}
@@ -268,6 +271,7 @@ export default async function RegisterPage({
       playerQuestions={playerQuestions}
       playerAnswers={myAnswers}
       suggestedAnswers={suggestedAnswers}
+      addressAutocomplete={addressAutocomplete}
       fee={fee}
     />
   );

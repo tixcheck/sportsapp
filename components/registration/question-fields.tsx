@@ -4,6 +4,7 @@ import type {
   AnswerMap,
   RegistrationQuestion,
 } from "@/lib/queries/registration-questions";
+import { AddressInput } from "@/components/ui/address-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ export function QuestionFields({
   onChange,
   disabled = false,
   suggested = {},
+  addressAutocomplete = false,
 }: {
   questions: RegistrationQuestion[];
   values: AnswerMap;
@@ -37,6 +39,8 @@ export function QuestionFields({
    * checks, and an address from last season may simply be wrong now.
    */
   suggested?: AnswerMap;
+  /** Whether an address key is configured; false renders a plain input. */
+  addressAutocomplete?: boolean;
 }) {
   const roots = questions.filter((q) => !q.parentQuestionId);
   const childrenOf = (id: string) =>
@@ -53,6 +57,7 @@ export function QuestionFields({
           disabled={disabled}
           followUps={childrenOf(q.id)}
           suggested={suggested}
+          addressAutocomplete={addressAutocomplete}
         />
       ))}
     </div>
@@ -67,6 +72,7 @@ function Field({
   followUps,
   nested = false,
   suggested = {},
+  addressAutocomplete = false,
 }: {
   question: RegistrationQuestion;
   values: AnswerMap;
@@ -75,6 +81,7 @@ function Field({
   followUps: RegistrationQuestion[];
   nested?: boolean;
   suggested?: AnswerMap;
+  addressAutocomplete?: boolean;
 }) {
   const value = values[q.id] ?? "";
   const id = `q-${q.id}`;
@@ -101,7 +108,15 @@ function Field({
         </p>
       )}
 
-      {q.kind === "long_text" ? (
+      {q.kind === "address" ? (
+        <AddressInput
+          id={id}
+          value={value}
+          onChange={(v) => onChange(q.id, v)}
+          disabled={disabled}
+          available={addressAutocomplete}
+        />
+      ) : q.kind === "long_text" ? (
         <textarea
           id={id}
           rows={3}
@@ -158,6 +173,7 @@ function Field({
               followUps={[]}
               nested
               suggested={suggested}
+              addressAutocomplete={addressAutocomplete}
             />
           </div>
         ))}

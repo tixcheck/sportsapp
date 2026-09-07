@@ -36,6 +36,7 @@ export function PlayerDetailsForm({
   questions,
   initial,
   suggested = {},
+  addressAutocomplete = false,
 }: {
   competitionId: string;
   competitionName: string;
@@ -44,6 +45,8 @@ export function PlayerDetailsForm({
   initial: AnswerMap;
   /** Carried from another competition of the same org, awaiting confirmation. */
   suggested?: AnswerMap;
+  /** Whether a Places key is configured; false renders a plain input. */
+  addressAutocomplete?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -94,6 +97,7 @@ export function PlayerDetailsForm({
           onChange={(id, v) => setValues((s) => ({ ...s, [id]: v }))}
           disabled={pending}
           suggested={suggested}
+          addressAutocomplete={addressAutocomplete}
         />
 
         <Button type="submit" disabled={pending} className="justify-self-start">

@@ -48,10 +48,18 @@ const REGION_CODES = (process.env.PLACES_REGION_CODES ?? "ca")
   .map((c) => c.trim().toLowerCase())
   .filter(Boolean);
 
+function placesKey(): string | null {
+  return (
+    process.env.GOOGLE_PLACES_API_KEY?.trim() ||
+    process.env.GOOGLE_MAPS_API_KEY?.trim() ||
+    null
+  );
+}
+
 export async function searchVenuesAction(
   query: string,
 ): Promise<PlaceSuggestion[]> {
-  const key = process.env.GOOGLE_PLACES_API_KEY?.trim();
+  const key = placesKey();
   if (!key) return [];
 
   const parsed = querySchema.safeParse(query);
@@ -110,5 +118,97 @@ export async function searchVenuesAction(
   } catch {
     console.error("[places] autocomplete threw");
     return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Address autocomplete
+// ---------------------------------------------------------------------------
+//
+// The same key and the same proxying as venue search above, for a different
+// question: a venue lookup wants a place's NAME ("Chinguacousy Wellness
+// Centre"), a registrant's address wants the formatted line. Different shape,
+// so a separate function rather than a flag on the first.
+
+export type AddressSuggestion = {
+  /** What goes in the field when picked, and what's shown in the list. */
+  text: string;
+  /** Google's id, used only as a list key. */
+  id: string;
+};
+
+/**
+ * Whether address autocomplete can work at all.
+ *
+ * Read by the field so it renders a plain input where no key is configured,
+ * rather than a control that looks like it should suggest and never does.
+ */
+export async function addressAutocompleteAvailableAction(): Promise<boolean> {
+  return !!placesKey();
+}
+
+const addressSchema = z.object({
+  query: z.string().trim().min(4).max(200),
+  /** Groups a burst of keystrokes into one billable session. */
+  sessionToken: z.string().trim().max(64).optional(),
+});
+
+export async function suggestAddressesAction(
+  input: z.input<typeof addressSchema>,
+): Promise<{ suggestions: AddressSuggestion[] }> {
+  const key = placesKey();
+  if (!key) return { suggestions: [] };
+
+  const parsed = addressSchema.safeParse(input);
+  if (!parsed.success) return { suggestions: [] };
+
+  try {
+    const res = await fetch(
+      "https://places.googleapis.com/v1/places:autocomplete",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": key,
+        },
+        body: JSON.stringify({
+          input: parsed.data.query,
+          includedRegionCodes: REGION_CODES,
+          // No location bias: a league's players live across a region, and
+          // biasing to the venue would bury anyone on the far side of it.
+          ...(parsed.data.sessionToken
+            ? { sessionToken: parsed.data.sessionToken }
+            : {}),
+        }),
+        // Someone is typing. A slow answer is worse than none.
+        signal: AbortSignal.timeout(4000),
+      },
+    );
+
+    if (!res.ok) {
+      // A quota or billing problem is ours; the field still works as plain
+      // text, so the person filling in the form is told nothing they can act on.
+      console.error("[places] address autocomplete failed", res.status);
+      return { suggestions: [] };
+    }
+
+    const body = (await res.json()) as {
+      suggestions?: {
+        placePrediction?: { text?: { text?: string }; placeId?: string };
+      }[];
+    };
+
+    return {
+      suggestions: (body.suggestions ?? [])
+        .map((s) => ({
+          text: s.placePrediction?.text?.text ?? "",
+          id: s.placePrediction?.placeId ?? s.placePrediction?.text?.text ?? "",
+        }))
+        .filter((s) => s.text.length > 0)
+        .slice(0, 6),
+    };
+  } catch {
+    console.error("[places] address autocomplete threw");
+    return { suggestions: [] };
   }
 }
