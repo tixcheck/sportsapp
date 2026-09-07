@@ -23,7 +23,9 @@ import { LocalityCard } from "@/components/registration/locality-card";
 import {
   getRegistrationQuestions,
   getTeamLocalities,
+  getTeamStageFacts,
 } from "@/lib/queries/registration-questions";
+import { teamRegistrationStatus } from "@/lib/teams/registration-status";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
@@ -148,6 +150,10 @@ export default async function LeaguePage({
       getRegistrationQuestions(league.id),
     ]);
   const localities = await getTeamLocalities(league.id);
+  // One gather for the whole Teams tab: fifteen teams would otherwise be
+  // sixty round trips, and the organizer is scanning for the one or two rows
+  // that actually need them.
+  const stageFacts = await getTeamStageFacts(league.id);
   const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
     await Promise.all([
       getCompetitionPaymentSettings(league.id),
@@ -456,6 +462,17 @@ export default async function LeaguePage({
             captainInvite: teamInvites[t.id]?.captain ?? null,
             partnerInvites: teamInvites[t.id]?.partners ?? [],
             members: rosters[t.id] ?? [],
+            registration: (() => {
+              const facts = stageFacts.byTeam.get(t.id);
+              return facts
+                ? teamRegistrationStatus({
+                    ...facts,
+                    feeCents: stageFacts.feeCents,
+                    minRoster: stageFacts.minRoster,
+                    waiverRequired: stageFacts.waiverRequired,
+                  })
+                : null;
+            })(),
           }))}
         />
       </CardContent>

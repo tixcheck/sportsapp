@@ -313,3 +313,114 @@ export async function getTeamLocalities(competitionId: string): Promise<{
     }),
   };
 }
+
+/**
+ * Everything needed to say what stage each team's registration is at.
+ *
+ * Assembled in one place rather than per team, because a Teams tab with
+ * fifteen teams would otherwise be sixty round trips — and the organizer
+ * scanning it is looking for the one or two rows that need them.
+ */
+export type TeamStageFacts = {
+  teamId: string;
+  status: string;
+  paidCents: number;
+  hasUnconfirmedPayment: boolean;
+  rosterSize: number;
+  signed: number;
+};
+
+export async function getTeamStageFacts(competitionId: string): Promise<{
+  feeCents: number;
+  minRoster: number | null;
+  waiverRequired: boolean;
+  byTeam: Map<string, TeamStageFacts>;
+}> {
+  const supabase = await createClient();
+
+  const [{ data: comp }, { data: settings }] = await Promise.all([
+    supabase
+      .from("competitions")
+      .select("waiver_id, min_roster_for_entry")
+      .eq("id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("competition_payment_settings")
+      .select("registration_fee_cents")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+  ]);
+
+  const waiverId = (comp as { waiver_id: string | null } | null)?.waiver_id;
+  const minRoster =
+    (comp as { min_roster_for_entry: number | null } | null)
+      ?.min_roster_for_entry ?? null;
+  const feeCents =
+    (settings as { registration_fee_cents: number } | null)
+      ?.registration_fee_cents ?? 0;
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, status, team_members(user_id)")
+    .eq("competition_id", competitionId);
+
+  const rows = (teams ?? []) as unknown as {
+    id: string;
+    status: string;
+    team_members: { user_id: string }[] | null;
+  }[];
+
+  const [{ data: payments }, { data: signatures }] = await Promise.all([
+    supabase
+      .from("registration_payments")
+      .select("team_id, status, price_cents, method")
+      .eq("competition_id", competitionId),
+    waiverId
+      ? supabase
+          .from("waiver_acceptances")
+          .select("user_id")
+          .eq("competition_id", competitionId)
+          .eq("waiver_id", waiverId)
+      : Promise.resolve({ data: [] as { user_id: string }[] }),
+  ]);
+
+  const signedUsers = new Set(
+    ((signatures ?? []) as { user_id: string }[]).map((s) => s.user_id),
+  );
+
+  const paidByTeam = new Map<string, number>();
+  const unconfirmed = new Set<string>();
+  for (const p of (payments ?? []) as {
+    team_id: string | null;
+    status: string;
+    price_cents: number;
+    method: string;
+  }[]) {
+    if (!p.team_id) continue;
+    if (p.status === "paid") {
+      paidByTeam.set(
+        p.team_id,
+        (paidByTeam.get(p.team_id) ?? 0) + p.price_cents,
+      );
+    } else if (p.status === "pending" && p.method !== "card") {
+      // Only an OFFLINE pending payment is the organizer's to check. A card
+      // checkout somebody abandoned needs nothing from them.
+      unconfirmed.add(p.team_id);
+    }
+  }
+
+  const byTeam = new Map<string, TeamStageFacts>();
+  for (const t of rows) {
+    const members = t.team_members ?? [];
+    byTeam.set(t.id, {
+      teamId: t.id,
+      status: t.status,
+      paidCents: paidByTeam.get(t.id) ?? 0,
+      hasUnconfirmedPayment: unconfirmed.has(t.id),
+      rosterSize: members.length,
+      signed: members.filter((m) => signedUsers.has(m.user_id)).length,
+    });
+  }
+
+  return { feeCents, minRoster, waiverRequired: !!waiverId, byTeam };
+}

@@ -16,6 +16,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
+import { RegistrationStatusBadge } from "@/components/team/registration-status-badge";
+import type { RegistrationStatus } from "@/lib/teams/registration-status";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
@@ -48,6 +50,11 @@ export interface ManagedTeam {
   captainInvite: ManagedTeamInvite | null;
   /** Pending partner/teammate invites. */
   partnerInvites: ManagedTeamInvite[];
+  /**
+   * Where this team's registration has got to. Absent on screens that don't
+   * gather it — a KotC pair list has no fee or waiver to be waiting on.
+   */
+  registration?: RegistrationStatus | null;
   members?: {
     name: string;
     role: "captain" | "player";
@@ -571,6 +578,9 @@ export function TeamManagementList({ teams }: { teams: ManagedTeam[] }) {
                     <span className="text-muted-foreground text-xs">
                       {team.divisionName}
                     </span>
+                  )}
+                  {team.registration && (
+                    <RegistrationStatusBadge status={team.registration} />
                   )}
                   {team.refCount != null && (
                     <span className="text-muted-foreground text-xs tabular-nums">
