@@ -76,10 +76,17 @@ export function WizardPaymentStep({
   value,
   onChange,
   error,
+  payoutsReady = true,
 }: {
   value: WizardPaymentValue;
   onChange: (patch: Partial<WizardPaymentValue>) => void;
   error?: string;
+  /**
+   * Whether this org's Stripe account can actually take a card. When it
+   * can't, there is nothing to deduct and the quote must not pretend
+   * otherwise — see the breakdown below.
+   */
+  payoutsReady?: boolean;
 }) {
   const feeCents = Math.round((Number(value.feeDollars) || 0) * 100);
   const isFree = feeCents === 0;
@@ -124,8 +131,9 @@ export function WizardPaymentStep({
           <span className="text-muted-foreground text-sm">CAD</span>
         </div>
         <p className="text-muted-foreground text-xs">
-          This is what lands in your bank. Card and platform fees are added on
-          top, not taken out of it.
+          {payoutsReady
+            ? "This is what lands in your bank. Card and platform fees are added on top, not taken out of it."
+            : "This is what lands in your bank. Teams pay you directly, so nothing is deducted."}
         </p>
       </div>
 
@@ -187,7 +195,11 @@ export function WizardPaymentStep({
           <dl className="bg-paper-sunken space-y-1.5 rounded-lg p-3 text-sm tabular-nums">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Team pays</dt>
-              <dd className="font-semibold">{formatCents(quote.totalCents)}</dd>
+              <dd className="font-semibold">
+                {formatCents(
+                  payoutsReady ? quote.totalCents : feeCents + taxCents,
+                )}
+              </dd>
             </div>
             {taxCents > 0 && (
               <div className="flex justify-between">
@@ -195,14 +207,18 @@ export function WizardPaymentStep({
                 <dd>{formatCents(taxCents)}</dd>
               </div>
             )}
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Card and platform fees</dt>
-              <dd>{formatCents(quote.applicationFeeCents)}</dd>
-            </div>
+            {payoutsReady && (
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">
+                  Card and platform fees
+                </dt>
+                <dd>{formatCents(quote.applicationFeeCents)}</dd>
+              </div>
+            )}
             <div className="border-border flex justify-between border-t pt-1.5">
               <dt className="font-medium">You receive</dt>
               <dd className="font-semibold">
-                {formatCents(quote.organizerNetCents)}
+                {formatCents(payoutsReady ? quote.organizerNetCents : feeCents)}
               </dd>
             </div>
           </dl>

@@ -362,6 +362,16 @@ export function RegistrationFeeCard({
               )}
             </div>
 
+            {/*
+              Two different quotes, because there are two different truths.
+              With a card, we gross up so the organizer nets their price and the
+              payer covers Stripe's cut and ours. Paid offline — e-transfer, or
+              the organizer's own PayPal link — nothing of ours touches the
+              money: the payer sends the price plus tax and the organizer gets
+              all of it. Showing a "card and platform fees" line to an organizer
+              who has no Stripe account quotes them a deduction that will never
+              happen, against a number their bank will never show.
+            */}
             <dl className="bg-paper-sunken space-y-1.5 rounded-lg p-3 text-sm tabular-nums">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">
@@ -371,7 +381,9 @@ export function RegistrationFeeCard({
                   pays
                 </dt>
                 <dd className="font-semibold">
-                  {formatCents(quote.totalCents)}
+                  {formatCents(
+                    payoutsReady ? quote.totalCents : feeCents + taxCents,
+                  )}
                 </dd>
               </div>
               {taxCents > 0 && (
@@ -380,22 +392,27 @@ export function RegistrationFeeCard({
                   <dd>{formatCents(taxCents)}</dd>
                 </div>
               )}
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">
-                  Card and platform fees
-                </dt>
-                <dd>{formatCents(quote.applicationFeeCents)}</dd>
-              </div>
+              {payoutsReady && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">
+                    Card and platform fees
+                  </dt>
+                  <dd>{formatCents(quote.applicationFeeCents)}</dd>
+                </div>
+              )}
               <div className="border-border flex justify-between border-t pt-1.5">
                 <dt className="font-medium">You receive</dt>
                 <dd className="font-semibold">
-                  {formatCents(quote.organizerNetCents)}
+                  {formatCents(
+                    payoutsReady ? quote.organizerNetCents : feeCents,
+                  )}
                 </dd>
               </div>
             </dl>
             <p className="text-muted-foreground text-xs">
-              Based on one person paying the full {unitLabel} fee. Shares paid
-              individually are priced per player.
+              {payoutsReady
+                ? `Based on one person paying the full ${unitLabel} fee. Shares paid individually are priced per player.`
+                : `Paid straight to you, so there's nothing to deduct. PayPal's own fee, if you use a PayPal link, is between you and PayPal.`}
             </p>
           </>
         )}
