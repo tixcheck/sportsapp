@@ -1842,6 +1842,8 @@ export const registrationQuestionKind = pgEnum("registration_question_kind", [
   "phone",
   "select",
   "yes_no",
+  /** A street address, offered with autocomplete where a key is configured. */
+  "address",
 ]);
 
 export const registrationQuestions = pgTable(

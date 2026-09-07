@@ -48,6 +48,7 @@ export function RegistrationForm({
   playerQuestions = [],
   playerAnswers = {},
   suggestedAnswers = {},
+  addressAutocomplete = false,
   fee,
 }: {
   competitionId: string;
@@ -69,6 +70,8 @@ export function RegistrationForm({
   playerAnswers?: AnswerMap;
   /** Carried from another competition of the same org, awaiting confirmation. */
   suggestedAnswers?: AnswerMap;
+  /** Whether a Places key is configured; false renders a plain input. */
+  addressAutocomplete?: boolean;
   /** Null on a free event, or one that doesn't ask for payment up front. */
   fee?: {
     /** What the whole team owes, in cents. */
@@ -314,6 +317,7 @@ export function RegistrationForm({
             values={answers}
             onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
             disabled={pending}
+            addressAutocomplete={addressAutocomplete}
           />
         </div>
       )}
@@ -334,6 +338,7 @@ export function RegistrationForm({
             onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
             disabled={pending}
             suggested={suggestedAnswers}
+            addressAutocomplete={addressAutocomplete}
           />
         </div>
       )}

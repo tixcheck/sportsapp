@@ -20,6 +20,7 @@ import {
   type SignatureStyle,
 } from "@/lib/waivers/clauses";
 import { SignaturePicker } from "@/components/waivers/signature-picker";
+import { AddressInput } from "@/components/ui/address-input";
 
 /**
  * Read the waiver, then agree to it.
@@ -45,6 +46,7 @@ export function SignWaiver({
   onSigned,
   blockedReason,
   requireInitials = false,
+  addressAutocomplete = false,
 }: {
   competitionId: string;
   competitionName: string;
@@ -68,6 +70,8 @@ export function SignWaiver({
    * be evidence of nothing.
    */
   requireInitials?: boolean;
+  /** Whether an address key is configured; false renders a plain input. */
+  addressAutocomplete?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -176,13 +180,13 @@ export function SignWaiver({
           {needsAddress && (
             <div className="grid gap-1.5">
               <Label htmlFor="waiver-address">Your address</Label>
-              <Input
+              <AddressInput
                 id="waiver-address"
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                autoComplete="street-address"
+                onChange={setAddress}
                 placeholder="12 Main St, Brampton ON L6X 1A1"
                 disabled={pending}
+                available={addressAutocomplete}
               />
             </div>
           )}
