@@ -25,11 +25,18 @@ export function QuestionFields({
   values,
   onChange,
   disabled = false,
+  suggested = {},
 }: {
   questions: RegistrationQuestion[];
   values: AnswerMap;
   onChange: (questionId: string, value: string) => void;
   disabled?: boolean;
+  /**
+   * Values carried from another competition, not yet confirmed here. Flagged
+   * on screen — a field that fills itself in silently is the one nobody
+   * checks, and an address from last season may simply be wrong now.
+   */
+  suggested?: AnswerMap;
 }) {
   const roots = questions.filter((q) => !q.parentQuestionId);
   const childrenOf = (id: string) =>
@@ -45,6 +52,7 @@ export function QuestionFields({
           onChange={onChange}
           disabled={disabled}
           followUps={childrenOf(q.id)}
+          suggested={suggested}
         />
       ))}
     </div>
@@ -58,6 +66,7 @@ function Field({
   disabled,
   followUps,
   nested = false,
+  suggested = {},
 }: {
   question: RegistrationQuestion;
   values: AnswerMap;
@@ -65,9 +74,13 @@ function Field({
   disabled: boolean;
   followUps: RegistrationQuestion[];
   nested?: boolean;
+  suggested?: AnswerMap;
 }) {
   const value = values[q.id] ?? "";
   const id = `q-${q.id}`;
+  // Still showing what was carried over, and untouched since.
+  const carried =
+    suggested[q.id] !== undefined && suggested[q.id] === value && value !== "";
 
   return (
     <div className={cn("grid gap-1.5", nested && "border-rule border-l pl-4")}>
@@ -81,6 +94,11 @@ function Field({
       </Label>
       {q.helpText && (
         <p className="text-muted-foreground text-xs">{q.helpText}</p>
+      )}
+      {carried && (
+        <p className="text-xs text-amber-700 dark:text-amber-300">
+          From your last sign-up — check it&rsquo;s still right.
+        </p>
       )}
 
       {q.kind === "long_text" ? (
@@ -139,6 +157,7 @@ function Field({
               disabled={disabled}
               followUps={[]}
               nested
+              suggested={suggested}
             />
           </div>
         ))}

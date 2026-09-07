@@ -60,6 +60,7 @@ export function SteppedRegistration({
   teamQuestions = [],
   playerQuestions = [],
   playerAnswers = {},
+  suggestedAnswers = {},
   teamHref,
 }: {
   competitionId: string;
@@ -107,6 +108,8 @@ export function SteppedRegistration({
   playerQuestions?: RegistrationQuestion[];
   /** Anything they've already answered for this competition. */
   playerAnswers?: AnswerMap;
+  /** Carried from another competition of the same org, awaiting confirmation. */
+  suggestedAnswers?: AnswerMap;
   /** Where "done" goes; the team page once we know the id. */
   teamHref?: string;
 }) {
@@ -117,7 +120,11 @@ export function SteppedRegistration({
   const [divisionId, setDivisionId] = useState("");
   const [teamId, setTeamId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<AnswerMap>({});
-  const [mine, setMine] = useState<AnswerMap>(playerAnswers);
+  // Real answers win over a suggestion; a suggestion only fills a gap.
+  const [mine, setMine] = useState<AnswerMap>({
+    ...suggestedAnswers,
+    ...playerAnswers,
+  });
   const [signed, setSigned] = useState(waiver?.signed ?? true);
   const [paid, setPaid] = useState(false);
 
@@ -341,6 +348,7 @@ export function SteppedRegistration({
                 values={mine}
                 onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
                 disabled={pending}
+                suggested={suggestedAnswers}
               />
             </div>
           )}

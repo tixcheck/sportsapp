@@ -21,6 +21,7 @@ import {
 import {
   getMyPlayerAnswers,
   getRegistrationQuestions,
+  getSuggestedPlayerAnswers,
 } from "@/lib/queries/registration-questions";
 import {
   getCompetitionPaymentSettings,
@@ -112,9 +113,12 @@ export default async function RegisterPage({
   ]);
 
   // The captain's own player questions, and whatever they've already given.
-  const [playerQuestions, myAnswers] = await Promise.all([
+  const [playerQuestions, myAnswers, suggestedAnswers] = await Promise.all([
     getRegistrationQuestions(event.id, "player"),
     getMyPlayerAnswers(event.id),
+    // Carried from another competition this organization runs, so a captain
+    // entering their second BVL league isn't retyping their address.
+    getSuggestedPlayerAnswers(event.id),
   ]);
 
   const fee =
@@ -217,6 +221,7 @@ export default async function RegisterPage({
       teamQuestions={teamQuestions}
       playerQuestions={playerQuestions}
       playerAnswers={myAnswers}
+      suggestedAnswers={suggestedAnswers}
       action={action}
       isAuthed={!!user}
       userEmail={user?.email}
@@ -261,6 +266,7 @@ export default async function RegisterPage({
       teamQuestions={teamQuestions}
       playerQuestions={playerQuestions}
       playerAnswers={myAnswers}
+      suggestedAnswers={suggestedAnswers}
       fee={fee}
     />
   );
