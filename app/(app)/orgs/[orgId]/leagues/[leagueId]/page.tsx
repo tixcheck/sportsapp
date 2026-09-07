@@ -67,12 +67,12 @@ import {
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
-import { EtransferInbox } from "@/components/payments/etransfer-inbox";
+import { OfflinePaymentsInbox } from "@/components/payments/offline-payments-inbox";
 import { getWaitlist } from "@/lib/queries/waitlist";
 import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
-  getEtransferFeesOwed,
-  getPendingEtransfers,
+  getOfflineFeesOwed,
+  getPendingOfflinePayments,
 } from "@/lib/queries/payments";
 import { CourtVenuesCard } from "@/components/venues/court-venues-card";
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
@@ -136,8 +136,8 @@ export default async function LeaguePage({
   // be able to set a price before finishing Stripe.
   const waitlist = await getWaitlist(leagueId);
   const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
-    getPendingEtransfers(league.id),
-    getEtransferFeesOwed(league.id),
+    getPendingOfflinePayments(league.id),
+    getOfflineFeesOwed(league.id),
   ]);
   const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
     await Promise.all([
@@ -580,7 +580,7 @@ export default async function LeaguePage({
 
       {ledger && (
         <>
-          <EtransferInbox
+          <OfflinePaymentsInbox
             pending={pendingEtransfers}
             feesOwed={etransferFeesOwed}
           />
@@ -628,6 +628,9 @@ export default async function LeaguePage({
           paymentRequired: payment.settings.paymentRequired,
           etransferEmail: payment.settings.etransferEmail ?? "",
           etransferNote: payment.settings.etransferNote ?? "",
+          paypalTeamUrl: payment.settings.paypalTeamUrl ?? "",
+          paypalIndividualUrl: payment.settings.paypalIndividualUrl ?? "",
+          paypalNote: payment.settings.paypalNote ?? "",
         }}
         rates={payment.rates}
         payoutsReady={payment.payoutsReady}

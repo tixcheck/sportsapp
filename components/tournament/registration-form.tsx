@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PaymentModeChoice } from "@/components/payments/payment-mode-choice";
 import { Input } from "@/components/ui/input";
-import { startEtransferAction } from "@/server/actions/registration-payments";
+import { startOfflinePaymentAction } from "@/server/actions/registration-payments";
 import type { PaymentMode } from "@/components/payments/payment-mode-choice";
 import { Label } from "@/components/ui/label";
 
@@ -58,6 +58,8 @@ export function RegistrationForm({
     paymentRequired: boolean;
     /** Where an e-transfer goes, or null when the organizer takes cards only. */
     etransferEmail?: string | null;
+    /** The organizer's PayPal payment link, or null when they don't take it. */
+    paypalUrl?: string | null;
     /** Tax on the fee — an e-transfer pays it, so the quote must show it. */
     taxCents?: number;
   } | null;
@@ -113,17 +115,31 @@ export function RegistrationForm({
       // entrant until it pays, so send them straight on rather than leaving
       // them to discover a Pay button somewhere else.
       if (fee?.paymentRequired && fee.teamCents > 0 && "teamId" in result) {
-        // Paying the organizer directly: record the obligation and show the
-        // address. No redirect — there is nowhere to send them.
-        if (choice === "etransfer") {
-          const et = await startEtransferAction(competitionId, result.teamId);
-          if ("error" in et) {
-            toast.error(et.error);
-          } else {
-            toast.success(
-              "Registered — check your email for where to send it.",
-            );
+        // Paying the organizer directly. We record the obligation and then
+        // hand them off — to PayPal, or to their own banking app. Either way
+        // the team is NOT confirmed by this; only the organizer confirming the
+        // money arrived does that.
+        if (choice === "etransfer" || choice === "paypal") {
+          const started = await startOfflinePaymentAction(
+            competitionId,
+            result.teamId,
+            choice,
+          );
+          if ("error" in started) {
+            toast.error(started.error);
+            router.push(`/teams/${result.teamId}`);
+            return;
           }
+
+          if (started.method === "paypal" && started.paypalUrl) {
+            toast.success("Registered — sending you to PayPal.");
+            // A full navigation, not a new tab: PayPal's link is a page, and
+            // its return URL is what brings them back to us afterwards.
+            window.location.href = started.paypalUrl;
+            return;
+          }
+
+          toast.success("Registered — check your email for where to send it.");
           router.push(`/teams/${result.teamId}`);
           return;
         }
@@ -221,7 +237,8 @@ export function RegistrationForm({
         fee.teamCents > 0 &&
         (fee.allowCaptainPays ||
           fee.allowSplitPayment ||
-          fee.etransferEmail) && (
+          fee.etransferEmail ||
+          fee.paypalUrl) && (
           <PaymentModeChoice
             teamCents={fee.teamCents}
             players={
@@ -230,8 +247,9 @@ export function RegistrationForm({
             value={choice}
             onChange={(v) => {
               setChoice(v);
-              // An e-transfer always settles the whole team fee: splitting one
-              // would leave the organizer reconciling six separate transfers.
+              // Paying the organizer directly always settles the whole team
+              // fee: splitting one would leave them reconciling six separate
+              // transfers against a link that names none of them.
               form.setValue(
                 "paymentMode",
                 v === "player_share" ? "player_share" : "team_full",
@@ -240,6 +258,7 @@ export function RegistrationForm({
             allowCaptainPays={fee.allowCaptainPays}
             allowSplitPayment={fee.allowSplitPayment}
             etransferEmail={fee.etransferEmail}
+            paypalUrl={fee.paypalUrl}
             taxCents={fee.taxCents}
           />
         )}

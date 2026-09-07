@@ -451,21 +451,29 @@ export function planIndividualCharge({
 }
 
 /**
- * What a team owes when they pay the organizer directly by e-transfer.
+ * What a team owes when they pay the organizer directly, outside the app —
+ * bank transfer, or the organizer's own PayPal link.
  *
  * Nothing is grossed up. A card payment adds Stripe's processing and our
- * platform fee on top so the organizer nets their price; an e-transfer has no
- * processing to cover and we never touch the money, so the payer sends exactly
- * the price plus tax and the organizer receives all of it.
+ * platform fee on top so the organizer nets their price; an offline payment
+ * has no processing of ours to cover and we never touch the money, so the
+ * payer sends exactly the price plus tax and the organizer receives all of it.
+ *
+ * PayPal's own processing fee is invisible here on purpose. The organizer sets
+ * the amount on their PayPal link and PayPal deducts its cut from what lands
+ * in their account — it is between them and PayPal, and inventing a number for
+ * it would put a figure on our screen that reconciles against nothing.
  *
  * The platform fee is still RECORDED, and that is the whole point of this
  * function returning it separately from `totalCents`. The owner's decision
  * (2026-08-21) is that the fee is owed rather than waived: waiving it would
- * make e-transfer the rational choice for every organizer and take card
+ * make offline payment the rational choice for every organizer and take card
  * revenue with it. So the fee sits on the row as a debt to settle later, and
- * `applicationFeeCents` is zero because Stripe collected nothing.
+ * `applicationFeeCents` is zero because Stripe collected nothing. An organizer
+ * on a waived rate — a free trial — plans a zero fee here without a special
+ * case, because the rates passed in are already zero.
  */
-export function planEtransferCharge({
+export function planOfflineCharge({
   pricing,
   competitionType,
   payerEmail,
@@ -502,3 +510,9 @@ export function planEtransferCharge({
     },
   ];
 }
+
+/**
+ * @deprecated Use {@link planOfflineCharge}. Kept because e-transfer was the
+ * only offline method for two months and the name is spread across callers.
+ */
+export const planEtransferCharge = planOfflineCharge;

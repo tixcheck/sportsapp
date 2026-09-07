@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import {
+  isPaypalLink,
+  normalisePaypalLink,
+  MAX_PAYPAL_URL_LENGTH,
+} from "@/lib/payments/paypal";
+
 import { createClient } from "@/lib/supabase/server";
 import { currentStripeMode } from "@/lib/payments/stripe-mode";
 import { getStripe } from "@/lib/payments/stripe";
@@ -210,13 +216,42 @@ const registrationFeeSchema = z
       .optional(),
     /** "Put your team name in the message." */
     etransferNote: z.string().trim().max(500).optional(),
+    /**
+     * The organizer's own PayPal payment link for a team fee. Empty means this
+     * event doesn't take PayPal — the link IS the switch, as the e-transfer
+     * address is.
+     *
+     * Validated against `paypalLinkProblem` rather than a regex here so the
+     * organizer gets a sentence naming what's wrong, and so the rule lives in
+     * one place alongside the CHECK constraint it mirrors.
+     */
+    paypalTeamUrl: z
+      .string()
+      .trim()
+      .max(MAX_PAYPAL_URL_LENGTH)
+      .refine((v) => v === "" || isPaypalLink(v), {
+        message: "That isn't a PayPal payment link.",
+      })
+      .optional(),
+    /** The same, for someone registering on their own. */
+    paypalIndividualUrl: z
+      .string()
+      .trim()
+      .max(MAX_PAYPAL_URL_LENGTH)
+      .refine((v) => v === "" || isPaypalLink(v), {
+        message: "That isn't a PayPal payment link.",
+      })
+      .optional(),
+    /** "Put your team name in the PayPal note." */
+    paypalNote: z.string().trim().max(500).optional(),
   })
   .refine(
     (v) =>
       v.feeDollars === 0 ||
       v.allowCaptainPays ||
       v.allowSplitPayment ||
-      !!v.etransferEmail,
+      !!v.etransferEmail ||
+      !!v.paypalTeamUrl,
     {
       message: "Pick at least one way for teams to pay.",
       path: ["allowCaptainPays"],
@@ -271,6 +306,11 @@ export async function updateRegistrationFeeAction(
       payment_required: feeCents === 0 ? false : parsed.data.paymentRequired,
       etransfer_email: parsed.data.etransferEmail || null,
       etransfer_note: parsed.data.etransferNote || null,
+      paypal_team_url: normalisePaypalLink(parsed.data.paypalTeamUrl),
+      paypal_individual_url: normalisePaypalLink(
+        parsed.data.paypalIndividualUrl,
+      ),
+      paypal_note: parsed.data.paypalNote || null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "competition_id" },

@@ -10,11 +10,12 @@ import {
   getPaymentAccount,
   getPlatformFeeRatesFor,
   getTeamPaymentRows,
+  type OfflinePaymentMethod,
 } from "@/lib/queries/payments";
 import { getTeamRoster } from "@/lib/queries/roster";
 import { cardPaymentBlockedReason } from "@/lib/payments/account-status";
 import {
-  planEtransferCharge,
+  planOfflineCharge,
   planIndividualCharge,
   planMemberShares,
   planTeamCharge,
@@ -27,7 +28,10 @@ import {
 } from "@/lib/payments/platform-fee";
 import { getOrigin } from "@/lib/utils/url";
 import { formatCents } from "@/lib/payments/format";
-import { sendEtransferInstructions } from "@/lib/email/send";
+import {
+  sendEtransferInstructions,
+  sendPaypalInstructions,
+} from "@/lib/email/send";
 
 type ActionError = { error: string };
 
@@ -807,27 +811,42 @@ export async function startIndividualCheckoutAction(
   }
 }
 
+/** What the payer is told to do, once the obligation is recorded. */
+export type OfflinePaymentInstructions = {
+  method: OfflinePaymentMethod;
+  amountCents: number;
+  note: string | null;
+  /** Set for `etransfer`. */
+  etransferEmail?: string;
+  /** Set for `paypal`. */
+  paypalUrl?: string;
+};
+
 /**
- * Record that a team will pay the organizer directly, and tell them where.
+ * Record that a team will pay the organizer directly, and tell them how.
  *
- * There is no checkout and no webhook — the money moves between two banks and
- * the organizer is the only witness. So this writes the obligation, returns the
- * address for the screen, and emails the same thing, because a bank transfer
- * gets done later from a phone rather than in the tab that's open now.
+ * There is no checkout and no webhook for either method — the money moves
+ * between two banks, or through the organizer's own PayPal account, and the
+ * organizer is the only witness. So this writes the obligation, returns the
+ * instructions for the screen, and emails the same thing, because a fee like
+ * this gets settled later from a phone rather than in the tab that's open now.
  *
  * The team stays `pending_payment` until the organizer confirms the money
- * arrived; nothing here makes them an entrant.
+ * arrived; nothing here makes them an entrant. In particular, for PayPal there
+ * is no later signal that could: the link is shared by every team and carries
+ * no reference back to this row.
  */
-export async function startEtransferAction(
+export async function startOfflinePaymentAction(
   competitionId: string,
   teamId: string,
-): Promise<
-  | ActionError
-  | { etransferEmail: string; amountCents: number; note: string | null }
-> {
+  method: OfflinePaymentMethod,
+): Promise<ActionError | OfflinePaymentInstructions> {
   const comp = idSchema.safeParse(competitionId);
   const team = idSchema.safeParse(teamId);
   if (!comp.success || !team.success) return { error: "Unknown team." };
+  if (method !== "etransfer" && method !== "paypal") {
+    return { error: "Unknown payment method." };
+  }
 
   const supabase = await createClient();
   const {
@@ -854,14 +873,17 @@ export async function startEtransferAction(
     getPlatformFeeRatesFor(c.id),
   ]);
 
-  if (!settings.etransferEmail) {
+  if (method === "etransfer" && !settings.etransferEmail) {
     return { error: "This event doesn't take e-transfers." };
+  }
+  if (method === "paypal" && !settings.paypalTeamUrl) {
+    return { error: "This event doesn't take PayPal." };
   }
   if (settings.registrationFeeCents <= 0) {
     return { error: "This event is free — there's nothing to pay." };
   }
 
-  const [charge] = planEtransferCharge({
+  const [charge] = planOfflineCharge({
     pricing: {
       registrationFeeCents: settings.registrationFeeCents,
       individualFeeCents: settings.individualFeeCents,
@@ -874,9 +896,10 @@ export async function startEtransferAction(
   });
   if (!charge) return { error: "This event is free — there's nothing to pay." };
 
-  const { error } = await supabase.rpc("start_etransfer_payment", {
+  const { error } = await supabase.rpc("start_offline_payment", {
     _competition_id: c.id,
     _team_id: team.data,
+    _method: method,
     _price_cents: charge.priceCents,
     _tax_cents: charge.taxCents,
     _platform_fee_cents: charge.platformFeeCents,
@@ -886,7 +909,7 @@ export async function startEtransferAction(
     if (error.message.includes("Only the team or the organizer")) {
       return { error: "Only the team or the organizer can do that." };
     }
-    console.error("[payments] start_etransfer_payment failed");
+    console.error("[payments] start_offline_payment failed");
     return { error: "That couldn't be recorded. Please try again." };
   }
 
@@ -903,27 +926,62 @@ export async function startEtransferAction(
     getOrigin(),
   ]);
 
+  const common = {
+    teamName: (teamRow as { name: string } | null)?.name ?? "Your team",
+    competitionName: c.name,
+    organizerName: (org as { name: string } | null)?.name ?? "the organizer",
+    amount: formatCents(charge.totalCents),
+    teamUrl: `${origin}/teams/${team.data}`,
+  };
+  const replyTo =
+    (org as { contact_email: string | null } | null)?.contact_email ??
+    undefined;
+
   if (user.email) {
-    await sendEtransferInstructions(
-      user.email,
-      {
-        teamName: (teamRow as { name: string } | null)?.name ?? "Your team",
-        competitionName: c.name,
-        organizerName:
-          (org as { name: string } | null)?.name ?? "the organizer",
-        etransferEmail: settings.etransferEmail,
-        amount: formatCents(charge.totalCents),
-        note: settings.etransferNote,
-        teamUrl: `${origin}/teams/${team.data}`,
-      },
-      (org as { contact_email: string | null } | null)?.contact_email ??
-        undefined,
-    );
+    if (method === "paypal") {
+      await sendPaypalInstructions(
+        user.email,
+        {
+          ...common,
+          paypalUrl: settings.paypalTeamUrl!,
+          note: settings.paypalNote,
+        },
+        replyTo,
+      );
+    } else {
+      await sendEtransferInstructions(
+        user.email,
+        {
+          ...common,
+          etransferEmail: settings.etransferEmail!,
+          note: settings.etransferNote,
+        },
+        replyTo,
+      );
+    }
   }
 
-  return {
-    etransferEmail: settings.etransferEmail,
-    amountCents: charge.totalCents,
-    note: settings.etransferNote,
-  };
+  return method === "paypal"
+    ? {
+        method,
+        amountCents: charge.totalCents,
+        note: settings.paypalNote,
+        paypalUrl: settings.paypalTeamUrl!,
+      }
+    : {
+        method,
+        amountCents: charge.totalCents,
+        note: settings.etransferNote,
+        etransferEmail: settings.etransferEmail!,
+      };
+}
+
+/**
+ * @deprecated Use {@link startOfflinePaymentAction}.
+ */
+export async function startEtransferAction(
+  competitionId: string,
+  teamId: string,
+) {
+  return startOfflinePaymentAction(competitionId, teamId, "etransfer");
 }

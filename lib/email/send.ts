@@ -9,6 +9,7 @@ import {
 } from "./templates/confirm-score";
 import { ResultEmail, type ResultEmailProps } from "./templates/result";
 import { EtransferInstructionsEmail } from "./templates/etransfer-instructions";
+import { PaypalInstructionsEmail } from "./templates/paypal-instructions";
 import { WaitlistOfferEmail } from "./templates/waitlist-offer";
 import {
   ScheduleChangedEmail,
@@ -360,6 +361,36 @@ export function sendEtransferInstructions(
     // registration confirmation and has to be distinguishable from it.
     subject: `Send ${props.amount} to confirm ${props.teamName} — ${props.competitionName}`,
     react: EtransferInstructionsEmail(props),
+    replyTo,
+  });
+}
+
+export interface PaypalInstructionsProps {
+  teamName: string;
+  competitionName: string;
+  organizerName: string;
+  paypalUrl: string;
+  amount: string;
+  note?: string | null;
+  teamUrl: string;
+}
+
+/**
+ * The organizer's PayPal link, after a team chooses to pay by it.
+ *
+ * `replyTo` is the organizer for the same reason as the e-transfer version,
+ * and more sharply: the money lands in THEIR PayPal account, so "did you get
+ * it?" is a question only they can answer. We are not a party to the payment.
+ */
+export function sendPaypalInstructions(
+  to: string,
+  props: PaypalInstructionsProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: `Pay ${props.amount} to confirm ${props.teamName} — ${props.competitionName}`,
+    react: PaypalInstructionsEmail(props),
     replyTo,
   });
 }

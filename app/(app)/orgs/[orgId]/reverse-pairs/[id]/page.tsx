@@ -104,6 +104,9 @@ export default async function ReversePairsPage({
             paymentRequired: feeSettings.paymentRequired,
             etransferEmail: feeSettings.etransferEmail ?? "",
             etransferNote: feeSettings.etransferNote ?? "",
+            paypalTeamUrl: feeSettings.paypalTeamUrl ?? "",
+            paypalIndividualUrl: feeSettings.paypalIndividualUrl ?? "",
+            paypalNote: feeSettings.paypalNote ?? "",
           }}
           rates={feeRates}
           payoutsReady={paymentAccountStatus(orgAccount).canAcceptPayments}

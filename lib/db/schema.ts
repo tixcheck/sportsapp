@@ -139,6 +139,19 @@ export const orgMemberRole = pgEnum("org_member_role", [
 export const teamMemberRole = pgEnum("team_member_role", ["captain", "player"]);
 
 /** One payment covers a whole team, or one player's share of it. */
+/**
+ * How the money reached the organizer (migrations 0079, 0102).
+ *
+ * `card` is the only one we handle. The others move outside the app entirely —
+ * bank transfer, or the organizer's own PayPal — so there is no webhook and the
+ * organizer is the only witness that anything arrived.
+ */
+export const paymentMethod = pgEnum("payment_method", [
+  "card",
+  "etransfer",
+  "paypal",
+]);
+
 export const registrationPaymentKind = pgEnum("registration_payment_kind", [
   "team_full",
   "player_share",
@@ -1515,6 +1528,31 @@ export const competitionPaymentSettings = pgTable(
      * replacement (PRD §14, and the owner's framing in the plan).
      */
     paymentRequired: boolean("payment_required").notNull().default(false),
+
+    // --- Off-platform collection (migrations 0079, 0102) -------------------
+    //
+    // For each of these, PRESENCE IS THE SWITCH. An organizer who hasn't given
+    // an address isn't offering e-transfer; one who hasn't given a link isn't
+    // offering PayPal. A separate boolean could disagree with the value it
+    // guards, and then the payment page and the settings page tell different
+    // stories.
+
+    /** Where a player sends an e-transfer. */
+    etransferEmail: text("etransfer_email"),
+    /** Instructions shown beside it ("put your team name in the message"). */
+    etransferNote: text("etransfer_note"),
+    /**
+     * The organizer's own PayPal payment link for a TEAM fee.
+     *
+     * One link serves every team in the competition — PayPal's hosted links
+     * carry no per-payer reference — so nothing here identifies who paid. That
+     * is why a PayPal payment can only ever be confirmed by the organizer.
+     */
+    paypalTeamUrl: text("paypal_team_url"),
+    /** The same, for a single player registering without a team. */
+    paypalIndividualUrl: text("paypal_individual_url"),
+    /** Instructions shown beside the button. */
+    paypalNote: text("paypal_note"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1595,6 +1633,30 @@ export const registrationPayments = pgTable(
     refundedAt: timestamp("refunded_at", { withTimezone: true }),
     /** The organizer's reason, shown back to the payer. */
     refundReason: text("refund_reason"),
+
+    // --- Offline payments (migrations 0079, 0102) --------------------------
+
+    method: paymentMethod("method").notNull().default("card"),
+    /**
+     * Null until we invoice the organizer for our fee on a payment we never
+     * handled. Always null for card, where the fee came out of the charge.
+     */
+    platformFeeSettledAt: timestamp("platform_fee_settled_at", {
+      withTimezone: true,
+    }),
+    /** The organizer who said the money arrived. */
+    confirmedByUserId: uuid("confirmed_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /** What the organizer noted when confirming — a finding. */
+    confirmationNote: text("confirmation_note"),
+    /**
+     * What the PAYER says identifies their payment, typically a PayPal
+     * transaction ID off the receipt. A claim, not a finding: it is typed by
+     * the person who owes the money and verifies nothing on its own. Kept
+     * apart from `confirmationNote` so it stays obvious which you're reading.
+     */
+    payerReference: text("payer_reference"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
