@@ -34,16 +34,25 @@ import {
 export function LocalityCard({
   competitionId,
   homeCity,
+  orgCity,
+  ownCity,
   teams,
 }: {
   competitionId: string;
-  /** Null until the organizer names the town. */
+  /** The town in force, whether set here or inherited. */
   homeCity: string | null;
+  /** The organization's default, shown as the placeholder when inheriting. */
+  orgCity: string | null;
+  /** This competition's own override, null when it inherits. */
+  ownCity: string | null;
   teams: TeamLocalityRow[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [city, setCity] = useState(homeCity ?? "");
+  // Seeded from the OVERRIDE, not the resolved value: an empty box that shows
+  // the inherited town as its placeholder says "following the organization",
+  // where a pre-filled one would look like a value set here.
+  const [city, setCity] = useState(ownCity ?? "");
 
   function save() {
     start(async () => {
@@ -56,7 +65,11 @@ export function LocalityCard({
         return;
       }
       toast.success(
-        city.trim() ? `Counting players from ${city.trim()}.` : "Turned off.",
+        city.trim()
+          ? `Counting players from ${city.trim()}.`
+          : orgCity
+            ? `Following your organization — counting players from ${orgCity}.`
+            : "Turned off.",
       );
       router.refresh();
     });
@@ -80,8 +93,10 @@ export function LocalityCard({
         </CardTitle>
         <CardDescription>
           Counts each team against one town, from the address players give at
-          registration. Leave it blank if your league doesn&apos;t draw that
-          distinction.
+          registration.{" "}
+          {orgCity
+            ? `Following your organization's ${orgCity} unless you set a different one here.`
+            : "Set it on your organization to cover every league at once."}
         </CardDescription>
       </CardHeader>
 
@@ -92,7 +107,7 @@ export function LocalityCard({
             <Input
               id="home-locality"
               value={city}
-              placeholder="Brampton"
+              placeholder={orgCity ?? "Brampton"}
               onChange={(e) => setCity(e.target.value)}
               className="max-w-56"
             />
@@ -101,6 +116,14 @@ export function LocalityCard({
             {pending ? "Saving…" : "Save"}
           </Button>
         </div>
+
+        {ownCity === null && orgCity && (
+          <p className="text-muted-foreground text-xs">
+            Following <strong className="text-foreground">{orgCity}</strong>{" "}
+            from your organization. Type a town above only if this league is
+            different.
+          </p>
+        )}
 
         {!homeCity ? (
           <p className="text-muted-foreground text-sm">

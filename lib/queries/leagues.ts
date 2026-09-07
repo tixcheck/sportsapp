@@ -8,6 +8,8 @@ export interface OrgSummary {
   slug: string;
   /** Shown on the org's public registration pages. */
   logo_url: string | null;
+  /** Default town its competitions count players against. Null = none. */
+  home_locality: string | null;
 }
 
 export interface LeagueSummary {
@@ -170,7 +172,7 @@ export async function getOrg(orgId: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("organizations")
-    .select("id, name, slug, logo_url")
+    .select("id, name, slug, logo_url, home_locality")
     .eq("id", orgId)
     .single();
   return data;

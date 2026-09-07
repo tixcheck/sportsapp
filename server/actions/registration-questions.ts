@@ -232,6 +232,50 @@ export async function saveRegistrationAnswersAction(
   return { saved: rows.length };
 }
 
+const orgLocalitySchema = z.object({
+  orgId: z.string().uuid(),
+  homeLocality: z
+    .string()
+    .trim()
+    .min(2, "That's too short to be a town.")
+    .max(80)
+    .nullable(),
+});
+
+/**
+ * The organization's default town.
+ *
+ * `can_manage_org`, not `is_org_admin` — this is the same rule the waivers use,
+ * so platform staff setting an organization up can fill it in rather than
+ * having to ask somebody to type one word.
+ */
+export async function setOrgHomeLocalityAction(
+  input: z.input<typeof orgLocalitySchema>,
+): Promise<ActionError | { saved: true }> {
+  const parsed = orgLocalitySchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the town." };
+  }
+
+  const supabase = await createClient();
+  const { data: allowed } = await supabase.rpc("can_manage_org", {
+    _org_id: parsed.data.orgId,
+  });
+  if (allowed !== true) return { error: "Only an organizer can change this." };
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ home_locality: parsed.data.homeLocality })
+    .eq("id", parsed.data.orgId);
+  if (error) {
+    console.error("[questions] org home locality update failed");
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { saved: true };
+}
+
 const localitySchema = z.object({
   competitionId: z.string().uuid(),
   /** Null turns the local/visitor distinction off entirely. */

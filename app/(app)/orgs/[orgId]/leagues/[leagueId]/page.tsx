@@ -660,6 +660,8 @@ export default async function LeaguePage({
       <LocalityCard
         competitionId={league.id}
         homeCity={localities.homeCity}
+        orgCity={localities.orgCity}
+        ownCity={localities.ownCity}
         teams={localities.teams}
       />
 
