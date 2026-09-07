@@ -11,7 +11,10 @@ import {
   registerIndividualAction,
   type IndividualSignupInput,
 } from "@/server/actions/free-agents";
-import { startIndividualCheckoutAction } from "@/server/actions/registration-payments";
+import {
+  startIndividualCheckoutAction,
+  startIndividualOfflinePaymentAction,
+} from "@/server/actions/registration-payments";
 import { SKILL_LEVELS, skillLabel, sportConfig } from "@/lib/sports";
 import type { Sport } from "@/lib/formats";
 import type { FreeAgent } from "@/lib/queries/free-agents";
@@ -46,6 +49,8 @@ export function IndividualSignupForm({
   userName,
   loginHref,
   feeCents,
+  cardAvailable = true,
+  paypalUrl = null,
   existing,
 }: {
   competitionId: string;
@@ -56,6 +61,10 @@ export function IndividualSignupForm({
   loginHref: string;
   /** 0 when individual sign-up is free. */
   feeCents: number;
+  /** Whether the organizer's Stripe account can actually take a card. */
+  cardAvailable?: boolean;
+  /** The organizer's own PayPal link for an individual fee. */
+  paypalUrl?: string | null;
   /** Their existing sign-up, when they've already done this. */
   existing?: FreeAgent | null;
 }) {
@@ -124,6 +133,27 @@ export function IndividualSignupForm({
       // Pay button later.
       if (result.feeCents > 0) {
         toast.success("Nearly there — just the fee to settle.");
+
+        // An organizer collecting through their own PayPal has no Stripe
+        // account, so there is no checkout to create. Send them to the
+        // organizer's link instead of to an error they can do nothing about.
+        if (!cardAvailable && paypalUrl) {
+          const started = await startIndividualOfflinePaymentAction(
+            competitionId,
+            result.freeAgentId,
+            "paypal",
+          );
+          if ("error" in started) {
+            toast.error(started.error);
+            router.refresh();
+            return;
+          }
+          if (started.paypalUrl) {
+            window.location.href = started.paypalUrl;
+            return;
+          }
+        }
+
         const checkout = await startIndividualCheckoutAction(
           competitionId,
           result.freeAgentId,

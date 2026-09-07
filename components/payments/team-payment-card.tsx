@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import {
   coverRemainingBalanceAction,
+  startOfflinePaymentAction,
   startRegistrationCheckoutAction,
 } from "@/server/actions/registration-payments";
 import type {
@@ -36,6 +37,7 @@ export function TeamPaymentCard({
   /** What the payer would be charged, fees included. */
   totalDueCents,
   canPayOnline,
+  paypalUrl = null,
   canPay,
   allowCaptainPays,
   shares,
@@ -48,6 +50,8 @@ export function TeamPaymentCard({
   totalDueCents: number;
   /** The organizer's Stripe account can actually take money. */
   canPayOnline: boolean;
+  /** The organizer's own PayPal link, when they collect that way instead. */
+  paypalUrl?: string | null;
   /** This viewer is on the team (or is the organizer). */
   canPay: boolean;
   /** The event allows one payment covering the whole team. */
@@ -72,6 +76,27 @@ export function TeamPaymentCard({
       }
       // Stripe Checkout is hosted — leave the app entirely.
       window.location.href = res.url;
+    });
+  }
+
+  /**
+   * Hand off to the organizer's own PayPal. Records the obligation first, so
+   * the organizer has a line to confirm against even if the payer abandons
+   * PayPal — the alternative is money arriving with nothing on our side to
+   * match it to.
+   */
+  function payByPaypal() {
+    start(async () => {
+      const res = await startOfflinePaymentAction(
+        competitionId,
+        teamId,
+        "paypal",
+      );
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      if (res.paypalUrl) window.location.href = res.paypalUrl;
     });
   }
 
@@ -152,13 +177,38 @@ export function TeamPaymentCard({
                   ? "Pay the whole team fee"
                   : "Pay by card"}
             </Button>
-          ) : (
-            !canPayOnline && (
-              <p className="text-muted-foreground text-sm">
-                Card payment isn&apos;t available for this event yet — arrange
-                payment with the organizer.
+          ) : null}
+
+          {/*
+            PayPal stands alongside card rather than replacing it, and is the
+            ONLY button an organizer who never connected Stripe will have. It
+            deliberately doesn't promise confirmation: the money lands in their
+            account and they confirm it by hand.
+          */}
+          {canPay && paypalUrl && (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                onClick={payByPaypal}
+                disabled={pending}
+                variant={canPayOnline ? "outline" : "default"}
+                className="w-full sm:w-auto"
+              >
+                {pending ? "Opening PayPal…" : "Pay by PayPal"}
+              </Button>
+              <p className="text-muted-foreground text-xs">
+                Goes to the organizer&apos;s own PayPal. They confirm it against
+                their account, so your team stays unconfirmed for a little while
+                after you pay.
               </p>
-            )
+            </div>
+          )}
+
+          {!canPayOnline && !paypalUrl && (
+            <p className="text-muted-foreground text-sm">
+              Card payment isn&apos;t available for this event — arrange payment
+              with the organizer.
+            </p>
           )}
 
           {/*

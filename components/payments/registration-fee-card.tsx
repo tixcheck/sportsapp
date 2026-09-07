@@ -158,8 +158,9 @@ export function RegistrationFeeCard({
         {!payoutsReady && !isFree && (
           <p className="rounded-lg bg-amber-100 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
             You can set a price now, but {unitLabel}s cannot pay by card until
-            this organization finishes connecting Stripe. Cash and e-transfer
-            still work as they always have.
+            this organization finishes connecting Stripe — and the card options
+            won&apos;t be offered to them at all until then. PayPal, cash and
+            e-transfer all still work.
           </p>
         )}
 

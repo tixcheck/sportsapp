@@ -110,6 +110,7 @@ export default async function TeamPage({
         payment={payment}
         totalDueCents={outstandingCharge?.totalCents ?? 0}
         canPayOnline={canPayOnline}
+        paypalUrl={feeSettings.paypalTeamUrl}
         canPay={isMember || view.isAdmin}
         allowCaptainPays={feeSettings.allowCaptainPays}
         shares={shares}

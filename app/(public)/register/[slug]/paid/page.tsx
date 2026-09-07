@@ -86,6 +86,9 @@ export default async function PaidReturnPage({
   }
 
   const state = await getMyOfflinePaymentReturn(event.id);
+  // A free agent has no team page; their sign-up lives on the event itself.
+  const mineHref = state?.teamId ? `/teams/${state.teamId}` : registerHref;
+  const mineLabel = state?.teamId ? "View your team" : "View your sign-up";
 
   // Paid without registering first: nothing stops someone finding the link on
   // the organizer's own site. Not an error — walk them into registration,
@@ -114,7 +117,7 @@ export default async function PaidReturnPage({
         <p>
           {Organizer} has your payment of {formatCents(state.expectedCents)} and
           your spot is locked in.
-          {state.teamStatus !== "active" && (
+          {state.teamId && state.teamStatus !== "active" && (
             <>
               {" "}
               Your team still has a step left before it appears in the schedule
@@ -124,7 +127,7 @@ export default async function PaidReturnPage({
         </p>
         <Actions>
           <Button asChild>
-            <Link href={`/teams/${state.teamId}`}>View your team</Link>
+            <Link href={mineHref}>{mineLabel}</Link>
           </Button>
         </Actions>
       </Shell>
@@ -172,7 +175,7 @@ export default async function PaidReturnPage({
         requirements — and someone who has just handed over money is exactly
         the person who will otherwise assume they are done.
       */}
-      {state.teamStatus === "pending_waiver" && (
+      {state.teamId && state.teamStatus === "pending_waiver" && (
         <p className="mt-4 rounded-lg border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
           <strong className="font-semibold">One more thing.</strong> Paying
           doesn&rsquo;t complete your entry on its own — your team still needs
@@ -183,7 +186,7 @@ export default async function PaidReturnPage({
 
       <Actions>
         <Button asChild>
-          <Link href={`/teams/${state.teamId}`}>View your team</Link>
+          <Link href={mineHref}>{mineLabel}</Link>
         </Button>
         <Button asChild variant="outline">
           <Link href={registerHref}>Back to {event.name}</Link>

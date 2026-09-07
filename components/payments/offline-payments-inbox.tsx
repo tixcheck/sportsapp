@@ -128,6 +128,7 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
         <p className="text-sm font-semibold">
           {row.teamName}
           <span className="text-muted-foreground ml-2 text-xs font-normal">
+            {row.isIndividual ? "individual · " : ""}
             by {METHOD_LABEL[row.method]}
           </span>
         </p>

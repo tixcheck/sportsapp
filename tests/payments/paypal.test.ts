@@ -7,7 +7,10 @@ import {
   paypalLinkProblem,
   MAX_PAYPAL_URL_LENGTH,
 } from "@/lib/payments/paypal";
-import { planOfflineCharge } from "@/lib/payments/registration-plan";
+import {
+  planOfflineCharge,
+  planOfflineIndividualCharge,
+} from "@/lib/payments/registration-plan";
 import {
   DEFAULT_PLATFORM_FEE_RATES,
   WAIVED_PLATFORM_FEE_RATES,
@@ -166,5 +169,66 @@ describe("planOfflineCharge for a PayPal payment", () => {
         rates: DEFAULT_PLATFORM_FEE_RATES,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("planOfflineIndividualCharge", () => {
+  const pricing = {
+    registrationFeeCents: 12_000,
+    individualFeeCents: 4_500,
+    taxEnabled: false,
+    taxPercent: 0,
+  };
+
+  it("charges the INDIVIDUAL fee, not the team fee", () => {
+    // The bug this guards: a free agent compared against the team price would
+    // be permanently short and never promoted out of pending_payment.
+    const [charge] = planOfflineIndividualCharge({
+      pricing,
+      competitionType: "league",
+      payerEmail: "someone@example.com",
+      rates: DEFAULT_PLATFORM_FEE_RATES,
+    });
+    expect(charge.priceCents).toBe(4_500);
+    expect(charge.totalCents).toBe(4_500);
+    expect(charge.kind).toBe("individual");
+  });
+
+  it("prices one payer, not a roster", () => {
+    const [individual] = planOfflineIndividualCharge({
+      pricing,
+      competitionType: "league",
+      payerEmail: null,
+      rates: DEFAULT_PLATFORM_FEE_RATES,
+    });
+    const [team] = planOfflineCharge({
+      pricing,
+      competitionType: "league",
+      payerEmail: null,
+      rates: DEFAULT_PLATFORM_FEE_RATES,
+    });
+    // Per-player rate, so it must not equal the per-team one.
+    expect(individual.platformFeeCents).not.toBe(team.platformFeeCents);
+  });
+
+  it("plans nothing when individual sign-up is free", () => {
+    expect(
+      planOfflineIndividualCharge({
+        pricing: { ...pricing, individualFeeCents: 0 },
+        competitionType: "league",
+        payerEmail: null,
+        rates: DEFAULT_PLATFORM_FEE_RATES,
+      }),
+    ).toEqual([]);
+  });
+
+  it("takes nothing from Stripe, because Stripe was never involved", () => {
+    const [charge] = planOfflineIndividualCharge({
+      pricing,
+      competitionType: "league",
+      payerEmail: null,
+      rates: DEFAULT_PLATFORM_FEE_RATES,
+    });
+    expect(charge.applicationFeeCents).toBe(0);
   });
 });

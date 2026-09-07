@@ -9,7 +9,11 @@ import { getMyFreeAgentSignup } from "@/lib/queries/free-agents";
 import { getFullness, getMyWaitlistEntry } from "@/lib/queries/waitlist";
 import { WaitlistForm } from "@/components/registration/waitlist-form";
 import { IndividualSignupForm } from "@/components/registration/individual-signup-form";
-import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
+import {
+  getCompetitionPaymentSettings,
+  getPaymentAccount,
+} from "@/lib/queries/payments";
+import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { getUser } from "@/lib/auth/user";
 import {
   EventDescription,
@@ -76,12 +80,21 @@ export default async function RegisterPage({
   ]);
   const anythingFull =
     fullness.competitionFull || fullness.fullDivisionIds.size > 0;
+  // Whether a card is even an option here. An organizer who hasn't connected
+  // Stripe — because they collect through PayPal, or don't want to — must not
+  // be offered as a payer choice at all: picking it would send someone to a
+  // checkout that cannot exist, and they'd conclude the event was broken
+  // rather than that this organizer takes PayPal.
+  const cardAvailable = paymentAccountStatus(
+    await getPaymentAccount(event.org.id),
+  ).canAcceptPayments;
+
   const fee =
     feeSettings.registrationFeeCents > 0
       ? {
           teamCents: feeSettings.registrationFeeCents,
-          allowCaptainPays: feeSettings.allowCaptainPays,
-          allowSplitPayment: feeSettings.allowSplitPayment,
+          allowCaptainPays: feeSettings.allowCaptainPays && cardAvailable,
+          allowSplitPayment: feeSettings.allowSplitPayment && cardAvailable,
           paymentRequired: feeSettings.paymentRequired,
           etransferEmail: feeSettings.etransferEmail,
           paypalUrl: feeSettings.paypalTeamUrl,
@@ -278,6 +291,10 @@ export default async function RegisterPage({
             </CardHeader>
             <CardContent>
               <IndividualSignupForm
+                cardAvailable={cardAvailable}
+                paypalUrl={
+                  feeSettings.paypalIndividualUrl ?? feeSettings.paypalTeamUrl
+                }
                 competitionId={event.id}
                 sport={event.sport}
                 isAuthed={!!user}
