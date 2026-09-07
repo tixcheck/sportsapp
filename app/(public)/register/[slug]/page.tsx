@@ -249,6 +249,7 @@ export default async function RegisterPage({
               body: waiverState.waiver.body,
               bodySha256: waiverState.waiver.bodySha256,
               signed: mySignedWaiverIds.includes(waiverState.waiver.id),
+              requireInitials: waiverState.requireInitials,
             }
           : null
       }

@@ -39,6 +39,8 @@ export interface CompetitionWaiverState {
   waiver: Waiver | null;
   /** Rostered players a team needs to be a confirmed entrant. Null = no rule. */
   minRoster: number | null;
+  /** Whether signers initial each numbered clause. */
+  requireInitials: boolean;
   /** Every rostered player, signed or not, across all teams. */
   signatories: WaiverSignatory[];
   /** Teams held back, and why. */
@@ -93,12 +95,13 @@ export async function getCompetitionWaiverState(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("waiver_id, min_roster_for_entry")
+    .select("waiver_id, min_roster_for_entry, waiver_require_initials")
     .eq("id", competitionId)
     .maybeSingle();
 
   const waiverId = (comp?.waiver_id as string | null) ?? null;
   const minRoster = (comp?.min_roster_for_entry as number | null) ?? null;
+  const requireInitials = comp?.waiver_require_initials === true;
 
   let waiver: Waiver | null = null;
   if (waiverId) {
@@ -121,7 +124,13 @@ export async function getCompetitionWaiverState(
 
   const teamIds = (teams ?? []).map((t) => t.id as string);
   if (teamIds.length === 0) {
-    return { waiver, minRoster, signatories: [], pending: [] };
+    return {
+      waiver,
+      minRoster,
+      requireInitials,
+      signatories: [],
+      pending: [],
+    };
   }
 
   const [{ data: members }, { data: accepted }] = await Promise.all([
@@ -188,7 +197,7 @@ export async function getCompetitionWaiverState(
     });
   }
 
-  return { waiver, minRoster, signatories, pending };
+  return { waiver, minRoster, requireInitials, signatories, pending };
 }
 
 /**
@@ -229,6 +238,8 @@ export interface OutstandingWaiver extends Waiver {
   competitionName: string;
   /** Who is asking — named, because "the organizer" reassures nobody. */
   organizerName: string;
+  /** Whether this competition asks for initials against each clause. */
+  requireInitials: boolean;
   /** The signer's own display name, offered as a starting point. */
   signerName: string;
 }
@@ -274,7 +285,7 @@ export async function getMyOutstandingWaivers(): Promise<OutstandingWaiver[]> {
 
   const { data: comps } = await supabase
     .from("competitions")
-    .select("id, name, waiver_id")
+    .select("id, name, waiver_id, waiver_require_initials")
     .in("id", compIds)
     .not("waiver_id", "is", null);
 
@@ -305,6 +316,7 @@ export async function getMyOutstandingWaivers(): Promise<OutstandingWaiver[]> {
       competitionId: c.id as string,
       competitionName: c.name as string,
       organizerName: (org as { name?: string } | null)?.name ?? "The organizer",
+      requireInitials: c.waiver_require_initials === true,
       signerName,
     });
   }

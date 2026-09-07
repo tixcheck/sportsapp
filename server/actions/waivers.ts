@@ -1,6 +1,12 @@
 "use server";
 
 import { createHash } from "node:crypto";
+
+import {
+  isSignatureStyle,
+  missingInitials,
+  splitWaiverClauses,
+} from "@/lib/waivers/clauses";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -100,6 +106,8 @@ const applySchema = z.object({
   waiverId: idSchema.nullable(),
   /** Rostered players a team needs to be an entrant. Null = no requirement. */
   minRoster: z.number().int().min(1).max(30).nullable(),
+  /** Ask signers to initial each numbered clause. */
+  requireInitials: z.boolean().optional(),
 });
 
 export type ApplyWaiverInput = z.input<typeof applySchema>;
@@ -118,7 +126,7 @@ export async function setCompetitionWaiverAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the settings." };
   }
-  const { competitionId, waiverId, minRoster } = parsed.data;
+  const { competitionId, waiverId, minRoster, requireInitials } = parsed.data;
 
   const supabase = await createClient();
   const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
@@ -144,7 +152,13 @@ export async function setCompetitionWaiverAction(
 
   const { error } = await supabase
     .from("competitions")
-    .update({ waiver_id: waiverId, min_roster_for_entry: minRoster })
+    .update({
+      waiver_id: waiverId,
+      min_roster_for_entry: minRoster,
+      ...(requireInitials === undefined
+        ? {}
+        : { waiver_require_initials: requireInitials }),
+    })
     .eq("id", competitionId);
   if (error) {
     console.error("[waivers] apply failed", error.message);
@@ -186,6 +200,10 @@ const signSchema = z.object({
     .max(120),
   /** The checksum of the text they were shown, echoed back. */
   bodySha256: z.string().regex(/^[a-f0-9]{64}$/, "That agreement looks stale."),
+  /** Initials per clause number, when the competition asks for them. */
+  clauseInitials: z.record(z.string(), z.string().trim().max(8)).optional(),
+  /** Which rendering of their name they picked. */
+  signatureStyle: z.string().trim().max(20).optional(),
 });
 
 export type SignWaiverInput = z.input<typeof signSchema>;
@@ -205,7 +223,14 @@ export async function signWaiverAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
-  const { competitionId, waiverId, signedName, bodySha256 } = parsed.data;
+  const {
+    competitionId,
+    waiverId,
+    signedName,
+    bodySha256,
+    clauseInitials,
+    signatureStyle,
+  } = parsed.data;
 
   const supabase = await createClient();
   const {
@@ -233,6 +258,47 @@ export async function signWaiverAction(
     };
   }
 
+  // Whether THIS competition asks for clause-by-clause initials, and what the
+  // document's clauses actually are. Both re-derived here: the browser sent a
+  // set of initials, and a record assembled from whatever it sent would show
+  // only that it said so.
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("waiver_require_initials")
+    .eq("id", competitionId)
+    .maybeSingle();
+  const wantsInitials =
+    (comp as { waiver_require_initials?: boolean } | null)
+      ?.waiver_require_initials === true;
+
+  const { clauses } = splitWaiverClauses(waiver.body as string);
+  let initials: Record<string, string> | null = null;
+  let clauseCount: number | null = null;
+  let style: string | null = null;
+
+  if (wantsInitials && clauses.length > 0) {
+    const given = clauseInitials ?? {};
+    const missing = missingInitials(clauses, given);
+    if (missing.length > 0) {
+      return {
+        error: `Initial every section to agree — ${missing.length === 1 ? "section" : "sections"} ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} still blank.`,
+      };
+    }
+    // Only the clauses this document has: an extra key would be a record of
+    // initialling something that isn't in the agreement.
+    initials = Object.fromEntries(
+      clauses.map((c) => [String(c.number), given[String(c.number)]!.trim()]),
+    );
+    clauseCount = clauses.length;
+  }
+
+  if (signatureStyle) {
+    if (!isSignatureStyle(signatureStyle)) {
+      return { error: "Pick one of the signature styles offered." };
+    }
+    style = signatureStyle;
+  }
+
   // Coarse, and only this. No IP address: it would add little to a record that
   // is already tied to an authenticated account, and it is personal data we
   // would then have to justify keeping.
@@ -245,6 +311,9 @@ export async function signWaiverAction(
     signed_name: signedName,
     body_sha256: actual,
     user_agent: ua,
+    clause_initials: initials,
+    clause_count: clauseCount,
+    signature_style: style,
   });
   if (error) {
     // The unique constraint means they already signed — not worth an error.
