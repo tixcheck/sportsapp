@@ -516,6 +516,7 @@ export default async function LeaguePage({
         sport={league.sport}
         allowIndividualSignups={league.allowIndividualSignups}
         individualFeeCents={feeSettings.individualFeeCents}
+        paypalIndividualUrl={feeSettings.paypalIndividualUrl}
       />
       <Card>
         <CardHeader>

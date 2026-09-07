@@ -496,6 +496,7 @@ export default async function TournamentPage({
         sport={t.sport}
         allowIndividualSignups={t.allowIndividualSignups}
         individualFeeCents={feeSettings.individualFeeCents}
+        paypalIndividualUrl={feeSettings.paypalIndividualUrl}
       />
       <Card>
         <CardHeader>
