@@ -31,6 +31,44 @@ const BUCKET = "event-images";
  * Pasting a URL stays supported. Some organizers already host their artwork,
  * and taking that away to add uploads would be a downgrade for them.
  */
+/**
+ * Turn whatever Storage said into something an organizer can act on.
+ *
+ * Every branch here is a real refusal with a different fix: a session that
+ * expired needs a sign-in, a rejected file needs a different file, and a
+ * network failure needs a retry. Telling all three to "try again" is only
+ * correct for the last one.
+ */
+function uploadErrorMessage(err: unknown): string {
+  const raw =
+    typeof err === "object" && err !== null && "message" in err
+      ? String((err as { message?: unknown }).message ?? "")
+      : String(err ?? "");
+  const m = raw.toLowerCase();
+
+  if (m.includes("row-level security") || m.includes("unauthorized")) {
+    return "You don't have permission to upload for this organization — or your sign-in expired. Reload the page and try again.";
+  }
+  if (m.includes("jwt") || m.includes("expired") || m.includes("token")) {
+    return "Your sign-in expired while the file was uploading. Reload the page and try again.";
+  }
+  if (m.includes("mime") || m.includes("content type")) {
+    return "That file isn't a PNG, JPEG or WebP, whatever its name says. Re-export it and try again.";
+  }
+  if (m.includes("payload") || m.includes("too large") || m.includes("413")) {
+    return "That image is over 5 MB. Save it smaller and try again.";
+  }
+  if (m.includes("already exists")) {
+    return "That upload was already used. Pick the file again.";
+  }
+  if (m.includes("failed to fetch") || m.includes("network")) {
+    return "The upload couldn't reach the server. Check your connection and try again.";
+  }
+  return raw
+    ? `That upload didn't go through: ${raw}`
+    : "That upload didn't go through. Please try again.";
+}
+
 export function ImageUpload({
   orgId,
   purpose,
@@ -84,14 +122,20 @@ export function ImageUpload({
         });
 
       if (upErr) {
-        setError("That upload didn't go through. Please try again.");
+        setError(uploadErrorMessage(upErr));
+        // The mapped sentence is for the organizer; this is for whoever has to
+        // work out why. Throwing the only description of the failure away —
+        // which this did — left "please try again" as the entire diagnosis of
+        // a step with half a dozen distinct causes.
+        console.error("[upload] storage rejected the file", upErr);
         return;
       }
 
       setBroken(false);
       onChange(ticket.publicUrl);
-    } catch {
-      setError("That upload didn't go through. Please try again.");
+    } catch (e) {
+      setError(uploadErrorMessage(e));
+      console.error("[upload] failed before storage answered", e);
     } finally {
       setBusy(false);
       // Let the same file be chosen again after a failure.
@@ -112,9 +156,11 @@ export function ImageUpload({
             src={value}
             alt=""
             onError={() => setBroken(true)}
+            // Matches how the public page renders it, so the preview is a
+            // preview rather than a second opinion.
             className={cn(
-              "w-full object-cover",
-              purpose === "banner" ? "max-h-44" : "max-h-28 object-contain p-3",
+              "mx-auto w-auto max-w-full object-contain",
+              purpose === "banner" ? "max-h-44" : "max-h-28 p-3",
             )}
           />
         </div>

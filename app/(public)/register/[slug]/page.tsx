@@ -122,14 +122,21 @@ export default async function RegisterPage({
     <div className="bg-background min-h-svh">
       <header className="border-border bg-surface border-b">
         {event.bannerUrl && (
-          // A linked image, not an upload (migration 0074) — a broken link
-          // degrades to empty space rather than a broken layout.
-          // eslint-disable-next-line @next/next/no-img-element -- external URL, no loader configured
-          <img
-            src={event.bannerUrl}
-            alt=""
-            className="h-40 w-full object-cover sm:h-56"
-          />
+          // `contain`, not `cover`. The strip is nearly 9:1 on a desktop, and
+          // organizers upload their LOGO here as often as a banner — cropping
+          // to fill takes a 2:1 crest and shows you the middle of the ball,
+          // enlarged and soft. Containing it means a logo appears whole at its
+          // own proportions and a wide banner still spans the strip; the
+          // sunken background makes the letterboxing look deliberate rather
+          // than like a failed image.
+          <div className="bg-paper-sunken flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- external URL, no loader configured */}
+            <img
+              src={event.bannerUrl}
+              alt=""
+              className="h-40 w-auto max-w-full object-contain sm:h-56"
+            />
+          </div>
         )}
         <div className="mx-auto max-w-2xl px-4 py-8">
           <Link href="/" className="inline-flex items-center">
