@@ -173,6 +173,15 @@ export function OrgWaiversCard({
                 creates a new version, and signatures already given stay
                 attached to the version they were given for.
               </p>
+              <p className="text-ink-3 text-xs">
+                Write{" "}
+                <code className="bg-muted rounded px-1">{"{{name}}"}</code> and{" "}
+                <code className="bg-muted rounded px-1">{"{{address}}"}</code>{" "}
+                where the signer&rsquo;s own details belong — &ldquo;I,{" "}
+                {"{{name}}"}, residing at {"{{address}}"}, agree&hellip;&rdquo;.
+                Each person is asked for them and sees the finished sentence
+                before they sign.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button

@@ -13,7 +13,10 @@ import { cn } from "@/lib/utils";
 import {
   initialsFrom,
   missingInitials,
+  renderWaiverBody,
   splitWaiverClauses,
+  waiverNeedsAddress,
+  waiverNeedsName,
   type SignatureStyle,
 } from "@/lib/waivers/clauses";
 import { SignaturePicker } from "@/components/waivers/signature-picker";
@@ -71,11 +74,24 @@ export function SignWaiver({
   const [readToEnd, setReadToEnd] = useState(false);
   const [name, setName] = useState(suggestedName);
   const [initials, setInitials] = useState<Record<string, string>>({});
+  const [address, setAddress] = useState("");
   const [style, setStyle] = useState<SignatureStyle>("flowing");
+
+  // Their own details, put into the wording before it is read — a waiver that
+  // says "I, Priya Sharma, residing at 12 Main St" is a different act of
+  // agreement from one that says "I, ____".
+  const needsAddress = waiverNeedsAddress(body);
+  const filled = useMemo(
+    () => renderWaiverBody(body, { name, address }),
+    [body, name, address],
+  );
 
   // Split with the same function the server uses, so the two cannot disagree
   // about how many clauses this document has.
-  const { preamble, clauses } = useMemo(() => splitWaiverClauses(body), [body]);
+  const { preamble, clauses } = useMemo(
+    () => splitWaiverClauses(filled),
+    [filled],
+  );
   const clauseMode = requireInitials && clauses.length > 0;
   const outstanding = clauseMode ? missingInitials(clauses, initials) : [];
   /**
@@ -114,6 +130,7 @@ export function SignWaiver({
         bodySha256,
         clauseInitials: clauseMode ? initials : undefined,
         signatureStyle: style,
+        signedAddress: needsAddress ? address : undefined,
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -137,6 +154,40 @@ export function SignWaiver({
         {competitionName} needs this from every player. Your team isn&rsquo;t
         confirmed until everyone on it has agreed.
       </p>
+
+      {/*
+        Above the wording, not below it. The document quotes these back, so
+        they have to be given before there is anything to read — filling in a
+        form that appears underneath the sentence it completes reads backwards.
+      */}
+      {(needsAddress || waiverNeedsName(body)) && (
+        <div className="border-rule bg-surface mt-4 grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="waiver-name">Your full legal name</Label>
+            <Input
+              id="waiver-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              placeholder="Priya Sharma"
+              disabled={pending}
+            />
+          </div>
+          {needsAddress && (
+            <div className="grid gap-1.5">
+              <Label htmlFor="waiver-address">Your address</Label>
+              <Input
+                id="waiver-address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                autoComplete="street-address"
+                placeholder="12 Main St, Brampton ON L6X 1A1"
+                disabled={pending}
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       {clauseMode ? (
         <div className="mt-4 grid gap-3">
@@ -207,7 +258,7 @@ export function SignWaiver({
           onScroll={onScroll}
           className="border-rule bg-surface text-ink-2 mt-4 max-h-64 overflow-y-auto rounded-lg border p-4 text-sm leading-relaxed whitespace-pre-wrap"
         >
-          {body}
+          {filled}
         </div>
       )}
 
@@ -257,6 +308,7 @@ export function SignWaiver({
             pending ||
             !ready ||
             name.trim().length < 2 ||
+            (needsAddress && address.trim().length < 5) ||
             !!blockedReason ||
             outstanding.length > 0
           }

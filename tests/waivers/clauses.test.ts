@@ -4,7 +4,10 @@ import {
   initialsFrom,
   isSignatureStyle,
   missingInitials,
+  renderWaiverBody,
   splitWaiverClauses,
+  waiverNeedsAddress,
+  waiverNeedsName,
 } from "@/lib/waivers/clauses";
 
 /** The real shape of Brampton Volleyball League's waiver, abridged. */
@@ -139,5 +142,49 @@ describe("isSignatureStyle", () => {
     expect(isSignatureStyle("casual")).toBe(true);
     expect(isSignatureStyle("<script>")).toBe(false);
     expect(isSignatureStyle("")).toBe(false);
+  });
+});
+
+describe("waiver placeholders", () => {
+  const body =
+    "I, {{name}}, residing at {{address}}, agree as follows:\n\n" +
+    "1. RISK\nI accept the risks.\n\n2. RELEASE\nI release the league.";
+
+  it("fills the signer's own details in", () => {
+    const out = renderWaiverBody(body, {
+      name: "Priya Sharma",
+      address: "12 Main St, Brampton ON L6X 1A1",
+    });
+    expect(out).toContain("I, Priya Sharma, residing at 12 Main St");
+    expect(out).not.toContain("{{");
+  });
+
+  it("shows a blank as a rule, not as nothing", () => {
+    // "I, , residing at , agree" reads as a bug; a blank line reads as a form.
+    const out = renderWaiverBody(body, { name: "", address: "" });
+    expect(out).toContain("I, ____________________, residing at");
+    expect(out).not.toContain("I, , residing");
+  });
+
+  it("replaces every occurrence, not just the first", () => {
+    const twice = "{{name}} agrees. Signed, {{name}}.";
+    expect(renderWaiverBody(twice, { name: "Sam" })).toBe(
+      "Sam agrees. Signed, Sam.",
+    );
+  });
+
+  it("detects which placeholders a document uses", () => {
+    expect(waiverNeedsAddress(body)).toBe(true);
+    expect(waiverNeedsName(body)).toBe(true);
+    expect(waiverNeedsAddress("I agree to the rules.")).toBe(false);
+    expect(waiverNeedsName("I agree to the rules.")).toBe(false);
+  });
+
+  it("still splits into clauses once the details are filled in", () => {
+    // The two features have to compose: BVL's waiver has both.
+    const filled = renderWaiverBody(body, { name: "Sam", address: "12 Main" });
+    const { clauses, preamble } = splitWaiverClauses(filled);
+    expect(clauses).toHaveLength(2);
+    expect(preamble).toContain("I, Sam, residing at 12 Main");
   });
 });

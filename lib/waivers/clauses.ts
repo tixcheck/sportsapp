@@ -113,3 +113,46 @@ export function missingInitials(
     .filter((c) => (initials[String(c.number)] ?? "").trim() === "")
     .map((c) => c.number);
 }
+
+// ---------------------------------------------------------------------------
+// Placeholders
+// ---------------------------------------------------------------------------
+//
+// A waiver that opens "I, ______, residing at ______" wants those blanks filled
+// by the person signing. The stored BODY keeps the placeholders: the checksum
+// therefore identifies the WORDING, which is what versioning needs — a checksum
+// that varied per signer could never be compared between two people. What was
+// in front of them is reproduced from the template plus the values stored
+// beside their signature.
+
+export const NAME_TOKEN = "{{name}}";
+export const ADDRESS_TOKEN = "{{address}}";
+
+/** Whether the wording asks for an address, and so whether to collect one. */
+export function waiverNeedsAddress(body: string): boolean {
+  return body.includes(ADDRESS_TOKEN);
+}
+
+export function waiverNeedsName(body: string): boolean {
+  return body.includes(NAME_TOKEN);
+}
+
+/**
+ * Fill a waiver's placeholders for display.
+ *
+ * Blank values render as an underline rather than vanishing, so the sentence
+ * still reads as a form with something missing instead of quietly becoming
+ * "I, , residing at , agree" — which looks like a bug and reads as nonsense.
+ */
+export function renderWaiverBody(
+  body: string,
+  values: { name?: string; address?: string },
+): string {
+  const name = (values.name ?? "").trim();
+  const address = (values.address ?? "").trim();
+  return body
+    .split(NAME_TOKEN)
+    .join(name || "____________________")
+    .split(ADDRESS_TOKEN)
+    .join(address || "____________________");
+}
