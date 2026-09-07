@@ -13,6 +13,15 @@ import {
 } from "@/server/actions/registration-payments";
 import { SignWaiver } from "@/components/waivers/sign-waiver";
 import { AddTeammates } from "@/components/registration/add-teammates";
+import {
+  QuestionFields,
+  missingRequired,
+} from "@/components/registration/question-fields";
+import type {
+  AnswerMap,
+  RegistrationQuestion,
+} from "@/lib/queries/registration-questions";
+import { saveRegistrationAnswersAction } from "@/server/actions/registration-questions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +57,7 @@ export function SteppedRegistration({
   loginHref,
   fee,
   waiver,
+  teamQuestions = [],
   teamHref,
 }: {
   competitionId: string;
@@ -81,6 +91,12 @@ export function SteppedRegistration({
     /** True once THIS user has already signed it. */
     signed: boolean;
   } | null;
+  /**
+   * The organizer's own questions about the ENTRY, answered once by the
+   * captain. Asked here rather than afterwards because "is this team stronger
+   * than last season" is only a meaningful question at sign-up.
+   */
+  teamQuestions?: RegistrationQuestion[];
   /** Where "done" goes; the team page once we know the id. */
   teamHref?: string;
 }) {
@@ -90,6 +106,7 @@ export function SteppedRegistration({
   const [teamName, setTeamName] = useState("");
   const [divisionId, setDivisionId] = useState("");
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<AnswerMap>({});
   const [signed, setSigned] = useState(waiver?.signed ?? true);
   const [paid, setPaid] = useState(false);
 
@@ -131,6 +148,11 @@ export function SteppedRegistration({
       toast.error("Give your team a name.");
       return;
     }
+    const missing = missingRequired(teamQuestions, answers);
+    if (missing.length > 0) {
+      toast.error(`Still needed: ${missing.map((q) => q.label).join(", ")}`);
+      return;
+    }
     start(async () => {
       // Only the captain goes on the roster here. The rest are invited at the
       // last step, once the money has actually moved.
@@ -144,7 +166,22 @@ export function SteppedRegistration({
         toast.error(res.error);
         return;
       }
-      if ("teamId" in res) setTeamId(res.teamId);
+      if ("teamId" in res) {
+        setTeamId(res.teamId);
+        // After the team exists, because a team answer belongs to a team. A
+        // failure here must not undo a completed registration, so it warns and
+        // moves on — the captain can finish these from the team page.
+        if (Object.keys(answers).length > 0) {
+          const saved = await saveRegistrationAnswersAction({
+            competitionId,
+            teamId: res.teamId,
+            answers,
+          });
+          if ("error" in saved) {
+            toast.error(`Registered, but: ${saved.error}`);
+          }
+        }
+      }
       router.refresh();
     });
   }
@@ -240,6 +277,17 @@ export function SteppedRegistration({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {teamQuestions.length > 0 && (
+            <div className="border-rule grid gap-4 border-t pt-4">
+              <QuestionFields
+                questions={teamQuestions}
+                values={answers}
+                onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
+                disabled={pending}
+              />
             </div>
           )}
 
