@@ -8,6 +8,9 @@ import { getMyOfflinePaymentReturn } from "@/lib/queries/payments";
 import { getUser } from "@/lib/auth/user";
 import { formatCents } from "@/lib/payments/format";
 import { PayerReferenceForm } from "@/components/payments/payer-reference-form";
+import { AddTeammates } from "@/components/registration/add-teammates";
+import { getCompetitionWaiverState } from "@/lib/queries/waivers";
+import { ROSTER_SIZE } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -85,7 +88,10 @@ export default async function PaidReturnPage({
     );
   }
 
-  const state = await getMyOfflinePaymentReturn(event.id);
+  const [state, waiverState] = await Promise.all([
+    getMyOfflinePaymentReturn(event.id),
+    getCompetitionWaiverState(event.id),
+  ]);
   // A free agent has no team page; their sign-up lives on the event itself.
   const mineHref = state?.teamId ? `/teams/${state.teamId}` : registerHref;
   const mineLabel = state?.teamId ? "View your team" : "View your sign-up";
@@ -182,6 +188,23 @@ export default async function PaidReturnPage({
           its full roster, with every player having signed the waiver. Your team
           page shows who&rsquo;s outstanding.
         </p>
+      )}
+
+      {/*
+        The roster step. In the stepped flow the captain leaves for PayPal
+        before reaching it, so this is where they actually get to name their
+        teammates — and it has to be here rather than only on the team page,
+        because someone who has just paid will not go looking for it.
+      */}
+      {state.teamId && (
+        <div className="border-rule mt-6 rounded-lg border p-4">
+          <AddTeammates
+            teamId={state.teamId}
+            rosterSize={ROSTER_SIZE[event.sport]}
+            waiverRequired={waiverState.waiver !== null}
+            doneHref={`/teams/${state.teamId}`}
+          />
+        </div>
       )}
 
       <Actions>

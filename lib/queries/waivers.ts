@@ -301,3 +301,29 @@ export async function getMyOutstandingWaivers(): Promise<OutstandingWaiver[]> {
   }
   return out;
 }
+
+/**
+ * Which waivers the signed-in user has already accepted for a competition.
+ *
+ * Used by the stepped registration flow so a captain registering a second team
+ * — or coming back after abandoning at the payment step — isn't made to sign
+ * the same wording twice. The unique constraint on `waiver_acceptances` would
+ * refuse the duplicate anyway; this is so they never see the step.
+ */
+export async function getMySignedWaiverIds(
+  competitionId: string,
+): Promise<string[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("waiver_acceptances")
+    .select("waiver_id")
+    .eq("competition_id", competitionId)
+    .eq("user_id", user.id);
+
+  return (data ?? []).map((r) => r.waiver_id as string);
+}

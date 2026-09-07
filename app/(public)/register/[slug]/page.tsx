@@ -10,6 +10,11 @@ import { getFullness, getMyWaitlistEntry } from "@/lib/queries/waitlist";
 import { WaitlistForm } from "@/components/registration/waitlist-form";
 import { IndividualSignupForm } from "@/components/registration/individual-signup-form";
 import { EntryChoice } from "@/components/registration/entry-choice";
+import { SteppedRegistration } from "@/components/registration/stepped-registration";
+import {
+  getCompetitionWaiverState,
+  getMySignedWaiverIds,
+} from "@/lib/queries/waivers";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
@@ -90,6 +95,12 @@ export default async function RegisterPage({
     await getPaymentAccount(event.org.id),
   ).canAcceptPayments;
 
+  // The waiver the captain signs mid-flow, and whether they already have.
+  const [waiverState, mySignedWaiverIds] = await Promise.all([
+    getCompetitionWaiverState(event.id),
+    getMySignedWaiverIds(event.id),
+  ]);
+
   const fee =
     feeSettings.registrationFeeCents > 0
       ? {
@@ -159,7 +170,52 @@ export default async function RegisterPage({
     </>
   );
 
-  const teamForm = (
+  /**
+   * The stepped flow — name, waiver, pay, then teammates — whenever splitting
+   * a fee isn't on offer. Splitting needs a roster to divide across, and the
+   * stepped flow deliberately hasn't collected one by the time it takes
+   * payment, so those events keep the single form.
+   */
+  const useSteps = !feeSettings.allowSplitPayment;
+
+  const teamForm = useSteps ? (
+    <SteppedRegistration
+      competitionId={event.id}
+      divisions={event.divisions}
+      divisionLabel={event.divisionLabel}
+      rosterSize={ROSTER_SIZE[event.sport]}
+      action={action}
+      isAuthed={!!user}
+      userEmail={user?.email}
+      userName={
+        (user?.user_metadata?.display_name as string | undefined) ?? undefined
+      }
+      loginHref={`/login?next=/register/${slug}`}
+      fee={
+        fee
+          ? {
+              teamCents: fee.teamCents,
+              taxCents: fee.taxCents ?? 0,
+              cardAvailable,
+              paypalUrl: feeSettings.paypalTeamUrl,
+              etransferEmail: feeSettings.etransferEmail,
+              etransferNote: feeSettings.etransferNote,
+            }
+          : null
+      }
+      waiver={
+        waiverState.waiver && waiverState.waiver.bodySha256
+          ? {
+              id: waiverState.waiver.id,
+              title: waiverState.waiver.title,
+              body: waiverState.waiver.body,
+              bodySha256: waiverState.waiver.bodySha256,
+              signed: mySignedWaiverIds.includes(waiverState.waiver.id),
+            }
+          : null
+      }
+    />
+  ) : (
     <RegistrationForm
       competitionId={event.id}
       divisions={event.divisions}
