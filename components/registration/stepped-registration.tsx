@@ -93,6 +93,8 @@ export function SteppedRegistration({
     bodySha256: string;
     /** True once THIS user has already signed it. */
     signed: boolean;
+    /** Whether each numbered clause is initialled separately. */
+    requireInitials?: boolean;
   } | null;
   /**
    * The organizer's own questions about the ENTRY, answered once by the
@@ -377,6 +379,7 @@ export function SteppedRegistration({
           body={waiver.body}
           bodySha256={waiver.bodySha256}
           suggestedName={userName ?? ""}
+          requireInitials={waiver.requireInitials ?? false}
           onSigned={() => setSigned(true)}
           blockedReason={
             missingRequired(playerQuestions, mine).length > 0

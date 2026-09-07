@@ -141,6 +141,7 @@ export default async function DashboardPage() {
               body={w.body}
               bodySha256={w.bodySha256 ?? ""}
               suggestedName={w.signerName}
+              requireInitials={w.requireInitials}
               blockedReason={
                 outstanding.length > 0
                   ? "Fill in your details above first."

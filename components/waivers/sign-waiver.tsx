@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  initialsFrom,
+  missingInitials,
+  splitWaiverClauses,
+  type SignatureStyle,
+} from "@/lib/waivers/clauses";
+import { SignaturePicker } from "@/components/waivers/signature-picker";
 
 /**
  * Read the waiver, then agree to it.
@@ -34,6 +41,7 @@ export function SignWaiver({
   suggestedName,
   onSigned,
   blockedReason,
+  requireInitials = false,
 }: {
   competitionId: string;
   competitionName: string;
@@ -51,11 +59,43 @@ export function SignWaiver({
    * done, so it should not be possible before the rest of it is true.
    */
   blockedReason?: string;
+  /**
+   * Ask for initials against each numbered clause. Ignored when the document
+   * has no numbered structure — initials against headings we guessed at would
+   * be evidence of nothing.
+   */
+  requireInitials?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [readToEnd, setReadToEnd] = useState(false);
   const [name, setName] = useState(suggestedName);
+  const [initials, setInitials] = useState<Record<string, string>>({});
+  const [style, setStyle] = useState<SignatureStyle>("flowing");
+
+  // Split with the same function the server uses, so the two cannot disagree
+  // about how many clauses this document has.
+  const { preamble, clauses } = useMemo(() => splitWaiverClauses(body), [body]);
+  const clauseMode = requireInitials && clauses.length > 0;
+  const outstanding = clauseMode ? missingInitials(clauses, initials) : [];
+  /**
+   * Clause mode replaces the scroll gate rather than adding to it: reading is
+   * demonstrated by initialling each section, and requiring a scroll as well
+   * would block someone whose screen shows the whole thing at once.
+   */
+  const ready = clauseMode || readToEnd;
+
+  /** Offer their initials against every clause at once, Adobe-style. */
+  function applyToAll() {
+    const value = initialsFrom(name);
+    if (!value) {
+      toast.error("Type your name first.");
+      return;
+    }
+    setInitials(
+      Object.fromEntries(clauses.map((c) => [String(c.number), value])),
+    );
+  }
 
   function onScroll(e: React.UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
@@ -72,6 +112,8 @@ export function SignWaiver({
         waiverId,
         signedName: name,
         bodySha256,
+        clauseInitials: clauseMode ? initials : undefined,
+        signatureStyle: style,
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -96,17 +138,90 @@ export function SignWaiver({
         confirmed until everyone on it has agreed.
       </p>
 
-      <div
-        onScroll={onScroll}
-        className="border-rule bg-surface text-ink-2 mt-4 max-h-64 overflow-y-auto rounded-lg border p-4 text-sm leading-relaxed whitespace-pre-wrap"
-      >
-        {body}
-      </div>
+      {clauseMode ? (
+        <div className="mt-4 grid gap-3">
+          {preamble && (
+            <div className="border-rule bg-surface text-ink-2 rounded-lg border p-4 text-sm leading-relaxed whitespace-pre-wrap">
+              {preamble}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-ink-2 text-sm">
+              Initial each section to show you have read it.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={applyToAll}
+              disabled={pending}
+            >
+              Apply my initials to all
+            </Button>
+          </div>
+
+          {clauses.map((c) => {
+            const value = initials[String(c.number)] ?? "";
+            return (
+              <div
+                key={c.number}
+                className={cn(
+                  "border-rule bg-surface grid gap-2 rounded-lg border p-4 sm:grid-cols-[1fr_auto]",
+                  value.trim() !== "" && "border-pine/40",
+                )}
+              >
+                <div className="min-w-0">
+                  <p className="text-ink text-sm font-semibold">
+                    {c.number}. {c.heading}
+                  </p>
+                  <p className="text-ink-2 mt-1 text-sm leading-relaxed whitespace-pre-wrap">
+                    {c.body}
+                  </p>
+                </div>
+
+                <label className="grid content-start gap-1">
+                  <span className="text-muted-foreground text-[11px] tracking-wide uppercase">
+                    Initials
+                  </span>
+                  <Input
+                    value={value}
+                    onChange={(e) =>
+                      setInitials((prev) => ({
+                        ...prev,
+                        [String(c.number)]: e.target.value.toUpperCase(),
+                      }))
+                    }
+                    maxLength={8}
+                    disabled={pending}
+                    aria-label={`Initials for section ${c.number}, ${c.heading}`}
+                    className="w-20 text-center font-semibold tracking-widest uppercase"
+                  />
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div
+          onScroll={onScroll}
+          className="border-rule bg-surface text-ink-2 mt-4 max-h-64 overflow-y-auto rounded-lg border p-4 text-sm leading-relaxed whitespace-pre-wrap"
+        >
+          {body}
+        </div>
+      )}
 
       {blockedReason ? (
         <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-300">
           {blockedReason}
         </p>
+      ) : clauseMode ? (
+        outstanding.length > 0 && (
+          <p className="text-ink-3 mt-2 text-xs">
+            Still to initial: section{outstanding.length === 1 ? "" : "s"}{" "}
+            {outstanding.join(", ")}.
+          </p>
+        )
       ) : (
         !readToEnd && (
           <p className="text-ink-3 mt-2 text-xs">
@@ -122,17 +237,28 @@ export function SignWaiver({
             id="waiver-sign"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            disabled={!readToEnd}
+            disabled={!ready}
             autoComplete="name"
             placeholder="Your full name"
-            className={cn(!readToEnd && "opacity-60")}
+            className={cn(!ready && "opacity-60")}
           />
         </div>
+
+        <SignaturePicker
+          name={name}
+          value={style}
+          onChange={setStyle}
+          disabled={pending || !ready}
+        />
 
         <Button
           type="submit"
           disabled={
-            pending || !readToEnd || name.trim().length < 2 || !!blockedReason
+            pending ||
+            !ready ||
+            name.trim().length < 2 ||
+            !!blockedReason ||
+            outstanding.length > 0
           }
           className="justify-self-start"
         >

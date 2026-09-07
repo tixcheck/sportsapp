@@ -1,5 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Libre_Franklin, Newsreader } from "next/font/google";
+import {
+  Caveat,
+  Dancing_Script,
+  Great_Vibes,
+  Libre_Franklin,
+  Newsreader,
+} from "next/font/google";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -22,6 +28,30 @@ const newsreader = Newsreader({
   style: ["normal", "italic"],
 });
 
+// Signature faces. Three, because a signature people choose the look of is
+// theirs in a way a fixed one isn't — and because the same name in three hands
+// makes it obvious the rendering is a choice rather than a claim about
+// handwriting. Self-hosted by next/font at build time: no request leaves the
+// page, which also means these work behind the strict CSP.
+const dancingScript = Dancing_Script({
+  variable: "--font-sig-flowing",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const greatVibes = Great_Vibes({
+  variable: "--font-sig-formal",
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const caveat = Caveat({
+  variable: "--font-sig-casual",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "MySportsApp — leagues, tournaments & ladders",
   description:
@@ -41,7 +71,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${libreFranklin.variable} ${newsreader.variable}`}
+      className={`${libreFranklin.variable} ${newsreader.variable} ${dancingScript.variable} ${greatVibes.variable} ${caveat.variable}`}
     >
       <body className="antialiased">
         {children}

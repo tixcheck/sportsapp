@@ -45,6 +45,7 @@ export function CompetitionWaiverCard({
   const [minRoster, setMinRoster] = useState<number | "">(
     state.minRoster ?? "",
   );
+  const [requireInitials, setRequireInitials] = useState(state.requireInitials);
 
   const outstanding = state.signatories.filter((s) => !s.signedAt);
   const signed = state.signatories.length - outstanding.length;
@@ -55,6 +56,7 @@ export function CompetitionWaiverCard({
         competitionId,
         waiverId: waiverId || null,
         minRoster: minRoster === "" ? null : Number(minRoster),
+        requireInitials,
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -134,6 +136,30 @@ export function CompetitionWaiverCard({
                 </p>
               </div>
             </div>
+
+            {/*
+              Stronger evidence, and more friction. Worth it where the document
+              is a numbered agreement: a signature at the bottom shows somebody
+              agreed, initials against clause 3 show they read the one that
+              waives negligence claims — which is the clause anyone would later
+              say they never noticed.
+            */}
+            <label className="border-rule mt-3 flex items-start gap-3 rounded-lg border p-3">
+              <input
+                type="checkbox"
+                checked={requireInitials}
+                onChange={(e) => setRequireInitials(e.target.checked)}
+                className="mt-0.5 size-4"
+              />
+              <span className="text-sm">
+                Initial every section
+                <span className="text-ink-3 block text-xs">
+                  Splits the waiver at its numbered headings and asks for
+                  initials against each, then a signature at the end. Ignored if
+                  your waiver has no numbered sections.
+                </span>
+              </span>
+            </label>
 
             <Button onClick={apply} disabled={pending}>
               {pending ? "Saving…" : "Save"}
