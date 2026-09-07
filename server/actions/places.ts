@@ -212,3 +212,66 @@ export async function suggestAddressesAction(
     return { suggestions: [] };
   }
 }
+
+const resolveSchema = z.object({
+  /** Google's opaque id from a suggestion. Never shown, never stored. */
+  placeId: z.string().trim().min(4).max(300),
+  /** The SAME token the suggestions were fetched with — see below. */
+  sessionToken: z.string().trim().max(64).optional(),
+});
+
+/**
+ * Turn a chosen suggestion into a full address, postal code included.
+ *
+ * Autocomplete returns a LABEL — "130 River Street, Toronto, ON, Canada" — and
+ * a label has no postal code in it. The postal code only exists on the place
+ * itself, so picking a suggestion needs this second lookup.
+ *
+ * Passing the same session token as the suggestions is what makes those
+ * keystrokes and this lookup bill as one session rather than several separate
+ * calls. It is a cost decision, not a correctness one, which is why the field
+ * still works if it is missing.
+ *
+ * Returns null on any failure. The caller then keeps the label it already had:
+ * an address without its postal code is worth more than an empty field and an
+ * error about a lookup the person never asked for.
+ */
+export async function resolveAddressAction(
+  input: z.input<typeof resolveSchema>,
+): Promise<{ address: string | null }> {
+  const key = placesKey();
+  if (!key) return { address: null };
+
+  const parsed = resolveSchema.safeParse(input);
+  if (!parsed.success) return { address: null };
+
+  const query = parsed.data.sessionToken
+    ? `?sessionToken=${encodeURIComponent(parsed.data.sessionToken)}`
+    : "";
+
+  try {
+    const res = await fetch(
+      `https://places.googleapis.com/v1/places/${encodeURIComponent(parsed.data.placeId)}${query}`,
+      {
+        headers: {
+          "X-Goog-Api-Key": key,
+          // Only the one field. The mask decides the billing tier, and asking
+          // for coordinates or opening hours we'd never use costs more.
+          "X-Goog-FieldMask": "formattedAddress",
+        },
+        signal: AbortSignal.timeout(4000),
+      },
+    );
+
+    if (!res.ok) {
+      console.error("[places] details failed", res.status);
+      return { address: null };
+    }
+
+    const body = (await res.json()) as { formattedAddress?: string };
+    return { address: body.formattedAddress?.trim() || null };
+  } catch {
+    console.error("[places] details threw");
+    return { address: null };
+  }
+}

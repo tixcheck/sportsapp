@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 
 import {
+  resolveAddressAction,
   suggestAddressesAction,
   type AddressSuggestion,
 } from "@/server/actions/places";
@@ -87,11 +88,24 @@ export function AddressInput({
   }, []);
 
   function choose(s: AddressSuggestion) {
+    // The label goes in immediately, so the field never sits empty while the
+    // second lookup runs. It is then replaced by the fuller version.
     onChange(s.text);
     setOpen(false);
     setSuggestions([]);
-    // A new session: the next thing typed is a different address.
+
+    const token = session.current;
+    // A new session from here: the next thing typed is a different address.
     session.current = Math.random().toString(36).slice(2);
+
+    // A suggestion's label has no postal code — that lives on the place
+    // itself. If this fails, the label stays, which is worth more than an
+    // empty field and an error about a lookup nobody asked for.
+    void resolveAddressAction({ placeId: s.id, sessionToken: token }).then(
+      (res) => {
+        if (res.address) onChange(res.address);
+      },
+    );
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
