@@ -103,7 +103,7 @@ export function EventBlurbCard({
             value={bannerUrl}
             onChange={setBannerUrl}
             disabled={pending}
-            aspectHint="A wide image (about 3:1) sits best."
+            aspectHint="A wide image (about 3:1) fills the space best, but a logo works — it's shown whole, never cropped."
           />
         </div>
 
