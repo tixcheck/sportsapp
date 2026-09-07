@@ -67,11 +67,26 @@ export function RegistrationForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   /**
-   * What the captain picked. E-transfer is a payment METHOD, not a kind — the
-   * stored `paymentMode` stays team_full/player_share so nothing downstream
-   * has to learn a third value.
+   * What the captain picked. E-transfer and PayPal are payment METHODS, not
+   * kinds — the stored `paymentMode` stays team_full/player_share so nothing
+   * downstream has to learn a third value.
+   *
+   * Defaulted to whatever this event actually offers rather than to card. An
+   * organizer collecting through PayPal has no Stripe account, so a hardcoded
+   * `team_full` default would send the first captain who submits without
+   * touching the options to a checkout that cannot be created.
    */
-  const [choice, setChoice] = useState<PaymentMode>("team_full");
+  const [choice, setChoice] = useState<PaymentMode>(() =>
+    fee?.allowCaptainPays
+      ? "team_full"
+      : fee?.allowSplitPayment
+        ? "player_share"
+        : fee?.paypalUrl
+          ? "paypal"
+          : fee?.etransferEmail
+            ? "etransfer"
+            : "team_full",
+  );
 
   const emptyPlayers = () =>
     Array.from({ length: rosterSize }, (_, i) => ({

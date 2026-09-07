@@ -28,7 +28,12 @@ export interface RegistrationEvent {
   /** How a match is played, so a team knows what it's signing up to. */
   matchFormat: MatchFormat;
   /** Who's running it — the page says "hosted by". */
-  org: { name: string; logoUrl: string | null; contactEmail: string | null };
+  org: {
+    id: string;
+    name: string;
+    logoUrl: string | null;
+    contactEmail: string | null;
+  };
   /**
    * For a league, the recurring night ("Thursdays, 7:00 PM"). Null for a
    * tournament, whose dates already say when it is.
@@ -181,6 +186,7 @@ export async function getRegistrationEvent(
     bannerUrl: (comp.banner_url as string | null) ?? null,
     matchFormat: comp.match_format as MatchFormat,
     org: {
+      id: comp.org_id as string,
       name: orgRow?.name ?? "the organizer",
       logoUrl: orgRow?.logo_url ?? null,
       contactEmail: orgRow?.contact_email ?? null,

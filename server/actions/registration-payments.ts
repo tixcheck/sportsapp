@@ -16,6 +16,7 @@ import { getTeamRoster } from "@/lib/queries/roster";
 import { cardPaymentBlockedReason } from "@/lib/payments/account-status";
 import {
   planOfflineCharge,
+  planOfflineIndividualCharge,
   planIndividualCharge,
   planMemberShares,
   planTeamCharge,
@@ -967,6 +968,102 @@ export async function startOfflinePaymentAction(
         amountCents: charge.totalCents,
         note: settings.paypalNote,
         paypalUrl: settings.paypalTeamUrl!,
+      }
+    : {
+        method,
+        amountCents: charge.totalCents,
+        note: settings.etransferNote,
+        etransferEmail: settings.etransferEmail!,
+      };
+}
+
+/**
+ * The same, for one free agent paying their own fee.
+ *
+ * Separate from the team version rather than a branch inside it, because the
+ * payer, the price and the promotion are all different: an individual fee, not
+ * a team fee, and `pending_payment -> available` rather than `-> active`.
+ */
+export async function startIndividualOfflinePaymentAction(
+  competitionId: string,
+  freeAgentId: string,
+  method: OfflinePaymentMethod,
+): Promise<ActionError | OfflinePaymentInstructions> {
+  const comp = idSchema.safeParse(competitionId);
+  const agent = idSchema.safeParse(freeAgentId);
+  if (!comp.success || !agent.success) return { error: "Unknown sign-up." };
+  if (method !== "etransfer" && method !== "paypal") {
+    return { error: "Unknown payment method." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in." };
+
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("id, type")
+    .eq("id", comp.data)
+    .maybeSingle();
+  if (!competition) return { error: "Unknown competition." };
+  const c = competition as { id: string; type: CompetitionType };
+
+  const [settings, rates] = await Promise.all([
+    getCompetitionPaymentSettings(c.id),
+    getPlatformFeeRatesFor(c.id),
+  ]);
+
+  const url =
+    method === "paypal"
+      ? // Falls back to the team link only if the organizer gave one link for
+        // both. Most give two, because the amounts differ.
+        (settings.paypalIndividualUrl ?? settings.paypalTeamUrl)
+      : null;
+  if (method === "paypal" && !url) {
+    return { error: "This event doesn't take PayPal." };
+  }
+  if (method === "etransfer" && !settings.etransferEmail) {
+    return { error: "This event doesn't take e-transfers." };
+  }
+
+  const [charge] = planOfflineIndividualCharge({
+    pricing: {
+      registrationFeeCents: settings.registrationFeeCents,
+      individualFeeCents: settings.individualFeeCents,
+      taxEnabled: settings.taxEnabled,
+      taxPercent: settings.taxPercent,
+    },
+    competitionType: c.type,
+    payerEmail: user.email ?? null,
+    rates,
+  });
+  if (!charge) return { error: "Signing up is free — there's nothing to pay." };
+
+  const { error } = await supabase.rpc("start_offline_individual_payment", {
+    _competition_id: c.id,
+    _free_agent_id: agent.data,
+    _method: method,
+    _price_cents: charge.priceCents,
+    _tax_cents: charge.taxCents,
+    _platform_fee_cents: charge.platformFeeCents,
+    _total_cents: charge.totalCents,
+  });
+  if (error) {
+    if (error.message.includes("Only you or the organizer")) {
+      return { error: "Only you or the organizer can do that." };
+    }
+    console.error("[payments] start_offline_individual_payment failed");
+    return { error: "That couldn't be recorded. Please try again." };
+  }
+
+  return method === "paypal"
+    ? {
+        method,
+        amountCents: charge.totalCents,
+        note: settings.paypalNote,
+        paypalUrl: url!,
       }
     : {
         method,

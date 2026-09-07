@@ -540,8 +540,12 @@ export type OfflinePaymentMethod = "etransfer" | "paypal";
 
 export type PendingOfflinePayment = {
   paymentId: string;
-  teamId: string;
+  /** Null when the payer is a free agent rather than a team. */
+  teamId: string | null;
+  /** The team's name, or the individual's — whoever owes it. */
   teamName: string;
+  /** True when this is one person's own fee, not a team's. */
+  isIndividual: boolean;
   payerEmail: string | null;
   method: OfflinePaymentMethod;
   /** What they were told to send. */
@@ -573,7 +577,7 @@ export async function getPendingOfflinePayments(
   const { data } = await supabase
     .from("registration_payments")
     .select(
-      "id, team_id, payer_email, method, payer_reference, total_cents, created_at, teams(name)",
+      "id, team_id, free_agent_id, kind, payer_email, method, payer_reference, total_cents, created_at, teams(name), free_agents(name)",
     )
     .eq("competition_id", competitionId)
     .neq("method", "card")
@@ -583,18 +587,24 @@ export async function getPendingOfflinePayments(
   return (
     (data ?? []) as unknown as {
       id: string;
-      team_id: string;
+      team_id: string | null;
+      free_agent_id: string | null;
+      kind: string;
       payer_email: string | null;
       method: OfflinePaymentMethod;
       payer_reference: string | null;
       total_cents: number;
       created_at: string;
       teams: { name: string } | null;
+      free_agents: { name: string } | null;
     }[]
   ).map((r) => ({
     paymentId: r.id,
     teamId: r.team_id,
-    teamName: r.teams?.name ?? "Team",
+    // A free agent's row has no team, so falling back to "Team" would put a
+    // person's fee on the organizer's list under a name that isn't theirs.
+    teamName: r.teams?.name ?? r.free_agents?.name ?? "Registration",
+    isIndividual: r.free_agent_id !== null,
     payerEmail: r.payer_email,
     method: r.method,
     payerReference: r.payer_reference,
@@ -635,7 +645,8 @@ export async function getOfflineFeesOwed(
  * here — and the page turns that into a route rather than an error.
  */
 export type OfflinePaymentReturn = {
-  teamId: string;
+  /** Null when they signed up as an individual rather than with a team. */
+  teamId: string | null;
   teamName: string;
   /** `active` once the organizer has confirmed and every other gate is met. */
   teamStatus: string;
@@ -673,7 +684,50 @@ export async function getMyOfflinePaymentReturn(
     .eq("user_id", user.id)
     .in("team_id", [...byId.keys()]);
   const mine = [...new Set((mems ?? []).map((m) => m.team_id as string))];
-  if (mine.length === 0) return null;
+
+  // They may have signed up alone rather than with a team — BVL take
+  // individuals into all four of their leagues, with their own PayPal link and
+  // their own price. Checked before giving up, or a free agent returning from
+  // PayPal is told we have no record of them.
+  if (mine.length === 0) {
+    const { data: fa } = await supabase
+      .from("free_agents")
+      .select("id, name, status")
+      .eq("competition_id", competitionId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!fa) return null;
+    const agent = fa as { id: string; name: string; status: string };
+
+    const { data: rows } = await supabase
+      .from("registration_payments")
+      .select("id, method, status, total_cents, payer_reference")
+      .eq("free_agent_id", agent.id)
+      .neq("method", "card")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const row = (rows ?? [])[0] as
+      | {
+          id: string;
+          method: OfflinePaymentMethod;
+          status: string;
+          total_cents: number;
+          payer_reference: string | null;
+        }
+      | undefined;
+    if (!row) return null;
+
+    return {
+      teamId: null,
+      teamName: agent.name,
+      teamStatus: agent.status,
+      paymentId: row.id,
+      method: row.method,
+      expectedCents: row.total_cents,
+      confirmed: row.status === "paid",
+      payerReference: row.payer_reference,
+    };
+  }
 
   // Newest first: a captain who registered two teams over two seasons should
   // land on the one they just paid for.

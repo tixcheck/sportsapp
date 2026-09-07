@@ -512,6 +512,51 @@ export function planOfflineCharge({
 }
 
 /**
+ * What ONE free agent owes when they pay the organizer directly.
+ *
+ * The individual counterpart to {@link planOfflineCharge}, and priced the same
+ * way {@link planIndividualCharge} is: PLAYER_SHARE, because a free agent is
+ * one payer settling one person's entry, not a roster.
+ *
+ * Nothing is grossed up, for the same reason as the team version — the payer
+ * sends the price plus tax and the organizer receives all of it.
+ */
+export function planOfflineIndividualCharge({
+  pricing,
+  competitionType,
+  payerEmail,
+  rates,
+}: {
+  pricing: RegistrationPricing;
+  competitionType: CompetitionType;
+  payerEmail: string | null;
+  rates: PlatformFeeRates;
+}): PlannedCharge[] {
+  const priceCents = pricing.individualFeeCents ?? 0;
+  if (priceCents <= 0) return [];
+
+  const taxCents = taxFor(priceCents, pricing);
+  const platformFeeCents = platformFeeCentsFor({
+    competitionType,
+    payerMode: "player_share",
+    chargeBaseCents: priceCents,
+    rates,
+  });
+
+  return [
+    {
+      kind: "individual",
+      payerEmail,
+      priceCents,
+      taxCents,
+      platformFeeCents,
+      totalCents: priceCents + taxCents,
+      applicationFeeCents: 0,
+    },
+  ];
+}
+
+/**
  * @deprecated Use {@link planOfflineCharge}. Kept because e-transfer was the
  * only offline method for two months and the name is spread across callers.
  */
