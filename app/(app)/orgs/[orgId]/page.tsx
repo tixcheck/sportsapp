@@ -219,7 +219,9 @@ function Section({
             <Link key={c.id} href={hrefFor(c)}>
               <Card className="hover:border-primary/40 h-full transition-colors">
                 <CardHeader>
-                  <CardTitle className="truncate">{c.name}</CardTitle>
+                  <CardTitle className="text-balance break-words">
+                    {c.name}
+                  </CardTitle>
                   <CardDescription>
                     {SPORTS.find((s) => s.value === c.sport)?.label} ·{" "}
                     <span className="capitalize">
