@@ -28,7 +28,6 @@ export function AddressInput({
   onChange,
   placeholder = "Street, city, province, postal code",
   disabled = false,
-  autoComplete = "street-address",
   available = true,
 }: {
   id?: string;
@@ -36,7 +35,6 @@ export function AddressInput({
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
-  autoComplete?: string;
   /** False when no key is configured, so we never show an empty dropdown. */
   available?: boolean;
 }) {
@@ -122,7 +120,14 @@ export function AddressInput({
         onFocus={() => suggestions.length > 0 && setOpen(true)}
         placeholder={placeholder}
         disabled={disabled}
-        autoComplete={autoComplete}
+        /*
+          Two dropdowns over one field is worse than either alone: the
+          browser's own address list opens on top of ours, and the one
+          underneath is the one that knows about this league's region.
+          So we ask for the browser's help only when we have none of our
+          own — where it is the entire fallback and genuinely useful.
+        */
+        autoComplete={available ? "off" : "street-address"}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
