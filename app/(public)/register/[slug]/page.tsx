@@ -15,6 +15,7 @@ import {
   getCompetitionWaiverState,
   getMySignedWaiverIds,
 } from "@/lib/queries/waivers";
+import { getRegistrationQuestions } from "@/lib/queries/registration-questions";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
@@ -96,9 +97,10 @@ export default async function RegisterPage({
   ).canAcceptPayments;
 
   // The waiver the captain signs mid-flow, and whether they already have.
-  const [waiverState, mySignedWaiverIds] = await Promise.all([
+  const [waiverState, mySignedWaiverIds, teamQuestions] = await Promise.all([
     getCompetitionWaiverState(event.id),
     getMySignedWaiverIds(event.id),
+    getRegistrationQuestions(event.id, "team"),
   ]);
 
   const fee =
@@ -184,6 +186,7 @@ export default async function RegisterPage({
       divisions={event.divisions}
       divisionLabel={event.divisionLabel}
       rosterSize={ROSTER_SIZE[event.sport]}
+      teamQuestions={teamQuestions}
       action={action}
       isAuthed={!!user}
       userEmail={user?.email}
@@ -225,6 +228,7 @@ export default async function RegisterPage({
       loginHref={`/login?next=/register/${slug}`}
       action={action}
       divisionLabel={event.divisionLabel}
+      teamQuestions={teamQuestions}
       fee={fee}
     />
   );

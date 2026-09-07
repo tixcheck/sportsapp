@@ -18,6 +18,15 @@ import {
 } from "@/lib/validations/tournament";
 import { Button } from "@/components/ui/button";
 import { PaymentModeChoice } from "@/components/payments/payment-mode-choice";
+import {
+  QuestionFields,
+  missingRequired,
+} from "@/components/registration/question-fields";
+import type {
+  AnswerMap,
+  RegistrationQuestion,
+} from "@/lib/queries/registration-questions";
+import { saveRegistrationAnswersAction } from "@/server/actions/registration-questions";
 import { Input } from "@/components/ui/input";
 import { startOfflinePaymentAction } from "@/server/actions/registration-payments";
 import type { PaymentMode } from "@/components/payments/payment-mode-choice";
@@ -35,6 +44,7 @@ export function RegistrationForm({
   action = registerTeamAction,
   // "division" (tournaments) vs "tier" (leagues) — just the label players see.
   divisionLabel = "Division",
+  teamQuestions = [],
   fee,
 }: {
   competitionId: string;
@@ -48,6 +58,8 @@ export function RegistrationForm({
     values: RegisterTeamInput,
   ) => Promise<RegisterResult>;
   divisionLabel?: string;
+  /** The organizer's questions about the entry, answered by the captain. */
+  teamQuestions?: RegistrationQuestion[];
   /** Null on a free event, or one that doesn't ask for payment up front. */
   fee?: {
     /** What the whole team owes, in cents. */
@@ -76,6 +88,7 @@ export function RegistrationForm({
    * `team_full` default would send the first captain who submits without
    * touching the options to a checkout that cannot be created.
    */
+  const [answers, setAnswers] = useState<AnswerMap>({});
   const [choice, setChoice] = useState<PaymentMode>(() =>
     fee?.allowCaptainPays
       ? "team_full"
@@ -120,11 +133,27 @@ export function RegistrationForm({
   }
 
   function onSubmit(values: RegisterTeamInput) {
+    const missing = missingRequired(teamQuestions, answers);
+    if (missing.length > 0) {
+      toast.error(`Still needed: ${missing.map((q) => q.label).join(", ")}`);
+      return;
+    }
     startTransition(async () => {
       const result = await action(competitionId, values);
       if ("error" in result) {
         toast.error(result.error);
         return;
+      }
+
+      // A team answer needs a team, so this happens after registration. A
+      // failure warns rather than unwinding a completed sign-up.
+      if ("teamId" in result && Object.keys(answers).length > 0) {
+        const saved = await saveRegistrationAnswersAction({
+          competitionId,
+          teamId: result.teamId,
+          answers,
+        });
+        if ("error" in saved) toast.error(`Registered, but: ${saved.error}`);
       }
       // A gated event isn't finished at "registered" — the team is not an
       // entrant until it pays, so send them straight on rather than leaving
@@ -247,6 +276,17 @@ export function RegistrationForm({
           </p>
         )}
       </div>
+
+      {teamQuestions.length > 0 && (
+        <div className="border-rule grid gap-4 border-t pt-4">
+          <QuestionFields
+            questions={teamQuestions}
+            values={answers}
+            onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
+            disabled={pending}
+          />
+        </div>
+      )}
 
       {fee &&
         fee.teamCents > 0 &&
