@@ -23,7 +23,7 @@ import { startOfflinePaymentAction } from "@/server/actions/registration-payment
 import type { PaymentMode } from "@/components/payments/payment-mode-choice";
 import { Label } from "@/components/ui/label";
 
-type RegisterResult = { error: string } | { teamId: string };
+export type RegisterResult = { error: string } | { teamId: string };
 
 export function RegistrationForm({
   competitionId,

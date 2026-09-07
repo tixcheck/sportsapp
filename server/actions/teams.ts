@@ -396,6 +396,11 @@ export async function setCaptainAction(
 export async function inviteTeammateAction(
   teamId: string,
   email: string,
+  /**
+   * Their name, when the captain knows it. Stored on the invite so the roster
+   * reads as people rather than as addresses before anyone has accepted.
+   */
+  name?: string,
 ): Promise<ActionError | { claimUrl: string; emailSent: boolean }> {
   const parsed = emailSchema.safeParse(email);
   if (!parsed.success) return { error: "Enter a valid email address." };
@@ -432,6 +437,7 @@ export async function inviteTeammateAction(
   const { error } = await supabase.from("team_invites").insert({
     team_id: teamId,
     email: parsed.data,
+    name: name?.trim() || null,
     token,
     role: "player",
     invited_by_user_id: user.id,
@@ -448,7 +454,7 @@ export async function inviteTeammateAction(
   const [{ data: comp }, { data: profile }] = await Promise.all([
     supabase
       .from("competitions")
-      .select("name")
+      .select("name, waiver_id")
       .eq("id", team.competition_id)
       .single(),
     supabase
@@ -465,6 +471,8 @@ export async function inviteTeammateAction(
       competitionName: comp?.name ?? "the competition",
       inviterName: profile?.display_name ?? "Your team",
       claimUrl,
+      waiverRequired: !!(comp as { waiver_id?: string | null } | null)
+        ?.waiver_id,
     },
     profile?.email ?? undefined,
   );

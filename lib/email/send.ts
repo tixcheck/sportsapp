@@ -128,6 +128,8 @@ export interface TeammateInviteEmailProps {
   competitionName: string;
   inviterName: string;
   claimUrl: string;
+  /** Whether this competition requires a signed waiver before anyone plays. */
+  waiverRequired?: boolean;
 }
 
 export function sendTeammateInvite(

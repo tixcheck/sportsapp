@@ -32,6 +32,7 @@ export function SignWaiver({
   body,
   bodySha256,
   suggestedName,
+  onSigned,
 }: {
   competitionId: string;
   competitionName: string;
@@ -41,6 +42,8 @@ export function SignWaiver({
   bodySha256: string;
   /** Their display name, offered as a starting point. */
   suggestedName: string;
+  /** Called after a successful signature, for flows that advance a step. */
+  onSigned?: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -68,6 +71,7 @@ export function SignWaiver({
         return;
       }
       toast.success("Thanks — that's recorded.");
+      onSigned?.();
       router.refresh();
     });
   }
