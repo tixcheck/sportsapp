@@ -462,6 +462,9 @@ export default async function LeaguePage({
             captainInvite: teamInvites[t.id]?.captain ?? null,
             partnerInvites: teamInvites[t.id]?.partners ?? [],
             members: rosters[t.id] ?? [],
+            signedUserIds: stageFacts.waiverRequired
+              ? stageFacts.signedUserIds
+              : undefined,
             registration: (() => {
               const facts = stageFacts.byTeam.get(t.id);
               return facts

@@ -334,6 +334,8 @@ export async function getTeamStageFacts(competitionId: string): Promise<{
   feeCents: number;
   minRoster: number | null;
   waiverRequired: boolean;
+  /** Everyone who has signed, so a roster can be marked person by person. */
+  signedUserIds: Set<string>;
   byTeam: Map<string, TeamStageFacts>;
 }> {
   const supabase = await createClient();
@@ -422,5 +424,11 @@ export async function getTeamStageFacts(competitionId: string): Promise<{
     });
   }
 
-  return { feeCents, minRoster, waiverRequired: !!waiverId, byTeam };
+  return {
+    feeCents,
+    minRoster,
+    waiverRequired: !!waiverId,
+    signedUserIds: signedUsers,
+    byTeam,
+  };
 }

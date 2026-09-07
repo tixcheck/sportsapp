@@ -55,6 +55,12 @@ export interface ManagedTeam {
    * gather it — a KotC pair list has no fee or waiver to be waiting on.
    */
   registration?: RegistrationStatus | null;
+  /**
+   * Rostered players who have signed this competition's waiver. Undefined
+   * where no waiver is required, which is different from "nobody has signed"
+   * and must not render as a row of crosses.
+   */
+  signedUserIds?: Set<string>;
   members?: {
     name: string;
     role: "captain" | "player";
@@ -161,6 +167,7 @@ function ContactLine({
   inviteId,
   removable,
   member,
+  waiver,
   onDone,
 }: {
   label: string;
@@ -168,6 +175,11 @@ function ContactLine({
   /** Readable name, when known — shown before the email for legibility. */
   name?: string | null;
   joined: boolean;
+  /**
+   * Whether this person has signed. Undefined where the competition asks for
+   * no waiver — an absent marker and an unsigned one are different facts.
+   */
+  waiver?: boolean;
   inviteId?: string;
   removable?: boolean;
   /** Present for a joined roster member — enables promote/remove controls. */
@@ -191,6 +203,23 @@ function ContactLine({
       >
         {email || "—"}
       </span>
+      {waiver !== undefined && (
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+            waiver
+              ? "bg-pine/15 text-pine"
+              : "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
+          )}
+          title={
+            waiver
+              ? "Has signed the waiver"
+              : "Hasn't signed the waiver yet — the team can't be scheduled until they do"
+          }
+        >
+          {waiver ? "signed" : "no waiver"}
+        </span>
+      )}
       <span
         className={cn(
           "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
@@ -299,6 +328,7 @@ function ContactLine({
 /** The captain + partner emails for a team (joined members and pending invites). */
 function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
   const members = team.members ?? [];
+  const signed = team.signedUserIds;
   const captain = members.find((m) => m.role === "captain");
   const players = members.filter((m) => m.role === "player");
 
@@ -323,6 +353,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           name={captain.name}
           joined
           member={{ teamId: team.id, userId: captain.userId, isCaptain: true }}
+          waiver={signed ? signed.has(captain.userId) : undefined}
           onDone={onDone}
         />
       ) : team.captainInvite ? (
@@ -345,6 +376,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           name={m.name}
           joined
           member={{ teamId: team.id, userId: m.userId, isCaptain: false }}
+          waiver={signed ? signed.has(m.userId) : undefined}
           onDone={onDone}
         />
       ))}
