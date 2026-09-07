@@ -9,6 +9,7 @@ import { getMyFreeAgentSignup } from "@/lib/queries/free-agents";
 import { getFullness, getMyWaitlistEntry } from "@/lib/queries/waitlist";
 import { WaitlistForm } from "@/components/registration/waitlist-form";
 import { IndividualSignupForm } from "@/components/registration/individual-signup-form";
+import { EntryChoice } from "@/components/registration/entry-choice";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
@@ -118,6 +119,74 @@ export default async function RegisterPage({
   const action =
     event.type === "league" ? registerLeagueTeamAction : registerTeamAction;
 
+  // Both entry paths, built once. They appear either side by side behind a
+  // chooser (when this event takes individuals) or on their own, and defining
+  // them here keeps those two arrangements from drifting apart.
+  const showIndividual = event.allowIndividualSignups && event.signupWindowOpen;
+
+  const teamBlurb = (
+    <>
+      {deadlineText
+        ? `Registration closes ${deadlineText}.`
+        : "Registration is open."}
+      {event.spotsLeft !== null && (
+        <>
+          {" "}
+          <span className="text-foreground font-medium">
+            {event.spotsLeft === 1
+              ? "1 spot left"
+              : `${event.spotsLeft} spots left`}
+          </span>{" "}
+          of {event.maxTeams}.
+        </>
+      )}
+    </>
+  );
+
+  const individualBlurb = (
+    <>
+      Put your name down and the organizer will place you on a team.
+      {feeSettings.individualFeeCents > 0 && (
+        <>
+          {" "}
+          Individual sign-up is{" "}
+          <span className="text-foreground font-medium">
+            {formatCents(feeSettings.individualFeeCents)}
+          </span>
+          .
+        </>
+      )}
+    </>
+  );
+
+  const teamForm = (
+    <RegistrationForm
+      competitionId={event.id}
+      divisions={event.divisions}
+      rosterSize={ROSTER_SIZE[event.sport]}
+      isAuthed={!!user}
+      userEmail={user?.email}
+      loginHref={`/login?next=/register/${slug}`}
+      action={action}
+      divisionLabel={event.divisionLabel}
+      fee={fee}
+    />
+  );
+
+  const individualForm = (
+    <IndividualSignupForm
+      cardAvailable={cardAvailable}
+      paypalUrl={feeSettings.paypalIndividualUrl ?? feeSettings.paypalTeamUrl}
+      competitionId={event.id}
+      sport={event.sport}
+      isAuthed={!!user}
+      userEmail={user?.email}
+      loginHref={`/login?next=/register/${slug}`}
+      feeCents={feeSettings.individualFeeCents}
+      existing={mySignup}
+    />
+  );
+
   return (
     <div className="bg-background min-h-svh">
       <header className="border-border bg-surface border-b">
@@ -190,40 +259,26 @@ export default async function RegisterPage({
         <EventVenues event={event} />
 
         {event.registrationOpen ? (
-          <Card id="register" className="scroll-mt-4">
-            <CardHeader>
-              <CardTitle>Register your team</CardTitle>
-              <CardDescription>
-                {deadlineText
-                  ? `Registration closes ${deadlineText}.`
-                  : "Registration is open."}
-                {event.spotsLeft !== null && (
-                  <>
-                    {" "}
-                    <span className="text-foreground font-medium">
-                      {event.spotsLeft === 1
-                        ? "1 spot left"
-                        : `${event.spotsLeft} spots left`}
-                    </span>{" "}
-                    of {event.maxTeams}.
-                  </>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RegistrationForm
-                competitionId={event.id}
-                divisions={event.divisions}
-                rosterSize={ROSTER_SIZE[event.sport]}
-                isAuthed={!!user}
-                userEmail={user?.email}
-                loginHref={`/login?next=/register/${slug}`}
-                action={action}
-                divisionLabel={event.divisionLabel}
-                fee={fee}
+          showIndividual ? (
+            <div id="register" className="scroll-mt-4">
+              <EntryChoice
+                teamTitle="Register your team"
+                teamDescription={teamBlurb}
+                individualTitle="Sign up on your own"
+                individualDescription={individualBlurb}
+                teamForm={teamForm}
+                individualForm={individualForm}
               />
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            <Card id="register" className="scroll-mt-4">
+              <CardHeader>
+                <CardTitle>Register your team</CardTitle>
+                <CardDescription>{teamBlurb}</CardDescription>
+              </CardHeader>
+              <CardContent>{teamForm}</CardContent>
+            </Card>
+          )
         ) : (
           <Card>
             <CardHeader>
@@ -278,39 +333,15 @@ export default async function RegisterPage({
           </Card>
         )}
 
-        {event.allowIndividualSignups && event.signupWindowOpen && (
+        {/* Registration closed but individuals still welcome — the chooser
+            above only renders while team sign-up is open. */}
+        {showIndividual && !event.registrationOpen && (
           <Card id="individual" className="scroll-mt-4">
             <CardHeader>
-              <CardTitle>No team? Sign up on your own</CardTitle>
-              <CardDescription>
-                Put your name down and the organizer will place you on a team.
-                {feeSettings.individualFeeCents > 0 && (
-                  <>
-                    {" "}
-                    Individual sign-up is{" "}
-                    <span className="text-foreground font-medium">
-                      {formatCents(feeSettings.individualFeeCents)}
-                    </span>
-                    .
-                  </>
-                )}
-              </CardDescription>
+              <CardTitle>Sign up on your own</CardTitle>
+              <CardDescription>{individualBlurb}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <IndividualSignupForm
-                cardAvailable={cardAvailable}
-                paypalUrl={
-                  feeSettings.paypalIndividualUrl ?? feeSettings.paypalTeamUrl
-                }
-                competitionId={event.id}
-                sport={event.sport}
-                isAuthed={!!user}
-                userEmail={user?.email}
-                loginHref={`/login?next=/register/${slug}`}
-                feeCents={feeSettings.individualFeeCents}
-                existing={mySignup}
-              />
-            </CardContent>
+            <CardContent>{individualForm}</CardContent>
           </Card>
         )}
 

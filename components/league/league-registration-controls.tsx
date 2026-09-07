@@ -33,12 +33,15 @@ export function LeagueRegistrationControls({
   registrationDeadline,
   published,
   waitlistClaimHours = 48,
+  maxTeams = null,
 }: {
   competitionId: string;
   timezone: string;
   registrationOpen: boolean;
   /** Hours to claim an offered waitlist spot. */
   waitlistClaimHours?: number;
+  /** How many teams the league will take. Null = no cap. */
+  maxTeams?: number | null;
   /** Stored close datetime (ISO), or null. */
   registrationDeadline: string | null;
   /** Whether the public page is live — drives the "not visible yet" hint. */
@@ -62,10 +65,12 @@ export function LeagueRegistrationControls({
   );
   const [deadline, setDeadline] = useState(initialDate);
   const [claimHours, setClaimHours] = useState(String(waitlistClaimHours));
+  const [cap, setCap] = useState(maxTeams === null ? "" : String(maxTeams));
 
   function reset() {
     setAccept(registrationOpen);
     setDeadline(initialDate);
+    setCap(maxTeams === null ? "" : String(maxTeams));
   }
 
   function save() {
@@ -78,6 +83,9 @@ export function LeagueRegistrationControls({
           336,
           Math.max(1, Number(claimHours) || 48),
         ),
+        // Empty means no cap, which is different from zero — a cap of zero
+        // would close the league to everyone.
+        maxTeams: cap.trim() === "" ? null : Number(cap),
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -148,6 +156,26 @@ export function LeagueRegistrationControls({
             <p className="text-muted-foreground text-xs">
               Registration closes at the end of this day. Leave empty to keep it
               open until you close it.
+            </p>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="reg-max-teams">Maximum teams (optional)</Label>
+            <Input
+              id="reg-max-teams"
+              type="number"
+              min={1}
+              max={200}
+              inputMode="numeric"
+              className="max-w-28 tabular-nums"
+              placeholder="No limit"
+              value={cap}
+              onChange={(e) => setCap(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              Once this many teams have registered, the form closes and the
+              waitlist opens automatically. Leave empty for no limit. Withdrawn
+              teams free their spot back up.
             </p>
           </div>
 

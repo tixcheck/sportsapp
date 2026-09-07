@@ -479,7 +479,8 @@ export async function setLeagueRegistrationAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
   }
-  const { competitionId, open, deadline, waitlistClaimHours } = parsed.data;
+  const { competitionId, open, deadline, waitlistClaimHours, maxTeams } =
+    parsed.data;
 
   const supabase = await createClient();
   const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
@@ -510,6 +511,8 @@ export async function setLeagueRegistrationAction(
     .update({
       registration_open: open,
       registration_deadline: deadlineIso,
+      // `undefined` leaves it alone; an explicit null clears the cap.
+      ...(maxTeams === undefined ? {} : { max_teams: maxTeams }),
     })
     .eq("competition_id", competitionId);
   if (error) return { error: error.message };
