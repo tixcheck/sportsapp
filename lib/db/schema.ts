@@ -1809,3 +1809,89 @@ export const waiverAcceptances = pgTable(
     index("waiver_acceptances_user_idx").on(t.userId),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Registration questions (migration 0104) — what an organizer asks beyond the
+// name and email we already hold.
+//
+// Two scopes, and the distinction is the design: a TEAM question is answered
+// once by the captain for the entry ("is this team stronger than last year?"),
+// a PLAYER question is answered by each person for themselves. Nobody answers
+// for anybody else — a captain guessing a teammate's address is worse than not
+// having it.
+// ---------------------------------------------------------------------------
+
+export const registrationQuestionScope = pgEnum("registration_question_scope", [
+  "team",
+  "player",
+]);
+
+export const registrationQuestionKind = pgEnum("registration_question_kind", [
+  "short_text",
+  "long_text",
+  "email",
+  "phone",
+  "select",
+  "yes_no",
+]);
+
+export const registrationQuestions = pgTable(
+  "registration_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    scope: registrationQuestionScope("scope").notNull(),
+    kind: registrationQuestionKind("kind").notNull(),
+    label: text("label").notNull(),
+    /** Shown under the label — an example, or why it's being asked. */
+    helpText: text("help_text"),
+    /** Choices for `select`; ignored for every other kind. */
+    options: jsonb("options").$type<string[]>().notNull().default([]),
+    required: boolean("required").notNull().default(false),
+    position: integer("position").notNull().default(0),
+    /**
+     * "If yes, at what level did you play?" — a follow-up is an ordinary
+     * question with a condition rather than a special field type.
+     */
+    parentQuestionId: uuid("parent_question_id"),
+    /** The parent answer that reveals this one. */
+    showWhen: text("show_when"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("registration_questions_competition_idx").on(
+      t.competitionId,
+      t.scope,
+      t.position,
+    ),
+  ],
+);
+
+export const registrationAnswers = pgTable(
+  "registration_answers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    questionId: uuid("question_id")
+      .notNull()
+      .references(() => registrationQuestions.id, { onDelete: "cascade" }),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    /** Set for a team-scope answer; exactly one subject is ever set. */
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
+    /** Set for a player-scope answer — always the person who gave it. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    value: text("value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("registration_answers_competition_idx").on(t.competitionId)],
+);

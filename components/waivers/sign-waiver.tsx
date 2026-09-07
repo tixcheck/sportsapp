@@ -33,6 +33,7 @@ export function SignWaiver({
   bodySha256,
   suggestedName,
   onSigned,
+  blockedReason,
 }: {
   competitionId: string;
   competitionName: string;
@@ -44,6 +45,12 @@ export function SignWaiver({
   suggestedName: string;
   /** Called after a successful signature, for flows that advance a step. */
   onSigned?: () => void;
+  /**
+   * Why signing is held, when something must happen first — the organizer's
+   * own questions, typically. Signing is an assertion about what you have
+   * done, so it should not be possible before the rest of it is true.
+   */
+  blockedReason?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -96,10 +103,16 @@ export function SignWaiver({
         {body}
       </div>
 
-      {!readToEnd && (
-        <p className="text-ink-3 mt-2 text-xs">
-          Scroll to the end of the waiver to continue.
+      {blockedReason ? (
+        <p className="mt-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+          {blockedReason}
         </p>
+      ) : (
+        !readToEnd && (
+          <p className="text-ink-3 mt-2 text-xs">
+            Scroll to the end of the waiver to continue.
+          </p>
+        )
       )}
 
       <form onSubmit={submit} className="mt-4 grid gap-3">
@@ -118,7 +131,9 @@ export function SignWaiver({
 
         <Button
           type="submit"
-          disabled={pending || !readToEnd || name.trim().length < 2}
+          disabled={
+            pending || !readToEnd || name.trim().length < 2 || !!blockedReason
+          }
           className="justify-self-start"
         >
           {pending ? "Recording…" : "I agree"}

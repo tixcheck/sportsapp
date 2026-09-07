@@ -18,6 +18,8 @@ import {
   getOrgWaivers,
 } from "@/lib/queries/waivers";
 import { CompetitionWaiverCard } from "@/components/waivers/competition-waiver-card";
+import { RegistrationQuestionsCard } from "@/components/registration/questions-card";
+import { getRegistrationQuestions } from "@/lib/queries/registration-questions";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
@@ -135,10 +137,12 @@ export default async function LeaguePage({
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
   const waitlist = await getWaitlist(leagueId);
-  const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
-    getPendingOfflinePayments(league.id),
-    getOfflineFeesOwed(league.id),
-  ]);
+  const [pendingEtransfers, etransferFeesOwed, registrationQuestions] =
+    await Promise.all([
+      getPendingOfflinePayments(league.id),
+      getOfflineFeesOwed(league.id),
+      getRegistrationQuestions(league.id),
+    ]);
   const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
     await Promise.all([
       getCompetitionPaymentSettings(league.id),
@@ -638,6 +642,11 @@ export default async function LeaguePage({
 
       {/* Beside the fee, because both decide whether a team is a real entrant:
           one wants money, the other wants signatures. */}
+      <RegistrationQuestionsCard
+        competitionId={league.id}
+        initial={registrationQuestions}
+      />
+
       <CompetitionWaiverCard
         competitionId={league.id}
         orgId={orgId}

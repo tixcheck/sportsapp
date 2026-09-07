@@ -14,6 +14,11 @@ import { getAccessState } from "@/lib/queries/access";
 import { getPlayerHome } from "@/lib/queries/player-home";
 import { getMyOutstandingWaivers } from "@/lib/queries/waivers";
 import { SignWaiver } from "@/components/waivers/sign-waiver";
+import { PlayerDetailsForm } from "@/components/registration/player-details-form";
+import {
+  getMyPlayerAnswers,
+  getRegistrationQuestions,
+} from "@/lib/queries/registration-questions";
 import { NextGame } from "@/components/dashboard/next-game";
 import {
   RecentResults,
@@ -67,6 +72,20 @@ export default async function DashboardPage() {
   // list — the full record still lives on the competition's own pages.
   const activeComps = comps.filter((c) => !isCompetitionDone(c));
 
+  // The organizer's own questions, for each competition whose waiver is owed.
+  // Answering comes FIRST: the waiver is held until the details are in, so the
+  // details ride on a gate that already exists rather than needing one of
+  // their own.
+  const detailsByComp = await Promise.all(
+    owedWaivers.map(async (w) => {
+      const [questions, answers] = await Promise.all([
+        getRegistrationQuestions(w.competitionId, "player"),
+        getMyPlayerAnswers(w.competitionId),
+      ]);
+      return { competitionId: w.competitionId, questions, answers };
+    }),
+  );
+
   return (
     <div className="space-y-10">
       {invites.length > 0 && (
@@ -86,18 +105,48 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {owedWaivers.map((w) => (
-        <SignWaiver
-          key={`${w.competitionId}:${w.id}`}
-          competitionId={w.competitionId}
-          competitionName={w.competitionName}
-          waiverId={w.id}
-          title={w.title}
-          body={w.body}
-          bodySha256={w.bodySha256 ?? ""}
-          suggestedName={w.signerName}
-        />
-      ))}
+      {owedWaivers.map((w) => {
+        const details = detailsByComp.find(
+          (d) => d.competitionId === w.competitionId,
+        );
+        const outstanding = (details?.questions ?? []).filter(
+          (q) =>
+            q.required &&
+            (q.parentQuestionId
+              ? (details?.answers[q.parentQuestionId] ?? "") === q.showWhen
+              : true) &&
+            (details?.answers[q.id] ?? "").trim() === "",
+        );
+
+        return (
+          <div key={`${w.competitionId}:${w.id}`} className="space-y-4">
+            {details && details.questions.length > 0 && (
+              <PlayerDetailsForm
+                competitionId={w.competitionId}
+                competitionName={w.competitionName}
+                organizerName={w.organizerName}
+                questions={details.questions}
+                initial={details.answers}
+              />
+            )}
+
+            <SignWaiver
+              competitionId={w.competitionId}
+              competitionName={w.competitionName}
+              waiverId={w.id}
+              title={w.title}
+              body={w.body}
+              bodySha256={w.bodySha256 ?? ""}
+              suggestedName={w.signerName}
+              blockedReason={
+                outstanding.length > 0
+                  ? "Fill in your details above first."
+                  : undefined
+              }
+            />
+          </div>
+        );
+      })}
 
       {home.next && <NextGame match={home.next} />}
 
