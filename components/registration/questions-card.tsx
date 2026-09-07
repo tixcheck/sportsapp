@@ -13,6 +13,7 @@ import type {
 import { saveRegistrationQuestionsAction } from "@/server/actions/registration-questions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Card,
   CardContent,
@@ -285,19 +286,19 @@ export function RegistrationQuestionsCard({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 pl-6">
-                      <select
+                      <NativeSelect
                         value={q.kind}
                         onChange={(e) =>
                           set(q.key, { kind: e.target.value as QuestionKind })
                         }
-                        className="border-input bg-surface h-8 rounded-md border px-2 text-xs"
+                        className="h-8 text-xs"
                       >
                         {Object.entries(KIND_LABEL).map(([k, label]) => (
                           <option key={k} value={k}>
                             {label}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
 
                       <label className="text-muted-foreground flex items-center gap-1.5 text-xs">
                         <input

@@ -24,6 +24,7 @@ import type {
 import { saveRegistrationAnswersAction } from "@/server/actions/registration-questions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { formatCents } from "@/lib/payments/format";
 import { cn } from "@/lib/utils";
@@ -306,11 +307,10 @@ export function SteppedRegistration({
           {divisions.length > 0 && (
             <div className="grid gap-1.5">
               <Label htmlFor="sr-division">{divisionLabel}</Label>
-              <select
+              <NativeSelect
                 id="sr-division"
                 value={divisionId}
                 onChange={(e) => setDivisionId(e.target.value)}
-                className="border-input bg-surface h-9 rounded-md border px-3 text-sm"
               >
                 <option value="">No preference</option>
                 {divisions.map((d) => (
@@ -318,7 +318,7 @@ export function SteppedRegistration({
                     {d.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           )}
 

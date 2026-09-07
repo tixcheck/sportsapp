@@ -10,6 +10,7 @@ import type { CompetitionWaiverState, Waiver } from "@/lib/queries/waivers";
 import { setCompetitionWaiverAction } from "@/server/actions/waivers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -99,12 +100,17 @@ export function CompetitionWaiverCard({
           </p>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-2">
+            {/*
+              `items-start`: the right-hand cell carries a line of help text
+              and the left one doesn't, so without it the shorter cell is
+              stretched to match and its own rows stretch with it — pushing
+              the label off the control it belongs to.
+            */}
+            <div className="grid items-start gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="cw-waiver">Waiver required</Label>
-                <select
+                <NativeSelect
                   id="cw-waiver"
-                  className="border-input bg-surface h-9 rounded-md border px-3 text-sm"
                   value={waiverId}
                   onChange={(e) => setWaiverId(e.target.value)}
                 >
@@ -114,7 +120,7 @@ export function CompetitionWaiverCard({
                       {w.title} (v{w.version})
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="cw-min">Players needed per team</Label>

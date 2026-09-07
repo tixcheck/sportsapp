@@ -6,6 +6,7 @@ import type {
 } from "@/lib/queries/registration-questions";
 import { AddressInput } from "@/components/ui/address-input";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
@@ -134,12 +135,11 @@ function Field({
           className="border-input bg-surface focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-1 focus-visible:outline-none"
         />
       ) : q.kind === "select" || q.kind === "yes_no" ? (
-        <select
+        <NativeSelect
           id={id}
           value={value}
           disabled={disabled}
           onChange={(e) => onChange(q.id, e.target.value)}
-          className="border-input bg-surface h-9 rounded-md border px-3 text-sm"
         >
           <option value="">Choose…</option>
           {(q.kind === "yes_no" ? ["Yes", "No"] : q.options).map((o) => (
@@ -147,7 +147,7 @@ function Field({
               {o}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       ) : (
         <Input
           id={id}
