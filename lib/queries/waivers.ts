@@ -327,3 +327,73 @@ export async function getMySignedWaiverIds(
 
   return (data ?? []).map((r) => r.waiver_id as string);
 }
+
+export type TeamWaiverGate = {
+  /** Rostered players who haven't signed, named. */
+  outstanding: { userId: string; name: string }[];
+};
+
+/**
+ * Who on one team still owes a signature, or null when nothing is owed.
+ *
+ * Null covers three different "nothing to do" cases on purpose — the
+ * competition requires no waiver, everyone has signed, or the team isn't held
+ * by the waiver gate at all — because every caller does the same thing with
+ * all three: show the schedule.
+ */
+export async function getTeamWaiverGate(
+  teamId: string,
+): Promise<TeamWaiverGate | null> {
+  const supabase = await createClient();
+
+  const { data: team } = await supabase
+    .from("teams")
+    .select("id, status, competition_id")
+    .eq("id", teamId)
+    .maybeSingle();
+  if (!team) return null;
+  const t = team as { id: string; status: string; competition_id: string };
+  if (t.status !== "pending_waiver") return null;
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("waiver_id")
+    .eq("id", t.competition_id)
+    .maybeSingle();
+  const waiverId = (comp as { waiver_id: string | null } | null)?.waiver_id;
+  // Held for a short roster rather than for signatures — a different problem,
+  // and one this gate must not claim to explain.
+  if (!waiverId) return null;
+
+  const { data: members } = await supabase
+    .from("team_members")
+    .select("user_id, users(display_name, email)")
+    .eq("team_id", teamId);
+  const roster = (members ?? []) as unknown as {
+    user_id: string;
+    users: { display_name: string | null; email: string | null } | null;
+  }[];
+  if (roster.length === 0) return null;
+
+  const { data: signatures } = await supabase
+    .from("waiver_acceptances")
+    .select("user_id")
+    .eq("competition_id", t.competition_id)
+    .eq("waiver_id", waiverId)
+    .in(
+      "user_id",
+      roster.map((m) => m.user_id),
+    );
+  const signed = new Set((signatures ?? []).map((a) => a.user_id as string));
+
+  const outstanding = roster
+    .filter((m) => !signed.has(m.user_id))
+    .map((m) => ({
+      userId: m.user_id,
+      // Falls back to the email only as a last resort; a roster of blanks is
+      // useless to the captain who has to chase them.
+      name: m.users?.display_name?.trim() || m.users?.email || "A teammate",
+    }));
+
+  return outstanding.length > 0 ? { outstanding } : null;
+}

@@ -17,6 +17,8 @@ import {
 } from "@/lib/payments/registration-plan";
 import { TeamPaymentCard } from "@/components/payments/team-payment-card";
 import { ScheduleView } from "@/components/schedule/schedule-view";
+import { WaiverGate } from "@/components/waivers/waiver-gate";
+import { getTeamWaiverGate } from "@/lib/queries/waivers";
 import { MatchSections } from "@/components/scoring/match-sections";
 import {
   StandingsTable,
@@ -59,6 +61,10 @@ export default async function TeamPage({
     getTeamPaymentRows(team.id),
   ]);
   const orgAccount = await getPaymentAccount(view.orgId);
+  // A team held by the waiver gate has no fixtures to show, and saying "no
+  // matches yet" would send its captain looking for a scheduling fault
+  // instead of chasing the two people who haven't signed.
+  const waiverGate = await getTeamWaiverGate(team.id);
   const payment = teamPaymentState(paymentRows, {
     feeCents: feeSettings.registrationFeeCents,
   });
@@ -127,7 +133,15 @@ export default async function TeamPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {isMember ? (
+          {waiverGate ? (
+            <WaiverGate
+              outstanding={waiverGate.outstanding.map((p) => ({
+                name: p.name,
+                isViewer: p.userId === view.viewerId,
+              }))}
+              isMember={isMember || view.isAdmin}
+            />
+          ) : isMember ? (
             myMatches.length === 0 && projections.length === 0 ? (
               <p className="text-muted-foreground text-sm">No matches yet.</p>
             ) : (

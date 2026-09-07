@@ -26,6 +26,8 @@ export interface TeamView {
   orgId: string;
   /** The signed-in viewer's email, to match them to their own payment share. */
   viewerEmail: string | null;
+  /** Their user id, to tell "somebody hasn't signed" from "you haven't". */
+  viewerId: string | null;
   isMember: boolean;
   isAdmin: boolean;
   /** Member path: the user's own matches for this team (with their actions). */
@@ -143,6 +145,7 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
     // Needed to look up where this competition's registration money goes.
     orgId: comp.org_id as string,
     viewerEmail: user.email ?? null,
+    viewerId: user.id ?? null,
     isMember,
     isAdmin,
     myMatches,
