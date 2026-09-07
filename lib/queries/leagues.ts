@@ -51,6 +51,8 @@ export interface LeagueDetail {
   sport: Sport;
   /** Whether this league takes players who have no team (migration 0076). */
   allowIndividualSignups: boolean;
+  /** Individual sign-ups this competition will take. Null = no limit. */
+  maxIndividualSignups: number | null;
   /** Hours to claim an offered waitlist spot (migration 0081). */
   waitlistClaimHours: number;
   status: string;
@@ -193,7 +195,7 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation, allow_individual_signups, waitlist_claim_hours",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation, allow_individual_signups, max_individual_signups, waitlist_claim_hours",
     )
     .eq("id", leagueId)
     .eq("type", "league")
@@ -261,6 +263,8 @@ export async function getLeagueDetail(
     slug: league.slug,
     sport: league.sport as Sport,
     allowIndividualSignups: league.allow_individual_signups === true,
+    maxIndividualSignups:
+      (league.max_individual_signups as number | null) ?? null,
     waitlistClaimHours: (league.waitlist_claim_hours as number | null) ?? 48,
     status: league.status,
     startDate: league.start_date,

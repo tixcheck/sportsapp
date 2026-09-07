@@ -517,6 +517,10 @@ export default async function LeaguePage({
         allowIndividualSignups={league.allowIndividualSignups}
         individualFeeCents={feeSettings.individualFeeCents}
         paypalIndividualUrl={feeSettings.paypalIndividualUrl}
+        maxIndividualSignups={league.maxIndividualSignups}
+        currentSignups={
+          freeAgents.filter((f) => f.status !== "withdrawn").length
+        }
       />
       <Card>
         <CardHeader>

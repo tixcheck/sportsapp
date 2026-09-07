@@ -289,6 +289,14 @@ const settingsSchema = z.object({
    * from the team link, and usually a different link in their dashboard.
    * Empty clears it, which falls the flow back to the team link.
    */
+  /** How many individuals to take. Null clears the limit. */
+  maxIndividualSignups: z
+    .number()
+    .int()
+    .min(1, "A limit of zero would close sign-ups — untick the box instead.")
+    .max(500)
+    .nullable()
+    .optional(),
   paypalIndividualUrl: z
     .string()
     .trim()
@@ -323,7 +331,13 @@ export async function updateIndividualSignupSettingsAction(
 
   const { error: compError } = await supabase
     .from("competitions")
-    .update({ allow_individual_signups: v.allowIndividualSignups })
+    .update({
+      allow_individual_signups: v.allowIndividualSignups,
+      // `undefined` leaves it alone; an explicit null clears the limit.
+      ...(v.maxIndividualSignups === undefined
+        ? {}
+        : { max_individual_signups: v.maxIndividualSignups }),
+    })
     .eq("id", v.competitionId);
   if (compError) {
     console.error("[free-agents] competition flag update failed");

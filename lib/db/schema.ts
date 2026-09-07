@@ -396,6 +396,15 @@ export const competitions = pgTable(
      * signed — adding someone later re-opens the gate until they do.
      */
     minRosterForEntry: integer("min_roster_for_entry"),
+    /**
+     * Individual sign-ups this competition will take. Null = no limit.
+     *
+     * Independent of any team cap on purpose (migration 0105): `max_teams`
+     * caps ENTRANTS, and a league whose team spots are gone may still want a
+     * queue of individuals to build another team from. This is the separate
+     * promise — every free agent expects to be placed somewhere.
+     */
+    maxIndividualSignups: integer("max_individual_signups"),
     visibility: competitionVisibility("visibility")
       .notNull()
       .default("private"),
