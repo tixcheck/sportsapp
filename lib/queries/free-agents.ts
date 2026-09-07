@@ -148,3 +148,37 @@ export function summarizeFreeAgents(agents: FreeAgent[]): {
     withdrawn: agents.filter((a) => a.status === "withdrawn").length,
   };
 }
+
+export type IndividualFullness = {
+  /** Null when the organizer set no limit. */
+  cap: number | null;
+  taken: number;
+  full: boolean;
+  /** Null when uncapped — the caller shows no counter rather than "0 of ∞". */
+  spotsLeft: number | null;
+};
+
+/**
+ * How full the individual pool is.
+ *
+ * Read on the public page so somebody doesn't fill in positions, level and a
+ * home address before being told there was never a place — the sign-up form is
+ * long, and being refused at the end of it is the worst moment to find out.
+ */
+export async function getIndividualFullness(
+  competitionId: string,
+): Promise<IndividualFullness> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("individual_fullness", {
+    _competition_id: competitionId,
+  });
+  const row = (data as { cap: number | null; taken: number }[] | null)?.[0];
+  const cap = row?.cap ?? null;
+  const taken = row?.taken ?? 0;
+  return {
+    cap,
+    taken,
+    full: cap !== null && taken >= cap,
+    spotsLeft: cap === null ? null : Math.max(0, cap - taken),
+  };
+}

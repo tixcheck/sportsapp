@@ -32,6 +32,8 @@ export function IndividualSignupSettings({
   allowIndividualSignups,
   individualFeeCents,
   paypalIndividualUrl,
+  maxIndividualSignups,
+  currentSignups = 0,
 }: {
   competitionId: string;
   sport: Sport;
@@ -39,6 +41,10 @@ export function IndividualSignupSettings({
   individualFeeCents: number;
   /** The organizer's PayPal link for an individual fee, when they use one. */
   paypalIndividualUrl?: string | null;
+  /** How many individuals to take. Null = no limit. */
+  maxIndividualSignups?: number | null;
+  /** How many have signed up already, so a limit below that can be flagged. */
+  currentSignups?: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -47,6 +53,11 @@ export function IndividualSignupSettings({
     individualFeeCents > 0 ? String(individualFeeCents / 100) : "",
   );
   const [paypal, setPaypal] = useState(paypalIndividualUrl ?? "");
+  const [cap, setCap] = useState(
+    maxIndividualSignups === null || maxIndividualSignups === undefined
+      ? ""
+      : String(maxIndividualSignups),
+  );
 
   // Validated as they type: they're pasting from another tab, and finding out
   // after a round trip means going back to find the link again.
@@ -68,6 +79,7 @@ export function IndividualSignupSettings({
         allowIndividualSignups: allow,
         individualFeeCents: Math.round(dollars * 100),
         paypalIndividualUrl: paypal.trim(),
+        maxIndividualSignups: cap.trim() === "" ? null : Number(cap),
       });
       if ("error" in result) {
         toast.error(result.error);
@@ -126,6 +138,45 @@ export function IndividualSignupSettings({
             Separate from the team fee — leave blank for free. A player
             isn&apos;t added to your pool until this is paid.
           </p>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="individual-cap">
+            Maximum individuals{" "}
+            <span className="text-muted-foreground font-normal">
+              (optional)
+            </span>
+          </Label>
+          <Input
+            id="individual-cap"
+            type="number"
+            min={1}
+            max={500}
+            inputMode="numeric"
+            placeholder="No limit"
+            className="max-w-28 tabular-nums"
+            value={cap}
+            onChange={(e) => setCap(e.target.value)}
+            disabled={!allow}
+          />
+          {/*
+            Every free agent is a promise to place them on a team, so the
+            number an organizer should pick is the number they can actually
+            find spots for — not the number who would like to sign up.
+          */}
+          <p className="text-muted-foreground text-xs">
+            Sign-ups close once this many have joined. Separate from your team
+            cap. Withdrawn sign-ups free their place back up.
+            {currentSignups > 0 && ` ${currentSignups} so far.`}
+          </p>
+          {cap.trim() !== "" &&
+            Number(cap) > 0 &&
+            Number(cap) < currentSignups && (
+              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                {currentSignups} people have already signed up. Nobody is
+                removed by lowering this — it just stops new sign-ups.
+              </p>
+            )}
         </div>
 
         <div className="grid gap-1.5">

@@ -5,7 +5,10 @@ import { DateTime } from "luxon";
 import { ArrowRight } from "lucide-react";
 
 import { getRegistrationEvent } from "@/lib/queries/registration";
-import { getMyFreeAgentSignup } from "@/lib/queries/free-agents";
+import {
+  getIndividualFullness,
+  getMyFreeAgentSignup,
+} from "@/lib/queries/free-agents";
 import { getFullness, getMyWaitlistEntry } from "@/lib/queries/waitlist";
 import { WaitlistForm } from "@/components/registration/waitlist-form";
 import { IndividualSignupForm } from "@/components/registration/individual-signup-form";
@@ -97,6 +100,8 @@ export default async function RegisterPage({
   ).canAcceptPayments;
 
   // The waiver the captain signs mid-flow, and whether they already have.
+  const individualFullness = await getIndividualFullness(event.id);
+
   const [waiverState, mySignedWaiverIds, teamQuestions] = await Promise.all([
     getCompetitionWaiverState(event.id),
     getMySignedWaiverIds(event.id),
@@ -135,6 +140,7 @@ export default async function RegisterPage({
   // Both entry paths, built once. They appear either side by side behind a
   // chooser (when this event takes individuals) or on their own, and defining
   // them here keeps those two arrangements from drifting apart.
+  const individualsFull = individualFullness.full && !mySignup;
   const showIndividual = event.allowIndividualSignups && event.signupWindowOpen;
 
   const teamBlurb = (
@@ -158,7 +164,9 @@ export default async function RegisterPage({
 
   const individualBlurb = (
     <>
-      Put your name down and the organizer will place you on a team.
+      {individualsFull
+        ? "The individual pool is full for now."
+        : "Put your name down and the organizer will place you on a team."}
       {feeSettings.individualFeeCents > 0 && (
         <>
           {" "}
@@ -167,6 +175,17 @@ export default async function RegisterPage({
             {formatCents(feeSettings.individualFeeCents)}
           </span>
           .
+        </>
+      )}
+      {individualFullness.spotsLeft !== null && !individualsFull && (
+        <>
+          {" "}
+          <span className="text-foreground font-medium">
+            {individualFullness.spotsLeft === 1
+              ? "1 place left"
+              : `${individualFullness.spotsLeft} places left`}
+          </span>{" "}
+          of {individualFullness.cap}.
         </>
       )}
     </>
@@ -233,7 +252,12 @@ export default async function RegisterPage({
     />
   );
 
-  const individualForm = (
+  const individualForm = individualsFull ? (
+    <p className="text-muted-foreground text-sm">
+      All {individualFullness.cap} places have been taken. Ask {event.org.name}{" "}
+      whether they&rsquo;re keeping a list — or register with a team instead.
+    </p>
+  ) : (
     <IndividualSignupForm
       cardAvailable={cardAvailable}
       paypalUrl={feeSettings.paypalIndividualUrl ?? feeSettings.paypalTeamUrl}

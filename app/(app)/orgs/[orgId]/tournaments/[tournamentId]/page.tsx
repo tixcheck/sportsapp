@@ -497,6 +497,10 @@ export default async function TournamentPage({
         allowIndividualSignups={t.allowIndividualSignups}
         individualFeeCents={feeSettings.individualFeeCents}
         paypalIndividualUrl={feeSettings.paypalIndividualUrl}
+        maxIndividualSignups={t.maxIndividualSignups}
+        currentSignups={
+          freeAgents.filter((f) => f.status !== "withdrawn").length
+        }
       />
       <Card>
         <CardHeader>
