@@ -79,6 +79,10 @@ export default function SecurityPage() {
                     "Payment records",
                     "What was paid, by whom, and when — never the card itself.",
                   ],
+                  [
+                    "Answers your organization asks for",
+                    "Only what you choose to ask at registration. Some organizations ask for an address or an emergency contact; nothing here is collected unless you add the question.",
+                  ],
                 ].map(([what, why]) => (
                   <tr key={what} className="border-rule/60 border-b">
                     <td className="text-ink p-2.5 font-medium whitespace-nowrap">
@@ -97,7 +101,7 @@ export default function SecurityPage() {
             Access is enforced by the database, not by the application. Every
             one of our{" "}
             <strong className="text-ink font-semibold">
-              44 data tables has row-level security switched on
+              48 data tables has row-level security switched on
             </strong>
             , which means a request that isn&rsquo;t entitled to a row does not
             receive it — even if a bug in the website were to ask for it.
@@ -126,6 +130,28 @@ export default function SecurityPage() {
             readable only by that person and by the organizers. Not by
             teammates, because at that point they don&rsquo;t have any.
           </p>
+
+          <div className="border-rule bg-surface mt-4 rounded-lg border p-4">
+            <p className="text-ink font-semibold">
+              Answers to your own registration questions are tighter again
+            </p>
+            <p className="mt-2">
+              If your organization asks players for details beyond a name and
+              email — an address, a phone number, a playing history — those
+              answers are readable by{" "}
+              <strong className="text-ink font-semibold">
+                the player who gave them and by your organizers only
+              </strong>
+              . Not by their captain, not by their teammates, and never on a
+              public page. A roster shares a name and an email with a team; a
+              home address is a different thing, and it is not treated the same
+              way.
+            </p>
+            <p className="mt-3">
+              Nobody can answer on anyone else&rsquo;s behalf, and deleting a
+              question deletes every answer to it.
+            </p>
+          </div>
         </Section>
 
         <Section title="How it's protected">

@@ -227,6 +227,8 @@ export async function getMyOutstandingWaiver(
 export interface OutstandingWaiver extends Waiver {
   competitionId: string;
   competitionName: string;
+  /** Who is asking — named, because "the organizer" reassures nobody. */
+  organizerName: string;
   /** The signer's own display name, offered as a starting point. */
   signerName: string;
 }
@@ -292,10 +294,17 @@ export async function getMyOutstandingWaivers(): Promise<OutstandingWaiver[]> {
       .maybeSingle();
     if (!w) continue;
 
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", (w as { org_id: string }).org_id)
+      .maybeSingle();
+
     out.push({
       ...toWaiver(w),
       competitionId: c.id as string,
       competitionName: c.name as string,
+      organizerName: (org as { name?: string } | null)?.name ?? "The organizer",
       signerName,
     });
   }
