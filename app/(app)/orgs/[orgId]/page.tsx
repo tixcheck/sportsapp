@@ -23,6 +23,7 @@ import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { VenuesCard } from "@/components/venues/venues-card";
 import { OrgLogoCard } from "@/components/org/org-logo-card";
+import { OrgLocalityCard } from "@/components/org/org-locality-card";
 import { getOrgVenues } from "@/lib/queries/venues";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { PayoutsCard } from "@/components/payments/payouts-card";
@@ -148,6 +149,10 @@ export default async function OrgPage({
       />
 
       {canManageOrg && <OrgWaiversCard orgId={orgId} waivers={waivers} />}
+
+      {canManageOrg && (
+        <OrgLocalityCard orgId={orgId} initial={org.home_locality} />
+      )}
 
       {showPayouts && (
         <PayoutsCard

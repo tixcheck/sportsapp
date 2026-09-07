@@ -224,19 +224,36 @@ export type TeamLocalityRow = {
  * an address — the card that renders this then shows nothing at all, which is
  * right for the competitions this doesn't apply to.
  */
-export async function getTeamLocalities(
-  competitionId: string,
-): Promise<{ homeCity: string | null; teams: TeamLocalityRow[] }> {
+export async function getTeamLocalities(competitionId: string): Promise<{
+  /** The town in force, whether set here or inherited. */
+  homeCity: string | null;
+  /** The organization's default, so the card can say where it came from. */
+  orgCity: string | null;
+  /** This competition's own override, null when it simply inherits. */
+  ownCity: string | null;
+  teams: TeamLocalityRow[];
+}> {
   const supabase = await createClient();
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("home_locality")
+    .select("home_locality, organizations(home_locality)")
     .eq("id", competitionId)
     .maybeSingle();
-  const homeCity =
-    (comp as { home_locality: string | null } | null)?.home_locality ?? null;
-  if (!homeCity) return { homeCity: null, teams: [] };
+
+  const row = comp as {
+    home_locality: string | null;
+    organizations: { home_locality: string | null } | null;
+  } | null;
+
+  const ownCity = row?.home_locality ?? null;
+  const orgCity = row?.organizations?.home_locality ?? null;
+  // The competition's own value wins; otherwise it follows its organization.
+  // A competition nobody has touched therefore inherits, which is what makes
+  // setting it once on the org reach the four leagues that already exist.
+  const homeCity = ownCity ?? orgCity;
+
+  if (!homeCity) return { homeCity: null, orgCity, ownCity, teams: [] };
 
   const { data: questions } = await supabase
     .from("registration_questions")
@@ -245,7 +262,8 @@ export async function getTeamLocalities(
     .eq("scope", "player")
     .eq("kind", "address");
   const addressQuestionIds = (questions ?? []).map((q) => q.id as string);
-  if (addressQuestionIds.length === 0) return { homeCity, teams: [] };
+  if (addressQuestionIds.length === 0)
+    return { homeCity, orgCity, ownCity, teams: [] };
 
   const { data: teams } = await supabase
     .from("teams")
@@ -258,7 +276,7 @@ export async function getTeamLocalities(
     name: string;
     team_members: { user_id: string }[] | null;
   }[];
-  if (rosters.length === 0) return { homeCity, teams: [] };
+  if (rosters.length === 0) return { homeCity, orgCity, ownCity, teams: [] };
 
   const { data: answers } = await supabase
     .from("registration_answers")
@@ -284,6 +302,8 @@ export async function getTeamLocalities(
 
   return {
     homeCity,
+    orgCity,
+    ownCity,
     teams: rosters.map((t) => {
       const people = (t.team_members ?? []).map(
         (m) => byUser.get(m.user_id) ?? { answer: "", metadata: {} },
