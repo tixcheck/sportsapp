@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { recordMatchAudit } from "@/lib/audit/match-audit";
 import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
+import { teamNameError } from "@/lib/teams/name-errors";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { formatDateRange } from "@/lib/utils/dates";
@@ -559,7 +560,7 @@ export async function registerLeagueTeamAction(
     _player_emails: players,
     _payment_mode: v.paymentMode,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: teamNameError(error) ?? error.message };
 
   const { data: comp } = await supabase
     .from("competitions")

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { teamNameError } from "@/lib/teams/name-errors";
 import { offerNextWaitlistSpot } from "@/server/actions/waitlist";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
@@ -596,7 +597,7 @@ export async function renameTeamAction(
     .from("teams")
     .update({ name: parsed.data })
     .eq("id", guard.team.id);
-  if (error) return { error: error.message };
+  if (error) return { error: teamNameError(error) ?? error.message };
 
   revalidatePath("/orgs");
   revalidatePath("/dashboard");

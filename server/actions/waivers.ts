@@ -5,7 +5,9 @@ import { createHash } from "node:crypto";
 import {
   isSignatureStyle,
   missingInitials,
+  renderWaiverBody,
   splitWaiverClauses,
+  waiverNeedsAddress,
 } from "@/lib/waivers/clauses";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -204,6 +206,8 @@ const signSchema = z.object({
   clauseInitials: z.record(z.string(), z.string().trim().max(8)).optional(),
   /** Which rendering of their name they picked. */
   signatureStyle: z.string().trim().max(20).optional(),
+  /** Their address, when the wording asks for one. */
+  signedAddress: z.string().trim().max(400).optional(),
 });
 
 export type SignWaiverInput = z.input<typeof signSchema>;
@@ -230,6 +234,7 @@ export async function signWaiverAction(
     bodySha256,
     clauseInitials,
     signatureStyle,
+    signedAddress,
   } = parsed.data;
 
   const supabase = await createClient();
@@ -271,7 +276,19 @@ export async function signWaiverAction(
     (comp as { waiver_require_initials?: boolean } | null)
       ?.waiver_require_initials === true;
 
-  const { clauses } = splitWaiverClauses(waiver.body as string);
+  // Required here as well as in the form. The wording quotes the address
+  // back, so a record without one is a record of an agreement that reads
+  // "I, Priya Sharma, residing at ____".
+  const template = waiver.body as string;
+  if (waiverNeedsAddress(template) && !signedAddress) {
+    return { error: "Enter the address the waiver asks for." };
+  }
+
+  // Split the FILLED text, so the clause count matches what they saw — their
+  // details sit in the preamble and could otherwise shift the boundaries.
+  const { clauses } = splitWaiverClauses(
+    renderWaiverBody(template, { name: signedName, address: signedAddress }),
+  );
   let initials: Record<string, string> | null = null;
   let clauseCount: number | null = null;
   let style: string | null = null;
@@ -314,6 +331,7 @@ export async function signWaiverAction(
     clause_initials: initials,
     clause_count: clauseCount,
     signature_style: style,
+    signed_address: signedAddress ?? null,
   });
   if (error) {
     // The unique constraint means they already signed — not worth an error.

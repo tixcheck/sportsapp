@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
+import { teamNameError } from "@/lib/teams/name-errors";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
@@ -316,7 +317,9 @@ export async function registerTeamAction(
     _player_emails: players,
     _payment_mode: v.paymentMode,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    return { error: teamNameError(error) ?? error.message };
+  }
 
   revalidatePath(`/orgs`);
   return { teamId: data as string };
