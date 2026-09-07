@@ -107,6 +107,31 @@ export async function getTeamAnswers(teamId: string): Promise<AnswerMap> {
 }
 
 /**
+ * Values worth offering this player, carried from another competition run by
+ * the same organization.
+ *
+ * A suggestion, never a stored answer — see migration 0106. Returned
+ * separately from their real answers so the form can say which is which: an
+ * address that arrived from last season should be looked at before it is
+ * submitted again, and a field that silently filled itself in is the one
+ * nobody checks.
+ */
+export async function getSuggestedPlayerAnswers(
+  competitionId: string,
+): Promise<AnswerMap> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("suggested_player_answers", {
+    _competition_id: competitionId,
+  });
+  return Object.fromEntries(
+    ((data ?? []) as { question_id: string; value: string }[]).map((r) => [
+      r.question_id,
+      r.value,
+    ]),
+  );
+}
+
+/**
  * Which required player questions this person still owes.
  *
  * Answered by the database rather than recomputed here, because the same rule

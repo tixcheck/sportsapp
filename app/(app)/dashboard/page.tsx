@@ -18,6 +18,7 @@ import { PlayerDetailsForm } from "@/components/registration/player-details-form
 import {
   getMyPlayerAnswers,
   getRegistrationQuestions,
+  getSuggestedPlayerAnswers,
 } from "@/lib/queries/registration-questions";
 import { NextGame } from "@/components/dashboard/next-game";
 import {
@@ -78,11 +79,12 @@ export default async function DashboardPage() {
   // their own.
   const detailsByComp = await Promise.all(
     owedWaivers.map(async (w) => {
-      const [questions, answers] = await Promise.all([
+      const [questions, answers, suggested] = await Promise.all([
         getRegistrationQuestions(w.competitionId, "player"),
         getMyPlayerAnswers(w.competitionId),
+        getSuggestedPlayerAnswers(w.competitionId),
       ]);
-      return { competitionId: w.competitionId, questions, answers };
+      return { competitionId: w.competitionId, questions, answers, suggested };
     }),
   );
 
@@ -127,6 +129,7 @@ export default async function DashboardPage() {
                 organizerName={w.organizerName}
                 questions={details.questions}
                 initial={details.answers}
+                suggested={details.suggested}
               />
             )}
 

@@ -35,16 +35,20 @@ export function PlayerDetailsForm({
   organizerName,
   questions,
   initial,
+  suggested = {},
 }: {
   competitionId: string;
   competitionName: string;
   organizerName: string;
   questions: RegistrationQuestion[];
   initial: AnswerMap;
+  /** Carried from another competition of the same org, awaiting confirmation. */
+  suggested?: AnswerMap;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [values, setValues] = useState<AnswerMap>(initial);
+  // A suggestion only fills a gap; anything answered here already wins.
+  const [values, setValues] = useState<AnswerMap>({ ...suggested, ...initial });
 
   const missing = missingRequired(questions, values);
 
@@ -89,6 +93,7 @@ export function PlayerDetailsForm({
           values={values}
           onChange={(id, v) => setValues((s) => ({ ...s, [id]: v }))}
           disabled={pending}
+          suggested={suggested}
         />
 
         <Button type="submit" disabled={pending} className="justify-self-start">

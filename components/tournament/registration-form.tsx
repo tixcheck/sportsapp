@@ -47,6 +47,7 @@ export function RegistrationForm({
   teamQuestions = [],
   playerQuestions = [],
   playerAnswers = {},
+  suggestedAnswers = {},
   fee,
 }: {
   competitionId: string;
@@ -66,6 +67,8 @@ export function RegistrationForm({
   playerQuestions?: RegistrationQuestion[];
   /** Anything they've already answered for this competition. */
   playerAnswers?: AnswerMap;
+  /** Carried from another competition of the same org, awaiting confirmation. */
+  suggestedAnswers?: AnswerMap;
   /** Null on a free event, or one that doesn't ask for payment up front. */
   fee?: {
     /** What the whole team owes, in cents. */
@@ -95,7 +98,11 @@ export function RegistrationForm({
    * touching the options to a checkout that cannot be created.
    */
   const [answers, setAnswers] = useState<AnswerMap>({});
-  const [mine, setMine] = useState<AnswerMap>(playerAnswers);
+  // Real answers win over a suggestion; a suggestion only fills a gap.
+  const [mine, setMine] = useState<AnswerMap>({
+    ...suggestedAnswers,
+    ...playerAnswers,
+  });
   const [choice, setChoice] = useState<PaymentMode>(() =>
     fee?.allowCaptainPays
       ? "team_full"
@@ -326,6 +333,7 @@ export function RegistrationForm({
             values={mine}
             onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
             disabled={pending}
+            suggested={suggestedAnswers}
           />
         </div>
       )}
