@@ -137,6 +137,15 @@ const answersSchema = z.object({
   /** teamId for a team-scope save; omitted for a player answering for himself. */
   teamId: z.string().uuid().optional(),
   answers: z.record(z.string().uuid(), z.string().max(2000)),
+  /**
+   * Structured detail behind an answer — currently the town, region and
+   * postcode behind a PICKED address. Absent when it was typed, and that
+   * absence is meaningful: it is how "lives in Toronto" stays distinguishable
+   * from "we don't know where they live".
+   */
+  metadata: z
+    .record(z.string().uuid(), z.record(z.string(), z.unknown()))
+    .optional(),
 });
 
 /**
@@ -157,7 +166,7 @@ export async function saveRegistrationAnswersAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check your answers." };
   }
-  const { competitionId, teamId, answers } = parsed.data;
+  const { competitionId, teamId, answers, metadata } = parsed.data;
 
   const supabase = await createClient();
   const {
@@ -192,6 +201,9 @@ export async function saveRegistrationAnswersAction(
       team_id: teamId ?? null,
       user_id: teamId ? null : user.id,
       value,
+      // Null on a retyped address, deliberately: stale structured detail is
+      // worse than none, because it would be trusted.
+      metadata: metadata?.[questionId] ?? null,
       updated_at: new Date().toISOString(),
     });
   }
@@ -218,4 +230,49 @@ export async function saveRegistrationAnswersAction(
   revalidatePath("/dashboard");
   revalidatePath("/orgs");
   return { saved: rows.length };
+}
+
+const localitySchema = z.object({
+  competitionId: z.string().uuid(),
+  /** Null turns the local/visitor distinction off entirely. */
+  homeLocality: z
+    .string()
+    .trim()
+    .min(2, "That's too short to be a town.")
+    .max(80)
+    .nullable(),
+});
+
+/**
+ * Name the town this competition is run for.
+ *
+ * Stored on the competition rather than the organization: a club can run a
+ * Brampton league and a regional tournament, and only one of those is asking
+ * where its players live.
+ */
+export async function setHomeLocalityAction(
+  input: z.input<typeof localitySchema>,
+): Promise<ActionError | { saved: true }> {
+  const parsed = localitySchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the town." };
+  }
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: parsed.data.competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only the organizer can change this." };
+
+  const { error } = await supabase
+    .from("competitions")
+    .update({ home_locality: parsed.data.homeLocality })
+    .eq("id", parsed.data.competitionId);
+  if (error) {
+    console.error("[questions] home locality update failed");
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { saved: true };
 }

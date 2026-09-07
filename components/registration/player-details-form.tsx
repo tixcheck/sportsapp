@@ -52,6 +52,8 @@ export function PlayerDetailsForm({
   const [pending, start] = useTransition();
   // A suggestion only fills a gap; anything answered here already wins.
   const [values, setValues] = useState<AnswerMap>({ ...suggested, ...initial });
+  // Structured detail behind a picked address, sent with the answers.
+  const [meta, setMeta] = useState<Record<string, Record<string, unknown>>>({});
 
   const missing = missingRequired(questions, values);
 
@@ -65,6 +67,7 @@ export function PlayerDetailsForm({
       const res = await saveRegistrationAnswersAction({
         competitionId,
         answers: values,
+        metadata: meta,
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -95,6 +98,7 @@ export function PlayerDetailsForm({
           questions={questions}
           values={values}
           onChange={(id, v) => setValues((s) => ({ ...s, [id]: v }))}
+          onMeta={(id, m) => setMeta((s) => ({ ...s, [id]: m }))}
           disabled={pending}
           suggested={suggested}
           addressAutocomplete={addressAutocomplete}

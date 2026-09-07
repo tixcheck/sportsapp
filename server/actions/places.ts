@@ -236,14 +236,29 @@ const resolveSchema = z.object({
  * an address without its postal code is worth more than an empty field and an
  * error about a lookup the person never asked for.
  */
+export type ResolvedAddress = {
+  address: string | null;
+  /** The town, as Google classifies it — not as the text happens to read. */
+  locality: string | null;
+  region: string | null;
+  postalCode: string | null;
+};
+
+const EMPTY: ResolvedAddress = {
+  address: null,
+  locality: null,
+  region: null,
+  postalCode: null,
+};
+
 export async function resolveAddressAction(
   input: z.input<typeof resolveSchema>,
-): Promise<{ address: string | null }> {
+): Promise<ResolvedAddress> {
   const key = placesKey();
-  if (!key) return { address: null };
+  if (!key) return EMPTY;
 
   const parsed = resolveSchema.safeParse(input);
-  if (!parsed.success) return { address: null };
+  if (!parsed.success) return EMPTY;
 
   const query = parsed.data.sessionToken
     ? `?sessionToken=${encodeURIComponent(parsed.data.sessionToken)}`
@@ -257,7 +272,9 @@ export async function resolveAddressAction(
           "X-Goog-Api-Key": key,
           // Only the one field. The mask decides the billing tier, and asking
           // for coordinates or opening hours we'd never use costs more.
-          "X-Goog-FieldMask": "formattedAddress",
+          // Two fields, not the whole place. The mask decides the billing
+          // tier, and coordinates or opening hours we'd never read still cost.
+          "X-Goog-FieldMask": "formattedAddress,addressComponents",
         },
         signal: AbortSignal.timeout(4000),
       },
@@ -265,13 +282,29 @@ export async function resolveAddressAction(
 
     if (!res.ok) {
       console.error("[places] details failed", res.status);
-      return { address: null };
+      return EMPTY;
     }
 
-    const body = (await res.json()) as { formattedAddress?: string };
-    return { address: body.formattedAddress?.trim() || null };
+    const body = (await res.json()) as {
+      formattedAddress?: string;
+      addressComponents?: { longText?: string; types?: string[] }[];
+    };
+
+    const part = (type: string) =>
+      body.addressComponents?.find((c) => c.types?.includes(type))?.longText ??
+      null;
+
+    return {
+      address: body.formattedAddress?.trim() || null,
+      // `locality` is the town. Some places have none — an unincorporated
+      // area, say — so postal_town is tried next rather than reporting a
+      // neighbourhood or a county as somebody's city.
+      locality: part("locality") ?? part("postal_town"),
+      region: part("administrative_area_level_1"),
+      postalCode: part("postal_code"),
+    };
   } catch {
     console.error("[places] details threw");
-    return { address: null };
+    return EMPTY;
   }
 }

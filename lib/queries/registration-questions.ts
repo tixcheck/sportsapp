@@ -1,6 +1,10 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  tallyLocalities,
+  type AddressMetadata,
+} from "@/lib/registration/locality";
 
 export type QuestionKind =
   | "short_text"
@@ -198,4 +202,94 @@ export async function getAllAnswers(
     row.answers[r.question_id] = r.value;
   }
   return [...bySubject.values()];
+}
+
+export type TeamLocalityRow = {
+  teamId: string;
+  teamName: string;
+  home: number;
+  away: number;
+  unknown: number;
+  total: number;
+};
+
+/**
+ * Where each team's players live, against the competition's home town.
+ *
+ * Answers to EVERY address question are considered, not one nominated field:
+ * an organizer may ask for a home address and a mailing address, and the first
+ * one a player filled in is the one to count rather than none of them.
+ *
+ * Returns an empty list when no home town is set or nobody has been asked for
+ * an address — the card that renders this then shows nothing at all, which is
+ * right for the competitions this doesn't apply to.
+ */
+export async function getTeamLocalities(
+  competitionId: string,
+): Promise<{ homeCity: string | null; teams: TeamLocalityRow[] }> {
+  const supabase = await createClient();
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("home_locality")
+    .eq("id", competitionId)
+    .maybeSingle();
+  const homeCity =
+    (comp as { home_locality: string | null } | null)?.home_locality ?? null;
+  if (!homeCity) return { homeCity: null, teams: [] };
+
+  const { data: questions } = await supabase
+    .from("registration_questions")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .eq("scope", "player")
+    .eq("kind", "address");
+  const addressQuestionIds = (questions ?? []).map((q) => q.id as string);
+  if (addressQuestionIds.length === 0) return { homeCity, teams: [] };
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, team_members(user_id)")
+    .eq("competition_id", competitionId)
+    .neq("status", "withdrawn")
+    .order("name");
+  const rosters = (teams ?? []) as unknown as {
+    id: string;
+    name: string;
+    team_members: { user_id: string }[] | null;
+  }[];
+  if (rosters.length === 0) return { homeCity, teams: [] };
+
+  const { data: answers } = await supabase
+    .from("registration_answers")
+    .select("user_id, value, metadata")
+    .eq("competition_id", competitionId)
+    .in("question_id", addressQuestionIds);
+
+  // First non-empty answer per person. A second address question is extra
+  // detail, not a second person.
+  const byUser = new Map<
+    string,
+    { answer: string; metadata: AddressMetadata }
+  >();
+  for (const a of (answers ?? []) as {
+    user_id: string | null;
+    value: string;
+    metadata: AddressMetadata | null;
+  }[]) {
+    if (!a.user_id || byUser.has(a.user_id)) continue;
+    if (!a.value?.trim()) continue;
+    byUser.set(a.user_id, { answer: a.value, metadata: a.metadata ?? {} });
+  }
+
+  return {
+    homeCity,
+    teams: rosters.map((t) => {
+      const people = (t.team_members ?? []).map(
+        (m) => byUser.get(m.user_id) ?? { answer: "", metadata: {} },
+      );
+      const tally = tallyLocalities(people, homeCity);
+      return { teamId: t.id, teamName: t.name, ...tally };
+    }),
+  };
 }
