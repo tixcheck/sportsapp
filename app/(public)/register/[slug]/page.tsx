@@ -402,7 +402,14 @@ export default async function RegisterPage({
         )}
 
         <div className="border-border space-y-3 border-t pt-6 text-center">
-          {event.registrationOpen && (
+          {/*
+            A jump link back up to the form, for a long page where the choice
+            has scrolled out of sight. Hidden when the chooser is showing: it
+            says "Register your team" beside a pair of cards that already offer
+            that AND the individual path, which reads as a third option and
+            quietly implies signing up alone is the lesser one.
+          */}
+          {event.registrationOpen && !showIndividual && (
             <Button asChild size="lg">
               <a href="#register">
                 Register your team

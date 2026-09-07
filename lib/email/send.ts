@@ -10,6 +10,7 @@ import {
 import { ResultEmail, type ResultEmailProps } from "./templates/result";
 import { EtransferInstructionsEmail } from "./templates/etransfer-instructions";
 import { PaypalInstructionsEmail } from "./templates/paypal-instructions";
+import { WaiverReminderEmail } from "./templates/waiver-reminder";
 import { WaitlistOfferEmail } from "./templates/waitlist-offer";
 import {
   ScheduleChangedEmail,
@@ -393,6 +394,37 @@ export function sendPaypalInstructions(
     to,
     subject: `Pay ${props.amount} to confirm ${props.teamName} — ${props.competitionName}`,
     react: PaypalInstructionsEmail(props),
+    replyTo,
+  });
+}
+
+export interface WaiverReminderProps {
+  playerName: string;
+  teamName: string;
+  competitionName: string;
+  organizerName: string;
+  outstanding: number;
+  dashboardUrl: string;
+}
+
+/**
+ * Chase a signature that is holding a team out of the schedule.
+ *
+ * Deliberately NOT opt-out-able. Every other reminder here is a convenience and
+ * respects a notification preference; this one is a condition of playing, and
+ * a player who has unsubscribed from results digests has not thereby agreed to
+ * be left off a roster without being told why. `replyTo` is the organizer,
+ * because "I already signed" and "take me off the team" are both theirs.
+ */
+export function sendWaiverReminder(
+  to: string,
+  props: WaiverReminderProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: `${props.teamName} is waiting on your waiver — ${props.competitionName}`,
+    react: WaiverReminderEmail(props),
     replyTo,
   });
 }
