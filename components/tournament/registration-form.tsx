@@ -45,6 +45,8 @@ export function RegistrationForm({
   // "division" (tournaments) vs "tier" (leagues) — just the label players see.
   divisionLabel = "Division",
   teamQuestions = [],
+  playerQuestions = [],
+  playerAnswers = {},
   fee,
 }: {
   competitionId: string;
@@ -60,6 +62,10 @@ export function RegistrationForm({
   divisionLabel?: string;
   /** The organizer's questions about the entry, answered by the captain. */
   teamQuestions?: RegistrationQuestion[];
+  /** The organizer's questions of every player — the captain is one. */
+  playerQuestions?: RegistrationQuestion[];
+  /** Anything they've already answered for this competition. */
+  playerAnswers?: AnswerMap;
   /** Null on a free event, or one that doesn't ask for payment up front. */
   fee?: {
     /** What the whole team owes, in cents. */
@@ -89,6 +95,7 @@ export function RegistrationForm({
    * touching the options to a checkout that cannot be created.
    */
   const [answers, setAnswers] = useState<AnswerMap>({});
+  const [mine, setMine] = useState<AnswerMap>(playerAnswers);
   const [choice, setChoice] = useState<PaymentMode>(() =>
     fee?.allowCaptainPays
       ? "team_full"
@@ -133,7 +140,10 @@ export function RegistrationForm({
   }
 
   function onSubmit(values: RegisterTeamInput) {
-    const missing = missingRequired(teamQuestions, answers);
+    const missing = [
+      ...missingRequired(teamQuestions, answers),
+      ...missingRequired(playerQuestions, mine),
+    ];
     if (missing.length > 0) {
       toast.error(`Still needed: ${missing.map((q) => q.label).join(", ")}`);
       return;
@@ -147,6 +157,16 @@ export function RegistrationForm({
 
       // A team answer needs a team, so this happens after registration. A
       // failure warns rather than unwinding a completed sign-up.
+      if (Object.keys(mine).length > 0) {
+        const savedMine = await saveRegistrationAnswersAction({
+          competitionId,
+          answers: mine,
+        });
+        if ("error" in savedMine) {
+          toast.error(`Registered, but: ${savedMine.error}`);
+        }
+      }
+
       if ("teamId" in result && Object.keys(answers).length > 0) {
         const saved = await saveRegistrationAnswersAction({
           competitionId,
@@ -279,10 +299,32 @@ export function RegistrationForm({
 
       {teamQuestions.length > 0 && (
         <div className="border-rule grid gap-4 border-t pt-4">
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            About the team
+          </p>
           <QuestionFields
             questions={teamQuestions}
             values={answers}
             onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
+            disabled={pending}
+          />
+        </div>
+      )}
+
+      {playerQuestions.length > 0 && (
+        <div className="border-rule grid gap-4 border-t pt-4">
+          <div>
+            <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+              About you
+            </p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Your teammates will be asked the same when they join.
+            </p>
+          </div>
+          <QuestionFields
+            questions={playerQuestions}
+            values={mine}
+            onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
             disabled={pending}
           />
         </div>

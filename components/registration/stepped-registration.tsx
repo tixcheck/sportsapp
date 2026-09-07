@@ -58,6 +58,8 @@ export function SteppedRegistration({
   fee,
   waiver,
   teamQuestions = [],
+  playerQuestions = [],
+  playerAnswers = {},
   teamHref,
 }: {
   competitionId: string;
@@ -97,6 +99,14 @@ export function SteppedRegistration({
    * than last season" is only a meaningful question at sign-up.
    */
   teamQuestions?: RegistrationQuestion[];
+  /**
+   * The organizer's questions of every PLAYER, asked here because the captain
+   * is one. Leaving them to the dashboard meant the person who registered the
+   * team was the last to be asked for their own details.
+   */
+  playerQuestions?: RegistrationQuestion[];
+  /** Anything they've already answered for this competition. */
+  playerAnswers?: AnswerMap;
   /** Where "done" goes; the team page once we know the id. */
   teamHref?: string;
 }) {
@@ -107,6 +117,7 @@ export function SteppedRegistration({
   const [divisionId, setDivisionId] = useState("");
   const [teamId, setTeamId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<AnswerMap>({});
+  const [mine, setMine] = useState<AnswerMap>(playerAnswers);
   const [signed, setSigned] = useState(waiver?.signed ?? true);
   const [paid, setPaid] = useState(false);
 
@@ -148,7 +159,10 @@ export function SteppedRegistration({
       toast.error("Give your team a name.");
       return;
     }
-    const missing = missingRequired(teamQuestions, answers);
+    const missing = [
+      ...missingRequired(teamQuestions, answers),
+      ...missingRequired(playerQuestions, mine),
+    ];
     if (missing.length > 0) {
       toast.error(`Still needed: ${missing.map((q) => q.label).join(", ")}`);
       return;
@@ -166,6 +180,19 @@ export function SteppedRegistration({
         toast.error(res.error);
         return;
       }
+      // The captain's own answers need no team — they belong to the person and
+      // the competition — so they are saved whether or not the team write
+      // below succeeds.
+      if (Object.keys(mine).length > 0) {
+        const savedMine = await saveRegistrationAnswersAction({
+          competitionId,
+          answers: mine,
+        });
+        if ("error" in savedMine) {
+          toast.error(`Registered, but: ${savedMine.error}`);
+        }
+      }
+
       if ("teamId" in res) {
         setTeamId(res.teamId);
         // After the team exists, because a team answer belongs to a team. A
@@ -282,10 +309,37 @@ export function SteppedRegistration({
 
           {teamQuestions.length > 0 && (
             <div className="border-rule grid gap-4 border-t pt-4">
+              <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                About the team
+              </p>
               <QuestionFields
                 questions={teamQuestions}
                 values={answers}
                 onChange={(id, v) => setAnswers((a) => ({ ...a, [id]: v }))}
+                disabled={pending}
+              />
+            </div>
+          )}
+
+          {/*
+            The captain answers these for THEMSELVES. Their teammates answer
+            their own copies later, alongside the waiver — nobody fills these
+            in on anyone else's behalf.
+          */}
+          {playerQuestions.length > 0 && (
+            <div className="border-rule grid gap-4 border-t pt-4">
+              <div>
+                <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                  About you
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Your teammates will be asked the same when they join.
+                </p>
+              </div>
+              <QuestionFields
+                questions={playerQuestions}
+                values={mine}
+                onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
                 disabled={pending}
               />
             </div>
@@ -316,6 +370,11 @@ export function SteppedRegistration({
           bodySha256={waiver.bodySha256}
           suggestedName={userName ?? ""}
           onSigned={() => setSigned(true)}
+          blockedReason={
+            missingRequired(playerQuestions, mine).length > 0
+              ? "Some of your details are still missing — go back and finish them."
+              : undefined
+          }
         />
       )}
 

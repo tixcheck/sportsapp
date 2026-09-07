@@ -18,7 +18,10 @@ import {
   getCompetitionWaiverState,
   getMySignedWaiverIds,
 } from "@/lib/queries/waivers";
-import { getRegistrationQuestions } from "@/lib/queries/registration-questions";
+import {
+  getMyPlayerAnswers,
+  getRegistrationQuestions,
+} from "@/lib/queries/registration-questions";
 import {
   getCompetitionPaymentSettings,
   getPaymentAccount,
@@ -106,6 +109,12 @@ export default async function RegisterPage({
     getCompetitionWaiverState(event.id),
     getMySignedWaiverIds(event.id),
     getRegistrationQuestions(event.id, "team"),
+  ]);
+
+  // The captain's own player questions, and whatever they've already given.
+  const [playerQuestions, myAnswers] = await Promise.all([
+    getRegistrationQuestions(event.id, "player"),
+    getMyPlayerAnswers(event.id),
   ]);
 
   const fee =
@@ -206,6 +215,8 @@ export default async function RegisterPage({
       divisionLabel={event.divisionLabel}
       rosterSize={ROSTER_SIZE[event.sport]}
       teamQuestions={teamQuestions}
+      playerQuestions={playerQuestions}
+      playerAnswers={myAnswers}
       action={action}
       isAuthed={!!user}
       userEmail={user?.email}
@@ -248,6 +259,8 @@ export default async function RegisterPage({
       action={action}
       divisionLabel={event.divisionLabel}
       teamQuestions={teamQuestions}
+      playerQuestions={playerQuestions}
+      playerAnswers={myAnswers}
       fee={fee}
     />
   );
