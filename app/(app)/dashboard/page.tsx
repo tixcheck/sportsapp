@@ -121,7 +121,7 @@ export default async function DashboardPage() {
                   className="flex h-full flex-col"
                 >
                   <CardHeader>
-                    <CardTitle className="truncate">
+                    <CardTitle className="text-balance break-words">
                       <Link
                         href={competitionPath(c.type, c.slug)}
                         className="hover:underline"
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
             {helperComps.map((c) => (
               <Card key={c.competitionId} className="flex h-full flex-col">
                 <CardHeader>
-                  <CardTitle className="truncate">
+                  <CardTitle className="text-balance break-words">
                     <Link
                       href={`/orgs/${c.orgId}/${c.type === "tournament" ? "tournaments" : "leagues"}/${c.competitionId}`}
                       className="hover:underline"
@@ -237,7 +237,9 @@ export default async function DashboardPage() {
                 <Link key={org.id} href={`/orgs/${org.id}`}>
                   <Card className="hover:border-primary/40 h-full transition-colors">
                     <CardHeader>
-                      <CardTitle className="truncate">{org.name}</CardTitle>
+                      <CardTitle className="text-balance break-words">
+                        {org.name}
+                      </CardTitle>
                       <CardDescription>
                         /{org.slug} · {org.role}
                       </CardDescription>
