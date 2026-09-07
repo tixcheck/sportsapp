@@ -185,6 +185,15 @@ export const setLeagueRegistrationSchema = z.object({
    * Capped at a fortnight — beyond that the spot is effectively frozen.
    */
   waitlistClaimHours: z.number().int().min(1).max(336).optional(),
+  /**
+   * How many teams the league will take. Null = no cap.
+   *
+   * `register_team` has always enforced this — it counts inside the function
+   * that does the insert, so two captains hitting Register at the same instant
+   * cannot both take the last spot — but a league had no way to SET it. Only
+   * tournaments did, and leagues only had a per-tier cap.
+   */
+  maxTeams: z.number().int().min(1).max(200).nullable().optional(),
   deadline: z
     .union([z.string().regex(DATE_RE, "Pick a valid date."), z.literal("")])
     .nullable()

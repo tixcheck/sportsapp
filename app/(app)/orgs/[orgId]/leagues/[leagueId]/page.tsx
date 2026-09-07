@@ -729,6 +729,7 @@ export default async function LeaguePage({
               slug={league.slug}
             />
             <LeagueRegistrationControls
+              maxTeams={league.maxTeams}
               waitlistClaimHours={league.waitlistClaimHours}
               competitionId={league.id}
               timezone={league.timezone}

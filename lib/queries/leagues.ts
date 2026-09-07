@@ -91,6 +91,8 @@ export interface LeagueDetail {
   /** Skill tiers (divisions). Empty = untiered league. Ordered by tier. */
   tiers: LeagueTier[];
   /** Public self-registration state (organizer controls). */
+  /** How many teams this league will take. Null = no cap. */
+  maxTeams: number | null;
   registrationOpen: boolean;
   registrationDeadline: string | null;
   matchCount: number;
@@ -211,7 +213,7 @@ export async function getLeagueDetail(
   // lands — a missing-column error can't blank out the core settings above.
   const { data: regRow } = await supabase
     .from("league_settings")
-    .select("registration_open, registration_deadline")
+    .select("registration_open, registration_deadline, max_teams")
     .eq("competition_id", leagueId)
     .maybeSingle();
 
@@ -311,6 +313,7 @@ export async function getLeagueDetail(
       venueId: (d.venue_id as string | null) ?? null,
       maxTeams: (d.max_teams as number | null) ?? null,
     })),
+    maxTeams: (regRow?.max_teams as number | null) ?? null,
     registrationOpen: (regRow?.registration_open as boolean | null) === true,
     registrationDeadline:
       (regRow?.registration_deadline as string | null) ?? null,

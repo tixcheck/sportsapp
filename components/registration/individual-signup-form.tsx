@@ -321,7 +321,9 @@ export function IndividualSignupForm({
         </Button>
         {feeCents > 0 && (
           <p className="text-muted-foreground text-xs">
-            You&apos;ll be taken to Stripe to pay.
+            {!cardAvailable && paypalUrl
+              ? "You'll be taken to PayPal to pay the organizer."
+              : "You'll be taken to Stripe to pay."}
           </p>
         )}
       </div>
