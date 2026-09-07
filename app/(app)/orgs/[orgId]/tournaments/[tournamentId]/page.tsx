@@ -61,12 +61,12 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
-import { EtransferInbox } from "@/components/payments/etransfer-inbox";
+import { OfflinePaymentsInbox } from "@/components/payments/offline-payments-inbox";
 import { getWaitlist } from "@/lib/queries/waitlist";
 import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
-  getEtransferFeesOwed,
-  getPendingEtransfers,
+  getOfflineFeesOwed,
+  getPendingOfflinePayments,
 } from "@/lib/queries/payments";
 import { getCompetitionLedger } from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
@@ -113,8 +113,8 @@ export default async function TournamentPage({
   const freeAgents = await getFreeAgents(tournamentId);
   const waitlist = await getWaitlist(tournamentId);
   const [pendingEtransfers, etransferFeesOwed] = await Promise.all([
-    getPendingEtransfers(t.id),
-    getEtransferFeesOwed(t.id),
+    getPendingOfflinePayments(t.id),
+    getOfflineFeesOwed(t.id),
   ]);
   const [feeSettings, feeRates, orgAccount] = await Promise.all([
     getCompetitionPaymentSettings(t.id),
@@ -511,7 +511,7 @@ export default async function TournamentPage({
 
       {ledger && (
         <>
-          <EtransferInbox
+          <OfflinePaymentsInbox
             pending={pendingEtransfers}
             feesOwed={etransferFeesOwed}
           />
@@ -546,6 +546,9 @@ export default async function TournamentPage({
           paymentRequired: payment.settings.paymentRequired,
           etransferEmail: payment.settings.etransferEmail ?? "",
           etransferNote: payment.settings.etransferNote ?? "",
+          paypalTeamUrl: payment.settings.paypalTeamUrl ?? "",
+          paypalIndividualUrl: payment.settings.paypalIndividualUrl ?? "",
+          paypalNote: payment.settings.paypalNote ?? "",
         }}
         rates={payment.rates}
         payoutsReady={payment.payoutsReady}

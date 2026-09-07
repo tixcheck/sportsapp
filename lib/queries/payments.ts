@@ -83,6 +83,16 @@ export type CompetitionPaymentSettings = {
   etransferEmail: string | null;
   /** Instructions shown beside the address. */
   etransferNote: string | null;
+  /**
+   * The organizer's own PayPal payment link, or null when this event doesn't
+   * take PayPal. One link serves every team — PayPal's hosted links carry no
+   * per-payer reference — so it identifies the competition, never the payer.
+   */
+  paypalTeamUrl: string | null;
+  /** The same, for someone registering without a team. */
+  paypalIndividualUrl: string | null;
+  /** Instructions shown beside the button. */
+  paypalNote: string | null;
   allowCaptainPays: boolean;
   allowSplitPayment: boolean;
   taxEnabled: boolean;
@@ -96,6 +106,9 @@ export const FREE_COMPETITION_PAYMENT_SETTINGS: CompetitionPaymentSettings = {
   individualFeeCents: 0,
   etransferEmail: null,
   etransferNote: null,
+  paypalTeamUrl: null,
+  paypalIndividualUrl: null,
+  paypalNote: null,
   allowCaptainPays: true,
   allowSplitPayment: false,
   taxEnabled: false,
@@ -116,7 +129,7 @@ export async function getCompetitionPaymentSettings(
   const { data } = await supabase
     .from("competition_payment_settings")
     .select(
-      "registration_fee_cents, individual_fee_cents, etransfer_email, etransfer_note, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
+      "registration_fee_cents, individual_fee_cents, etransfer_email, etransfer_note, paypal_team_url, paypal_individual_url, paypal_note, allow_captain_pays, allow_split_payment, tax_enabled, tax_percent, payment_required",
     )
     .eq("competition_id", competitionId)
     .maybeSingle();
@@ -127,6 +140,9 @@ export async function getCompetitionPaymentSettings(
     individual_fee_cents: number | null;
     etransfer_email: string | null;
     etransfer_note: string | null;
+    paypal_team_url: string | null;
+    paypal_individual_url: string | null;
+    paypal_note: string | null;
     allow_captain_pays: boolean;
     allow_split_payment: boolean;
     tax_enabled: boolean;
@@ -138,6 +154,9 @@ export async function getCompetitionPaymentSettings(
     individualFeeCents: r.individual_fee_cents ?? 0,
     etransferEmail: r.etransfer_email,
     etransferNote: r.etransfer_note,
+    paypalTeamUrl: r.paypal_team_url,
+    paypalIndividualUrl: r.paypal_individual_url,
+    paypalNote: r.paypal_note,
     allowCaptainPays: r.allow_captain_pays,
     allowSplitPayment: r.allow_split_payment,
     taxEnabled: r.tax_enabled,
@@ -516,34 +535,48 @@ export async function getRefundablePayment(
   };
 }
 
-export type PendingEtransfer = {
+/** Anything that isn't a card — money that moved without us seeing it. */
+export type OfflinePaymentMethod = "etransfer" | "paypal";
+
+export type PendingOfflinePayment = {
   paymentId: string;
   teamId: string;
   teamName: string;
   payerEmail: string | null;
+  method: OfflinePaymentMethod;
   /** What they were told to send. */
   expectedCents: number;
+  /**
+   * What the payer typed to identify their payment — a PayPal transaction ID
+   * off their receipt. UNVERIFIED: it is a claim by the person who owes the
+   * money, shown so the organizer has something to search their account for.
+   */
+  payerReference: string | null;
   requestedAt: string;
 };
 
-export type EtransferFeesOwed = { payments: number; feeCents: number };
+export type OfflineFeesOwed = { payments: number; feeCents: number };
 
 /**
- * Transfers a team says they've sent but the organizer hasn't confirmed.
+ * Payments a team says they've made but the organizer hasn't confirmed.
  *
- * This is the organizer's to-do list, and it is the only place an e-transfer
- * can be settled — there is no webhook, because the money moved between two
- * banks and nothing told us.
+ * This is the organizer's to-do list, and it is the only place an offline
+ * payment can be settled. There is no webhook for either method: an e-transfer
+ * moved between two banks, and a PayPal payment link is a page on PayPal that
+ * never told us anything. Landing back on our return URL doesn't count —
+ * that's an unauthenticated GET anyone can perform.
  */
-export async function getPendingEtransfers(
+export async function getPendingOfflinePayments(
   competitionId: string,
-): Promise<PendingEtransfer[]> {
+): Promise<PendingOfflinePayment[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("registration_payments")
-    .select("id, team_id, payer_email, total_cents, created_at, teams(name)")
+    .select(
+      "id, team_id, payer_email, method, payer_reference, total_cents, created_at, teams(name)",
+    )
     .eq("competition_id", competitionId)
-    .eq("method", "etransfer")
+    .neq("method", "card")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 
@@ -552,6 +585,8 @@ export async function getPendingEtransfers(
       id: string;
       team_id: string;
       payer_email: string | null;
+      method: OfflinePaymentMethod;
+      payer_reference: string | null;
       total_cents: number;
       created_at: string;
       teams: { name: string } | null;
@@ -561,25 +596,119 @@ export async function getPendingEtransfers(
     teamId: r.team_id,
     teamName: r.teams?.name ?? "Team",
     payerEmail: r.payer_email,
+    method: r.method,
+    payerReference: r.payer_reference,
     expectedCents: r.total_cents,
     requestedAt: r.created_at,
   }));
 }
 
 /**
- * Platform fees owed on confirmed e-transfers.
+ * Platform fees owed on confirmed offline payments.
  *
  * We never handled this money, so the fee couldn't be deducted at the time.
  * It's a debt, tracked so it can be settled rather than quietly waived — which
- * would make e-transfer the rational choice for every organizer.
+ * would make paying offline the rational choice for every organizer. Reads
+ * zero for an organizer on a waived rate, with no special case here.
  */
-export async function getEtransferFeesOwed(
+export async function getOfflineFeesOwed(
   competitionId: string,
-): Promise<EtransferFeesOwed> {
+): Promise<OfflineFeesOwed> {
   const supabase = await createClient();
-  const { data } = await supabase.rpc("etransfer_fees_owed", {
+  const { data } = await supabase.rpc("offline_fees_owed", {
     _competition_id: competitionId,
   });
   const row = (data as { payments: number; fee_cents: number }[] | null)?.[0];
   return { payments: row?.payments ?? 0, feeCents: row?.fee_cents ?? 0 };
+}
+
+/**
+ * What to tell someone who has just come back from paying off-platform.
+ *
+ * Deliberately keyed on the SIGNED-IN USER and the competition, never on
+ * anything in the URL. A PayPal payment link is created once and shared by
+ * every team in the competition, so its return URL is identical for all of
+ * them and could not carry a team id even if we wanted it to. Reading the
+ * session instead is what makes the landing page correct rather than guessable.
+ *
+ * Returns null when we can't place them — signed out, or a member of no team
+ * here — and the page turns that into a route rather than an error.
+ */
+export type OfflinePaymentReturn = {
+  teamId: string;
+  teamName: string;
+  /** `active` once the organizer has confirmed and every other gate is met. */
+  teamStatus: string;
+  paymentId: string;
+  method: OfflinePaymentMethod;
+  expectedCents: number;
+  /** True once the organizer has confirmed this one. */
+  confirmed: boolean;
+  payerReference: string | null;
+};
+
+export async function getMyOfflinePaymentReturn(
+  competitionId: string,
+): Promise<OfflinePaymentReturn | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, status")
+    .eq("competition_id", competitionId);
+  const byId = new Map(
+    ((teams ?? []) as { id: string; name: string; status: string }[]).map(
+      (t) => [t.id, t],
+    ),
+  );
+  if (byId.size === 0) return null;
+
+  const { data: mems } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("user_id", user.id)
+    .in("team_id", [...byId.keys()]);
+  const mine = [...new Set((mems ?? []).map((m) => m.team_id as string))];
+  if (mine.length === 0) return null;
+
+  // Newest first: a captain who registered two teams over two seasons should
+  // land on the one they just paid for.
+  const { data: payments } = await supabase
+    .from("registration_payments")
+    .select("id, team_id, method, status, total_cents, payer_reference")
+    .eq("competition_id", competitionId)
+    .in("team_id", mine)
+    .neq("method", "card")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const p = (payments ?? [])[0] as
+    | {
+        id: string;
+        team_id: string;
+        method: OfflinePaymentMethod;
+        status: string;
+        total_cents: number;
+        payer_reference: string | null;
+      }
+    | undefined;
+  if (!p) return null;
+
+  const team = byId.get(p.team_id);
+  if (!team) return null;
+
+  return {
+    teamId: p.team_id,
+    teamName: team.name,
+    teamStatus: team.status,
+    paymentId: p.id,
+    method: p.method,
+    expectedCents: p.total_cents,
+    confirmed: p.status === "paid",
+    payerReference: p.payer_reference,
+  };
 }

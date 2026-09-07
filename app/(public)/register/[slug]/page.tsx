@@ -84,6 +84,7 @@ export default async function RegisterPage({
           allowSplitPayment: feeSettings.allowSplitPayment,
           paymentRequired: feeSettings.paymentRequired,
           etransferEmail: feeSettings.etransferEmail,
+          paypalUrl: feeSettings.paypalTeamUrl,
           taxCents: feeSettings.taxEnabled
             ? Math.round(
                 (feeSettings.registrationFeeCents * feeSettings.taxPercent) /

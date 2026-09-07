@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCents } from "@/lib/payments/format";
+import { paypalLinkProblem, paypalLinkMessage } from "@/lib/payments/paypal";
 
 function Toggle({
   label,
@@ -105,6 +106,13 @@ export function RegistrationFeeCard({
   const feeCents = Math.round((Number(value.feeDollars) || 0) * 100);
   const isFree = feeCents === 0;
   const noMode = !isFree && !value.allowCaptainPays && !value.allowSplitPayment;
+
+  // Validated as they type rather than on save. The organizer is pasting from
+  // another tab, and finding out the link was wrong after a round trip means
+  // going back to find it again.
+  const paypalTeamProblem = value.paypalTeamUrl?.trim()
+    ? paypalLinkProblem(value.paypalTeamUrl)
+    : null;
 
   // Preview the captain-pays-in-full case: it is the mode that is on by
   // default, and the one an organizer pictures when setting a team price.
@@ -267,6 +275,65 @@ export function RegistrationFeeCard({
             </div>
 
             <div className="space-y-2">
+              <label className="grid gap-1">
+                <span className="text-sm font-medium">
+                  Accept PayPal{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional)
+                  </span>
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Paste a PayPal payment link from your own PayPal account. The
+                  money goes straight to you.
+                </span>
+                <Input
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://www.paypal.com/ncp/payment/…"
+                  value={value.paypalTeamUrl ?? ""}
+                  onChange={(e) => set({ paypalTeamUrl: e.target.value })}
+                  aria-invalid={paypalTeamProblem !== null}
+                />
+                {paypalTeamProblem && (
+                  <span className="text-destructive text-xs">
+                    {paypalLinkMessage(paypalTeamProblem)}
+                  </span>
+                )}
+              </label>
+
+              {!!value.paypalTeamUrl && (
+                <>
+                  <label className="grid gap-1 pl-1">
+                    <span className="text-muted-foreground text-xs">
+                      Anything they should include in the PayPal note
+                    </span>
+                    <Input
+                      placeholder={`Put your ${unitLabel} name in the note`}
+                      value={value.paypalNote ?? ""}
+                      onChange={(e) => set({ paypalNote: e.target.value })}
+                    />
+                  </label>
+
+                  {/*
+                    The single most important sentence on this card. An
+                    organizer who believes PayPal confirms teams automatically
+                    will not watch their inbox, and teams will sit unconfirmed
+                    for a fortnight. Said before they save, not after.
+                  */}
+                  <p className="text-muted-foreground pl-1 text-xs">
+                    A PayPal link tells us nothing when it&apos;s used, so
+                    you&apos;ll confirm each payment yourself against your
+                    PayPal account. Registrations wait in{" "}
+                    <strong className="text-ink font-medium">
+                      Offline payments
+                    </strong>{" "}
+                    on this page until you do.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Toggle
                 label="Collect tax"
                 desc="Added on top and paid out to you to remit."
@@ -334,7 +401,7 @@ export function RegistrationFeeCard({
 
         <Button
           onClick={save}
-          disabled={pending || !dirty || noMode}
+          disabled={pending || !dirty || noMode || paypalTeamProblem !== null}
           className="w-full sm:w-auto"
         >
           {pending ? "Saving…" : "Save registration fee"}

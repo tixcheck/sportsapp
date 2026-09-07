@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check } from "lucide-react";
 
-import { confirmEtransferAction } from "@/server/actions/organizer-payments";
+import { confirmOfflinePaymentAction } from "@/server/actions/organizer-payments";
 import type {
-  EtransferFeesOwed,
-  PendingEtransfer,
+  OfflineFeesOwed,
+  PendingOfflinePayment,
 } from "@/lib/queries/payments";
 import { formatCents } from "@/lib/payments/format";
 import { Button } from "@/components/ui/button";
@@ -21,33 +21,45 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const METHOD_LABEL: Record<PendingOfflinePayment["method"], string> = {
+  etransfer: "e-transfer",
+  paypal: "PayPal",
+};
+
 /**
- * The organizer's e-transfer to-do list.
+ * The organizer's to-do list for money that moved without us.
  *
- * There is no webhook for money that moved between two banks, so this is the
- * only way a transfer is ever settled. Each row asks for an AMOUNT rather than
- * offering a tick: part payments are ordinary, and recording "they paid" when
- * $50 of $350 arrived would admit a team that hasn't paid.
+ * There is no webhook for a bank transfer, and none for a PayPal payment link
+ * either — the link is created once in the organizer's own PayPal dashboard,
+ * shared by every team, and carries no reference back to a registration. So
+ * this screen is the only place either can be settled, and the organizer
+ * checking their own account is the only evidence that exists.
  *
- * The amount is pre-filled with what was asked for, because that is right most
- * of the time and retyping it would be busywork.
+ * Each row asks for an AMOUNT rather than offering a tick: part payments are
+ * ordinary, and recording "they paid" when $50 of $350 arrived would admit a
+ * team that hasn't paid. The amount is pre-filled with what was asked for,
+ * because that is right most of the time.
  */
-export function EtransferInbox({
+export function OfflinePaymentsInbox({
   pending,
   feesOwed,
 }: {
-  pending: PendingEtransfer[];
-  feesOwed: EtransferFeesOwed;
+  pending: PendingOfflinePayment[];
+  feesOwed: OfflineFeesOwed;
 }) {
   if (pending.length === 0 && feesOwed.payments === 0) return null;
+
+  const methods = [...new Set(pending.map((p) => p.method))];
+  const title =
+    methods.length === 1 ? METHOD_LABEL[methods[0]] : "Offline payments";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>E-transfers</CardTitle>
+        <CardTitle className="capitalize">{title}</CardTitle>
         <CardDescription>
           {pending.length > 0
-            ? `${pending.length} team${pending.length === 1 ? "" : "s"} said they've sent a transfer. Confirm what actually landed in your account — the team isn't confirmed until you do.`
+            ? `${pending.length} team${pending.length === 1 ? "" : "s"} said they've paid. Check your own account and confirm what actually arrived — the team isn't confirmed until you do.`
             : "Nothing waiting to be confirmed."}
         </CardDescription>
       </CardHeader>
@@ -56,7 +68,7 @@ export function EtransferInbox({
         {pending.length > 0 && (
           <ul className="divide-rule divide-y">
             {pending.map((p) => (
-              <EtransferRow key={p.paymentId} row={p} />
+              <OfflineRow key={p.paymentId} row={p} />
             ))}
           </ul>
         )}
@@ -67,9 +79,9 @@ export function EtransferInbox({
               Platform fees owed: {formatCents(feesOwed.feeCents)}
             </p>
             <p className="text-muted-foreground mt-1 text-xs">
-              On {feesOwed.payments} confirmed e-transfer
-              {feesOwed.payments === 1 ? "" : "s"}. We never handled this money,
-              so our fee couldn&apos;t come out of it — we&apos;ll invoice these
+              On {feesOwed.payments} confirmed payment
+              {feesOwed.payments === 1 ? "" : "s"} we never handled, so our fee
+              couldn&apos;t come out of it — we&apos;ll invoice these
               separately.
             </p>
           </div>
@@ -79,7 +91,7 @@ export function EtransferInbox({
   );
 }
 
-function EtransferRow({ row }: { row: PendingEtransfer }) {
+function OfflineRow({ row }: { row: PendingOfflinePayment }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [amount, setAmount] = useState(String(row.expectedCents / 100));
@@ -92,7 +104,7 @@ function EtransferRow({ row }: { row: PendingEtransfer }) {
       return;
     }
     start(async () => {
-      const res = await confirmEtransferAction({
+      const res = await confirmOfflinePaymentAction({
         paymentId: row.paymentId,
         amountDollars: dollars,
         note: note || undefined,
@@ -113,12 +125,28 @@ function EtransferRow({ row }: { row: PendingEtransfer }) {
   return (
     <li className="grid gap-2 py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold">{row.teamName}</p>
+        <p className="text-sm font-semibold">
+          {row.teamName}
+          <span className="text-muted-foreground ml-2 text-xs font-normal">
+            by {METHOD_LABEL[row.method]}
+          </span>
+        </p>
         <p className="text-muted-foreground text-xs">
           asked for {formatCents(row.expectedCents)}
           {row.payerEmail ? ` · ${row.payerEmail}` : ""}
         </p>
       </div>
+
+      {/* Their word for it, and labelled as their word for it. Presenting an
+          unverified transaction ID as though we had checked it is exactly the
+          mistake this whole flow is built to avoid. */}
+      {row.payerReference && (
+        <p className="text-muted-foreground text-xs">
+          They say the reference is{" "}
+          <span className="text-ink font-mono">{row.payerReference}</span> — not
+          checked by us.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="grid gap-1">

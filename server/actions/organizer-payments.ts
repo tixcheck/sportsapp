@@ -596,7 +596,7 @@ export async function refundTeamPaymentsAction(
   return { ok: true, refunded, failed, totalCents };
 }
 
-const confirmEtransferSchema = z.object({
+const confirmOfflineSchema = z.object({
   paymentId: z.string().uuid(),
   /** Whole dollars as typed; cents in the database. */
   amountDollars: z
@@ -607,24 +607,29 @@ const confirmEtransferSchema = z.object({
 });
 
 /**
- * Record that an e-transfer arrived.
+ * Record that an offline payment arrived — an e-transfer, or money in the
+ * organizer's own PayPal account.
  *
  * An amount, not a tick, because part payments genuinely happen — a team sends
  * what they have and settles the rest later. The database decides whether that
  * covers the fee and therefore whether the team becomes an entrant, using the
  * same "sum every payment against the organizer's price" test the card path
  * uses, so a team that part-paid by card and part by transfer is handled right.
+ *
+ * This action is the ONLY way a PayPal payment is ever marked paid. Nothing
+ * PayPal does reaches us, and the return URL a payer lands on afterwards is an
+ * unauthenticated GET that proves nothing — see `recordPayerReferenceAction`.
  */
-export async function confirmEtransferAction(
-  input: z.input<typeof confirmEtransferSchema>,
+export async function confirmOfflinePaymentAction(
+  input: z.input<typeof confirmOfflineSchema>,
 ): Promise<ActionError | { confirmed: true; teamAdmitted: boolean }> {
-  const parsed = confirmEtransferSchema.safeParse(input);
+  const parsed = confirmOfflineSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the amount." };
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("confirm_etransfer_payment", {
+  const { data, error } = await supabase.rpc("confirm_offline_payment", {
     _payment_id: parsed.data.paymentId,
     _amount_cents: Math.round(parsed.data.amountDollars * 100),
     _note: parsed.data.note ?? null,
@@ -636,14 +641,62 @@ export async function confirmEtransferAction(
     if (
       message.includes("Only the organizer") ||
       message.includes("already confirmed") ||
-      message.includes("not an e-transfer")
+      message.includes("taken by card")
     ) {
       return { error: message };
     }
-    console.error("[payments] confirm_etransfer_payment failed");
+    console.error("[payments] confirm_offline_payment failed");
     return { error: "That couldn't be saved. Please try again." };
   }
 
   revalidatePath("/orgs");
   return { confirmed: true, teamAdmitted: data === true };
+}
+
+/** @deprecated Use {@link confirmOfflinePaymentAction}. */
+export async function confirmEtransferAction(
+  input: z.input<typeof confirmOfflineSchema>,
+) {
+  return confirmOfflinePaymentAction(input);
+}
+
+const payerReferenceSchema = z.object({
+  paymentId: z.string().uuid(),
+  /** A PayPal transaction ID, as typed off a receipt. */
+  reference: z.string().trim().max(120),
+});
+
+/**
+ * The payer's own note of what they paid — typically a PayPal transaction ID.
+ *
+ * Changes no status and admits nobody. It exists because the organizer has to
+ * find this payment among everything else in their PayPal account, and a
+ * transaction ID turns that from a hunt into a search. Treat every value here
+ * as unverified: it is typed by the person who owes the money.
+ */
+export async function recordPayerReferenceAction(
+  input: z.input<typeof payerReferenceSchema>,
+): Promise<ActionError | { saved: boolean }> {
+  const parsed = payerReferenceSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the reference." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("record_payer_reference", {
+    _payment_id: parsed.data.paymentId,
+    _reference: parsed.data.reference || null,
+  });
+
+  if (error) {
+    const message = error.message ?? "";
+    if (message.includes("Only the team or the organizer")) {
+      return { error: "Only the team or the organizer can do that." };
+    }
+    console.error("[payments] record_payer_reference failed");
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { saved: data === true };
 }

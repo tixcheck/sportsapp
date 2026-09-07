@@ -10,7 +10,7 @@ import {
 } from "@/lib/payments/platform-fee";
 import { formatCents } from "@/lib/payments/format";
 
-export type PaymentMode = "team_full" | "player_share" | "etransfer";
+export type PaymentMode = "team_full" | "player_share" | "etransfer" | "paypal";
 
 /**
  * How the captain wants to settle the team fee.
@@ -31,6 +31,7 @@ export function PaymentModeChoice({
   allowCaptainPays = true,
   allowSplitPayment = true,
   etransferEmail = null,
+  paypalUrl = null,
   taxCents = 0,
 }: {
   teamCents: number;
@@ -42,6 +43,8 @@ export function PaymentModeChoice({
   allowSplitPayment?: boolean;
   /** Set when the organizer takes e-transfers. Null hides the option. */
   etransferEmail?: string | null;
+  /** Set when the organizer takes PayPal. Null hides the option. */
+  paypalUrl?: string | null;
   /** Tax on the fee, which an e-transfer pays but Stripe's gross-up hides. */
   taxCents?: number;
 }) {
@@ -103,6 +106,21 @@ export function PaymentModeChoice({
       id: "etransfer",
       label: "I'll e-transfer the organizer",
       detail: `Send it to ${etransferEmail}. Your spot is held until they confirm it arrived.`,
+      amount: formatCents(teamCents + taxCents),
+    });
+  }
+
+  // Same reasoning as e-transfer, and the same exact figure: the organizer set
+  // the amount on their own PayPal link, and whatever PayPal charges them for
+  // handling it is between them and PayPal. Adding an estimate of that here
+  // would put a number on screen that matches neither the link nor the payer's
+  // statement.
+  if (paypalUrl) {
+    options.push({
+      id: "paypal",
+      label: "I'll pay by PayPal",
+      detail:
+        "Pay through the organizer's PayPal. Your spot is held until they confirm it arrived.",
       amount: formatCents(teamCents + taxCents),
     });
   }
