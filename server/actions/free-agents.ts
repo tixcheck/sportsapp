@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import {
+  isPaypalLink,
+  normalisePaypalLink,
+  MAX_PAYPAL_URL_LENGTH,
+} from "@/lib/payments/paypal";
+
 import { createClient } from "@/lib/supabase/server";
 import { SKILL_LEVELS, sportConfig } from "@/lib/sports";
 import type { Sport } from "@/lib/formats";
@@ -278,6 +284,19 @@ const settingsSchema = z.object({
     .min(0, "A fee can't be negative.")
     .max(100_000_00, "That fee looks too high.")
     .optional(),
+  /**
+   * The organizer's PayPal link for an INDIVIDUAL fee — a different amount
+   * from the team link, and usually a different link in their dashboard.
+   * Empty clears it, which falls the flow back to the team link.
+   */
+  paypalIndividualUrl: z
+    .string()
+    .trim()
+    .max(MAX_PAYPAL_URL_LENGTH)
+    .refine((v) => v === "" || isPaypalLink(v), {
+      message: "That isn't a PayPal payment link.",
+    })
+    .optional(),
 });
 
 /**
@@ -311,13 +330,25 @@ export async function updateIndividualSignupSettingsAction(
     return { error: "That couldn't be saved. Please try again." };
   }
 
-  if (v.individualFeeCents !== undefined) {
+  if (
+    v.individualFeeCents !== undefined ||
+    v.paypalIndividualUrl !== undefined
+  ) {
     const { error: feeError } = await supabase
       .from("competition_payment_settings")
       .upsert(
         {
           competition_id: v.competitionId,
-          individual_fee_cents: v.individualFeeCents,
+          ...(v.individualFeeCents === undefined
+            ? {}
+            : { individual_fee_cents: v.individualFeeCents }),
+          ...(v.paypalIndividualUrl === undefined
+            ? {}
+            : {
+                paypal_individual_url: normalisePaypalLink(
+                  v.paypalIndividualUrl,
+                ),
+              }),
         },
         { onConflict: "competition_id" },
       );

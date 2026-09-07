@@ -10,6 +10,7 @@ import type { Sport } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { paypalLinkMessage, paypalLinkProblem } from "@/lib/payments/paypal";
 import {
   Card,
   CardContent,
@@ -30,11 +31,14 @@ export function IndividualSignupSettings({
   sport,
   allowIndividualSignups,
   individualFeeCents,
+  paypalIndividualUrl,
 }: {
   competitionId: string;
   sport: Sport;
   allowIndividualSignups: boolean;
   individualFeeCents: number;
+  /** The organizer's PayPal link for an individual fee, when they use one. */
+  paypalIndividualUrl?: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -42,6 +46,11 @@ export function IndividualSignupSettings({
   const [fee, setFee] = useState(
     individualFeeCents > 0 ? String(individualFeeCents / 100) : "",
   );
+  const [paypal, setPaypal] = useState(paypalIndividualUrl ?? "");
+
+  // Validated as they type: they're pasting from another tab, and finding out
+  // after a round trip means going back to find the link again.
+  const paypalProblem = paypal.trim() ? paypalLinkProblem(paypal) : null;
 
   function save() {
     const dollars = fee.trim() === "" ? 0 : Number(fee);
@@ -49,11 +58,16 @@ export function IndividualSignupSettings({
       toast.error("That fee doesn't look right.");
       return;
     }
+    if (paypalProblem) {
+      toast.error(paypalLinkMessage(paypalProblem));
+      return;
+    }
     startTransition(async () => {
       const result = await updateIndividualSignupSettingsAction({
         competitionId,
         allowIndividualSignups: allow,
         individualFeeCents: Math.round(dollars * 100),
+        paypalIndividualUrl: paypal.trim(),
       });
       if ("error" in result) {
         toast.error(result.error);
@@ -112,6 +126,37 @@ export function IndividualSignupSettings({
             Separate from the team fee — leave blank for free. A player
             isn&apos;t added to your pool until this is paid.
           </p>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label htmlFor="individual-paypal">
+            PayPal link for individuals{" "}
+            <span className="text-muted-foreground font-normal">
+              (optional)
+            </span>
+          </Label>
+          <Input
+            id="individual-paypal"
+            type="url"
+            inputMode="url"
+            placeholder="https://www.paypal.com/ncp/payment/…"
+            value={paypal}
+            onChange={(e) => setPaypal(e.target.value)}
+            disabled={!allow}
+            aria-invalid={paypalProblem !== null}
+          />
+          {paypalProblem ? (
+            <p className="text-destructive text-xs">
+              {paypalLinkMessage(paypalProblem)}
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              A separate link from your team one, because the amount is
+              different. Leave it blank and individuals are sent to the team
+              link instead &mdash; which will charge them the team fee, so set
+              this if the two differ.
+            </p>
+          )}
         </div>
 
         <Button onClick={save} disabled={pending}>
