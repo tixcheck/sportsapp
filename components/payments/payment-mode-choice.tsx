@@ -168,9 +168,16 @@ export function PaymentModeChoice({
         );
       })}
 
+      {/*
+        Only true of a card. When the only options left are e-transfer and
+        PayPal — an organizer with no Stripe account — there is no fee included
+        in anything, and saying there is invites a captain to go looking for a
+        deduction that doesn't exist.
+      */}
       <p className="text-muted-foreground text-xs">
-        Card and platform fees are included in these amounts. The organizer
-        receives {formatCents(teamCents)} either way.
+        {allowCaptainPays || allowSplitPayment
+          ? `Card and platform fees are included in these amounts. The organizer receives ${formatCents(teamCents)} either way.`
+          : `This goes straight to the organizer — there are no card or platform fees on top.`}
       </p>
     </div>
   );

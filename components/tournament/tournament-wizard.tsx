@@ -49,7 +49,14 @@ const STEP_TITLES = [
   "Scoring",
 ];
 
-export function TournamentWizard({ orgId }: { orgId: string }) {
+export function TournamentWizard({
+  orgId,
+  payoutsReady = true,
+}: {
+  orgId: string;
+  /** Whether this org can take a card at all. */
+  payoutsReady?: boolean;
+}) {
   const [step, setStep] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -448,6 +455,7 @@ export function TournamentWizard({ orgId }: { orgId: string }) {
 
         {step === 6 && (
           <WizardPaymentStep
+            payoutsReady={payoutsReady}
             value={{
               feeDollars: watch("feeDollars"),
               allowCaptainPays: watch("allowCaptainPays"),
