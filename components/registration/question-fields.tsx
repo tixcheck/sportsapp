@@ -25,6 +25,7 @@ export function QuestionFields({
   questions,
   values,
   onChange,
+  onMeta,
   disabled = false,
   suggested = {},
   addressAutocomplete = false,
@@ -32,6 +33,8 @@ export function QuestionFields({
   questions: RegistrationQuestion[];
   values: AnswerMap;
   onChange: (questionId: string, value: string) => void;
+  /** Structured detail behind a picked address, keyed by question. */
+  onMeta?: (questionId: string, meta: Record<string, unknown>) => void;
   disabled?: boolean;
   /**
    * Values carried from another competition, not yet confirmed here. Flagged
@@ -54,6 +57,7 @@ export function QuestionFields({
           question={q}
           values={values}
           onChange={onChange}
+          onMeta={onMeta}
           disabled={disabled}
           followUps={childrenOf(q.id)}
           suggested={suggested}
@@ -68,6 +72,7 @@ function Field({
   question: q,
   values,
   onChange,
+  onMeta,
   disabled,
   followUps,
   nested = false,
@@ -77,6 +82,7 @@ function Field({
   question: RegistrationQuestion;
   values: AnswerMap;
   onChange: (questionId: string, value: string) => void;
+  onMeta?: (questionId: string, meta: Record<string, unknown>) => void;
   disabled: boolean;
   followUps: RegistrationQuestion[];
   nested?: boolean;
@@ -113,6 +119,7 @@ function Field({
           id={id}
           value={value}
           onChange={(v) => onChange(q.id, v)}
+          onResolved={(meta) => onMeta?.(q.id, meta)}
           disabled={disabled}
           available={addressAutocomplete}
         />
@@ -169,6 +176,7 @@ function Field({
               question={f}
               values={values}
               onChange={onChange}
+              onMeta={onMeta}
               disabled={disabled}
               followUps={[]}
               nested

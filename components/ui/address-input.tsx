@@ -27,6 +27,7 @@ export function AddressInput({
   id,
   value,
   onChange,
+  onResolved,
   placeholder = "Street, city, province, postal code",
   disabled = false,
   available = true,
@@ -34,6 +35,16 @@ export function AddressInput({
   id?: string;
   value: string;
   onChange: (value: string) => void;
+  /**
+   * The structured detail behind a PICKED suggestion. Not called when the
+   * address was typed, which is exactly how the caller tells the difference
+   * between "they live in Toronto" and "we don't know where they live".
+   */
+  onResolved?: (meta: {
+    locality: string | null;
+    region: string | null;
+    postalCode: string | null;
+  }) => void;
   placeholder?: string;
   disabled?: boolean;
   /** False when no key is configured, so we never show an empty dropdown. */
@@ -104,6 +115,13 @@ export function AddressInput({
     void resolveAddressAction({ placeId: s.id, sessionToken: token }).then(
       (res) => {
         if (res.address) onChange(res.address);
+        if (res.locality || res.postalCode) {
+          onResolved?.({
+            locality: res.locality,
+            region: res.region,
+            postalCode: res.postalCode,
+          });
+        }
       },
     );
   }

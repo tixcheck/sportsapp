@@ -130,6 +130,8 @@ export function SteppedRegistration({
     ...suggestedAnswers,
     ...playerAnswers,
   });
+  // Structured detail behind a picked address, sent with the answers.
+  const [meta, setMeta] = useState<Record<string, Record<string, unknown>>>({});
   const [signed, setSigned] = useState(waiver?.signed ?? true);
   const [paid, setPaid] = useState(false);
 
@@ -199,6 +201,7 @@ export function SteppedRegistration({
         const savedMine = await saveRegistrationAnswersAction({
           competitionId,
           answers: mine,
+          metadata: meta,
         });
         if ("error" in savedMine) {
           toast.error(`Registered, but: ${savedMine.error}`);
@@ -353,6 +356,7 @@ export function SteppedRegistration({
                 questions={playerQuestions}
                 values={mine}
                 onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
+                onMeta={(id, m) => setMeta((s) => ({ ...s, [id]: m }))}
                 disabled={pending}
                 suggested={suggestedAnswers}
                 addressAutocomplete={addressAutocomplete}

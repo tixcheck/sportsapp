@@ -19,7 +19,11 @@ import {
 } from "@/lib/queries/waivers";
 import { CompetitionWaiverCard } from "@/components/waivers/competition-waiver-card";
 import { RegistrationQuestionsCard } from "@/components/registration/questions-card";
-import { getRegistrationQuestions } from "@/lib/queries/registration-questions";
+import { LocalityCard } from "@/components/registration/locality-card";
+import {
+  getRegistrationQuestions,
+  getTeamLocalities,
+} from "@/lib/queries/registration-questions";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
 import { getCompetitionAdmins } from "@/lib/queries/organizers";
@@ -143,6 +147,7 @@ export default async function LeaguePage({
       getOfflineFeesOwed(league.id),
       getRegistrationQuestions(league.id),
     ]);
+  const localities = await getTeamLocalities(league.id);
   const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
     await Promise.all([
       getCompetitionPaymentSettings(league.id),
@@ -650,6 +655,12 @@ export default async function LeaguePage({
       <RegistrationQuestionsCard
         competitionId={league.id}
         initial={registrationQuestions}
+      />
+
+      <LocalityCard
+        competitionId={league.id}
+        homeCity={localities.homeCity}
+        teams={localities.teams}
       />
 
       <CompetitionWaiverCard

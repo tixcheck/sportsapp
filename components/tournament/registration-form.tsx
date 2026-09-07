@@ -106,6 +106,8 @@ export function RegistrationForm({
     ...suggestedAnswers,
     ...playerAnswers,
   });
+  // Structured detail behind a picked address, sent with the answers.
+  const [meta, setMeta] = useState<Record<string, Record<string, unknown>>>({});
   const [choice, setChoice] = useState<PaymentMode>(() =>
     fee?.allowCaptainPays
       ? "team_full"
@@ -171,6 +173,7 @@ export function RegistrationForm({
         const savedMine = await saveRegistrationAnswersAction({
           competitionId,
           answers: mine,
+          metadata: meta,
         });
         if ("error" in savedMine) {
           toast.error(`Registered, but: ${savedMine.error}`);
@@ -336,6 +339,7 @@ export function RegistrationForm({
             questions={playerQuestions}
             values={mine}
             onChange={(id, v) => setMine((a) => ({ ...a, [id]: v }))}
+            onMeta={(id, m) => setMeta((s) => ({ ...s, [id]: m }))}
             disabled={pending}
             suggested={suggestedAnswers}
             addressAutocomplete={addressAutocomplete}
