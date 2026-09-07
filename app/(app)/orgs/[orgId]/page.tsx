@@ -52,8 +52,22 @@ export default async function OrgPage({
   ]);
   const myRole = orgs.find((o) => o.id === orgId)?.role;
   const isOrgAdmin = myRole === "owner" || myRole === "admin";
+
+  /**
+   * Mirrors the database's `can_manage_org` (migration 0088): the org's own
+   * admins, plus platform staff setting an organization up or supporting it.
+   *
+   * Deliberately narrower than "everything an org admin sees". Migration 0043
+   * drew the line — a platform admin acts as a competition admin anywhere, but
+   * org-level power stays with the org: its venues, its logo, its membership
+   * and its bank account are all still `is_org_admin` in RLS, and rendering
+   * those cards here would only produce buttons that fail on save.
+   */
+  const access = await getAccessState();
+  const canManageOrg = isOrgAdmin || access.isPlatformAdmin;
+
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
-  const waivers = isOrgAdmin ? await getOrgWaivers(orgId) : [];
+  const waivers = canManageOrg ? await getOrgWaivers(orgId) : [];
   // Venues are org-wide: the same gyms come back season after season.
   const venues = isOrgAdmin ? await getOrgVenues(orgId) : [];
 
@@ -82,9 +96,6 @@ export default async function OrgPage({
   // section would be a button that can't do anything, so ordinary organizers
   // don't see it yet — the platform admin does, to check the shell on prod.
   const stripeMode = currentStripeMode();
-  const access = isOrgAdmin
-    ? await getAccessState()
-    : { isPlatformAdmin: false };
   const showPayouts =
     isOrgAdmin && (stripeMode.configured || access.isPlatformAdmin);
   const paymentAccount = showPayouts ? await getPaymentAccount(orgId) : null;
@@ -136,7 +147,7 @@ export default async function OrgPage({
         hrefFor={(c) => `/orgs/${orgId}/reverse-pairs/${c.id}`}
       />
 
-      {isOrgAdmin && <OrgWaiversCard orgId={orgId} waivers={waivers} />}
+      {canManageOrg && <OrgWaiversCard orgId={orgId} waivers={waivers} />}
 
       {showPayouts && (
         <PayoutsCard
