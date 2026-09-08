@@ -299,7 +299,6 @@ export function SteppedRegistration({
             <Input
               id="sr-team"
               value={teamName}
-              placeholder="Kohl / Thomas"
               onChange={(e) => setTeamName(e.target.value)}
             />
           </div>

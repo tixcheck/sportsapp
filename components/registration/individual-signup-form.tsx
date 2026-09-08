@@ -195,11 +195,7 @@ export function IndividualSignupForm({
 
       <div className="grid gap-1.5">
         <Label htmlFor="fa-name">Your name</Label>
-        <Input
-          id="fa-name"
-          placeholder="Priya Sharma"
-          {...register("name", { required: true })}
-        />
+        <Input id="fa-name" {...register("name", { required: true })} />
         {formState.errors.name && (
           <p className="text-destructive text-sm">We need your name.</p>
         )}

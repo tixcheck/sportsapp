@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
-export function SignupForm() {
+export function SignupForm({ next }: { next?: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const form = useForm<SignupInput>({
@@ -29,7 +29,7 @@ export function SignupForm() {
   function onSubmit(values: SignupInput) {
     setFormError(null);
     startTransition(async () => {
-      const result = await signUpAction(values);
+      const result = await signUpAction(values, next);
       if (result?.error) setFormError(result.error);
     });
   }
@@ -44,11 +44,7 @@ export function SignupForm() {
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input
-                  autoComplete="name"
-                  placeholder="Priya Captain"
-                  {...field}
-                />
+                <Input autoComplete="name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

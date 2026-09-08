@@ -16,6 +16,12 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const sp = await searchParams;
+  // Without this the destination dies here: a captain sent to /login by their
+  // league's registration page, who then clicks through to create an account,
+  // would finish signup with nowhere to go back to.
+  const signUpHref = sp.next
+    ? `/signup?next=${encodeURIComponent(sp.next)}`
+    : "/signup";
 
   return (
     <Card>
@@ -32,7 +38,7 @@ export default async function LoginPage({
       <CardFooter className="justify-center">
         <p className="text-muted-foreground text-sm">
           New here?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
+          <Link href={signUpHref} className="text-primary hover:underline">
             Create an account
           </Link>
         </p>

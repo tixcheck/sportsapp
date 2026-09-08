@@ -10,7 +10,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const sp = await searchParams;
+  // Keep the destination attached when they bounce to sign-in instead: someone
+  // who already has an account is still mid-registration.
+  const signInHref = sp.next
+    ? `/login?next=${encodeURIComponent(sp.next)}`
+    : "/login";
+
   return (
     <Card>
       <CardHeader>
@@ -20,12 +31,12 @@ export default function SignupPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <SignupForm />
+        <SignupForm next={sp.next} />
       </CardContent>
       <CardFooter className="justify-center">
         <p className="text-muted-foreground text-sm">
           Already have an account?{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href={signInHref} className="text-primary hover:underline">
             Sign in
           </Link>
         </p>

@@ -130,7 +130,6 @@ export function WaitlistForm({
         <Label htmlFor="wl-team">Team name</Label>
         <Input
           id="wl-team"
-          placeholder="Net Gains"
           value={teamName}
           onChange={(e) => setTeamName(e.target.value)}
         />
