@@ -5,6 +5,151 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-08 — Ladder weighting, and cleaning up what players see
+
+**Shipped.** A ladder season can now be scored by the tier each week was played
+in, and several things players shouldn't have been seeing are gone.
+
+- **Weight a ladder season by tier** (`024d464`, migration `0115`). Three set
+  wins in Tier 1 is a harder night than three in Tier 2, and a plain table
+  called them equal. Weights live per DIVISION, not as a global rule — the
+  numbers are the organizer's, and a three-tier league needs a third pair
+  nobody can predict. Null means *unpriced*, deliberately different from zero:
+  an unanswered question, so the table skips it rather than telling an
+  organizer the team earned nothing.
+- **Show the weighted table to players** (`cc69385`), not just the organizer.
+- **A team keeps its captain, and a captain enters once** (`9e2e6f1`,
+  migration `0114`). Nothing stopped the same person entering twice — and the
+  way it actually happens isn't fraud, it's a captain abandoning registration
+  at PayPal and starting again rather than finding the team they already made.
+  Scoped per COMPETITION, like the team-name rule, because one person
+  captaining a Tuesday and a Thursday team is ordinary. Withdrawn teams are
+  excluded, so an organizer removing a team frees that captain.
+- **Keep the sandbox org out of public search** (`2e37267`, migration `0116`).
+  Test Org's dozen sandbox competitions were listed on `/find` beside real
+  leagues, and a duplicate of a league you already play in looks like the real
+  one. *Not* solved by marking them private — private also breaks the direct
+  link, and being able to send somebody a link to what you just built is the
+  entire point of a sandbox. So: hidden from the index, unchanged everywhere
+  else, at org level.
+- **Hide finished events from the find page** (`7e740ad`).
+- **Both auth doors on registration** (`8e9f97b`) — "create an account" beside
+  "sign in", and **keep captains on their registration through signup**
+  (`b40ede1`), so the round trip doesn't lose their place.
+- **Point at the public org link from the org page** (`d8bba4b`).
+
+---
+
+## 2026-09-07 — Registration, rebuilt: PayPal, waivers, questions, addresses
+
+**Shipped.** The largest single day in this log — 28 commits and migrations
+`0102`–`0113`. Registration went from "enter a team name" to a stepped flow
+that collects what an organizer actually needs.
+
+- **PayPal, for organizers with no Stripe** (`0b94d17`, `13c5fef`, `1050fbe`,
+  `45299f8`; migrations `0102`, `0103`). Collect by the organizer's own PayPal
+  link; hide card payment entirely when they have no Stripe, and stop quoting
+  them card fees they can't charge. `0102` also replaced `0079`'s
+  e-transfer-only "one open charge" index with a broader `method <> 'card'`
+  one — same rule, wider net.
+- **Register in steps** (`5c59ce5`): name, waiver, pay, then teammates. Plus
+  **split the two sign-up paths** and let a league cap its teams (`6aa65e2`).
+- **Registration questions** (`3f2638a`, `b6a51a2`, `c5c5296`, `dcb7802`;
+  migrations `0104`, `0106`, `0112`) — asked of the *right person*, with a
+  player's previous answers offered back when they sign up again.
+- **Waivers tightened** (`0faa2d3`, `2fd0f00`, `7298c61`, `e5bcd83`,
+  `4d5e41a`; migrations `0107`, `0108`): initial each clause then sign it, the
+  signer's own details in the waiver text, one team name per competition,
+  chase outstanding waivers, and stop showing a blocked team a schedule.
+- **Addresses** (`9d4d634`, `92a9985`, `8991049`; migration `0109`): suggest
+  them without insisting, fetch the postal code on pick, and stop the
+  browser's own autofill list opening on top of ours.
+- **Home locality** (`0d0af70`, `7f9ecb0`; migrations `0110`, `0111`) — count
+  how many of each team live in the league's own town, with the town set once
+  at organization level.
+- **One public page for everything an organization runs** (`fa005de`).
+- **Registration stage on the team itself** (`94f595c`, `350d228`), and
+  **record the reference an organizer matched a payment against** (`327753b`,
+  migration `0113`) — kept apart from what the payer *claimed*, because the
+  difference between a claim and a finding is the point of confirming anything.
+- Smaller: **cap individuals** (`bd1adc8`, migration `0105`), **banner shown
+  whole** with a real upload error (`840539e`), **card titles wrap** instead of
+  truncating (`18bf901`).
+
+---
+
+## 2026-08-31 → 2026-09-02 — Waivers, the player dashboard, and the legal pages
+
+**Shipped.**
+
+- **Waivers** (`c707363`, `cfeedef`, `8a7b26b`; migrations `0100`, `0101`) —
+  an organization's approved text, who agreed to it, and the rule that a team
+  isn't an entrant until its players have signed.
+- **A player dashboard** that answers the questions players actually have
+  (`e00c97e`).
+- **Privacy policy** with a contact that works and the facts BVL asked for
+  (`aa64b2e`), and **a `/security` page** so this only has to be written once
+  (`b5d2c85`).
+- **Playoff naming** (`2148de5`, `c5e9242`, `88aafcd`): number the games so
+  "Winner of QF2" points at something, name the feeding game rather than its
+  bracket number, and say which playoff game it is on the schedule.
+- **`29337d2`** — stop calling it `nextTuesdayAfter` when the league plays
+  Thursdays.
+
+---
+
+## 2026-08-27 → 2026-08-30 — Reverse Pairs, the draft board, and event images
+
+**Shipped.** A new format end to end, plus the tooling Big Shoots needed.
+
+- **Reverse Pairs** (`0bee943`, `c562a36`, `7a34d2d`, `379d518`, `f9218d2`;
+  migrations `0092`, `0096`, `0098`) — scheduler, public page, settings, fees
+  and self-serve registration.
+- **Drag-and-drop draft board** (`02bdeb1`), **serpentine re-draft and a
+  3rd-place game** (`7d7919f`; migrations `0093`, `0094`), **free agents
+  grouped by position** (`a07fa1d`), and **fixture order an organizer can read
+  off the wall** (`380cad7`).
+- **Appearances** (`c0b710e`, migration `0089`) — score a drafted league by who
+  actually turned up. **Rebuild Big Shoots** to the organizer's real format and
+  let him add players (`04bee25`, migration `0090`).
+- **Event images** (`87a537b`, `183d167`, `98e041e`; migrations `0087`, `0088`)
+  — organizers upload a banner and logo instead of hosting one themselves.
+  Authorisation moved to the **server**, not the browser, and the platform
+  admin can upload for orgs they don't belong to.
+- **The hidden-league bug is per TEAM, not per league** (`3e83e54`, after
+  `8018aec` fixed the wrong half) — a league waiting on its playoff draw was
+  disappearing.
+- **Two-night league playoff** where nobody's night ends after one game
+  (`7163dbf`), showing the whole playoff with prime courts to top seeds
+  (`c2b09a2`), and **standings get a column per game** (`644e833`).
+- **Platform fee waiver, per event** (`deac8f0`, migration `0097`), and
+  **don't link to a public page that doesn't exist** (`bef1bbe`).
+
+---
+
+## 2026-08-25 → 2026-08-26 — The home page, destructive-op guards, and backups
+
+**Shipped.** A rebuilt front door, and three layers of protection for data that
+was one click from gone.
+
+- **Home page rebuilt around the product** and unpinned from one city
+  (`7dbb47f`), then **two front doors, a scheduler you can drag, and counts we
+  actually count** (`5e028f0`, migration `0084`). **`9a4e6cc`** fixed the 500 it
+  shipped with: `unstable_cache` can't read cookies.
+- **Regenerate must not silently destroy a played season** (`2ff23d6`), then
+  **regenerate redraws only the remaining weeks — erasing a season needs the
+  name typed** (`7149353`).
+- **The match audit is real, and outlives what it audits** (`eb87dae`,
+  migration `0085`).
+- **Restore points** (`1deab46`, migration `0086`) — an undo for the operations
+  that delete a season.
+- **Nightly encrypted database backups, stored off Supabase** (`825ff8f`) —
+  then **parked, disabled, until its secrets exist** (`9f84d9d`). *Still
+  parked; see `HANDOFF.md`.*
+- **`a534bc0`** — the waitlist cron runs daily, not hourly (Vercel Hobby limit).
+
+---
+
 ## 2026-08-22 — Embeds take the host site's colours
 
 **Shipped.** Mango's site is white and #feb62a, and the embed arrived in our
