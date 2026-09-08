@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { VenuesCard } from "@/components/venues/venues-card";
 import { OrgLogoCard } from "@/components/org/org-logo-card";
 import { OrgLocalityCard } from "@/components/org/org-locality-card";
+import { OrgPublicLink } from "@/components/org/org-public-link";
 import { getOrgVenues } from "@/lib/queries/venues";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { PayoutsCard } from "@/components/payments/payouts-card";
@@ -111,6 +112,13 @@ export default async function OrgPage({
           <ComposeMessageDialog orgId={orgId} competitions={messageable} />
         )}
       </div>
+
+      {/*
+        Directly under the org name, because this is the link an organizer
+        gives out — and until now it existed with nothing pointing at it, so
+        the only way to use it was to know the URL by heart.
+      */}
+      {org.slug && <OrgPublicLink slug={org.slug} />}
 
       <Section
         title="Leagues"
