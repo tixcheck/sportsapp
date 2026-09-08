@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 export const metadata: Metadata = {
   title: "Find your league — mysportsapp",
   description:
-    "Search public leagues, tournaments and King of the Court events. No account needed.",
+    "Search public leagues, tournaments and King of the Court events happening now or coming up. No account needed.",
 };
 
 const SPORT_LABEL = new Map(SPORTS.map((s) => [s.value as string, s.label]));
@@ -102,7 +102,7 @@ export default async function FindPage({
               {results.length} result{results.length === 1 ? "" : "s"} for “{q}”
             </>
           ) : (
-            <>Every public event, newest first.</>
+            <>Happening now and coming up, soonest first.</>
           )}
         </p>
 
@@ -113,11 +113,11 @@ export default async function FindPage({
             </p>
             <p className="text-ink-2 mx-auto mt-2 max-w-sm text-sm">
               Try the venue instead of the league name — or ask your captain for
-              the link. Private leagues don’t appear here.
+              the link. Finished seasons and private leagues don’t appear here.
             </p>
             {q && (
               <Button asChild variant="outline" className="mt-4">
-                <Link href="/find">See every public event</Link>
+                <Link href="/find">See what’s on</Link>
               </Button>
             )}
           </div>
