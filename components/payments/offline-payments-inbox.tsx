@@ -96,6 +96,9 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
   const [pending, start] = useTransition();
   const [amount, setAmount] = useState(String(row.expectedCents / 100));
   const [note, setNote] = useState("");
+  // Pre-filled with what the payer said, so confirming is CHECKING a reference
+  // rather than retyping one — and a blank box is visibly blank.
+  const [reference, setReference] = useState(row.payerReference ?? "");
 
   function confirm() {
     const dollars = Number(amount);
@@ -108,6 +111,7 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
         paymentId: row.paymentId,
         amountDollars: dollars,
         note: note || undefined,
+        reference: reference.trim() || undefined,
       });
       if ("error" in res) {
         toast.error(res.error);
@@ -145,7 +149,8 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
         <p className="text-muted-foreground text-xs">
           They say the reference is{" "}
           <span className="text-ink font-mono">{row.payerReference}</span> — not
-          checked by us.
+          checked by us. It&apos;s filled in below; change it if your account
+          says otherwise.
         </p>
       )}
 
@@ -164,10 +169,25 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
           </div>
         </label>
 
+        <label className="grid gap-1">
+          <span className="text-muted-foreground text-xs">
+            {row.method === "paypal" ? "PayPal transaction ID" : "Reference"}
+          </span>
+          <Input
+            placeholder={
+              row.method === "paypal" ? "8XW12345AB678901C" : "Reference number"
+            }
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            className="max-w-52 font-mono text-sm"
+            aria-label={`Reference matched for ${row.teamName}`}
+          />
+        </label>
+
         <label className="grid flex-1 gap-1">
           <span className="text-muted-foreground text-xs">Note (optional)</span>
           <Input
-            placeholder="Reference number, or who sent it"
+            placeholder="Anything else worth recording"
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />

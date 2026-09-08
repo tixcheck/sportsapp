@@ -604,6 +604,11 @@ const confirmOfflineSchema = z.object({
     .min(0, "An amount can't be negative.")
     .max(99_999, "That's larger than any real registration fee."),
   note: z.string().trim().max(500).optional(),
+  /**
+   * The reference the organizer matched it against — a PayPal transaction ID.
+   * Theirs, not the payer's: a claim and a finding are different records.
+   */
+  reference: z.string().trim().max(120).optional(),
 });
 
 /**
@@ -633,6 +638,7 @@ export async function confirmOfflinePaymentAction(
     _payment_id: parsed.data.paymentId,
     _amount_cents: Math.round(parsed.data.amountDollars * 100),
     _note: parsed.data.note ?? null,
+    _reference: parsed.data.reference ?? null,
   });
 
   if (error) {
