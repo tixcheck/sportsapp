@@ -22,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PlayerStatRow } from "@/lib/queries/player-stats";
 import type { LadderNight } from "@/lib/queries/ladder-standings";
 import { LadderNightStandings } from "@/components/league/ladder-night-standings";
+import { WeightedStandingsTable } from "@/components/league/weighted-standings-table";
+import type { WeightedTable } from "@/lib/queries/weighted-standings";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 
 function initials(name: string): string {
@@ -39,6 +41,7 @@ export function LeagueTabs({
   scorableMatchIds = [],
   playerStats = [],
   ladderNights = [],
+  weighted,
   initialDay = null,
   initialTab,
 }: {
@@ -51,6 +54,12 @@ export function LeagueTabs({
    * standings, which cannot be fair when teams change tiers every week.
    */
   ladderNights?: LadderNight[];
+  /**
+   * The season table for a ladder, weighted by the tier each week was played
+   * in. Undefined, or with no rows, where no tier has been priced — the
+   * section then doesn't render at all.
+   */
+  weighted?: WeightedTable;
   /** Day tab the schedule opens on — the next night still to come. */
   initialDay?: string | null;
   brackets?: BracketTrackView[];
@@ -240,7 +249,14 @@ export function LeagueTabs({
         </TabsContent>
       )}
 
-      <TabsContent value="standings" className="mt-6 space-y-3">
+      <TabsContent value="standings" className="mt-6 space-y-6">
+        {/*
+          Above the per-night tables: for a ladder league this IS the season,
+          and a captain opening Standings wants their overall position before
+          the week-by-week detail.
+        */}
+        {weighted && <WeightedStandingsTable table={weighted} />}
+
         {ladderNights.length > 0 ? (
           <LadderNightStandings
             nights={ladderNights}

@@ -8,6 +8,7 @@ import { DateTime } from "luxon";
 import { getPublicLeague } from "@/lib/queries/leagues";
 import { getPlayerStats } from "@/lib/queries/player-stats";
 import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
+import { getWeightedStandings } from "@/lib/queries/weighted-standings";
 import { defaultScheduleDay } from "@/lib/schedule/default-day";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
@@ -55,6 +56,7 @@ export default async function PublicLeaguePage({
     brackets,
     playerStats,
     ladderNights,
+    weighted,
   ] = await Promise.all([
     getStandings(league.id),
     getMyTeamIds(league.id),
@@ -62,6 +64,7 @@ export default async function PublicLeaguePage({
     getBrackets(league.id),
     getPlayerStats(league.id),
     getLadderNightStandings(league.id),
+    getWeightedStandings(league.id),
   ]);
 
   // Open the schedule on the night people are actually asking about. "Today"
@@ -150,6 +153,7 @@ export default async function PublicLeaguePage({
         <LeagueTabs
           playerStats={playerStats}
           ladderNights={ladderNights}
+          weighted={weighted}
           initialDay={initialDay}
           league={league}
           standings={standings}
