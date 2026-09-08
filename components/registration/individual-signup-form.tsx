@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -19,6 +18,7 @@ import { SKILL_LEVELS, skillLabel, sportConfig } from "@/lib/sports";
 import type { Sport } from "@/lib/formats";
 import type { FreeAgent } from "@/lib/queries/free-agents";
 import { formatCents } from "@/lib/payments/format";
+import { SignInOrCreate } from "@/components/auth/sign-in-or-create";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,7 +47,7 @@ export function IndividualSignupForm({
   isAuthed,
   userEmail,
   userName,
-  loginHref,
+  returnTo,
   feeCents,
   cardAvailable = true,
   paypalUrl = null,
@@ -58,7 +58,7 @@ export function IndividualSignupForm({
   isAuthed: boolean;
   userEmail?: string;
   userName?: string;
-  loginHref: string;
+  returnTo: string;
   /** 0 when individual sign-up is free. */
   feeCents: number;
   /** Whether the organizer's Stripe account can actually take a card. */
@@ -88,14 +88,10 @@ export function IndividualSignupForm({
 
   if (!isAuthed) {
     return (
-      <div className="grid gap-3">
-        <p className="text-muted-foreground text-sm">
-          Sign in to put your name down as an individual.
-        </p>
-        <Button asChild variant="outline" className="justify-self-start">
-          <Link href={loginHref}>Sign in to sign up</Link>
-        </Button>
-      </div>
+      <SignInOrCreate
+        returnTo={returnTo}
+        prompt="Signing up takes a moment. Your account is how the organizer places you on a team."
+      />
     );
   }
 

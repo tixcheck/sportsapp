@@ -129,7 +129,7 @@ export default async function PublicTournamentPage({
                 rosterSize={ROSTER_SIZE[tournament.sport]}
                 isAuthed={!!user}
                 userEmail={user?.email}
-                loginHref={`/login?next=/t/${slug}`}
+                returnTo={`/t/${slug}`}
               />
             </CardContent>
           </Card>

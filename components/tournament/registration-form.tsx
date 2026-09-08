@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -16,6 +15,7 @@ import {
   registerTeamSchema,
   type RegisterTeamInput,
 } from "@/lib/validations/tournament";
+import { SignInOrCreate } from "@/components/auth/sign-in-or-create";
 import { Button } from "@/components/ui/button";
 import { PaymentModeChoice } from "@/components/payments/payment-mode-choice";
 import {
@@ -40,7 +40,7 @@ export function RegistrationForm({
   rosterSize,
   isAuthed,
   userEmail,
-  loginHref,
+  returnTo,
   action = registerTeamAction,
   // "division" (tournaments) vs "tier" (leagues) — just the label players see.
   divisionLabel = "Division",
@@ -56,7 +56,7 @@ export function RegistrationForm({
   rosterSize: number;
   isAuthed: boolean;
   userEmail?: string;
-  loginHref: string;
+  returnTo: string;
   action?: (
     competitionId: string,
     values: RegisterTeamInput,
@@ -140,14 +140,10 @@ export function RegistrationForm({
 
   if (!isAuthed) {
     return (
-      <div className="grid gap-3">
-        <p className="text-muted-foreground text-sm">
-          Sign in to register your team.
-        </p>
-        <Button asChild className="justify-self-start">
-          <Link href={loginHref}>Sign in to register</Link>
-        </Button>
-      </div>
+      <SignInOrCreate
+        returnTo={returnTo}
+        prompt="Registering takes a moment. Your account keeps the team linked to you."
+      />
     );
   }
 

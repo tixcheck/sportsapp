@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -8,6 +7,7 @@ import { DateTime } from "luxon";
 
 import { joinWaitlistAction } from "@/server/actions/waitlist";
 import type { WaitlistEntry } from "@/lib/queries/waitlist";
+import { SignInOrCreate } from "@/components/auth/sign-in-or-create";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ export function WaitlistForm({
   competitionFull,
   isAuthed,
   userEmail,
-  loginHref,
+  returnTo,
   existing,
   claimHours,
 }: {
@@ -38,7 +38,7 @@ export function WaitlistForm({
   competitionFull: boolean;
   isAuthed: boolean;
   userEmail?: string;
-  loginHref: string;
+  returnTo: string;
   existing?: WaitlistEntry | null;
   claimHours: number;
 }) {
@@ -89,14 +89,10 @@ export function WaitlistForm({
 
   if (!isAuthed) {
     return (
-      <div className="grid gap-3">
-        <p className="text-muted-foreground text-sm">
-          Sign in to join the waitlist.
-        </p>
-        <Button asChild variant="outline" className="justify-self-start">
-          <Link href={loginHref}>Sign in</Link>
-        </Button>
-      </div>
+      <SignInOrCreate
+        returnTo={returnTo}
+        prompt="Your account is how we reach you if a spot opens up."
+      />
     );
   }
 

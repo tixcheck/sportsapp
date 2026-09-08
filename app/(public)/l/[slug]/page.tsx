@@ -142,7 +142,7 @@ export default async function PublicLeaguePage({
                 rosterSize={ROSTER_SIZE[league.sport]}
                 isAuthed={!!user}
                 userEmail={user?.email}
-                loginHref={`/login?next=/l/${slug}`}
+                returnTo={`/l/${slug}`}
                 action={registerLeagueTeamAction}
                 divisionLabel="Tier"
               />
