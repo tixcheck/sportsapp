@@ -45,11 +45,14 @@ type Record_ = {
   venue: string | null;
   start_date: string | null;
   end_date: string | null;
-  organizations: { name: string } | { name: string }[] | null;
+  organizations:
+    | { name: string; hidden_from_discovery?: boolean }
+    | { name: string; hidden_from_discovery?: boolean }[]
+    | null;
 };
 
 const COLUMNS =
-  "id, name, slug, type, sport, venue, start_date, end_date, organizations(name)";
+  "id, name, slug, type, sport, venue, start_date, end_date, organizations!inner(name, hidden_from_discovery)";
 
 const LIMIT = 40;
 
@@ -87,6 +90,10 @@ export async function findPublicCompetitions(
     .from("competitions")
     .select(COLUMNS)
     .eq("visibility", "public")
+    // A sandbox organization stays reachable by link but out of the index.
+    // Without this a player searching "Tuesday 6s" finds a half-built copy of
+    // the league they already play in, which looks real and isn't.
+    .eq("organizations.hidden_from_discovery", false)
     // Only types that have a public page. Listing one that doesn't hands the
     // searcher a link to a route that cannot serve it, which is worse than not
     // appearing at all.
