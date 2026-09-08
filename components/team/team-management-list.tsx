@@ -291,14 +291,15 @@ function ContactLine({
           }
         />
       )}
-      {member && (
+      {/*
+        Not offered for the captain. Removing one leaves a team nobody is
+        responsible for; the way to take a captain off is to make somebody
+        else captain first, which the control beside this one does.
+      */}
+      {member && !member.isCaptain && (
         <ConfirmDialog
           title="Remove this member?"
-          description={
-            member.isCaptain
-              ? `Removes ${email} from the team. They're the captain, so the team will have no captain until you promote a partner or re-invite one.`
-              : `Removes ${email} from the team. You can re-invite them anytime.`
-          }
+          description={`Removes ${email} from the team. You can re-invite them anytime.`}
           confirmLabel="Remove member"
           onConfirm={async () => {
             const res = await removeMemberAction(member.teamId, member.userId);

@@ -302,12 +302,21 @@ export async function removeInviteAction(
 export async function removeMemberAction(
   teamId: string,
   userId: string,
-): Promise<ActionError | { removed: true; wasCaptain: boolean }> {
+): Promise<ActionError | { removed: true; wasCaptain: false }> {
   const supabase = await createClient();
   const guard = await assertTeamAdmin(supabase, teamId);
   if ("error" in guard) return guard;
 
-  const wasCaptain = guard.team.captainUserId === userId;
+  // Transfer, never delete. A team with no captain has nobody to enter a
+  // score, nobody the fee belongs to, and nobody who can invite the rest —
+  // and it got into that state through a button labelled "Remove", with the
+  // consequence explained only in a dialog nobody reads twice.
+  if (guard.team.captainUserId === userId) {
+    return {
+      error:
+        "Make someone else captain first — a team can't be left without one.",
+    };
+  }
 
   const { error } = await supabase
     .from("team_members")
@@ -315,13 +324,6 @@ export async function removeMemberAction(
     .eq("team_id", teamId)
     .eq("user_id", userId);
   if (error) return { error: error.message };
-
-  if (wasCaptain) {
-    await supabase
-      .from("teams")
-      .update({ captain_user_id: null })
-      .eq("id", teamId);
-  }
 
   // Clear the accepted invite so the "Joined" line goes away and re-invites work.
   await supabase
@@ -333,7 +335,7 @@ export async function removeMemberAction(
   revalidatePath("/orgs");
   revalidatePath("/my-matches");
   revalidatePath("/dashboard");
-  return { removed: true, wasCaptain };
+  return { removed: true, wasCaptain: false };
 }
 
 /**
