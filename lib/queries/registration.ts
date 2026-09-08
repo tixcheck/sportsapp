@@ -30,6 +30,8 @@ export interface RegistrationEvent {
   /** Who's running it — the page says "hosted by". */
   org: {
     id: string;
+    /** For the "everything this organizer runs" link. */
+    slug: string | null;
     name: string;
     logoUrl: string | null;
     contactEmail: string | null;
@@ -164,6 +166,7 @@ export async function getRegistrationEvent(
     comp as unknown as {
       organizations: {
         name: string;
+        slug: string | null;
         logo_url: string | null;
         contact_email: string | null;
       } | null;
@@ -187,6 +190,7 @@ export async function getRegistrationEvent(
     matchFormat: comp.match_format as MatchFormat,
     org: {
       id: comp.org_id as string,
+      slug: (orgRow?.slug as string | null) ?? null,
       name: orgRow?.name ?? "the organizer",
       logoUrl: orgRow?.logo_url ?? null,
       contactEmail: orgRow?.contact_email ?? null,

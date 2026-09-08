@@ -469,6 +469,20 @@ export default async function RegisterPage({
               </a>
             </Button>
           )}
+          {/*
+            A captain who arrived at one league's link has no other way to
+            learn the organizer runs three more on other nights.
+          */}
+          {event.org.slug && (
+            <p className="text-muted-foreground text-sm">
+              <Link
+                href={`/o/${event.org.slug}`}
+                className="hover:text-foreground underline"
+              >
+                See everything {event.org.name} is running
+              </Link>
+            </p>
+          )}
           <p className="text-muted-foreground text-sm">
             <Link
               href={event.publicPath}
