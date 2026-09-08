@@ -7,12 +7,39 @@
 
 ---
 
-## Current state (last session — 2026-08-13)
+## Current state (last session — 2026-09-08)
 
-- **Branch:** `main`. **Latest commit:** venues + Slice C completion — pushed, working tree clean, no unmerged feature branches.
+- **Branch:** `main`. **Latest commit:** `38624a4` — hide finished events from discovery. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0073`, and all of `0060`–`0073` verified as applied against the live database.** From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0116`, and every one of `0060`–`0116` verified as applied against the live database** (audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+  - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
+    database. Rather than trusting the record below, a throwaway script parsed
+    every migration from `0074` on for the objects it creates (columns, tables,
+    indexes, functions) and checked each one exists. Every object is present.
+    In date order:
+
+    | Range | Date | What it added |
+    |---|---|---|
+    | `0074`–`0078` | Aug 14–19 | competition blurb, softball, individual sign-ups + their payments, public player names |
+    | `0079`–`0083` | Aug 21 | e-transfer payments, per-tier registration caps, the waitlist (table + functions) |
+    | `0084`–`0086` | Aug 25–26 | platform counts, a match audit that outlives what it audits, restore points |
+    | `0087`–`0095` | Aug 27 | event images, `can_manage_org`, appearances, organizer-added individuals, pairing order, draft rank, 3rd place, last-match lookup |
+    | `0096`–`0099` | Aug 28–30 | Reverse Pairs (+ its registration), the platform-fee waiver, placement track |
+    | `0100`–`0101` | Aug 31–Sep 1 | waivers, and the pending-waiver gate |
+    | `0102`–`0113` | Sep 7 | PayPal + offline individual payments, registration questions, individual caps, suggested answers, waiver initials, unique team names, address questions, home locality (competition then org), answer-upsert inference, confirmed reference |
+    | `0114`–`0116` | Sep 8 | one team per captain, per-tier ladder weights, `hidden_from_discovery` |
+
+    **Two things will look like gaps in a future audit and are not:**
+    - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
+      purpose** — `0102` drops it and replaces it with
+      `registration_payments_one_open_offline`, which is strictly broader
+      (`method <> 'card'` rather than `method = 'etransfer'`), so the
+      one-open-charge-per-team rule is still enforced, under a new name.
+    - `0075` (softball) and `0109` (address question kind) create no tables,
+      columns or indexes — they are function/DML only, so an
+      object-existence audit has nothing to find in them.
+
   - **`0073` (per-tier ladder) IS applied** — 2026-08-14. `divisions` gains
     `ladder_target`, `minutes_per_set`, `start_time`, `late_start_slots`. Null =
     use the league's value, so existing ladders are untouched. Built for the
