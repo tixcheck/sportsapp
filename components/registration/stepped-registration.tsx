@@ -22,6 +22,7 @@ import type {
   RegistrationQuestion,
 } from "@/lib/queries/registration-questions";
 import { saveRegistrationAnswersAction } from "@/server/actions/registration-questions";
+import { SignInOrCreate } from "@/components/auth/sign-in-or-create";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -55,7 +56,7 @@ export function SteppedRegistration({
   isAuthed,
   userEmail,
   userName,
-  loginHref,
+  returnTo,
   fee,
   waiver,
   teamQuestions = [],
@@ -76,7 +77,7 @@ export function SteppedRegistration({
   isAuthed: boolean;
   userEmail?: string;
   userName?: string;
-  loginHref: string;
+  returnTo: string;
   /** Null on a free event, or one that doesn't take payment up front. */
   fee: {
     teamCents: number;
@@ -157,15 +158,10 @@ export function SteppedRegistration({
 
   if (!isAuthed) {
     return (
-      <div className="grid gap-3">
-        <p className="text-muted-foreground text-sm">
-          Sign in to register a team. It takes a moment and keeps your team
-          linked to you.
-        </p>
-        <Button asChild className="justify-self-start">
-          <a href={loginHref}>Sign in to register</a>
-        </Button>
-      </div>
+      <SignInOrCreate
+        returnTo={returnTo}
+        prompt="Registering takes a moment. Your account keeps the team linked to you, so you can add teammates and track payment."
+      />
     );
   }
 

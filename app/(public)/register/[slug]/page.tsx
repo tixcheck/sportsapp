@@ -231,7 +231,7 @@ export default async function RegisterPage({
       userName={
         (user?.user_metadata?.display_name as string | undefined) ?? undefined
       }
-      loginHref={`/login?next=/register/${slug}`}
+      returnTo={`/register/${slug}`}
       fee={
         fee
           ? {
@@ -264,7 +264,7 @@ export default async function RegisterPage({
       rosterSize={ROSTER_SIZE[event.sport]}
       isAuthed={!!user}
       userEmail={user?.email}
-      loginHref={`/login?next=/register/${slug}`}
+      returnTo={`/register/${slug}`}
       action={action}
       divisionLabel={event.divisionLabel}
       teamQuestions={teamQuestions}
@@ -289,7 +289,7 @@ export default async function RegisterPage({
       sport={event.sport}
       isAuthed={!!user}
       userEmail={user?.email}
-      loginHref={`/login?next=/register/${slug}`}
+      returnTo={`/register/${slug}`}
       feeCents={feeSettings.individualFeeCents}
       existing={mySignup}
     />
@@ -433,7 +433,7 @@ export default async function RegisterPage({
                 competitionFull={fullness.competitionFull}
                 isAuthed={!!user}
                 userEmail={user?.email}
-                loginHref={`/login?next=/register/${slug}`}
+                returnTo={`/register/${slug}`}
                 existing={myWaitlistEntry}
                 claimHours={event.waitlistClaimHours}
               />
