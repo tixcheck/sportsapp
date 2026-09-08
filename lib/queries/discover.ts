@@ -2,6 +2,7 @@ import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
+import { notFinishedFilter } from "@/lib/queries/not-finished";
 
 /**
  * Finding a league you play in, without an account.
@@ -74,11 +75,15 @@ function toResult(r: Record_): DiscoverResult {
 }
 
 /**
- * Public competitions matching a free-text query, newest first.
+ * Public competitions matching a free-text query, soonest first.
  *
  * An empty query lists everything public rather than nothing — a player who
  * lands here with no idea what their league is called should see the list, not
  * an empty box telling them to try harder.
+ *
+ * Finished seasons are left out entirely: they read as options, cost a click
+ * and end nowhere. See lib/queries/not-finished.ts for how "finished" is
+ * decided, including the undated King of the Court case.
  */
 export async function findPublicCompetitions(
   query: string,
@@ -97,7 +102,11 @@ export async function findPublicCompetitions(
     // Only types that have a public page. Listing one that doesn't hands the
     // searcher a link to a route that cannot serve it, which is worse than not
     // appearing at all.
-    .in("type", ["league", "tournament", "kotc", "reverse_pairs"]);
+    .in("type", ["league", "tournament", "kotc", "reverse_pairs"])
+    // Only what has not finished. This ANDs with the search filter below —
+    // PostgREST combines repeated `or` params with AND, verified against the
+    // live data rather than assumed.
+    .or(notFinishedFilter());
 
   if (q) {
     // Escape the PostgREST `or` separators so a comma or paren in the query is
@@ -107,7 +116,7 @@ export async function findPublicCompetitions(
   }
 
   const { data, error } = await request
-    .order("start_date", { ascending: false, nullsFirst: false })
+    .order("start_date", { ascending: true, nullsFirst: false })
     .limit(LIMIT);
 
   if (error || !data) return [];
