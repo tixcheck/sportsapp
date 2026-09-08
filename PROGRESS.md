@@ -5,6 +5,49 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-08 (later) — The docs catch up, and stop falling behind
+
+**Shipped.** No product change. A machine restart prompted a check of what was
+actually pushed, which turned up nothing lost — and two documents describing a
+repo that had stopped existing three weeks earlier.
+
+- **`PROGRESS.md` was 80 commits stale** (last entry 2026-08-22) and still
+  ended on "Next: Slice B — paid registration", which shipped long ago. Now
+  covers 2026-08-24 → 2026-09-08. Those entries are reconstructed from commit
+  history rather than written live, so they are shallower than the ones written
+  in the session that shipped them.
+- **`HANDOFF.md` claimed migrations were "written through `0073`"** when `0116`
+  was live — 43 migrations unrecorded. Rather than assert they were applied, a
+  throwaway script parsed every migration from `0074` on for the objects it
+  creates and checked each against the live database. **All present.** Two
+  findings recorded so the next audit doesn't re-investigate them: `0079`'s
+  `one_open_etransfer` index is absent *by design* (`0102` replaces it with the
+  broader `one_open_offline`), and `0075`/`0109` create no schema objects at
+  all, so an existence audit finds nothing in them.
+- **Nothing is pending against the database.**
+
+**The interesting part is why it drifted.** `CLAUDE.md` already said to update
+`PROGRESS.md` every session. An instruction nobody is reminded of is a
+suggestion, so this adds a check that runs: `scripts/docs-staleness.sh` counts
+non-merge commits since each file was last touched, wired to `SessionStart`
+(injects the state into context, so a session opens knowing) and `Stop`
+(reminds the user). Thresholds differ because the files differ — `PROGRESS.md`
+warns at 1 commit, `HANDOFF.md` at 10, since one is a per-session log and the
+other a state snapshot that legitimately goes longer between edits.
+
+**The `Stop` hook is deliberately non-blocking.** A blocking one can trap a
+session in a stop/continue loop, and a documentation reminder should never be
+able to do that; the script also exits 0 silently on any error for the same
+reason. It proved itself immediately — the first run after the hook landed
+flagged the hook's own commit as unlogged, which is this entry.
+
+**Still parked:** off-platform backups. Confirmed today that the workflow is
+`disabled_manually` and **zero** of its six secrets are set, so the nightly
+backup has never run. Steps are in `HANDOFF.md`; it needs a passphrase and S3
+credentials that only the owner can create.
+
+---
+
 ## 2026-09-08 — Ladder weighting, and cleaning up what players see
 
 **Shipped.** A ladder season can now be scored by the tier each week was played
