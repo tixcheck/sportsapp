@@ -165,6 +165,22 @@ export const manageLeagueTiersSchema = z.object({
          * set it.
          */
         venueId: z.string().uuid().nullable().optional(),
+        /**
+         * What a week in this tier is worth in the weighted table: points for
+         * being placed here, and points per set won here.
+         *
+         * Null means UNPRICED, which is different from zero — an unpriced tier
+         * is skipped rather than scored as nothing, so a half-configured
+         * league doesn't quietly tell a team they earned nothing.
+         */
+        weightBase: z.number().int().min(0).max(1000).nullable().optional(),
+        weightPerSetWin: z
+          .number()
+          .int()
+          .min(0)
+          .max(1000)
+          .nullable()
+          .optional(),
       }),
     )
     .max(12, "That's a lot of tiers — cap is 12."),

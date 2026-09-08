@@ -43,6 +43,12 @@ export interface LeagueTier {
    * bind and whichever is reached first closes that choice.
    */
   maxTeams?: number | null;
+  /**
+   * What a week in this tier is worth in the weighted table (migration 0115).
+   * Null = unpriced, which is skipped rather than scored as zero.
+   */
+  weightBase?: number | null;
+  weightPerSetWin?: number | null;
 }
 
 export interface LeagueDetail {
@@ -229,7 +235,7 @@ export async function getLeagueDetail(
 
   const { data: divisionRows } = await supabase
     .from("divisions")
-    .select("id, name, venue_id, max_teams")
+    .select("id, name, venue_id, max_teams, weight_base, weight_per_set_win")
     .eq("competition_id", leagueId)
     .order("tier_order", { ascending: true });
 
@@ -318,6 +324,8 @@ export async function getLeagueDetail(
       name: d.name as string,
       venueId: (d.venue_id as string | null) ?? null,
       maxTeams: (d.max_teams as number | null) ?? null,
+      weightBase: (d.weight_base as number | null) ?? null,
+      weightPerSetWin: (d.weight_per_set_win as number | null) ?? null,
     })),
     maxTeams: (regRow?.max_teams as number | null) ?? null,
     registrationOpen: (regRow?.registration_open as boolean | null) === true,

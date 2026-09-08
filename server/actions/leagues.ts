@@ -437,6 +437,8 @@ export async function manageLeagueTiersAction(
           name: t.name,
           tier_order: i,
           max_teams: t.maxTeams ?? null,
+          weight_base: t.weightBase ?? null,
+          weight_per_set_win: t.weightPerSetWin ?? null,
           venue_id: t.venueId ?? null,
         })
         .eq("id", t.id);
@@ -447,6 +449,8 @@ export async function manageLeagueTiersAction(
         name: t.name,
         tier_order: i,
         max_teams: t.maxTeams ?? null,
+        weight_base: t.weightBase ?? null,
+        weight_per_set_win: t.weightPerSetWin ?? null,
         venue_id: t.venueId ?? null,
       });
       if (error) return { error: error.message };

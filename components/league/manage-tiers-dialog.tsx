@@ -24,6 +24,8 @@ type Row = {
   name: string;
   /** Registration cap for this tier. Null = uncapped. */
   maxTeams: number | null;
+  weightBase?: number | null;
+  weightPerSetWin?: number | null;
   /** The gym this tier plays in. Null = the competition's own venue. */
   venueId: string | null;
 };
@@ -44,6 +46,8 @@ export function ManageTiersDialog({
     id: string;
     name: string;
     maxTeams?: number | null;
+    weightBase?: number | null;
+    weightPerSetWin?: number | null;
     venueId?: string | null;
   }[];
   /** The org's buildings, so a tier can be pinned to one. */
@@ -55,11 +59,15 @@ export function ManageTiersDialog({
     id: string;
     name: string;
     maxTeams?: number | null;
+    weightBase?: number | null;
+    weightPerSetWin?: number | null;
     venueId?: string | null;
   }): Row => ({
     id: t.id,
     name: t.name,
     maxTeams: t.maxTeams ?? null,
+    weightBase: t.weightBase ?? null,
+    weightPerSetWin: t.weightPerSetWin ?? null,
     venueId: t.venueId ?? null,
   });
   const [rows, setRows] = useState<Row[]>(tiers.map(toRow));
@@ -80,6 +88,8 @@ export function ManageTiersDialog({
           id: r.id,
           name: r.name,
           maxTeams: r.maxTeams,
+          weightBase: r.weightBase ?? null,
+          weightPerSetWin: r.weightPerSetWin ?? null,
           venueId: r.venueId,
         })),
       });
@@ -173,6 +183,50 @@ export function ManageTiersDialog({
                     />
                   </label>
 
+                  {/*
+                    Optional, and only meaningful together: a tier with a base
+                    but no per-win rate would score every team the same.
+                  */}
+                  <label className="grid gap-1">
+                    <span className="text-muted-foreground text-xs">
+                      Points for playing in this tier
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      placeholder="Not weighted"
+                      value={r.weightBase ?? ""}
+                      onChange={(e) =>
+                        set({
+                          weightBase: e.target.value
+                            ? Math.max(0, Number(e.target.value))
+                            : null,
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-muted-foreground text-xs">
+                      Points per set won here
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      placeholder="Not weighted"
+                      value={r.weightPerSetWin ?? ""}
+                      onChange={(e) =>
+                        set({
+                          weightPerSetWin: e.target.value
+                            ? Math.max(0, Number(e.target.value))
+                            : null,
+                        })
+                      }
+                    />
+                  </label>
+
                   {venues.length > 0 && (
                     <label className="grid gap-1">
                       <span className="text-muted-foreground text-xs">
@@ -205,7 +259,13 @@ export function ManageTiersDialog({
             onClick={() =>
               setRows((prev) => [
                 ...prev,
-                { name: "", maxTeams: null, venueId: null },
+                {
+                  name: "",
+                  maxTeams: null,
+                  venueId: null,
+                  weightBase: null,
+                  weightPerSetWin: null,
+                },
               ])
             }
           >

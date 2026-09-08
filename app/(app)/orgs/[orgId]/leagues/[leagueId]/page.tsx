@@ -36,6 +36,8 @@ import {
 import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
 import { ManageTiersDialog } from "@/components/league/manage-tiers-dialog";
+import { WeightedStandingsTable } from "@/components/league/weighted-standings-table";
+import { getWeightedStandings } from "@/lib/queries/weighted-standings";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
@@ -154,6 +156,9 @@ export default async function LeaguePage({
   // sixty round trips, and the organizer is scanning for the one or two rows
   // that actually need them.
   const stageFacts = await getTeamStageFacts(league.id);
+  // Empty unless the organizer has priced at least one tier, in which case the
+  // section doesn't render at all.
+  const weighted = await getWeightedStandings(league.id);
   const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
     await Promise.all([
       getCompetitionPaymentSettings(league.id),
@@ -303,51 +308,54 @@ export default async function LeaguePage({
   );
 
   const standingsTab = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Standings</CardTitle>
-        <CardDescription>
-          {ladderNights.length > 0
-            ? "Each night on its own. A ladder's teams change tiers every week, so a season-long table would rank records built against different opposition."
-            : "Live from confirmed scores — the OVA tiebreaker order."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {ladderNights.length > 0 ? (
-          <LadderNightStandings
-            nights={ladderNights}
-            timezone={league.timezone}
-            format={league.matchFormat}
-            sport={league.sport}
-            differential={league.tiebreaker === "differential"}
-          />
-        ) : standings.length > 1 ? (
-          <StandingsGroups
-            groups={standings}
-            showDivision={false}
-            format={league.matchFormat}
-            sport={league.sport}
-            differential={league.tiebreaker === "differential"}
-          />
-        ) : (
-          <>
-            <StandingsTable
-              rows={standings[0]?.rows ?? []}
+    <div className="space-y-6">
+      <WeightedStandingsTable table={weighted} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Standings</CardTitle>
+          <CardDescription>
+            {ladderNights.length > 0
+              ? "Each night on its own. A ladder's teams change tiers every week, so a season-long table would rank records built against different opposition."
+              : "Live from confirmed scores — the OVA tiebreaker order."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {ladderNights.length > 0 ? (
+            <LadderNightStandings
+              nights={ladderNights}
+              timezone={league.timezone}
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
             />
-            {(standings[0]?.rows.length ?? 0) > 0 && (
-              <StandingsLegend
+          ) : standings.length > 1 ? (
+            <StandingsGroups
+              groups={standings}
+              showDivision={false}
+              format={league.matchFormat}
+              sport={league.sport}
+              differential={league.tiebreaker === "differential"}
+            />
+          ) : (
+            <>
+              <StandingsTable
+                rows={standings[0]?.rows ?? []}
                 format={league.matchFormat}
                 sport={league.sport}
                 differential={league.tiebreaker === "differential"}
               />
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+              {(standings[0]?.rows.length ?? 0) > 0 && (
+                <StandingsLegend
+                  format={league.matchFormat}
+                  sport={league.sport}
+                  differential={league.tiebreaker === "differential"}
+                />
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 
   /**
