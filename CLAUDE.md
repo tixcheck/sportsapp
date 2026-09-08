@@ -18,6 +18,7 @@ A volleyball management web app for organizers and players. Free for organizers;
 4. **Ask before broad refactors.** If you're about to touch more than 10 files for a non-feature reason, stop and ask.
 5. **When uncertain about volleyball domain rules (formats, scoring, tiebreakers), refer to `PRD.md` Sections 6 and 8. Do not invent rules.**
 6. **Do not add dependencies casually.** Justify any new package in your message.
+7. **`PROGRESS.md` and `HANDOFF.md` are part of the work, not paperwork after it.** A session that ships anything updates `PROGRESS.md` in the same session, and corrects `HANDOFF.md` wherever it now says something untrue — applied migrations, current state, known quirks. Verify before you write: check the repo or query the live database rather than restating what the file already claims. Both files drifted badly once (`PROGRESS.md` by 80 commits, `HANDOFF.md` by 43 migrations), and a stale handoff is worse than no handoff because the next session believes it. A `SessionStart`/`Stop` hook (`scripts/docs-staleness.sh`) reports when either has fallen behind.
 
 ---
 
@@ -212,7 +213,8 @@ npm run build
 3. Write a 5-bullet plan in the session: data model changes, server actions, UI components, tests, migration steps.
 4. Get to work in this order: schema → migration → pure logic + tests → server action → UI → manual test.
 5. Commit with a descriptive message.
-6. Update `PROGRESS.md` (a simple log of what shipped in each session).
+6. Update `PROGRESS.md` (what shipped, and why the non-obvious calls were made).
+7. Update `HANDOFF.md` if this changed the live state — a migration applied, a new gotcha, anything the "Current state" section now gets wrong.
 
 ---
 
