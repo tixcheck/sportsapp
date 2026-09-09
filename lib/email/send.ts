@@ -48,6 +48,10 @@ import {
   RegistrationConfirmedEmail,
   type RegistrationConfirmedEmailProps,
 } from "./templates/registration-confirmed";
+import {
+  AuthActionEmail,
+  type AuthActionEmailProps,
+} from "./templates/auth-action";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -485,3 +489,29 @@ export function sendRegistrationConfirmed(
     react: RegistrationConfirmedEmail(props),
   });
 }
+
+/**
+ * The auth emails, which Supabase would otherwise send from a global template.
+ *
+ * Unlike every other send here this one is NOT best-effort: it stands between a
+ * captain and an account, so the caller needs to know whether it worked and
+ * Supabase needs to be told when it did not.
+ */
+export function sendAuthAction(
+  to: string,
+  props: AuthActionEmailProps,
+): Promise<SendResult> {
+  const subject = SUBJECTS[props.action];
+  return dispatch({
+    to,
+    subject: props.contextName ? `${subject} — ${props.contextName}` : subject,
+    react: AuthActionEmail(props),
+  });
+}
+
+const SUBJECTS: Record<AuthActionEmailProps["action"], string> = {
+  confirm: "Confirm your email",
+  magiclink: "Your sign-in link",
+  recovery: "Reset your password",
+  email_change: "Confirm your new email address",
+};
