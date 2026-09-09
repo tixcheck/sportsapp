@@ -920,23 +920,30 @@ export async function startOfflinePaymentAction(
   const [{ data: org }, { data: teamRow }, origin] = await Promise.all([
     supabase
       .from("organizations")
-      .select("name, contact_email")
+      .select("name, logo_url, contact_email")
       .eq("id", c.org_id)
       .maybeSingle(),
     supabase.from("teams").select("name").eq("id", team.data).maybeSingle(),
     getOrigin(),
   ]);
 
+  const orgRow = org as {
+    name: string;
+    logo_url: string | null;
+    contact_email: string | null;
+  } | null;
+
   const common = {
     teamName: (teamRow as { name: string } | null)?.name ?? "Your team",
     competitionName: c.name,
-    organizerName: (org as { name: string } | null)?.name ?? "the organizer",
+    organizerName: orgRow?.name ?? "the organizer",
+    // The payer chose to pay THIS organizer directly, so the email asking for
+    // the money should look like it came from them.
+    brand: orgRow ? { name: orgRow.name, logoUrl: orgRow.logo_url } : undefined,
     amount: formatCents(charge.totalCents),
     teamUrl: `${origin}/teams/${team.data}`,
   };
-  const replyTo =
-    (org as { contact_email: string | null } | null)?.contact_email ??
-    undefined;
+  const replyTo = orgRow?.contact_email ?? undefined;
 
   if (user.email) {
     if (method === "paypal") {

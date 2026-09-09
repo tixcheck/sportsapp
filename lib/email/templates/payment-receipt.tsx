@@ -1,8 +1,16 @@
 import { Text } from "@react-email/components";
 
-import { EmailDetails, EmailLayout, emailColors, emailText } from "./layout";
+import {
+  EmailDetails,
+  EmailLayout,
+  emailColors,
+  emailText,
+  type EmailBrand,
+} from "./layout";
 
 export interface PaymentReceiptEmailProps {
+  /** The organizer, so the email looks like theirs rather than ours. */
+  brand?: EmailBrand;
   competitionName: string;
   teamName: string;
   /** Formatted total the payer was charged, e.g. "$104.32". */
@@ -37,6 +45,7 @@ export interface PaymentReceiptEmailProps {
  * money without saying so.
  */
 export function PaymentReceiptEmail({
+  brand,
   competitionName,
   teamName,
   total,
@@ -51,6 +60,7 @@ export function PaymentReceiptEmail({
 }: PaymentReceiptEmailProps) {
   return (
     <EmailLayout
+      brand={brand}
       preview={`${total} paid for ${competitionName}`}
       heading="Thanks — payment received"
     >

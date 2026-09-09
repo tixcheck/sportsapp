@@ -15,7 +15,7 @@ import {
 import { refundBreakdown, refundableCents } from "@/lib/payments/refunds";
 import { teamPaymentState } from "@/lib/payments/registration-plan";
 import { formatCents } from "@/lib/payments/format";
-import { sendPaymentRequest } from "@/lib/email/send";
+import { sendPaymentConfirmed, sendPaymentRequest } from "@/lib/email/send";
 import { getOrigin } from "@/lib/utils/url";
 
 type ActionError = { error: string };
@@ -655,9 +655,99 @@ export async function confirmOfflinePaymentAction(
     return { error: "That couldn't be saved. Please try again." };
   }
 
+  // Nothing told the payer this had landed. PayPal and e-transfer reach the
+  // organizer directly, so their tick in the app was the only signal the money
+  // had arrived - and the captain could not see it. Best-effort: a failed
+  // notification must not undo a payment that is already recorded.
+  await notifyPayerConfirmed(supabase, parsed.data.paymentId, data === true);
+
   revalidatePath("/orgs");
   return { confirmed: true, teamAdmitted: data === true };
 }
+
+/**
+ * Tell the payer their offline payment was confirmed.
+ *
+ * The balance is re-read rather than inferred from what the organizer typed:
+ * part payments are ordinary here, and a receipt that says "confirmed" over a
+ * half-paid entry is the one thing likely to stop someone paying the rest.
+ */
+async function notifyPayerConfirmed(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  paymentId: string,
+  admitted: boolean,
+): Promise<void> {
+  try {
+    const { data: pay } = await supabase
+      .from("registration_payments")
+      .select(
+        "competition_id, team_id, payer_email, total_cents, method, status",
+      )
+      .eq("id", paymentId)
+      .maybeSingle();
+    if (!pay) return;
+    const p = pay as {
+      competition_id: string;
+      team_id: string | null;
+      payer_email: string | null;
+      total_cents: number;
+      method: string | null;
+      status: string;
+    };
+    if (!p.payer_email || !p.team_id) return;
+
+    const [{ data: comp }, { data: team }, origin] = await Promise.all([
+      supabase
+        .from("competitions")
+        .select("name, org_id")
+        .eq("id", p.competition_id)
+        .maybeSingle(),
+      supabase.from("teams").select("name").eq("id", p.team_id).maybeSingle(),
+      getOrigin(),
+    ]);
+    if (!comp) return;
+    const c = comp as { name: string; org_id: string };
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name, logo_url, contact_email")
+      .eq("id", c.org_id)
+      .maybeSingle();
+    const o = org as {
+      name: string;
+      logo_url: string | null;
+      contact_email: string | null;
+    } | null;
+
+    // "pending" after a confirm means the amount did not cover the fee.
+    const owing = p.status === "pending";
+
+    await sendPaymentConfirmed(
+      p.payer_email,
+      {
+        brand: o ? { name: o.name, logoUrl: o.logo_url } : undefined,
+        teamName: (team as { name: string } | null)?.name ?? "Your team",
+        competitionName: c.name,
+        amount: formatCents(p.total_cents),
+        method: METHOD_LABELS[p.method ?? ""] ?? "a direct payment",
+        outstanding: owing ? "The remaining balance" : null,
+        admitted,
+        reference: null,
+        teamUrl: `${origin}/teams/${p.team_id}`,
+      },
+      o?.contact_email ?? undefined,
+    );
+  } catch {
+    // A notification must never undo a recorded payment.
+  }
+}
+
+const METHOD_LABELS: Record<string, string> = {
+  paypal: "PayPal",
+  etransfer: "e-transfer",
+  cash: "cash",
+  card: "card",
+};
 
 /** @deprecated Use {@link confirmOfflinePaymentAction}. */
 export async function confirmEtransferAction(

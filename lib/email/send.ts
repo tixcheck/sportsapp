@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { render } from "@react-email/components";
 import type { ReactElement } from "react";
 
+import type { EmailBrand } from "./templates/layout";
 import { InviteEmail } from "./templates/invite";
 import {
   ConfirmScoreEmail,
@@ -56,6 +57,10 @@ import {
   AccountExistsEmail,
   type AccountExistsEmailProps,
 } from "./templates/account-exists";
+import {
+  PaymentConfirmedEmail,
+  type PaymentConfirmedEmailProps,
+} from "./templates/payment-confirmed";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -349,6 +354,7 @@ export async function sendOrgMessageBatch(
 }
 
 export interface EtransferInstructionsProps {
+  brand?: EmailBrand;
   teamName: string;
   competitionName: string;
   organizerName: string;
@@ -381,6 +387,7 @@ export function sendEtransferInstructions(
 }
 
 export interface PaypalInstructionsProps {
+  brand?: EmailBrand;
   teamName: string;
   competitionName: string;
   organizerName: string;
@@ -535,5 +542,27 @@ export function sendAccountExists(
     to,
     subject: "You already have an account",
     react: AccountExistsEmail(props),
+  });
+}
+
+/**
+ * The organizer has confirmed money they received directly.
+ *
+ * The subject distinguishes a part payment from a settled one, because the two
+ * ask different things of the reader and a captain who owes a balance should
+ * be able to see that without opening anything.
+ */
+export function sendPaymentConfirmed(
+  to: string,
+  props: PaymentConfirmedEmailProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    replyTo,
+    subject: props.outstanding
+      ? `Part payment received for ${props.teamName} — ${props.outstanding} to go`
+      : `Payment received — ${props.teamName} is confirmed`,
+    react: PaymentConfirmedEmail(props),
   });
 }
