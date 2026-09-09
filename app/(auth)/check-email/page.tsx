@@ -23,6 +23,9 @@ export default async function CheckEmailPage({
   const retryHref = sp.next
     ? `/signup?next=${encodeURIComponent(sp.next)}`
     : "/signup";
+  const signInHref = sp.next
+    ? `/login?next=${encodeURIComponent(sp.next)}`
+    : "/login";
 
   return (
     <Card>
@@ -43,6 +46,22 @@ export default async function CheckEmailPage({
             in your inbox.
           </p>
         </div>
+        {/*
+          Shown to everyone, deliberately. Supabase will not say whether an
+          address already has an account - so somebody signing up a second time
+          is told to check an inbox nothing is coming to. They get an email
+          explaining that, but this is the same answer on the screen in front of
+          them, and it gives away nothing that a sign-in page doesn't.
+        */}
+        <p className="text-muted-foreground text-sm">
+          <span className="text-foreground font-medium">Signed up before?</span>{" "}
+          If this address already has an account, there&apos;s no new link to
+          send &mdash;{" "}
+          <Link href={signInHref} className="text-primary hover:underline">
+            sign in instead
+          </Link>
+          .
+        </p>
         <p className="text-muted-foreground text-sm">
           It can take a minute to arrive. Still nothing?{" "}
           <Link href={retryHref} className="text-primary hover:underline">
