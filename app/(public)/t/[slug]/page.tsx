@@ -2,15 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
-import { CalendarDays, Clock, MapPin } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock, MapPin } from "lucide-react";
 
 import { getPoolsView, getPublicTournament } from "@/lib/queries/tournaments";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
-import { getUser } from "@/lib/auth/user";
-import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
-import { RegistrationForm } from "@/components/tournament/registration-form";
+import { SPORTS } from "@/lib/formats";
 import { TournamentTabs } from "@/components/public/tournament-tabs";
 import {
   Card,
@@ -19,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export async function generateMetadata({
   params,
@@ -39,10 +38,7 @@ export default async function PublicTournamentPage({
 }) {
   const { slug } = await params;
   const { tab } = await searchParams;
-  const [tournament, user] = await Promise.all([
-    getPublicTournament(slug),
-    getUser(),
-  ]);
+  const tournament = await getPublicTournament(slug);
   if (!tournament) notFound();
   const [poolsView, standings, brackets, myTeamIds, scorableMatchIds] =
     await Promise.all([
@@ -112,6 +108,12 @@ export default async function PublicTournamentPage({
       </header>
 
       <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
+        {/*
+          Registration lives on /register/<slug>, and ONLY there - this page
+          used to render the raw form inline, skipping the waiver, the
+          registration questions, the address and the fee step. See the same
+          note on the league page.
+        */}
         {tournament.registrationOpen && (
           <Card>
             <CardHeader>
@@ -123,14 +125,12 @@ export default async function PublicTournamentPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RegistrationForm
-                competitionId={tournament.id}
-                divisions={tournament.divisions}
-                rosterSize={ROSTER_SIZE[tournament.sport]}
-                isAuthed={!!user}
-                userEmail={user?.email}
-                returnTo={`/t/${slug}`}
-              />
+              <Button asChild>
+                <Link href={`/register/${slug}`}>
+                  Go to registration
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         )}
