@@ -7,6 +7,7 @@ import { DateTime } from "luxon";
 import { createClient } from "@/lib/supabase/server";
 import { teamNameError } from "@/lib/teams/name-errors";
 import { getOrigin } from "@/lib/utils/url";
+import { notifyRegistrationConfirmed } from "@/lib/email/registration-notice";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { formatDateRange } from "@/lib/utils/dates";
@@ -321,8 +322,17 @@ export async function registerTeamAction(
     return { error: teamNameError(error) ?? error.message };
   }
 
+  const teamId = data as string;
+
+  await notifyRegistrationConfirmed(
+    supabase,
+    competitionId,
+    teamId,
+    await getOrigin(),
+  );
+
   revalidatePath(`/orgs`);
-  return { teamId: data as string };
+  return { teamId };
 }
 
 /** Organizer manually adds a team (with a captain invite) to a division. */
