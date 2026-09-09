@@ -5,6 +5,75 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-08 (later still) — The registration emails a BVL captain actually needed
+
+**Shipped.** An organizer reported that confirming your email dropped you on the
+home page with no idea how to finish registering, and asked for emails carrying
+their own branding and league details. Three changes, in increasing order of
+how much they required.
+
+**The redirect was not broken where it looked broken.** The destination already
+rode the whole chain — `/signup?next=` into `emailRedirectTo` into the callback
+— and reading it end to end, it was correct. The link we do not control is
+Supabase's: it validates `emailRedirectTo` against the project's Redirect URLs
+allow list and, on no match, **silently substitutes the Site URL**. The code
+then lands at `/` where nothing spends it. That allow list still wants fixing
+in the dashboard, but the flow should never have depended on a setting
+invisible from the code, so two fallbacks now sit behind the URL: middleware
+forwards any page carrying an auth code to `/auth/callback`, and sign-up writes
+the destination to a short-lived `pending_registration` cookie the callback
+reads only when the URL has lost it.
+
+Two details worth keeping. A bare `code` is treated as auth **only** when
+shaped like a PKCE UUID — "code" is a plausible name for a discount or referral
+code on a page of ours, and hijacking those would be a worse bug than the one
+being fixed. And the cookie is `SameSite=Lax` by necessity, not by habit: the
+click is a top-level GET from a mail client on another origin, which `Strict`
+would withhold the cookie on.
+
+**Nothing was emailed to a captain who finished registering.** Their teammates
+got invites, so the one person who did the work heard nothing back and the
+organizer was fielding "did that go through?" by text. There is now a branded
+confirmation with the details a captain will not remember in a month — night
+and time, season dates, venue, fee — and, when anything is outstanding, a
+checklist that leads. That ordering is the point: a team admitted pending
+payment is **not** entered, and "you're all set" to a side that still owes a
+waiver is how it turns up to a schedule it is not on.
+
+**Branding is per organization, not per platform.** A player signed up for BVL,
+not for MySportsApp. `EmailLayout` gained an optional `brand` — the organizer's
+logo above the heading, their name in the footer, a reply-to of their own
+address — because the questions these emails prompt are theirs to answer, and a
+noreply turns each one into a phone call.
+
+**The confirmation email itself needed Supabase's Send Email Hook**, since its
+own template is one global thing for the whole platform and can carry neither a
+logo nor a league name. We now render and send it through Resend. The
+unexpected payoff: sending it ourselves means the link points straight at our
+own callback with the token hash, so the Redirect URLs allow list **stops being
+able to break the flow at all**. Standard Webhooks signature verification is
+written out against `node:crypto` rather than pulled in — it is twenty lines,
+and the alternative was a dependency on the critical path of every sign-up.
+
+**That route is the most dangerous thing here**, and is built accordingly: with
+the hook enabled, a failure fails the sign-up. Everything decorative degrades
+instead of throwing — a branding lookup that dies still sends the email,
+unbranded — and only a bad signature or a send that did not send is allowed to
+fail the request. **It is not switched on yet**; the two dashboard steps, in the
+order that avoids breaking every sign-up on the platform, are in `HANDOFF.md`.
+
+**One gap, stated rather than hidden.** The email templates have no automated
+render test. `tsconfig` sets `jsx: "preserve"` for Next and Vite reads that for
+`.tsx`, so vitest cannot parse a template — no test in this repo had imported
+one before. Both new templates were verified by rendering them directly under
+an overridden JSX setting, but that is a check I ran, not one CI will re-run.
+Closing it needs `@vitejs/plugin-react`, which is a dependency decision rather
+than something to slip into this change. 33 unit tests cover the parts that
+could be tested: the stray-callback detection, the summary and checklist logic,
+the signature verification, and the hook payload parsing.
+
+---
+
 ## 2026-09-08 (later) — The docs catch up, and stop falling behind
 
 **Shipped.** No product change. A machine restart prompted a check of what was

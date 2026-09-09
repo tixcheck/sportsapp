@@ -360,6 +360,49 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
+## ⚠️ NOT LIVE YET — the Supabase Send Email Hook
+
+The code to send our own auth emails is merged and deployed. **The hook itself
+is not switched on**, so Supabase is still sending its own global template and
+the reported bug is still reproducible in the way described below. Two steps,
+both in the Supabase dashboard, and the ORDER MATTERS.
+
+**Turning it on with the secret missing breaks every sign-up on the platform.**
+`app/api/webhooks/supabase-email` returns 500 without `SUPABASE_AUTH_HOOK_SECRET`,
+and a Send Email Hook that fails fails the auth request with it. Set the
+environment variable first, confirm the deploy carrying it is live, then enable
+the hook.
+
+1. **Vercel → Settings → Environment Variables.** Add `SUPABASE_AUTH_HOOK_SECRET`
+   for Production (and Preview if you test there). Its value is the secret from
+   step 2 — so generate that first, paste it here, and redeploy.
+2. **Supabase → Authentication → Hooks → Send Email Hook.** Enable it, point it
+   at `https://mysportsapp.ca/api/webhooks/supabase-email`, and copy the signing
+   secret it generates (`v1,whsec_…`) into step 1.
+3. Sign up with a throwaway address from a real league's registration page and
+   confirm three things: the email carries the ORGANIZER's logo, it names the
+   league, and the link returns you to `/register/<slug>` rather than the home
+   page.
+
+**Why this exists.** Supabase's confirmation link goes to its own verify
+endpoint, which honours `redirect_to` only when that URL is in
+**Authentication → URL Configuration → Redirect URLs**, and silently substitutes
+the Site URL when it is not. That is what put a BVL captain on the marketing
+home page, signed out, with no idea how to finish registering. Sending the email
+ourselves lets the link point straight at `/auth/callback` with the token hash,
+so that allow list can no longer break the flow.
+
+**Worth doing anyway, whether or not the hook goes on:** add
+`https://mysportsapp.ca/**` to that Redirect URLs allow list. It is the actual
+root cause, it is a one-minute change, and it fixes the flow for the existing
+Supabase-sent emails immediately.
+
+**The fallbacks are already live and need no configuration.** Middleware
+forwards any page carrying an auth code to `/auth/callback`, and sign-up writes
+the destination to a `pending_registration` cookie the callback reads when the
+URL has lost it. So a captain confirming today already gets back to their
+registration — the hook is what makes the EMAIL itself carry BVL's branding.
+
 ## ⚠️ PARKED — off-platform backups are built but switched OFF
 
 Added 2026-08-26. `.github/workflows/backup.yml` exists, is merged, and is
