@@ -482,10 +482,19 @@ DATABASE_URL=                           # Supabase transaction pooler
 RESEND_API_KEY=                         # re_...
 EMAIL_FROM=MySportsApp <noreply@mysportsapp.ca>
 CRON_SECRET=                            # guards the scheduled digest route
+GOOGLE_PLACES_API_KEY=                  # address autocomplete at registration
+STRIPE_SECRET_KEY=                      # sk_live_...  ⚠️ LIVE
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=     # pk_live_...  ⚠️ LIVE
+STRIPE_WEBHOOK_SECRET=                  # whsec_...    live endpoint
+SUPABASE_AUTH_HOOK_SECRET=              # NOT SET YET — see the Send Email Hook section
 ```
 
-Coming with payments (not yet present anywhere): `STRIPE_SECRET_KEY`,
-`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` — test set first.
+**⚠️ Stripe is on LIVE keys, not test.** Switched over 2026-08-20 with a live
+webhook endpoint to match. Anything that takes a payment in this project now
+moves real money, and a card charge made while testing is a real charge that
+needs a real refund. This file previously said these keys were "not yet present
+anywhere", which was three weeks out of date — corrected 2026-09-09 after
+reading them out of `.env.local`.
 
 - The **running app does not use `DATABASE_URL`** (it goes through the Supabase
   client) — only Drizzle migrations / `db:studio` do. The pooler password was
