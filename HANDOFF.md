@@ -377,8 +377,25 @@ the hook.
    for Production (and Preview if you test there). Its value is the secret from
    step 2 — so generate that first, paste it here, and redeploy.
 2. **Supabase → Authentication → Hooks → Send Email Hook.** Enable it, point it
-   at `https://mysportsapp.ca/api/webhooks/supabase-email`, and copy the signing
-   secret it generates (`v1,whsec_…`) into step 1.
+   at **`https://www.mysportsapp.ca/api/webhooks/supabase-email`** — the `www.`
+   is not optional — and copy the signing secret it generates (`v1,whsec_…`)
+   into step 1.
+
+   **Use the `www` host.** The apex 308-redirects to `www`, and a webhook caller
+   that follows redirects badly (or not at all) sees a failed delivery. This is
+   the SAME trap the Stripe webhook hit — recorded below under what shipped —
+   and it costs an hour to diagnose because the endpoint looks fine in a browser.
+   Verified 2026-09-09:
+
+   ```
+   POST https://mysportsapp.ca/api/webhooks/supabase-email      -> 308 -> www
+   POST https://www.mysportsapp.ca/api/webhooks/supabase-email  -> 500 {"error":"not configured"}
+   ```
+
+   That 500 is the CORRECT answer for an unconfigured endpoint, and it is how to
+   check this without the dashboard: `500 {"error":"not configured"}` means the
+   route is deployed and the secret is missing; `401 {"error":"invalid
+   signature"}` means the secret is set and the endpoint is ready for step 2.
 3. Sign up with a throwaway address from a real league's registration page and
    confirm three things: the email carries the ORGANIZER's logo, it names the
    league, and the link returns you to `/register/<slug>` rather than the home
@@ -392,8 +409,9 @@ home page, signed out, with no idea how to finish registering. Sending the email
 ourselves lets the link point straight at `/auth/callback` with the token hash,
 so that allow list can no longer break the flow.
 
-**Worth doing anyway, whether or not the hook goes on:** add
-`https://mysportsapp.ca/**` to that Redirect URLs allow list. It is the actual
+**Worth doing anyway, whether or not the hook goes on:** add both
+`https://mysportsapp.ca/**` and `https://www.mysportsapp.ca/**` to that Redirect
+URLs allow list. It is the actual
 root cause, it is a one-minute change, and it fixes the flow for the existing
 Supabase-sent emails immediately.
 
