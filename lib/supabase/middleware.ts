@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+import { detectStrayCallback } from "@/lib/auth/stray-callback";
+
 /** Route prefixes that require an authenticated user. */
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -18,6 +20,17 @@ const PROTECTED_PREFIXES = [
  * be the one returned so refreshed auth cookies are propagated.
  */
 export async function updateSession(request: NextRequest) {
+  const stray = detectStrayCallback(
+    request.nextUrl.pathname,
+    request.nextUrl.searchParams,
+  );
+  if (stray) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    if (stray.next) url.searchParams.set("next", stray.next);
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
