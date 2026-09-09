@@ -9,6 +9,8 @@ import {
   isRegistrationPath,
   pendingRegistrationCookieOptions,
 } from "@/lib/auth/pending-registration";
+import { isExistingUser } from "@/lib/auth/existing-user";
+import { sendAccountExists } from "@/lib/email/send";
 import { getOrigin } from "@/lib/utils/url";
 import { safeNext } from "@/lib/utils/safe-next";
 import {
@@ -62,6 +64,19 @@ export async function signUpAction(
     },
   });
   if (error) return { error: error.message };
+
+  // Supabase answers a sign-up for an address that already has an account with
+  // a success-shaped reply and no email, so nobody can use this form to test
+  // who has an account here. Keep that response identical - and put the truth
+  // where only the owner of the address can read it, because otherwise they sit
+  // on "check your email" waiting for a message that is never coming.
+  if (isExistingUser(data.user, data.session)) {
+    await sendAccountExists(parsed.data.email, {
+      signInUrl: `${origin}/login?next=${encodeURIComponent(destination)}`,
+      resetUrl: `${origin}/forgot-password`,
+    });
+    redirect(`/check-email?next=${encodeURIComponent(destination)}`);
+  }
 
   // Belt and braces for the destination. Supabase drops `emailRedirectTo` when
   // it is not in the project's Redirect URLs allow list, and silently

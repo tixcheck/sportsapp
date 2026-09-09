@@ -52,6 +52,10 @@ import {
   AuthActionEmail,
   type AuthActionEmailProps,
 } from "./templates/auth-action";
+import {
+  AccountExistsEmail,
+  type AccountExistsEmailProps,
+} from "./templates/account-exists";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -515,3 +519,21 @@ const SUBJECTS: Record<AuthActionEmailProps["action"], string> = {
   recovery: "Reset your password",
   email_change: "Confirm your new email address",
 };
+
+/**
+ * "You already have an account", to an address that just tried to sign up again.
+ *
+ * Best-effort like the rest: the browser has already been told to check its
+ * email, and a failure here must not change what the sign-up form reports —
+ * that identical response is the whole enumeration protection.
+ */
+export function sendAccountExists(
+  to: string,
+  props: AccountExistsEmailProps,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: "You already have an account",
+    react: AccountExistsEmail(props),
+  });
+}
