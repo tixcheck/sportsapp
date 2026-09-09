@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, MapPin } from "lucide-react";
+import { ArrowRight, CalendarDays, MapPin } from "lucide-react";
 
 import { DateTime } from "luxon";
 
@@ -13,10 +13,7 @@ import { defaultScheduleDay } from "@/lib/schedule/default-day";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
-import { getUser } from "@/lib/auth/user";
-import { ROSTER_SIZE, SPORTS } from "@/lib/formats";
-import { registerLeagueTeamAction } from "@/server/actions/leagues";
-import { RegistrationForm } from "@/components/tournament/registration-form";
+import { SPORTS } from "@/lib/formats";
 import { LeagueTabs } from "@/components/public/league-tabs";
 import {
   Card,
@@ -25,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export async function generateMetadata({
   params,
@@ -47,7 +45,7 @@ export default async function PublicLeaguePage({
 }) {
   const { slug } = await params;
   const { tab } = await searchParams;
-  const [league, user] = await Promise.all([getPublicLeague(slug), getUser()]);
+  const league = await getPublicLeague(slug);
   if (!league) notFound();
   const [
     standings,
@@ -125,6 +123,15 @@ export default async function PublicLeaguePage({
       </header>
 
       <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
+        {/*
+          Registration lives on /register/<slug>, and ONLY there.
+          This page used to render the raw form inline, which quietly bypassed
+          everything the registration page does: no waiver, no registration
+          questions, no address, no fee or payment-mode step, and no individual
+          sign-up option. A captain who arrived here instead of there could
+          enter a team having agreed to nothing and answered nothing - a back
+          door, not a shortcut. So this is a signpost now.
+        */}
         {league.registrationOpen && (
           <Card>
             <CardHeader>
@@ -136,16 +143,12 @@ export default async function PublicLeaguePage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RegistrationForm
-                competitionId={league.id}
-                divisions={league.tiers}
-                rosterSize={ROSTER_SIZE[league.sport]}
-                isAuthed={!!user}
-                userEmail={user?.email}
-                returnTo={`/l/${slug}`}
-                action={registerLeagueTeamAction}
-                divisionLabel="Tier"
-              />
+              <Button asChild>
+                <Link href={`/register/${slug}`}>
+                  Go to registration
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         )}
