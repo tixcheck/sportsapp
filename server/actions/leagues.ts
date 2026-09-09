@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { recordMatchAudit } from "@/lib/audit/match-audit";
 import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
+import { notifyRegistrationConfirmed } from "@/lib/email/registration-notice";
 import { teamNameError } from "@/lib/teams/name-errors";
 import { generateToken } from "@/lib/utils/token";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
@@ -566,13 +567,25 @@ export async function registerLeagueTeamAction(
   });
   if (error) return { error: teamNameError(error) ?? error.message };
 
+  const teamId = data as string;
+
+  // Best-effort, and deliberately awaited: a Server Action's work stops when it
+  // returns, so firing this off unawaited would race the response and drop the
+  // send. See lib/email/registration-notice.ts - it swallows its own failures.
+  await notifyRegistrationConfirmed(
+    supabase,
+    competitionId,
+    teamId,
+    await getOrigin(),
+  );
+
   const { data: comp } = await supabase
     .from("competitions")
     .select("slug")
     .eq("id", competitionId)
     .single();
   if (comp?.slug) revalidatePath(`/l/${comp.slug}`);
-  return { teamId: data as string };
+  return { teamId };
 }
 
 /**

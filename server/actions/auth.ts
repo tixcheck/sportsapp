@@ -1,8 +1,14 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  PENDING_REGISTRATION_COOKIE,
+  isRegistrationPath,
+  pendingRegistrationCookieOptions,
+} from "@/lib/auth/pending-registration";
 import { getOrigin } from "@/lib/utils/url";
 import { safeNext } from "@/lib/utils/safe-next";
 import {
@@ -56,6 +62,18 @@ export async function signUpAction(
     },
   });
   if (error) return { error: error.message };
+
+  // Belt and braces for the destination. Supabase drops `emailRedirectTo` when
+  // it is not in the project's Redirect URLs allow list, and silently
+  // substitutes the Site URL - the captain then lands on the home page with no
+  // idea they were mid-registration. See lib/auth/pending-registration.ts.
+  if (isRegistrationPath(destination)) {
+    (await cookies()).set(
+      PENDING_REGISTRATION_COOKIE,
+      destination,
+      pendingRegistrationCookieOptions,
+    );
+  }
 
   // If email confirmation is required, there is no session yet. Carry the
   // destination onto the check-email page so it can name where they will land.

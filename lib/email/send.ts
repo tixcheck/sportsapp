@@ -44,6 +44,10 @@ import {
   PaymentRefundEmail,
   type PaymentRefundEmailProps,
 } from "./templates/payment-refund";
+import {
+  RegistrationConfirmedEmail,
+  type RegistrationConfirmedEmailProps,
+} from "./templates/registration-confirmed";
 
 /**
  * Email is best-effort everywhere: if RESEND_API_KEY isn't set (or a send
@@ -455,5 +459,29 @@ export function sendWaitlistOffer(
     subject: `A spot has opened — ${props.competitionName}`,
     react: WaitlistOfferEmail(props),
     replyTo,
+  });
+}
+
+/**
+ * "You're in" to the captain who just registered.
+ *
+ * Reply-to is the organizer's own address wherever we have one: the questions
+ * this email prompts ("is the venue confirmed?", "when do we start?") are the
+ * organizer's to answer, and a noreply address turns each one into a phone call
+ * they field instead.
+ */
+export function sendRegistrationConfirmed(
+  to: string,
+  props: RegistrationConfirmedEmailProps,
+): Promise<SendResult> {
+  const subject = props.outstanding.length
+    ? `Almost there — ${props.teamName} in ${props.competitionName}`
+    : `${props.teamName} is registered for ${props.competitionName}`;
+
+  return dispatch({
+    to,
+    replyTo: props.organizerEmail ?? undefined,
+    subject,
+    react: RegistrationConfirmedEmail(props),
   });
 }

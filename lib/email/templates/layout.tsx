@@ -6,6 +6,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Link,
   Preview,
   Section,
@@ -31,19 +32,35 @@ export const emailText: React.CSSProperties = {
 };
 
 /**
+ * Who the email is from, as the reader understands it.
+ *
+ * A player signed up for BVL, not for MySportsApp — an organizer asked for
+ * their own logo on these for exactly that reason. The platform stays in the
+ * footer; the top of the email belongs to whoever is running the league.
+ */
+export interface EmailBrand {
+  name: string;
+  /** Organizer-uploaded, so it may be absent — the name alone still brands it. */
+  logoUrl?: string | null;
+}
+
+/**
  * Shared shell for every transactional/digest email — consistent Sunset Sand
  * look. `unsubscribeUrl` adds the one-click footer (digest only; legal).
+ * `brand` puts the organizer's name and logo above the heading.
  */
 export function EmailLayout({
   preview,
   heading,
   children,
   unsubscribeUrl,
+  brand,
 }: {
   preview: string;
   heading: string;
   children: ReactNode;
   unsubscribeUrl?: string;
+  brand?: EmailBrand;
 }) {
   return (
     <Html>
@@ -68,6 +85,32 @@ export function EmailLayout({
             padding: "32px",
           }}
         >
+          {brand ? (
+            <Section style={{ margin: "0 0 20px" }}>
+              {brand.logoUrl ? (
+                <Img
+                  src={brand.logoUrl}
+                  alt={brand.name}
+                  height="40"
+                  style={{ display: "block", maxHeight: "40px", width: "auto" }}
+                />
+              ) : (
+                <Text
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                    color: C.muted,
+                    margin: 0,
+                  }}
+                >
+                  {brand.name}
+                </Text>
+              )}
+            </Section>
+          ) : null}
+
           <Heading
             style={{ fontSize: "22px", margin: "0 0 16px", color: C.text }}
           >
@@ -76,7 +119,8 @@ export function EmailLayout({
           {children}
           <Hr style={{ borderColor: C.border, margin: "24px 0 12px" }} />
           <Text style={{ fontSize: "12px", color: C.muted, margin: 0 }}>
-            MySportsApp · leagues, tournaments and ladders.
+            {brand ? `${brand.name} · sent via MySportsApp` : "MySportsApp"} ·
+            leagues, tournaments and ladders.
             {unsubscribeUrl ? (
               <>
                 {" "}
