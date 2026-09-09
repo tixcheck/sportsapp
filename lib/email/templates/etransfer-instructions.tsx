@@ -6,9 +6,12 @@ import {
   MutedLink,
   emailColors,
   emailText,
+  type EmailBrand,
 } from "./layout";
 
 export interface EtransferInstructionsEmailProps {
+  /** The organizer, so the email looks like theirs rather than ours. */
+  brand?: EmailBrand;
   teamName: string;
   competitionName: string;
   organizerName: string;
@@ -31,6 +34,7 @@ export interface EtransferInstructionsEmailProps {
  * turning up to a game they aren't in.
  */
 export function EtransferInstructionsEmail({
+  brand,
   teamName,
   competitionName,
   organizerName,
@@ -41,6 +45,7 @@ export function EtransferInstructionsEmail({
 }: EtransferInstructionsEmailProps) {
   return (
     <EmailLayout
+      brand={brand}
       preview={`Send ${amount} to ${etransferEmail} to confirm ${teamName}`}
       heading={`${teamName} is registered — one step left`}
     >

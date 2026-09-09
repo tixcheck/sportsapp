@@ -7,9 +7,12 @@ import {
   MutedLink,
   emailColors,
   emailText,
+  type EmailBrand,
 } from "./layout";
 
 export interface PaymentRequestEmailProps {
+  /** The organizer, so the email looks like theirs rather than ours. */
+  brand?: EmailBrand;
   /** "Summer Slam 2026" */
   competitionName: string;
   teamName: string;
@@ -43,6 +46,7 @@ export interface PaymentRequestEmailProps {
  * owes for something they signed up for, not marketing.
  */
 export function PaymentRequestEmail({
+  brand,
   competitionName,
   teamName,
   outstanding,
@@ -53,6 +57,7 @@ export function PaymentRequestEmail({
 }: PaymentRequestEmailProps) {
   return (
     <EmailLayout
+      brand={brand}
       preview={`${outstanding} left to pay for ${competitionName}`}
       heading="Your registration isn't finished yet"
     >

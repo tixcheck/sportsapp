@@ -6,9 +6,12 @@ import {
   MutedLink,
   emailColors,
   emailText,
+  type EmailBrand,
 } from "./layout";
 
 export interface PaypalInstructionsEmailProps {
+  /** The organizer, so the email looks like theirs rather than ours. */
+  brand?: EmailBrand;
   teamName: string;
   competitionName: string;
   organizerName: string;
@@ -35,6 +38,7 @@ export interface PaypalInstructionsEmailProps {
  * paid AND by someone who never will.
  */
 export function PaypalInstructionsEmail({
+  brand,
   teamName,
   competitionName,
   organizerName,
@@ -45,6 +49,7 @@ export function PaypalInstructionsEmail({
 }: PaypalInstructionsEmailProps) {
   return (
     <EmailLayout
+      brand={brand}
       preview={`Pay ${amount} to confirm ${teamName}`}
       heading={`${teamName} is registered — one step left`}
     >
