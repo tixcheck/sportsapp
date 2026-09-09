@@ -173,7 +173,10 @@ function CompetitionRow({ c }: { c: PublicOrgCompetition }) {
             <dd>
               {formatCents(c.feeCents)} per team
               {c.allowIndividualSignups && c.individualFeeCents > 0 && (
-                <> · {formatCents(c.individualFeeCents)} on your own</>
+                <>
+                  {" "}
+                  · {formatCents(c.individualFeeCents)} for Indy Registration
+                </>
               )}
             </dd>
           </div>
