@@ -360,6 +360,36 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
+## ⚠️ UNAPPLIED MIGRATION 0055 — captains cannot invite teammates
+
+**Run `! npx tsx lib/db/apply-0055.ts`.** Until you do, no captain on the
+platform can add a teammate.
+
+`0055_team_invites_captain_rls.sql` was written and never applied. The only
+policy live on `team_invites` is `team_invites_admin_all`, scoped to competition
+ADMINS — so a captain's insert trips RLS with the exact error a BVL captain
+emailed in on 2026-09-09:
+
+> new row violates row level security policy for table team_invites
+
+That is why all 16 BVL teams have exactly one player: the captain. Nobody has
+been able to invite anyone since registration opened. The migration is additive
+and narrow (a captain gains access to their OWN team's invites, mirroring the
+check `inviteTeammateAction` already makes); the apply script is idempotent and
+verifies the policy afterwards.
+
+**The class of bug matters more than this instance.** The 2026-09-08 audit
+parsed migrations for columns, tables, indexes and functions — and not for
+POLICIES, so an unapplied RLS policy was invisible to it. `npm run
+check:policies` now covers that: it reads every `create policy` out of the
+migrations and checks it against `pg_policies`. Two things it reports are
+expected and not gaps:
+
+- the `0001_rls.sql` names, which later migrations replaced under different
+  names (`organizations_delete_admin` → `organizations_delete_owner`, etc.);
+- the `0087`/`0088` storage policies, which live in the `storage` schema rather
+  than `public`.
+
 ## ⚠️ NOT LIVE YET — the Supabase Send Email Hook
 
 The code to send our own auth emails is merged and deployed. **The hook itself
