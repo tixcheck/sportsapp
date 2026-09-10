@@ -106,6 +106,54 @@ describe("attributeByAppearance", () => {
     expect(computePlayerStats(p.sets).wins).toBe(2);
   });
 
+  // The re-draft question: which team is a player ON now? teamIds is built in
+  // arrival order, and a database returns rows in whatever order it likes - so
+  // without an explicit season order, "last team" was really "last row back".
+  it("puts the current team last however the appearances arrive", () => {
+    const order = new Map([
+      ["m1", 0],
+      ["m2", 1],
+    ]);
+    const chronological = [
+      app({ matchId: "m1", teamId: "t1" }),
+      app({ matchId: "m2", teamId: "t2" }),
+    ];
+    const shuffled = [...chronological].reverse();
+
+    for (const rows of [chronological, shuffled]) {
+      const [p] = attributeByAppearance(rows, SETS, order);
+      expect(p.teamIds).toEqual(["t1", "t2"]);
+      expect(p.teamIds[p.teamIds.length - 1]).toBe("t2");
+      // The season still counts in full, whichever way the rows came back.
+      expect(computePlayerStats(p.sets).gamesPlayed).toBe(2);
+    }
+  });
+
+  it("sorts a match missing from the order last, not first", () => {
+    const order = new Map([["m2", 0]]);
+    const [p] = attributeByAppearance(
+      [
+        app({ matchId: "m1", teamId: "t1" }),
+        app({ matchId: "m2", teamId: "t2" }),
+      ],
+      SETS,
+      order,
+    );
+    // m1 is unscheduled, so it sorts after m2 rather than jumping ahead of it.
+    expect(p.teamIds).toEqual(["t2", "t1"]);
+  });
+
+  it("is unchanged when no order is supplied", () => {
+    const [p] = attributeByAppearance(
+      [
+        app({ matchId: "m1", teamId: "t1" }),
+        app({ matchId: "m2", teamId: "t2" }),
+      ],
+      SETS,
+    );
+    expect(p.teamIds).toEqual(["t1", "t2"]);
+  });
+
   it("does not double a player listed twice for the same match", () => {
     const [p] = attributeByAppearance([app(), app()], SETS);
     expect(computePlayerStats(p.sets).gamesPlayed).toBe(1);
