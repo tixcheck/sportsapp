@@ -71,6 +71,12 @@ export interface LeagueDetail {
   description: string | null;
   bannerUrl: string | null;
   timezone: string;
+  /**
+   * Stats come from who actually turned up rather than from rosters
+   * (migration 0089). Off by default; on for drafted leagues, where it is also
+   * what makes the "Who played" screen worth showing.
+   */
+  trackAppearances: boolean;
   /** Editable settings (for the Edit-settings form). */
   matchFormat: MatchFormat;
   roundsPerTeam: number;
@@ -203,7 +209,7 @@ export async function getLeagueDetail(
   const { data: league } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation, allow_individual_signups, max_individual_signups, waitlist_claim_hours",
+      "id, org_id, name, slug, sport, status, start_date, end_date, venue, description, banner_url, timezone, track_appearances, match_format, allow_captain_entry, allow_ref_entry, allow_organizer_entry, require_confirmation, allow_individual_signups, max_individual_signups, waitlist_claim_hours",
     )
     .eq("id", leagueId)
     .eq("type", "league")
@@ -281,6 +287,7 @@ export async function getLeagueDetail(
     description: (league.description as string | null) ?? null,
     bannerUrl: (league.banner_url as string | null) ?? null,
     timezone: league.timezone,
+    trackAppearances: league.track_appearances === true,
     matchFormat: league.match_format as MatchFormat,
     roundsPerTeam: settings?.rounds_per_team ?? 1,
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
