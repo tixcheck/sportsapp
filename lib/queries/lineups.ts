@@ -95,18 +95,56 @@ export async function getNightLineups(
     ),
   );
 
-  const [{ data: teamRows }, rosters, { data: appearanceRows }] =
-    await Promise.all([
-      supabase
-        .from("teams")
-        .select("id, name")
-        .eq("competition_id", competitionId),
-      getTeamRosters(competitionId),
-      supabase
-        .from("match_appearances")
-        .select("match_id, team_id, user_id, player_name, role")
-        .eq("competition_id", competitionId),
-    ]);
+  const [
+    { data: teamRows },
+    rosters,
+    { data: draftedRows },
+    { data: appearanceRows },
+  ] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name")
+      .eq("competition_id", competitionId),
+    getTeamRosters(competitionId),
+    // Drafted players are NOT all in team_members. `place_free_agents` only
+    // inserts a member row when the free agent has an account, and in a
+    // drafted league most do not — the organizer typed their names. Reading
+    // only team_members showed six-player Big Shoots teams as empty.
+    supabase
+      .from("free_agents")
+      .select("user_id, name, placed_team_id, draft_rank")
+      .eq("competition_id", competitionId)
+      .eq("status", "placed"),
+    supabase
+      .from("match_appearances")
+      .select("match_id, team_id, user_id, player_name, role")
+      .eq("competition_id", competitionId),
+  ]);
+
+  const draftedByTeam = new Map<
+    string,
+    { userId: string | null; name: string }[]
+  >();
+  for (const d of (
+    (draftedRows ?? []) as {
+      user_id: string | null;
+      name: string;
+      placed_team_id: string | null;
+      draft_rank: number | null;
+    }[]
+  )
+    .slice()
+    .sort(
+      (a, b) =>
+        (a.draft_rank ?? Number.MAX_SAFE_INTEGER) -
+          (b.draft_rank ?? Number.MAX_SAFE_INTEGER) ||
+        a.name.localeCompare(b.name),
+    )) {
+    if (!d.placed_team_id) continue;
+    const list = draftedByTeam.get(d.placed_team_id) ?? [];
+    list.push({ userId: d.user_id, name: d.name });
+    draftedByTeam.set(d.placed_team_id, list);
+  }
 
   const teamName = new Map(
     ((teamRows ?? []) as { id: string; name: string }[]).map((t) => [
@@ -142,7 +180,10 @@ export async function getNightLineups(
   }
 
   const teams: TeamLineup[] = teamIds.map((teamId) => {
-    const roster = (rosters[teamId] ?? []) as RosterMember[];
+    const roster = teamRoster(
+      (rosters[teamId] ?? []) as RosterMember[],
+      draftedByTeam.get(teamId) ?? [],
+    );
     const recorded =
       playedThisNight.get(teamId) ?? new Map<string, LineupPlayer>();
     const nothingRecorded = recorded.size === 0;
@@ -156,13 +197,13 @@ export async function getNightLineups(
       name: m.name,
       role: "rostered" as const,
       onRoster: true,
-      played: nothingRecorded ? true : recorded.has(m.userId),
+      played: nothingRecorded ? true : recorded.has(memberKey(m)),
     }));
 
     // Then anyone who played but isn't on the roster — the subs.
-    const rosterIds = new Set(roster.map((m) => m.userId));
-    for (const p of recorded.values()) {
-      if (p.userId && rosterIds.has(p.userId)) continue;
+    const rosterKeys = new Set(roster.map(memberKey));
+    for (const [key, p] of recorded) {
+      if (rosterKeys.has(key)) continue;
       players.push({ ...p, role: "sub", onRoster: false });
     }
 
@@ -176,4 +217,36 @@ export async function getNightLineups(
   });
 
   return { timezone, nights, night, teams };
+}
+
+/** How a person is identified within one team, account or not. */
+function memberKey(m: { userId: string | null; name: string }): string {
+  return m.userId ?? `n:${m.name.trim().toLowerCase().replace(/\s+/g, " ")}`;
+}
+
+/**
+ * One team's roster, from both places a player can come from.
+ *
+ * `team_members` holds people with accounts. `free_agents.placed_team_id` holds
+ * everyone the organizer drafted — and in a drafted league most of those have
+ * no account at all, so they never reach team_members. Neither source is
+ * complete on its own; a 2s league is all members, Big Shoots is all drafted.
+ *
+ * Members first (they claimed a place themselves), then drafted players in
+ * draft order, deduplicated for the free agent who does have an account and
+ * therefore appears in both.
+ */
+function teamRoster(
+  members: RosterMember[],
+  drafted: { userId: string | null; name: string }[],
+): { userId: string | null; name: string }[] {
+  const out: { userId: string | null; name: string }[] = [];
+  const seen = new Set<string>();
+  for (const m of [...members, ...drafted]) {
+    const key = memberKey(m);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ userId: m.userId, name: m.name });
+  }
+  return out;
 }
