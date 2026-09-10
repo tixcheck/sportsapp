@@ -89,15 +89,32 @@ function setsKey(matchId: string, teamId: string): string {
  *
  * An appearance for a match with no recorded sets contributes nothing but is
  * not an error — that is simply a game that hasn't been scored yet.
+ *
+ * `matchOrder` maps a match to its place in the season, and callers that show
+ * a player's CURRENT team must pass it. `teamIds` is built in the order the
+ * appearances arrive, and a database returns rows in whatever order it likes —
+ * so without this, "the last team they played for" is really "whichever team
+ * happened to come back last", which in a league that re-drafts every three
+ * weeks is as likely to be the side they just left. Unknown matches sort last,
+ * by id, so the result never depends on input order.
  */
 export function attributeByAppearance(
   appearances: Appearance[],
   matchSets: MatchSets[],
+  matchOrder?: Map<string, number>,
 ): AttributedPlayer[] {
   const sets = new Map<string, SetResult[]>();
   for (const ms of matchSets) {
     sets.set(setsKey(ms.matchId, ms.teamId), ms.sets);
   }
+
+  const ordered = matchOrder
+    ? [...appearances].sort((a, b) => {
+        const ra = matchOrder.get(a.matchId) ?? Number.MAX_SAFE_INTEGER;
+        const rb = matchOrder.get(b.matchId) ?? Number.MAX_SAFE_INTEGER;
+        return ra - rb || a.matchId.localeCompare(b.matchId);
+      })
+    : appearances;
 
   const byPlayer = new Map<string, AttributedPlayer>();
   // Guards against the same person being listed twice for one match — the
@@ -105,7 +122,7 @@ export function attributeByAppearance(
   // two sources shouldn't be able to double someone's season either.
   const seen = new Set<string>();
 
-  for (const a of appearances) {
+  for (const a of ordered) {
     const key = identityKey(a);
     const once = `${key}|${a.matchId}`;
     if (seen.has(once)) continue;

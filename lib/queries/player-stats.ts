@@ -147,8 +147,9 @@ async function tracksAppearances(competitionId: string): Promise<boolean> {
  *
  * Names come from the appearance row rather than the roster: a sub may have no
  * account, and the person who actually played is the person whose record this
- * is. Team is the LAST team they turned out for, so a re-drafted player shows
- * under their current side while their sets keep the whole season.
+ * is. Team is the last team they turned out for IN SEASON ORDER, so a
+ * re-drafted player shows under their current side while their sets keep the
+ * whole season — see `seasonOrder`, which is what makes "last" mean anything.
  */
 async function playerStatsByAppearance(
   competitionId: string,
@@ -192,9 +193,12 @@ async function playerStatsByAppearance(
 
   // Reuse the per-team set lists, re-keyed by match so an appearance can pick
   // out just the games that player was there for.
-  const matchSets = await setsByMatchAndTeam(competitionId);
+  const [matchSets, matchOrder] = await Promise.all([
+    setsByMatchAndTeam(competitionId),
+    seasonOrder(competitionId),
+  ]);
 
-  return attributeByAppearance(appearances, matchSets)
+  return attributeByAppearance(appearances, matchSets, matchOrder)
     .map((p) => {
       const teamId = p.teamIds[p.teamIds.length - 1] ?? "";
       return {
@@ -428,4 +432,42 @@ export async function getPlayerProfile(
     competitions: rows,
     career: computePlayerStats(allSets),
   };
+}
+
+/**
+ * Match id -> where that match sits in the season.
+ *
+ * Only used to decide which team a player is on NOW. Scheduled time first,
+ * since that is what "later in the season" means to everyone involved; round
+ * breaks ties within a night, and an unscheduled match sorts last rather than
+ * jumping to the front on a null.
+ */
+async function seasonOrder(
+  competitionId: string,
+): Promise<Map<string, number>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("matches")
+    .select("id, scheduled_at, round")
+    .eq("competition_id", competitionId);
+
+  const rows = (
+    (data ?? []) as {
+      id: string;
+      scheduled_at: string | null;
+      round: number | null;
+    }[]
+  )
+    .map((m) => ({
+      id: m.id,
+      when: m.scheduled_at ? Date.parse(m.scheduled_at) : Number.NaN,
+      round: m.round ?? 0,
+    }))
+    .sort((a, b) => {
+      const av = Number.isNaN(a.when) ? Number.MAX_SAFE_INTEGER : a.when;
+      const bv = Number.isNaN(b.when) ? Number.MAX_SAFE_INTEGER : b.when;
+      return av - bv || a.round - b.round || a.id.localeCompare(b.id);
+    });
+
+  return new Map(rows.map((r, i) => [r.id, i]));
 }
