@@ -531,12 +531,28 @@ export default async function LeaguePage({
       <CardHeader>
         <CardTitle>Player stats</CardTitle>
         <CardDescription>
-          Every set each player&apos;s team has played. Sorted by net clutch —
-          sets won by two points or fewer, minus sets lost the same way. Tap any
-          column to re-sort.
+          {league.trackAppearances
+            ? "Every set a player was actually there for — recorded night by night, so a sub is credited and someone who missed a week isn't."
+            : "Every set each player's team has played. Sorted by net clutch — sets won by two points or fewer, minus sets lost the same way. Tap any column to re-sort."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/*
+          Without lineups this table is empty for an appearance league, so the
+          way to fill it belongs beside it rather than somewhere else entirely.
+        */}
+        {league.trackAppearances && (
+          <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+            <p className="text-muted-foreground text-sm">
+              These come from who turned out each night.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/orgs/${orgId}/leagues/${leagueId}/lineups`}>
+                Record who played
+              </Link>
+            </Button>
+          </div>
+        )}
         <PlayerStatsTable rows={playerStats} linkProfiles />
       </CardContent>
     </Card>
