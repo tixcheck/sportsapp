@@ -360,35 +360,32 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
-## ⚠️ UNAPPLIED MIGRATION 0055 — captains cannot invite teammates
+## Migration 0055 — APPLIED 2026-09-11 (captains can invite again)
 
-**Run `! npx tsx lib/db/apply-0055.ts`.** Until you do, no captain on the
-platform can add a teammate.
-
-`0055_team_invites_captain_rls.sql` was written and never applied. The only
-policy live on `team_invites` is `team_invites_admin_all`, scoped to competition
-ADMINS — so a captain's insert trips RLS with the exact error a BVL captain
-emailed in on 2026-09-09:
+`0055_team_invites_captain_rls.sql` had been written and never applied. The only
+policy on `team_invites` was `team_invites_admin_all`, scoped to competition
+ADMINS, so every captain inviting a teammate hit:
 
 > new row violates row level security policy for table team_invites
 
-That is why all 16 BVL teams have exactly one player: the captain. Nobody has
-been able to invite anyone since registration opened. The migration is additive
-and narrow (a captain gains access to their OWN team's invites, mirroring the
-check `inviteTeammateAction` already makes); the apply script is idempotent and
-verifies the policy afterwards.
+That is why all 16 BVL teams had exactly one player. Applied with
+`lib/db/apply-0055.ts` (idempotent, safe to re-run) and **verified by inserting
+an invite as the reporting captain's own account in a rolled-back transaction**
+— the insert that had been failing now succeeds, and nothing was written.
 
-**The class of bug matters more than this instance.** The 2026-09-08 audit
-parsed migrations for columns, tables, indexes and functions — and not for
-POLICIES, so an unapplied RLS policy was invisible to it. `npm run
-check:policies` now covers that: it reads every `create policy` out of the
-migrations and checks it against `pg_policies`. Two things it reports are
-expected and not gaps:
+**`npm run check:policies` exists because of this.** The 2026-09-08 migration
+audit parsed for columns, tables, indexes and functions — policies are none of
+those, so an unapplied RLS policy was invisible to it. The new check reads every
+`create policy` out of the migrations and compares against `pg_policies`; it
+reports **"All policies present."** as of 2026-09-11.
 
-- the `0001_rls.sql` names, which later migrations replaced under different
-  names (`organizations_delete_admin` → `organizations_delete_owner`, etc.);
-- the `0087`/`0088` storage policies, which live in the `storage` schema rather
-  than `public`.
+Three bugs in that check were worth fixing before trusting it, and are worth
+knowing if it ever misbehaves again: it filtered `pg_policies` to the `public`
+schema (so the seven `storage.objects` policies all looked missing), it captured
+the SCHEMA as the table name for a qualified target like `on storage.objects`,
+and its drop-detection regex was built from a template literal where `\s` is
+just the letter "s" — so it silently never matched, and every superseded policy
+looked absent.
 
 ## ⚠️ NOT LIVE YET — the Supabase Send Email Hook
 
