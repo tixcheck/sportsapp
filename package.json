@@ -18,7 +18,10 @@
     "db:seed": "tsx lib/db/seed.ts",
     "prepare": "husky",
     "check:courts": "tsx lib/db/check-courts.ts",
-    "check:policies": "tsx lib/db/audit-policies.ts"
+    "check:policies": "tsx lib/db/audit-policies.ts",
+    "check:integrity": "tsx lib/db/audit-integrity.ts",
+    "check:rls": "tsx lib/db/audit-rls.ts",
+    "check:all": "npm run check:policies && npm run check:integrity && npm run check:rls && npm run check:courts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,css,json}": "prettier --write",
