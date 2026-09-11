@@ -360,6 +360,35 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
+## Auditing the system — `npm run check:all`
+
+Four read-only checks, run together. All four were clean on 2026-09-11.
+
+| Script | Asks |
+|---|---|
+| `check:policies` | is every `create policy` in the migrations actually live? |
+| `check:integrity` | invariants the schema cannot express — orphans, states that should have advanced, double-bookings |
+| `check:rls` | can a real captain do what they should, and nothing more? Writes run inside a rolled-back transaction |
+| `check:courts` | court-label drift and prime-court fairness on live schedules |
+
+`check:courts` reports 7 known items — mixed court formats and missing rounds on
+two older leagues, deliberately not backfilled. Everything else should say
+"All policies present." / "No integrity problems found." / "8 passed, 0 failed".
+
+**Two scoping decisions in `check:integrity` worth knowing before "fixing" a
+flag.** A team with NO captain is normal twice over: sandbox orgs
+(`hidden_from_discovery`) carry hundreds of mock teams, and Mango's ladder has
+seven teams the organizer runs himself where no player ever logs in. The check
+therefore only flags a captainless team somebody has actually **joined or paid
+for**. Unscoped it reported 347 rows, none of them real — the kind of output
+that gets a check ignored.
+
+**`check:rls` had a harness bug worth remembering**, because it is the failure
+mode these scripts are prone to: the transaction always ends by throwing to
+force a rollback, so a value returned from inside it was discarded and every
+"anon can read nothing" assertion was comparing against `undefined` — passing
+without testing anything. Undefined rows and zero rows are not the same fact.
+
 ## Migration 0055 — APPLIED 2026-09-11 (captains can invite again)
 
 `0055_team_invites_captain_rls.sql` had been written and never applied. The only

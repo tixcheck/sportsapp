@@ -9,6 +9,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // v8 coverage instrumentation multiplies the combinatorial scheduler tests
+    // by roughly ten: reverse-pairs runs comfortably under the 5s default
+    // normally and took 7.2s under --coverage, so `npm run test:coverage`
+    // failed on a timeout while the code itself was fine.
+    testTimeout: 20000,
     include: ["tests/**/*.test.ts"],
     coverage: {
       provider: "v8",
