@@ -182,9 +182,9 @@ export function LocalityCard({
             {totals.unknown > 0 && (
               <p className="text-muted-foreground text-xs">
                 &ldquo;Not known&rdquo; is someone who hasn&apos;t given an
-                address yet, or who typed one rather than picking a suggestion.
-                They haven&apos;t said they live elsewhere, so they aren&apos;t
-                counted as though they had.
+                address yet, or whose typed address we couldn&apos;t place with
+                confidence. They haven&apos;t said they live elsewhere, so they
+                aren&apos;t counted as though they had.
               </p>
             )}
           </>

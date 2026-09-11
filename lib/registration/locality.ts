@@ -15,7 +15,7 @@
  * cannot.
  */
 
-export type LocalitySource = "structured" | "text" | "unknown";
+export type LocalitySource = "structured" | "geocoded" | "text" | "unknown";
 
 export type AddressLocality = {
   /** The town, when we have one. */
@@ -28,6 +28,14 @@ export type AddressMetadata = {
   locality?: string | null;
   region?: string | null;
   postalCode?: string | null;
+  /**
+   * How the town was arrived at. Absent means the player picked a suggestion
+   * and Google returned the components — the original, certain case.
+   * "geocoded" means they typed a line and we looked it up afterwards: a
+   * strong inference, but not their own selection, and worth being able to
+   * separate when an organizer is counting residents.
+   */
+  source?: LocalitySource | null;
 };
 
 /**
@@ -52,7 +60,12 @@ export function addressLocality(
   metadata?: AddressMetadata | null,
 ): AddressLocality {
   const structured = metadata?.locality?.trim();
-  if (structured) return { city: structured, source: "structured" };
+  if (structured) {
+    return {
+      city: structured,
+      source: metadata?.source === "geocoded" ? "geocoded" : "structured",
+    };
+  }
 
   const text = (answer ?? "").trim();
   if (!text) return { city: null, source: "unknown" };

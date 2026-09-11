@@ -2,6 +2,13 @@
 
 import { z } from "zod";
 
+import {
+  resolveCandidates,
+  shouldGeocode,
+  type PlaceCandidate,
+} from "@/lib/registration/geocode";
+import type { AddressMetadata } from "@/lib/registration/locality";
+
 /**
  * Venue lookup via Google Places Autocomplete.
  *
@@ -306,5 +313,70 @@ export async function resolveAddressAction(
   } catch {
     console.error("[places] details threw");
     return EMPTY;
+  }
+}
+
+/**
+ * Resolve a TYPED address to a town, server-side.
+ *
+ * The suggestion path (`resolveAddressAction`) only fires when a player taps a
+ * dropdown entry. Eight of BVL's twenty-two captains typed their address
+ * instead and came back "not known" — with perfectly good Brampton addresses.
+ * This closes that gap by doing the lookup they never triggered.
+ *
+ * Uses Places `searchText` rather than the Geocoding API deliberately: it is
+ * the same API already enabled on this key, so nothing new has to be turned on
+ * in Google Cloud. Biased the same way as the autocomplete, so a half-typed
+ * street resolves near the league rather than to the same name in another
+ * country.
+ *
+ * Returns null rather than a guess whenever the answer is genuinely ambiguous —
+ * see `resolveCandidates`.
+ */
+export async function geocodeTypedAddress(
+  value: string,
+  metadata?: AddressMetadata | null,
+): Promise<AddressMetadata | null> {
+  if (!shouldGeocode(value, metadata)) return null;
+
+  const key = placesKey();
+  if (!key) return null;
+
+  try {
+    const res = await fetch(
+      "https://places.googleapis.com/v1/places:searchText",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": key,
+          // Components only. The mask sets the billing tier, and anything beyond
+          // the address parts would be paid for and thrown away.
+          "X-Goog-FieldMask":
+            "places.addressComponents,places.formattedAddress",
+        },
+        body: JSON.stringify({
+          textQuery: value.trim(),
+          // Two is enough to notice disagreement without paying for a page of it.
+          maxResultCount: 2,
+          regionCode: REGION_CODES[0]?.toUpperCase() ?? "CA",
+          locationBias: {
+            circle: { center: BIAS, radius: 50000 },
+          },
+        }),
+        signal: AbortSignal.timeout(4000),
+      },
+    );
+
+    if (!res.ok) {
+      console.error("[places] geocode failed", res.status);
+      return null;
+    }
+
+    const body = (await res.json()) as { places?: PlaceCandidate[] };
+    return resolveCandidates(body.places);
+  } catch {
+    console.error("[places] geocode threw");
+    return null;
   }
 }
