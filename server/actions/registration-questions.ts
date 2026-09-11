@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { geocodeTypedAddress } from "@/server/actions/places";
+import type { AddressMetadata } from "@/lib/registration/locality";
 
 type ActionError = { error: string };
 
@@ -178,10 +180,15 @@ export async function saveRegistrationAnswersAction(
   // saved — otherwise a team save could smuggle in a player answer.
   const { data: questions } = await supabase
     .from("registration_questions")
-    .select("id, scope")
+    .select("id, scope, kind")
     .eq("competition_id", competitionId);
   const allowed = new Map(
     (questions ?? []).map((q) => [q.id as string, q.scope as string]),
+  );
+  const addressQuestions = new Set(
+    (questions ?? [])
+      .filter((q) => q.kind === "address")
+      .map((q) => q.id as string),
   );
   const wantScope = teamId ? "team" : "player";
 
@@ -207,6 +214,26 @@ export async function saveRegistrationAnswersAction(
       updated_at: new Date().toISOString(),
     });
   }
+
+  // A typed address never triggered a lookup, so its town was unknowable — 8
+  // of BVL's 22 captains landed there with perfectly good addresses. Resolve
+  // it once, here, and mark it `geocoded` so it stays distinguishable from a
+  // town the player picked themselves.
+  //
+  // Best-effort throughout: a failed or ambiguous lookup leaves the answer
+  // exactly as typed, which is the honest "not known" we had before. Nobody's
+  // registration should fail because Google was slow.
+  await Promise.all(
+    rows.map(async (row) => {
+      const questionId = row.question_id as string;
+      if (!addressQuestions.has(questionId)) return;
+      const resolved = await geocodeTypedAddress(
+        row.value as string,
+        row.metadata as AddressMetadata | null,
+      );
+      if (resolved) row.metadata = resolved;
+    }),
+  );
 
   if (blanks.length > 0) {
     let del = supabase

@@ -5,6 +5,51 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-11 — Placing an address somebody typed
+
+**Shipped.** BVL's "Where players live" card read *Not known* for 5 of 10
+Thursday teams, and the organizer reasonably read that as "we can't find the
+address". Nothing was missing: all 22 captains had answered. The split was
+purely how they answered — 14 tapped a Google suggestion and got structured
+components back, 8 typed a line and there was nothing structured to read.
+
+`addressLocality` refuses to guess a town out of free text, which is right —
+`130 Brampton Road, Toronto` contains the word and means the opposite. But
+refusing to guess is only the correct answer when nobody can find out. We can:
+the lookup those eight never triggered is one server-side call on a key that
+was already enabled.
+
+**Places `searchText`, not the Geocoding API**, deliberately — same API already
+live on this key, so nothing new has to be switched on in Google Cloud. Biased
+the same way as the autocomplete, so a half-typed street resolves near the
+league rather than to the same street name in another country.
+
+**Ambiguity still reports nothing.** Two candidates naming two different towns
+means the line genuinely is ambiguous, and a quiet guess is exactly what the
+module exists to avoid. It asks for two results, not one, purely to be able to
+notice that disagreement.
+
+**A geocoded town is marked as one** rather than passed off as the player's own
+selection. `LocalitySource` gains `"geocoded"` beside `"structured"`, because an
+organizer counting residents deserves to know which of them said so themselves
+and which Google matched. Nothing in the tally changes; the distinction is
+recorded for when it matters.
+
+**The dry run justified the caution.** Nine answers resolved, none ambiguous —
+and they were not all Brampton, which is what I had assumed from eyeballing
+them. `39 Humbershed Crescent` is **Caledon**; `7 Northampton Drive` is
+Toronto. Had the text fallback been loosened to "guess from the street" instead,
+BVL's resident count would have been quietly wrong in the organizer's favour.
+
+New answers geocode at save time, best-effort — a slow or failed lookup leaves
+the answer exactly as typed, because nobody's registration should fail over a
+map query. The rows already in the database need the one-off backfill:
+`! npx tsx lib/db/backfill-localities.ts` to preview, `--write` to apply.
+
+12 unit tests, including the real BVL strings and the refuse-to-choose case.
+
+---
+
 ## 2026-09-08 (later still) — The registration emails a BVL captain actually needed
 
 **Shipped.** An organizer reported that confirming your email dropped you on the
