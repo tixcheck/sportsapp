@@ -7,6 +7,12 @@ import { toast } from "sonner";
 import type { LeagueCourt } from "@/lib/db/schema";
 import type { VenueSummary } from "@/lib/venues/resolve";
 import {
+  countByVenue,
+  courtsAt,
+  setVenueCourtCount,
+  togglePrime,
+} from "@/lib/venues/court-counts";
+import {
   assignCourtVenuesAction,
   suggestVenueAssignmentAction,
 } from "@/server/actions/venues";
@@ -49,9 +55,8 @@ export function CourtVenuesCard({
   const [times, setTimes] = useState<Record<string, string>>(startTimes);
   const [pending, start] = useTransition();
 
-  if (venues.length === 0 || courts.length === 0) return null;
+  if (venues.length === 0) return null;
 
-  const assigned = rows.filter((r) => r.venueId).length;
   const dirty =
     rows.length !== courts.length ||
     rows.some((r, i) => (r.venueId ?? null) !== (courts[i]?.venueId ?? null)) ||
@@ -62,11 +67,15 @@ export function CourtVenuesCard({
 
   // Only venues this league actually uses need a start time.
   const usedVenues = venues.filter((v) => rows.some((r) => r.venueId === v.id));
+  const perVenue = countByVenue(rows);
+  const strays = courtsAt(rows, null);
 
-  function setVenue(index: number, venueId: string | null) {
-    setRows((prev) =>
-      prev.map((r, i) => (i === index ? { ...r, venueId } : r)),
-    );
+  function setCount(venueId: string | null, count: number) {
+    setRows((prev) => setVenueCourtCount(prev, venueId, count));
+  }
+
+  function flipPrime(venueId: string | null, label: string) {
+    setRows((prev) => togglePrime(prev, venueId, label));
   }
 
   /**
@@ -130,47 +139,119 @@ export function CourtVenuesCard({
       <CardHeader>
         <CardTitle>Court venues</CardTitle>
         <CardDescription>
-          Which building each court is in. Set this when a night runs across
-          more than one gym — the schedule then says “Terry Miller · Court A”
-          instead of just “Court A”, which repeats at every venue.
+          How many courts each gym has, and which tier plays there. The schedule
+          then says “Bethune · Court 1” rather than just “Court 1”, which
+          repeats at every building.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-4">
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-          Courts
+          Gyms
         </p>
+        <p className="text-muted-foreground text-xs">
+          How many courts each gym has, and when it starts. Courts are numbered
+          per gym, so every building has its own Court 1.
+        </p>
+
         <ul className="divide-border divide-y">
-          {rows.map((c, i) => (
-            <li
-              key={`${c.label}-${i}`}
-              className="flex flex-wrap items-center justify-between gap-3 py-2"
-            >
-              <span className="min-w-0 text-sm font-medium">
-                Court {c.label}
-                {c.prime && (
-                  <span className="text-muted-foreground ml-2 text-xs font-normal">
-                    prime
-                  </span>
-                )}
-              </span>
-              <select
-                aria-label={`Venue for court ${c.label}`}
-                className="border-border bg-surface min-w-[12rem] rounded-md border px-2 py-1.5 text-sm"
-                value={c.venueId ?? ""}
-                disabled={pending}
-                onChange={(e) => setVenue(i, e.target.value || null)}
-              >
-                <option value="">— no venue —</option>
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
+          {venues.map((v) => {
+            const mine = courtsAt(rows, v.id);
+            return (
+              <li key={v.id} className="space-y-2 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 text-sm font-medium">
                     {v.name}
-                  </option>
-                ))}
-              </select>
-            </li>
-          ))}
+                  </span>
+                  <label className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Courts</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={20}
+                      inputMode="numeric"
+                      aria-label={`Courts at ${v.name}`}
+                      className="border-border bg-surface w-16 rounded-md border px-2 py-1.5 text-sm tabular-nums"
+                      value={perVenue[v.id] ?? 0}
+                      disabled={pending}
+                      onChange={(e) => setCount(v.id, Number(e.target.value))}
+                    />
+                  </label>
+                  {mine.length > 0 && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <span className="text-muted-foreground">Start</span>
+                      <input
+                        type="time"
+                        aria-label={`Start time at ${v.name}`}
+                        className="border-border bg-surface rounded-md border px-2 py-1.5 text-sm tabular-nums"
+                        value={times[v.id] ?? ""}
+                        disabled={pending}
+                        onChange={(e) =>
+                          setTimes((prev) => ({
+                            ...prev,
+                            [v.id]: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Prime courts still matter per court — the generator balances
+                    who gets them — so they stay togglable, just inline. */}
+                {mine.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-muted-foreground text-xs">
+                      Prime:
+                    </span>
+                    {mine.map((c) => (
+                      <button
+                        key={c.label}
+                        type="button"
+                        disabled={pending}
+                        aria-pressed={c.prime}
+                        onClick={() => flipPrime(v.id, c.label)}
+                        className={
+                          c.prime
+                            ? "bg-primary text-primary-foreground rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            : "border-border text-muted-foreground rounded-full border px-2.5 py-0.5 text-xs"
+                        }
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
+
+        {/* Courts from before this league had venues. Shown only if any exist,
+            so the normal case is not cluttered by an empty bucket. */}
+        {strays.length > 0 && (
+          <div className="border-border rounded-lg border border-dashed p-3">
+            <p className="text-sm font-medium">Not in any gym</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              {strays.length} court{strays.length === 1 ? "" : "s"} predate your
+              venues ({strays.map((c) => c.label).join(", ")}). Set a gym&apos;s
+              count above to replace them, then drop this to 0.
+            </p>
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">Keep</span>
+              <input
+                type="number"
+                min={0}
+                max={20}
+                aria-label="Courts not in any gym"
+                className="border-border bg-surface w-16 rounded-md border px-2 py-1.5 text-sm tabular-nums"
+                value={strays.length}
+                disabled={pending}
+                onChange={(e) => setCount(null, Number(e.target.value))}
+              />
+            </label>
+          </div>
+        )}
 
         {divRows.length > 0 && (
           <div className="space-y-2">
@@ -232,44 +313,13 @@ export function CourtVenuesCard({
           </div>
         )}
 
-        {usedVenues.length > 1 && (
-          <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Start times
-            </p>
-            <p className="text-muted-foreground text-xs">
-              Gyms on the same night rarely start together. Leave blank to use
-              the league&apos;s own start time.
-            </p>
-            <ul className="divide-border divide-y">
-              {usedVenues.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-2"
-                >
-                  <span className="min-w-0 text-sm font-medium">{v.name}</span>
-                  <input
-                    type="time"
-                    aria-label={`Start time at ${v.name}`}
-                    className="border-border bg-surface rounded-md border px-2 py-1.5 text-sm tabular-nums"
-                    value={times[v.id] ?? ""}
-                    disabled={pending}
-                    onChange={(e) =>
-                      setTimes((prev) => ({ ...prev, [v.id]: e.target.value }))
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={save} disabled={pending || !dirty}>
             {pending ? "Saving…" : "Save venues"}
           </Button>
           <p className="text-muted-foreground text-xs">
-            {assigned} of {rows.length} courts assigned.
+            {rows.length} court{rows.length === 1 ? "" : "s"} across{" "}
+            {usedVenues.length} gym{usedVenues.length === 1 ? "" : "s"}.
           </p>
         </div>
       </CardContent>
