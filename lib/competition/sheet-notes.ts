@@ -67,8 +67,10 @@ export function noteLines(note: SheetNote): string[] {
  *
  * Offered as a starting point rather than baked in: every word of this is
  * theirs, and another league printing sheets will want entirely different text.
- * "Team D" keeps its letter because the sheet renderer resolves letters to team
- * names — the fourth seed that night — so it prints as a real team.
+ * "Team {D}" uses a placeholder, not a bare letter: the renderer substitutes
+ * the fourth seed's name. Bare letters cannot be used in prose — "A 4-minute
+ * warning" would have its article replaced with a team name, which is exactly
+ * what the first sample sheet did.
  */
 export const SMVA_SHEET_NOTES: SheetNote[] = [
   {
@@ -89,7 +91,7 @@ export const SMVA_SHEET_NOTES: SheetNote[] = [
     ].join("\n"),
   },
   {
-    title: "Team D responsibilities",
+    title: "Team {D} responsibilities",
     body: [
       "Sets clock and coordinates continuation by captains",
       "Final cleanup and lockup",

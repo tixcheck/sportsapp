@@ -4,6 +4,7 @@ import {
   buildGymSheet,
   resolveDuty,
   resolveDutyForTeams,
+  resolvePlaceholders,
   type SheetTeam,
 } from "@/lib/scheduler/gym-sheet";
 import { podLetters, type PodLetter } from "@/lib/scheduler/pod-templates";
@@ -150,6 +151,34 @@ describe("resolveDuty", () => {
   it("works from a plain team list too", () => {
     expect(resolveDutyForTeams("A and B setup courts", LEACOCK)).toBe(
       "THE FACTORY and SUNDAY KNIGHTS setup courts",
+    );
+  });
+});
+
+describe("resolvePlaceholders", () => {
+  // Bare-letter substitution turned an organizer's "A 4-minute warning" into
+  // "VOID 4-minute warning" on the very first sample sheet. Organizer text
+  // uses braces so prose is never touched.
+  it("substitutes only braced letters", () => {
+    expect(resolvePlaceholders("Team {D} responsibilities", BETHUNE)).toBe(
+      "Team MESLA CONSTRUCTION responsibilities",
+    );
+  });
+
+  it("leaves prose containing standalone letters alone", () => {
+    const line = "A 4-minute warning will be given";
+    expect(resolvePlaceholders(line, BETHUNE)).toBe(line);
+    expect(resolvePlaceholders("Court A and B", BETHUNE)).toBe("Court A and B");
+  });
+
+  // Visible, so it reads as the mistake it is rather than a blank.
+  it("leaves a placeholder with no team behind it in place", () => {
+    expect(resolvePlaceholders("{G} locks up", LEACOCK)).toBe("{G} locks up");
+  });
+
+  it("handles several placeholders in one line", () => {
+    expect(resolvePlaceholders("{A} and {B} set up", BETHUNE)).toBe(
+      "VOID and ONE PUNCH set up",
     );
   });
 });

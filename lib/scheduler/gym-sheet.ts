@@ -107,12 +107,15 @@ export function buildGymSheet(
 }
 
 /**
- * Replace bare letters in a duty line with team names.
+ * Replace bare letters in a TEMPLATE duty line with team names.
  *
  * "A and B and E setup courts" becomes "VOID and ONE PUNCH and BEERS setup
- * courts". Matched on word boundaries so a letter inside a word is untouched —
- * without that, the "A" in "and" would be replaced and the line would become
- * gibberish.
+ * courts". Word-bounded, so a letter inside a word is untouched.
+ *
+ * Only safe on text WE author — the pod templates. In English prose a
+ * standalone "A" is usually the article, and the first sample sheet printed
+ * "VOID 4-minute warning will be given" from an organizer's "A 4-minute
+ * warning…". Organizer text uses {A} instead; see `resolvePlaceholders`.
  */
 export function resolveDuty(
   text: string,
@@ -139,3 +142,25 @@ export function printableSizes(): number[] {
 }
 
 void (undefined as unknown as PodTemplate);
+
+/**
+ * Replace {A}…{G} placeholders with team names, in organizer-authored text.
+ *
+ * Explicit braces rather than bare letters because instructions are prose, and
+ * prose contains the word "A". An organizer who wants the fourth seed named
+ * writes "Team {D} responsibilities"; everything else is left exactly as typed,
+ * including any stray capital letter.
+ *
+ * A placeholder with no team behind it — {G} in a four-team gym — is left
+ * visible rather than silently blanked, so it reads as the mistake it is.
+ */
+export function resolvePlaceholders(text: string, teams: SheetTeam[]): string {
+  const byLetter = new Map<PodLetter, SheetTeam>();
+  podLetters(teams.length).forEach((letter, i) =>
+    byLetter.set(letter, teams[i]),
+  );
+  return text.replace(/\{([A-G])\}/g, (match, letter: PodLetter) => {
+    const t = byLetter.get(letter);
+    return t ? t.name : match;
+  });
+}

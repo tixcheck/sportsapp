@@ -6,7 +6,7 @@ import {
   parseSheetNotes,
   SMVA_SHEET_NOTES,
 } from "@/lib/competition/sheet-notes";
-import { resolveDutyForTeams, type SheetTeam } from "@/lib/scheduler/gym-sheet";
+import { resolvePlaceholders, type SheetTeam } from "@/lib/scheduler/gym-sheet";
 
 describe("parseSheetNotes", () => {
   it("reads well-formed sections", () => {
@@ -100,21 +100,31 @@ describe("Scarborough's own sections", () => {
     expect(SMVA_SHEET_NOTES.map((n) => n.title)).toEqual([
       "Team Responsibilities",
       "General responsibilities",
-      "Team D responsibilities",
+      "Team {D} responsibilities",
       "Winning team responsibilities",
     ]);
   });
 
-  // "Team D" keeps its letter on purpose: the renderer turns it into the
+  // "{D}" is a placeholder, not a bare letter: the renderer turns it into the
   // fourth seed's name, which is who actually locks up.
-  it("resolve their letter headings to real teams", () => {
+  it("resolve their placeholder headings to real teams", () => {
     const teams: SheetTeam[] = ["VOID", "ONE PUNCH", "EMPIRE", "MESLA"].map(
       (name) => ({ id: name, name }),
     );
     const heading = SMVA_SHEET_NOTES[2].title;
-    expect(resolveDutyForTeams(heading, teams)).toBe(
+    expect(resolvePlaceholders(heading, teams)).toBe(
       "Team MESLA responsibilities",
     );
+  });
+
+  // The bug the first sample sheet printed: an organizer's article became a
+  // team name. Prose must survive untouched.
+  it("leave ordinary prose completely alone", () => {
+    const teams: SheetTeam[] = ["VOID", "ONE PUNCH", "EMPIRE", "MESLA"].map(
+      (name) => ({ id: name, name }),
+    );
+    const line = "A 4-minute warning will be given: an unfinished first game";
+    expect(resolvePlaceholders(line, teams)).toBe(line);
   });
 
   it("print as bullets, not one paragraph", () => {
