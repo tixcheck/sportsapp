@@ -20,10 +20,18 @@ export type OrganizerTab = {
 export function OrganizerTabs({
   tabs,
   defaultValue,
+  variant = "primary",
 }: {
   tabs: OrganizerTab[];
   /** Tab open on load; falls back to the first tab. */
   defaultValue?: string;
+  /**
+   * "nested" for a second bar INSIDE a tab — smaller, and less contrast than
+   * the page's own tabs. Two identical bars stacked read as one broken bar;
+   * the inner one has to look subordinate to the outer one or neither is
+   * legible.
+   */
+  variant?: "primary" | "nested";
 }) {
   if (tabs.length === 0) return null;
   const initial =
@@ -33,16 +41,24 @@ export function OrganizerTabs({
   return (
     <Tabs defaultValue={initial}>
       <div className="-mx-1 overflow-x-auto px-1 pb-1">
-        <TabsList>
+        <TabsList className={variant === "nested" ? "h-8 gap-0.5" : undefined}>
           {tabs.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
+            <TabsTrigger
+              key={t.value}
+              value={t.value}
+              className={variant === "nested" ? "text-xs" : undefined}
+            >
               {t.label}
             </TabsTrigger>
           ))}
         </TabsList>
       </div>
       {tabs.map((t) => (
-        <TabsContent key={t.value} value={t.value} className="mt-6">
+        <TabsContent
+          key={t.value}
+          value={t.value}
+          className={variant === "nested" ? "mt-4" : "mt-6"}
+        >
           {t.content}
         </TabsContent>
       ))}
