@@ -400,6 +400,23 @@ is explicitly NOT wanted for v1.
 **Still to build:** rank + total-points entry per tier per week, `lockLadderWeek`
 preferring those over match-derived ranks, and the printable gym package.
 
+**Season standings are GOLF SCORING, lowest wins.** A team's score for a night
+is its position among all 40 teams — first in Tier 1 is 1, last in Tier 6 is
+40 — and the season total is the sum, with the LOWEST total seeded top. Their
+organizer: *"first in tier 1 gets 1 pt, last in last tier gets 40 … then we
+just total and lowest scores are top seeds."* `lib/scheduler/ladder-overall.ts`.
+
+This is NOT the tier weighting in migration 0115, which is Mango's rule (points
+for being in a tier, plus more per set won, higher being better). Two
+organizations, two incompatible schemes; they are separate modules on purpose
+rather than variants behind a flag.
+
+**Two league rules still unstated, and deliberately not invented:** what a
+missed night costs a team (counted as neither zero nor last — the team is
+scored only for nights it played, and `nights` is reported so totals over
+different week counts are visibly not comparable), and how a tie on total is
+broken (tied teams share a seed and the next seed skips).
+
 **Open with the organizer:** Bethune and King printed the same fifteen 6-team
 fixtures on the same night with slots 3 and 5 exchanged — one is presumably a
 typo. Bethune is followed, being the sheet given as canonical. Tier weights for
