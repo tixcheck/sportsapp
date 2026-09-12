@@ -19,6 +19,9 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 import postgres from "postgres";
 
+import { setVenueCourtCount } from "@/lib/venues/court-counts";
+import type { LeagueCourt } from "@/lib/db/schema";
+
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
 const WRITE = process.argv.includes("--write");
 
@@ -34,9 +37,17 @@ const VENUES = [
     name: "Dr. Norman Bethune CI",
     address: "200 Fundy Bay Blvd, Scarborough, ON M1W 3G1",
   },
+  // Leacock has two double gyms, each divisible into 2 courts — so it is two
+  // playing spaces at one address, not one gym hosting two tiers. Tier 2A and
+  // 2B both play Monday 19:20, which a single 2-court gym could not hold.
   {
-    key: "leacock",
-    name: "Stephen Leacock CI",
+    key: "leacock-a",
+    name: "Stephen Leacock CI — Gym A",
+    address: "2450 Birchmount Rd, Scarborough, ON M1T 2M5",
+  },
+  {
+    key: "leacock-b",
+    name: "Stephen Leacock CI — Gym B",
     address: "2450 Birchmount Rd, Scarborough, ON M1T 2M5",
   },
   {
@@ -85,7 +96,7 @@ const TIERS = [
   },
   {
     name: "Tier 2A — Leacock A",
-    venue: "leacock",
+    venue: "leacock-a",
     teams: 4,
     courts: 2,
     games: 3,
@@ -93,7 +104,7 @@ const TIERS = [
   },
   {
     name: "Tier 2B — Leacock B",
-    venue: "leacock",
+    venue: "leacock-b",
     teams: 4,
     courts: 2,
     games: 3,
@@ -147,8 +158,24 @@ const SWAPS = [2, 2, 2, 2, 2, 2, 2];
 const START_TIME = "19:20"; // 7:20 PM, as printed on every sheet
 const MONDAY = 1;
 
-const courtList = (n: number) =>
-  Array.from({ length: n }, (_, i) => ({ label: String(i + 1), prime: false }));
+/**
+ * The league's whole court list, built per gym.
+ *
+ * Every building numbers its own courts from 1 — the schema keys a court by
+ * (venueId, label) for exactly this reason. Twenty courts across eight gyms.
+ */
+function courtsFor(all: LeagueCourt[], venueId: string): LeagueCourt[] {
+  return all.filter((c) => c.venueId === venueId);
+}
+
+function buildCourtList(venueIdFor: Map<string, string>): LeagueCourt[] {
+  let courts: LeagueCourt[] = [];
+  for (const t of TIERS) {
+    const vid = venueIdFor.get(t.venue);
+    if (vid) courts = setVenueCourtCount(courts, vid, t.courts);
+  }
+  return courts;
+}
 
 const say = (s: string) => console.log(s);
 
@@ -232,6 +259,11 @@ async function main() {
 
   // --- league settings ----------------------------------------------------
   const weeklySlots = [{ dayOfWeek: MONDAY, startTime: START_TIME, courts: 3 }];
+  const allCourts = buildCourtList(venueId);
+  say(
+    `
+  courts: ${allCourts.length} across ${new Set(allCourts.map((c) => c.venueId)).size} gyms`,
+  );
   if (WRITE && !compId.startsWith("<")) {
     await sql`
       insert into league_settings (
@@ -239,14 +271,15 @@ async function main() {
         ladder_target, ladder_swaps, promotion_relegation, minutes_per_game,
         games_per_week, registration_open
       ) values (
-        ${compId}, ${sql.json(weeklySlots as never)}, ${sql.json(courtList(3) as never)},
+        ${compId}, ${sql.json(weeklySlots as never)}, ${sql.json(allCourts as never)},
         true, 'sets', 5, ${sql.json(SWAPS as never)}, true, 26, 5, false
       )
       on conflict (competition_id) do update set
         ladder_enabled = true,
         ladder_swaps = excluded.ladder_swaps,
         promotion_relegation = true,
-        weekly_slots = excluded.weekly_slots`;
+        weekly_slots = excluded.weekly_slots,
+        court_list = excluded.court_list`;
     say("  settings: ladder on, swaps [2,2,2,2,2,2,2], Mondays 19:20");
   } else {
     say("  settings CREATE: ladder on, swaps [2,2,2,2,2,2,2], Mondays 19:20");
@@ -261,8 +294,26 @@ async function main() {
       : await sql`
           select id from divisions
           where competition_id = ${compId} and name = ${t.name}`;
+    // Converge rather than skip: a tier that already exists but points at the
+    // wrong gym is exactly the case this has to fix. Leacock was first set up
+    // as one venue for both tiers, which cannot be right — two tiers play
+    // there at the same time.
+    if (existing && WRITE) {
+      await sql`
+        update divisions set
+          tier_order = ${i},
+          venue_id = ${vid},
+          courts = ${sql.json(courtsFor(allCourts, vid) as never)},
+          ladder_target = ${t.games},
+          minutes_per_set = ${t.minutes},
+          start_time = ${START_TIME},
+          max_teams = ${t.teams}
+        where id = ${existing.id}`;
+      say(`  tier updated  ${t.name.padEnd(22)} → ${t.venue}`);
+      continue;
+    }
     if (existing) {
-      say(`  tier exists   ${t.name}`);
+      say(`  tier UPDATE   ${t.name.padEnd(22)} → ${t.venue}`);
       continue;
     }
     if (!WRITE) {
@@ -276,7 +327,7 @@ async function main() {
         competition_id, name, tier_order, venue_id, courts,
         ladder_target, minutes_per_set, start_time, max_teams
       ) values (
-        ${compId}, ${t.name}, ${i}, ${vid}, ${sql.json(courtList(t.courts) as never)},
+        ${compId}, ${t.name}, ${i}, ${vid}, ${sql.json(courtsFor(allCourts, vid) as never)},
         ${t.games}, ${t.minutes}, ${START_TIME}, ${t.teams}
       )`;
     say(`  tier created  ${t.name}`);
