@@ -558,8 +558,18 @@ export default async function LeaguePage({
     </Card>
   );
 
-  const settingsTab = (
+  const settingsRegistration = (
     <div className="space-y-6">
+      <EventBlurbCard
+        competitionId={league.id}
+        orgId={orgId}
+        registerPath={`/register/${league.slug}`}
+        initial={{
+          description: league.description ?? null,
+          bannerUrl: league.bannerUrl ?? null,
+        }}
+      />
+
       <IndividualSignupSettings
         competitionId={league.id}
         sport={league.sport}
@@ -571,6 +581,72 @@ export default async function LeaguePage({
           freeAgents.filter((f) => f.status !== "withdrawn").length
         }
       />
+
+      {/* Beside the fee, because both decide whether a team is a real entrant:
+          one wants money, the other wants signatures. */}
+      <RegistrationQuestionsCard
+        competitionId={league.id}
+        initial={registrationQuestions}
+      />
+
+      <LocalityCard
+        competitionId={league.id}
+        homeCity={localities.homeCity}
+        orgCity={localities.orgCity}
+        ownCity={localities.ownCity}
+        teams={localities.teams}
+      />
+
+      <CompetitionWaiverCard
+        competitionId={league.id}
+        orgId={orgId}
+        state={waiverState}
+        available={orgWaivers.filter((w) => w.status === "approved")}
+      />
+    </div>
+  );
+
+  const settingsPayments = (
+    <div className="space-y-6">
+      <RegistrationFeeCard
+        competitionId={league.id}
+        competitionType="league"
+        initial={{
+          feeDollars: payment.settings.registrationFeeCents / 100,
+          allowCaptainPays: payment.settings.allowCaptainPays,
+          allowSplitPayment: payment.settings.allowSplitPayment,
+          taxEnabled: payment.settings.taxEnabled,
+          taxPercent: payment.settings.taxPercent,
+          paymentRequired: payment.settings.paymentRequired,
+          etransferEmail: payment.settings.etransferEmail ?? "",
+          etransferNote: payment.settings.etransferNote ?? "",
+          paypalTeamUrl: payment.settings.paypalTeamUrl ?? "",
+          paypalIndividualUrl: payment.settings.paypalIndividualUrl ?? "",
+          paypalNote: payment.settings.paypalNote ?? "",
+        }}
+        rates={payment.rates}
+        payoutsReady={payment.payoutsReady}
+      />
+
+      {ledger && (
+        <>
+          <OfflinePaymentsInbox
+            pending={pendingEtransfers}
+            feesOwed={etransferFeesOwed}
+          />
+          <PaymentsDashboard
+            competitionId={league.id}
+            ledger={ledger}
+            payoutsReady={payment.payoutsReady}
+            splitAllowed={payment.settings.allowSplitPayment}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  const settingsFormat = (
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Ladder format</CardTitle>
@@ -635,22 +711,11 @@ export default async function LeaguePage({
           />
         </CardContent>
       </Card>
+    </div>
+  );
 
-      {ledger && (
-        <>
-          <OfflinePaymentsInbox
-            pending={pendingEtransfers}
-            feesOwed={etransferFeesOwed}
-          />
-          <PaymentsDashboard
-            competitionId={league.id}
-            ledger={ledger}
-            payoutsReady={payment.payoutsReady}
-            splitAllowed={payment.settings.allowSplitPayment}
-          />
-        </>
-      )}
-
+  const settingsVenues = (
+    <div className="space-y-6">
       <CourtVenuesCard
         competitionId={league.id}
         courts={league.courtList ?? []}
@@ -663,59 +728,11 @@ export default async function LeaguePage({
       />
 
       {orgVenues.length > 0 && <ScheduleIssuesCard issues={venueIssues} />}
+    </div>
+  );
 
-      <EventBlurbCard
-        competitionId={league.id}
-        orgId={orgId}
-        registerPath={`/register/${league.slug}`}
-        initial={{
-          description: league.description ?? null,
-          bannerUrl: league.bannerUrl ?? null,
-        }}
-      />
-
-      <RegistrationFeeCard
-        competitionId={league.id}
-        competitionType="league"
-        initial={{
-          feeDollars: payment.settings.registrationFeeCents / 100,
-          allowCaptainPays: payment.settings.allowCaptainPays,
-          allowSplitPayment: payment.settings.allowSplitPayment,
-          taxEnabled: payment.settings.taxEnabled,
-          taxPercent: payment.settings.taxPercent,
-          paymentRequired: payment.settings.paymentRequired,
-          etransferEmail: payment.settings.etransferEmail ?? "",
-          etransferNote: payment.settings.etransferNote ?? "",
-          paypalTeamUrl: payment.settings.paypalTeamUrl ?? "",
-          paypalIndividualUrl: payment.settings.paypalIndividualUrl ?? "",
-          paypalNote: payment.settings.paypalNote ?? "",
-        }}
-        rates={payment.rates}
-        payoutsReady={payment.payoutsReady}
-      />
-
-      {/* Beside the fee, because both decide whether a team is a real entrant:
-          one wants money, the other wants signatures. */}
-      <RegistrationQuestionsCard
-        competitionId={league.id}
-        initial={registrationQuestions}
-      />
-
-      <LocalityCard
-        competitionId={league.id}
-        homeCity={localities.homeCity}
-        orgCity={localities.orgCity}
-        ownCity={localities.ownCity}
-        teams={localities.teams}
-      />
-
-      <CompetitionWaiverCard
-        competitionId={league.id}
-        orgId={orgId}
-        state={waiverState}
-        available={orgWaivers.filter((w) => w.status === "approved")}
-      />
-
+  const settingsAdmin = (
+    <div className="space-y-6">
       {coOrgs.canManage && (
         <Card>
           <CardHeader>
@@ -767,6 +784,32 @@ export default async function LeaguePage({
         </Card>
       )}
     </div>
+  );
+
+  /**
+   * Settings was fourteen cards in one scroll — an organizer hunting for the
+   * fee had to scroll past the ladder wizard, the court list and an audit log.
+   * Grouped by what they came to do, not by what the data happens to be.
+   */
+  const settingsTab = (
+    <OrganizerTabs
+      variant="nested"
+      tabs={[
+        {
+          value: "registration",
+          label: "Registration",
+          content: settingsRegistration,
+        },
+        { value: "payments", label: "Payments", content: settingsPayments },
+        { value: "format", label: "Format", content: settingsFormat },
+        { value: "venues", label: "Courts & venues", content: settingsVenues },
+        // Every card in Admin is gated on canManage, so for anyone else the
+        // tab would open on nothing — worse than not offering it.
+        ...(coOrgs.canManage
+          ? [{ value: "admin", label: "Admin", content: settingsAdmin }]
+          : []),
+      ]}
+    />
   );
 
   return (

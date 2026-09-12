@@ -5,6 +5,39 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-12 — Settings stops being one long scroll
+
+**Shipped.** A league's Settings tab had grown to fourteen cards in a single
+column. An organizer opening it to change the entry fee scrolled past the
+ladder wizard, the court list, the waiver picker and an audit log to get there,
+on a phone, every time.
+
+Grouped into five sub-tabs by **what an organizer came to do**, not by what the
+data happens to be: Registration (the pitch, individual sign-ups, questions,
+locality, waiver), Payments (fee, offline inbox, ledger), Format (ladder,
+scoring), Courts & venues, and Admin. Registration leads because it is the one
+touched daily while sign-ups are open; Format and Venues are set once at
+creation and sit behind.
+
+**`OrganizerTabs` gained a `nested` variant.** Two identically-styled tab bars
+stacked read as one broken bar, so the inner one is smaller and lower-contrast
+— subordinate to the page's own tabs rather than competing with them.
+
+**The Admin tab is only offered to someone who can use it.** Every card in it is
+gated on `canManage`, so for anyone else the tab would have opened on nothing,
+which is worse than the scroll it replaced.
+
+**The tournament page was deliberately left alone.** Its Settings has seven
+sections, not fourteen, and splitting that into four tabs holding one card each
+would add clicks without removing much scroll. Consistency is not worth a worse
+page.
+
+No behaviour changed — every card is the same component with the same props,
+moved rather than rewritten, by slicing the existing JSX rather than retyping
+it.
+
+---
+
 ## 2026-09-11 — Placing an address somebody typed
 
 **Shipped.** BVL's "Where players live" card read *Not known* for 5 of 10
