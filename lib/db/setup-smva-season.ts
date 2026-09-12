@@ -75,7 +75,22 @@ const ROSTER: Record<string, string[]> = {
     "BEERS",
     "BANGERS AND SMASH",
   ],
-  "Tier 4 — PPL": ["UNITED", "BLUFFS 2.0", "SMASHED", "OGE", "CHEFS"],
+  // OUTTAHAND is here, not at Agincourt. The 13 April sheet had Agincourt on 7
+  // and PPL on 5 because a gym fell through and teams were spread across the
+  // rest — an adjusted night. A normal week is strictly 3 courts / 6 teams or
+  // 2 courts / 4 teams with nobody sitting, so PPL must hold six, and the only
+  // way to get there from that roster is for one Agincourt team to sit at PPL.
+  // OUTTAHAND was listed last of the seven, which makes it the one that
+  // visited. Still an inference: if it is actually a different team, moving it
+  // is one line here and a re-run.
+  "Tier 4 — PPL": [
+    "UNITED",
+    "BLUFFS 2.0",
+    "SMASHED",
+    "OGE",
+    "CHEFS",
+    "OUTTAHAND",
+  ],
   "Tier 5A — Porter": ["B.O.M.B.", "TGS", "KATZ", "ZEUS"],
   "Tier 5B — Wexford": [
     "BOUNCETOWN",
@@ -93,15 +108,8 @@ const ROSTER: Record<string, string[]> = {
   ],
 };
 
-/**
- * Created but deliberately not placed.
- *
- * OUTTAHAND was Agincourt's seventh team on an adjusted night. Normally
- * Agincourt holds six and PPL six, so one of those seven sits at PPL — it is
- * the lowest-listed, which makes it the likely one, but "likely" is not a
- * league rule and guessing would put a real team in the wrong gym.
- */
-const UNPLACED = ["OUTTAHAND"];
+/** Every team now has a tier: a normal week leaves nobody out. */
+const UNPLACED: string[] = [];
 
 const say = (s: string) => console.log(s);
 
