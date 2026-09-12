@@ -5,6 +5,7 @@ import {
   fixturesFor,
   podLetters,
   podSizesAvailable,
+  movementLabel,
   podTemplate,
   type PodLetter,
   type PodTemplate,
@@ -65,7 +66,6 @@ describe("the 4-team grid, as printed at Leacock A", () => {
   it("carries the printed rules verbatim", () => {
     expect(t.clock).toBe("Set clock at 45 minutes +4 minutes");
     expect(t.scoring).toBe("Games 1&2 start at 4 points, Game 3 at 0");
-    expect(t.movement).toBe("2 up, 2 down");
     expect(t.setup).toBe("A and B setup courts");
     expect(t.totalPoints).toBe(36);
   });
@@ -107,7 +107,6 @@ describe("the 6-team grid, as printed at Bethune", () => {
   it("carries the printed rules verbatim", () => {
     expect(t.clock).toBe("Set clock at 26 minutes +4 minutes");
     expect(t.scoring).toBe("First games start at 4 points");
-    expect(t.movement).toBe("2 down");
     expect(t.setup).toBe("A and B and E setup courts");
     expect(t.totalPoints).toBe(60);
   });
@@ -173,5 +172,49 @@ describe("assignLetters", () => {
 
   it("is empty for an empty pod", () => {
     expect(assignLetters([])).toEqual([]);
+  });
+});
+
+/**
+ * Scarborough's ladder, top to bottom. Eight tiers in ONE chain — 2A sits
+ * above 2B and 5A above 5B, so the split levels are not parallel and the
+ * existing linear movement engine models them directly.
+ */
+const SMVA_SWAPS = [2, 2, 2, 2, 2, 2, 2];
+
+describe("movementLabel", () => {
+  // The bug this function exists to prevent: reading the line off the pod size
+  // printed "2 down" at the BOTTOM of the ladder, because Bethune and King are
+  // both six-team grids.
+  it("says what each Scarborough gym's sheet says", () => {
+    const gyms = [
+      "Bethune",
+      "Leacock A",
+      "Leacock B",
+      "Agincourt",
+      "PPL",
+      "Porter",
+      "Wexford",
+      "King",
+    ];
+    const labels = gyms.map((_, i) => movementLabel(i, SMVA_SWAPS));
+    expect(labels).toEqual([
+      "2 down", // top: drops only
+      "2 up, 2 down",
+      "2 up, 2 down",
+      "2 up, 2 down",
+      "2 up, 2 down",
+      "2 up, 2 down",
+      "2 up, 2 down",
+      "2 up", // bottom: climbs only
+    ]);
+  });
+
+  it("says nothing at all for a ladder of one tier", () => {
+    expect(movementLabel(0, [])).toBe("");
+  });
+
+  it("reflects an uneven boundary rather than assuming two", () => {
+    expect(movementLabel(1, [1, 3])).toBe("1 up, 3 down");
   });
 });

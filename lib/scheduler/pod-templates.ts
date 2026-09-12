@@ -39,8 +39,6 @@ export interface PodTemplate {
   clock: string;
   /** "First games start at 4 points" */
   scoring: string;
-  /** "2 down" / "2 up, 2 down" — the promotion rule printed on the sheet. */
-  movement: string;
   /** "A and B and E setup courts" */
   setup: string;
   /** The number printed under the grid — total points available on the night. */
@@ -67,7 +65,6 @@ const POD_4: PodTemplate = {
   ],
   clock: "Set clock at 45 minutes +4 minutes",
   scoring: "Games 1&2 start at 4 points, Game 3 at 0",
-  movement: "2 up, 2 down",
   setup: "A and B setup courts",
   totalPoints: 36,
 };
@@ -93,7 +90,6 @@ const POD_6: PodTemplate = {
   ],
   clock: "Set clock at 26 minutes +4 minutes",
   scoring: "First games start at 4 points",
-  movement: "2 down",
   setup: "A and B and E setup courts",
   totalPoints: 60,
 };
@@ -160,4 +156,27 @@ export function assignLetters<T>(
     letter: podLetters(seeded.length)[i],
     team,
   }));
+}
+
+/**
+ * The promotion line printed on a sheet: "2 up, 2 down".
+ *
+ * This belongs to where a tier SITS, not to how big it is. Bethune's sheet says
+ * "2 down" because it is the top gym, and King is the same six-team grid but
+ * moves teams up only — reading it off the pod size, as a first version of this
+ * module did, would print "2 down" on the bottom of the ladder.
+ *
+ * `swaps[i]` is the exchange between tier `i` and tier `i + 1`, so a tier's
+ * promotions come from the boundary above it and its relegations from the
+ * boundary below.
+ */
+export function movementLabel(tierIndex: number, swaps: number[]): string {
+  const up = tierIndex > 0 ? (swaps[tierIndex - 1] ?? 0) : 0;
+  const down = swaps[tierIndex] ?? 0;
+  const parts: string[] = [];
+  if (up > 0) parts.push(`${up} up`);
+  if (down > 0) parts.push(`${down} down`);
+  // The top tier only drops and the bottom only climbs; a one-tier ladder
+  // does neither, and saying nothing is better than saying "0 up, 0 down".
+  return parts.join(", ");
 }

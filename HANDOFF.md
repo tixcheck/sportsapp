@@ -360,6 +360,51 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
+## Scarborough Men's (SMVA) — in progress, migration 0117 NOT applied
+
+**`0117_ladder_night_results.sql` is written and not applied.** It adds
+`result_rank` and `result_points` to `ladder_placements`, both nullable, so a
+league that enters scores is unaffected. Apply it when the rank-entry UI lands,
+not before — nothing reads the columns yet.
+
+**Their ladder is ONE linear chain of 8 tiers**, not a branching one. 2A sits
+above 2B and 5A above 5B, so `applyLadderMovement` models it directly with no
+engine change:
+
+| # | Tier | Gym | Teams |
+|---|---|---|---|
+| 0 | 1 | Bethune | 6 |
+| 1 | 2A | Leacock A | 4 |
+| 2 | 2B | Leacock B | 4 |
+| 3 | 3 | Agincourt | 6 |
+| 4 | 4 | PPL | 6 |
+| 5 | 5A | Porter | 4 |
+| 6 | 5B | Wexford | 4 |
+| 7 | 6 | King | 6 |
+
+`swaps: [2, 2, 2, 2, 2, 2, 2]` — two exchanged at every boundary, which
+reproduces every sheet's printed line.
+
+**Their pod grids are DATA, not generated** (`lib/scheduler/pod-templates.ts`).
+Same matchups, same courts, same order every week; the organizer was explicit it
+"has to be this". Only 4 and 6 are pinned — the 5- and 7-team grids on the
+April 13 sheet came from a week where a gym fell through and teams were
+reshuffled, so they are not canonical.
+
+**Why they want this at all:** the executive's objection to any system is that
+it adds work, so the first version must be strictly less work than the PDF.
+Their organizer: *"for the app we don't need to input each score, just the final
+standings at the end of the night."* Rank in, sheets out. Per-match score entry
+is explicitly NOT wanted for v1.
+
+**Still to build:** rank + total-points entry per tier per week, `lockLadderWeek`
+preferring those over match-derived ranks, and the printable gym package.
+
+**Open with the organizer:** Bethune and King printed the same fifteen 6-team
+fixtures on the same night with slots 3 and 5 exchanged — one is presumably a
+typo. Bethune is followed, being the sheet given as canonical. Tier weights for
+season standings have also been asked for and not yet supplied.
+
 ## Auditing the system — `npm run check:all`
 
 Four read-only checks, run together. All four were clean on 2026-09-11.
