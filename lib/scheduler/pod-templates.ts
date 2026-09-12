@@ -28,8 +28,15 @@ export interface PodSlot {
   sitting?: PodLetter;
 }
 
+export type PodKind =
+  /** Runs every normal week: 3 courts = 6 teams, 2 courts = 4 teams. */
+  | "regular"
+  /** Only when a gym falls through and teams are rebalanced across the rest. */
+  | "adjustment";
+
 export interface PodTemplate {
   teams: number;
+  kind: PodKind;
   /** Court headings as printed, e.g. ["Court 1", "Court 2", "Court 3"]. */
   courtLabels: string[];
   slots: PodSlot[];
@@ -39,7 +46,7 @@ export interface PodTemplate {
   clock: string;
   /** "First games start at 4 points" */
   scoring: string;
-  /** "A and B and E setup courts" */
+  /** "A and B and E setup courts". Empty where the source sheet printed none. */
   setup: string;
   /** The number printed under the grid — total points available on the night. */
   totalPoints: number;
@@ -56,6 +63,7 @@ const m = (home: PodLetter, away: PodLetter) => ({ home, away });
  */
 const POD_4: PodTemplate = {
   teams: 4,
+  kind: "regular",
   title: "4-Team Schedule: 3-games per match",
   courtLabels: ["Court 1", "Court 2"],
   slots: [
@@ -79,6 +87,7 @@ const POD_4: PodTemplate = {
  */
 const POD_6: PodTemplate = {
   teams: 6,
+  kind: "regular",
   title: "6-Team Schedule: 2-games per match",
   courtLabels: ["Court 1", "Court 2", "Court 3"],
   slots: [
@@ -94,9 +103,97 @@ const POD_6: PodTemplate = {
   totalPoints: 60,
 };
 
+/**
+ * 5 teams, 2 courts, one sitting each slot.
+ *
+ * ADJUSTMENT ONLY. Every normal week is 4 or 6 — three courts hold six teams,
+ * two courts hold four, and nobody sits. A five-team gym exists because another
+ * gym fell through and its teams were spread across the rest, which is exactly
+ * what produced the 13 April sheet this is transcribed from.
+ *
+ * Its scoring line is inferred, not observed: that sheet printed a clock but no
+ * scoring note, so this borrows the 6-team one on the grounds that both play two
+ * games per match. Worth confirming before a night runs on it. The setup duty is
+ * left empty for the same reason — the source showed none, and inventing who
+ * puts the nets up is not the sort of guess a gym should discover at 7:20.
+ */
+const POD_5: PodTemplate = {
+  teams: 5,
+  kind: "adjustment",
+  title: "5-Team Schedule: 2-games per match",
+  courtLabels: ["Court 1", "Court 2"],
+  slots: [
+    { time: "7:20 - 7:50", courts: [m("A", "C"), m("B", "D")], sitting: "E" },
+    { time: "7:52 - 8:20", courts: [m("A", "D"), m("C", "E")], sitting: "B" },
+    { time: "8:22 - 8:50", courts: [m("B", "C"), m("A", "E")], sitting: "D" },
+    { time: "8:52 - 9:20", courts: [m("B", "E"), m("C", "D")], sitting: "A" },
+    { time: "9:22 - 9:50", courts: [m("A", "B"), m("D", "E")], sitting: "C" },
+  ],
+  clock: "Set clock at 26 minutes +4 minutes",
+  scoring: "First games start at 4 points",
+  setup: "",
+  totalPoints: 40,
+};
+
+/**
+ * 7 teams, 3 courts, one sitting each slot. ADJUSTMENT ONLY — see POD_5.
+ *
+ * Seven slots rather than five, on a 17-minute clock, because twenty-one
+ * fixtures do not fit a normal night any other way.
+ */
+const POD_7: PodTemplate = {
+  teams: 7,
+  kind: "adjustment",
+  title: "7-Team Schedule: 2-games per match",
+  courtLabels: ["Court 1", "Court 2", "Court 3"],
+  slots: [
+    {
+      time: "7:20 - 7:40",
+      courts: [m("C", "E"), m("D", "F"), m("B", "G")],
+      sitting: "A",
+    },
+    {
+      time: "7:41 - 8:01",
+      courts: [m("D", "E"), m("A", "G"), m("C", "F")],
+      sitting: "B",
+    },
+    {
+      time: "8:02 - 8:22",
+      courts: [m("D", "G"), m("A", "F"), m("B", "E")],
+      sitting: "C",
+    },
+    {
+      time: "8:23 - 8:43",
+      courts: [m("B", "F"), m("C", "G"), m("A", "E")],
+      sitting: "D",
+    },
+    {
+      time: "8:44 - 9:04",
+      courts: [m("F", "G"), m("B", "C"), m("A", "D")],
+      sitting: "E",
+    },
+    {
+      time: "9:05 - 9:25",
+      courts: [m("A", "C"), m("E", "G"), m("B", "D")],
+      sitting: "F",
+    },
+    {
+      time: "9:26 - 9:46",
+      courts: [m("A", "B"), m("C", "D"), m("E", "F")],
+      sitting: "G",
+    },
+  ],
+  clock: "Set clock at 17 minutes + 4 minutes",
+  scoring: "First games start at 4 points",
+  setup: "",
+  totalPoints: 84,
+};
+
 const TEMPLATES = new Map<number, PodTemplate>([
   [4, POD_4],
+  [5, POD_5],
   [6, POD_6],
+  [7, POD_7],
 ]);
 
 /** The grid for a pod of this size, or null where none is pinned yet. */
@@ -106,6 +203,21 @@ export function podTemplate(teamCount: number): PodTemplate | null {
 
 export function podSizesAvailable(): number[] {
   return [...TEMPLATES.keys()].sort((a, b) => a - b);
+}
+
+/** The sizes a normal week uses: 2 courts hold 4 teams, 3 courts hold 6. */
+export function regularSizes(): number[] {
+  return [...TEMPLATES.values()]
+    .filter((t) => t.kind === "regular")
+    .map((t) => t.teams)
+    .sort((a, b) => a - b);
+}
+
+/** How many teams a gym with this many courts takes on a normal week. */
+export function teamsForCourts(courts: number): number | null {
+  if (courts === 2) return 4;
+  if (courts === 3) return 6;
+  return null;
 }
 
 /** Letters A, B, C… for a pod of `n`, in order. */

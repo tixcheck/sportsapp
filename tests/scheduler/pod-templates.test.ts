@@ -7,6 +7,8 @@ import {
   podSizesAvailable,
   movementLabel,
   podTemplate,
+  regularSizes,
+  teamsForCourts,
   type PodLetter,
   type PodTemplate,
 } from "@/lib/scheduler/pod-templates";
@@ -19,17 +21,90 @@ const allPairings = (t: PodTemplate) =>
   );
 
 describe("podTemplate", () => {
-  it("has the two sizes Scarborough actually runs", () => {
-    expect(podSizesAvailable()).toEqual([4, 6]);
-    expect(podTemplate(4)).not.toBeNull();
-    expect(podTemplate(6)).not.toBeNull();
+  it("has the four sizes Scarborough can run", () => {
+    expect(podSizesAvailable()).toEqual([4, 5, 6, 7]);
   });
 
-  // Their other sizes only appear when a gym falls through, and those grids
-  // are not confirmed — better null than a plausible invention.
-  it("returns null for a size nobody has pinned", () => {
-    for (const n of [3, 5, 7, 8]) expect(podTemplate(n)).toBeNull();
+  // Every normal week is 4 or 6 and nobody sits. 5 and 7 exist only for the
+  // weeks a gym falls through and its teams are spread across the rest.
+  it("separates the regular sizes from the adjustment ones", () => {
+    expect(regularSizes()).toEqual([4, 6]);
+    expect(podTemplate(4)!.kind).toBe("regular");
+    expect(podTemplate(6)!.kind).toBe("regular");
+    expect(podTemplate(5)!.kind).toBe("adjustment");
+    expect(podTemplate(7)!.kind).toBe("adjustment");
   });
+
+  it("returns null for a size nobody has pinned", () => {
+    for (const n of [0, 1, 2, 3, 8]) expect(podTemplate(n)).toBeNull();
+  });
+});
+
+describe("teamsForCourts", () => {
+  // The league's own rule: 3 courts = 6 teams, 2 courts = 4 teams.
+  it("maps a gym's courts to its pod size", () => {
+    expect(teamsForCourts(2)).toBe(4);
+    expect(teamsForCourts(3)).toBe(6);
+  });
+
+  it("has no answer for a court count they do not use", () => {
+    for (const n of [0, 1, 4, 5]) expect(teamsForCourts(n)).toBeNull();
+  });
+});
+
+describe("the adjustment grids", () => {
+  for (const size of [5, 7]) {
+    const t = podTemplate(size)!;
+
+    it(`the ${size}-team grid is a complete round robin`, () => {
+      const pairs = allPairings(t);
+      const expected = (size * (size - 1)) / 2;
+      expect(pairs).toHaveLength(expected);
+      expect(new Set(pairs).size).toBe(expected);
+    });
+
+    it(`the ${size}-team grid sits exactly one team per slot`, () => {
+      for (const slot of t.slots) {
+        expect(slot.sitting).toBeDefined();
+        const playing = slot.courts
+          .filter((c) => c !== null)
+          .flatMap((c) => [c!.home, c!.away]);
+        expect(playing).not.toContain(slot.sitting);
+        expect(new Set([...playing, slot.sitting!]).size).toBe(size);
+      }
+    });
+
+    it(`the ${size}-team grid sits everybody once`, () => {
+      const sat = t.slots.map((s) => s.sitting);
+      expect(new Set(sat).size).toBe(size);
+    });
+
+    // 2 points a game, which is exactly what their 4- and 6-team sheets print.
+    it(`the ${size}-team total follows the same 2-points-a-game rule`, () => {
+      const fixtures = (size * (size - 1)) / 2;
+      expect(t.totalPoints).toBe(fixtures * 2 * 2);
+    });
+
+    // Their sheet showed no setup duty for these, and inventing who puts the
+    // nets up is not something a gym should discover at 7:20.
+    it(`the ${size}-team grid claims no setup duty`, () => {
+      expect(t.setup).toBe("");
+    });
+  }
+});
+
+describe("the regular grids never sit anybody", () => {
+  for (const size of [4, 6]) {
+    it(`holds for ${size} teams`, () => {
+      const t = podTemplate(size)!;
+      expect(t.slots.every((s) => s.sitting === undefined)).toBe(true);
+      // Everyone is on a court in every slot.
+      for (const slot of t.slots) {
+        const playing = slot.courts.filter((c) => c !== null).length * 2;
+        expect(playing).toBe(size);
+      }
+    });
+  }
 });
 
 describe("the 4-team grid, as printed at Leacock A", () => {

@@ -112,9 +112,26 @@ describe("buildGymSheet — 4 teams", () => {
 describe("buildGymSheet — refusals", () => {
   // The gym runs off this sheet; an invented grid is worse than none.
   it("is null for a pod size with no pinned grid", () => {
-    expect(buildGymSheet(BETHUNE.slice(0, 5), "2 up, 2 down")).toBeNull();
     expect(buildGymSheet(BETHUNE.slice(0, 3), "2 down")).toBeNull();
     expect(buildGymSheet([], "")).toBeNull();
+  });
+
+  // 5 is an ADJUSTMENT size — it only runs when a gym falls through — but a
+  // grid exists for it, so it builds rather than refusing.
+  it("builds the adjustment sizes, with somebody sitting", () => {
+    const five = buildGymSheet(BETHUNE.slice(0, 5), "2 up, 2 down")!;
+    expect(five).not.toBeNull();
+    expect(five.title).toBe("5-Team Schedule: 2-games per match");
+    expect(five.slots.every((s) => s.sitting !== undefined)).toBe(true);
+    // Everyone sits exactly once across the night.
+    expect(new Set(five.slots.map((s) => s.sitting!.id)).size).toBe(5);
+  });
+
+  it("never sits anybody on a regular size", () => {
+    for (const teams of [LEACOCK, BETHUNE]) {
+      const sheet = buildGymSheet(teams, "2 up, 2 down")!;
+      expect(sheet.slots.every((s) => s.sitting === undefined)).toBe(true);
+    }
   });
 });
 
