@@ -1,8 +1,12 @@
 /**
  * Create Scarborough Men's Monday ladder: venues, competition, settings, tiers.
  *
- *   npx tsx lib/db/setup-smva.ts            # dry run, writes nothing
- *   npx tsx lib/db/setup-smva.ts --write    # apply
+ *   npx tsx lib/db/setup-smva.ts --org <uuid>            # dry run
+ *   npx tsx lib/db/setup-smva.ts --org <uuid> --write    # apply
+ *
+ * The org id is a flag rather than a constant because the first one was created
+ * under the wrong account and deleted. When Alesandro makes his own, this runs
+ * against it unchanged.
  *
  * Idempotent: it looks for the competition by slug and the venues by name, and
  * skips anything already there. Safe to re-run after a partial failure.
@@ -18,7 +22,8 @@ import postgres from "postgres";
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
 const WRITE = process.argv.includes("--write");
 
-const ORG_ID = "2e147fa1-d605-43a0-8eae-e86d30fbad51";
+const orgFlag = process.argv.indexOf("--org");
+const ORG_ID = orgFlag > -1 ? process.argv[orgFlag + 1] : "";
 const SLUG = "smva-monday-ladder-2026-2027";
 const NAME = "SMVA Monday Night Ladder 2026/2027";
 
@@ -154,10 +159,14 @@ async function main() {
       : "DRY RUN — nothing is saved. Add --write to apply.\n",
   );
 
+  if (!/^[0-9a-f-]{36}$/i.test(ORG_ID)) {
+    console.error("Pass the organization: --org <uuid>");
+    process.exit(1);
+  }
   const [org] =
     await sql`select id, name from organizations where id = ${ORG_ID}`;
   if (!org) {
-    console.error("Organization not found.");
+    console.error(`Organization ${ORG_ID} not found.`);
     process.exit(1);
   }
   say(`org: ${org.name}`);
