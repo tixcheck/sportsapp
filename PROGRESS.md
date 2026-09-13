@@ -5,6 +5,94 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-13 — Scarborough Men's: their paper sheet, as data
+
+**Shipped.** SMVA run eight gyms a night off a printed package, and their
+executive's test for any system is whether it prints the same page. Thirteen
+commits of getting their format in, ending with both migrations applied.
+
+**Their ladder needed no engine change.** Eight tiers in one linear chain
+(1 → 2A → 2B → 3 → 4 → 5A → 5B → 6) is exactly what `applyLadderMovement`
+already does; the only thing missing was the order itself and the per-boundary
+swap counts. Two tiers sharing a number is a naming convention, not a branch.
+
+**The pod grids are pinned as DATA, not generated** (`lib/scheduler/
+pod-templates.ts`). Four teams over 2 courts in 3 slots, six over 3 courts in 5
+— every pair meets once and nobody sits, which is the property their grids were
+hand-built for and a generator would have to be argued into. `kind` separates
+the two regular sizes from `POD_5`/`POD_7`, which only run when a gym falls
+through and somebody has to sit.
+
+**Games per team is not matches per team**, and the sheets say so: a 4-team
+night is 3 matches × 3 games (45-minute clock, 36 points), a 6-team night is 5
+matches × 2 games (26-minute clock, 60 points). Both land on ~150 minutes with
+nobody sitting — that symmetry is why the clocks are 45 and 26 rather than
+round numbers, and it's recorded in the tests so nobody tidies them.
+
+**The 2-points-per-game rule was derived, not invented.** Their printed totals
+(60 and 36) only work at 2 points a game, which let the 5- and 7-team totals be
+*computed* (40, 84) rather than guessed at.
+
+**Overall standings are golf scoring** (`lib/scheduler/ladder-overall.ts`):
+position across the whole league, lowest total wins, ties share a seed. A team
+winning tier 3 sits below a team finishing last in tier 1, which is the point of
+a ladder.
+
+**The printed sheet drops the letters.** Their grid says "A vs C" with a legend
+because you cannot rewrite six team names into a printed grid by hand every
+week — it's an artefact of paper. `buildGymSheet` keeps the letters inside the
+template as the stable shape of the grid, binds them to teams in seeded order,
+and prints names. It returns **null** for a pod size with no pinned grid:
+the gym runs off this sheet, and an invented schedule is worse than a missing
+one.
+
+**A bug worth keeping in mind: 29 tests passed over it.** `resolveDuty`
+replaces bare letters, which is right for template text we author ("A and B
+setup courts") and catastrophic for organizer prose — their "A 4-minute warning
+will be given" rendered as "VOID 4-minute warning". Organizer text now uses
+`{A}`–`{G}` placeholders instead (`resolvePlaceholders`). Nothing in the unit
+tests found it; **rendering the sample sheet did.**
+
+**Two things the printed package carried that the app had nowhere to put** —
+migration `0118`: `league_settings.sheet_notes` (titled instruction blocks, as
+an ordered array because the sheet prints them as headed sections) and
+`ladder_night_officials` (names, not accounts — these are volunteers who mostly
+have none, and requiring one would mean the night goes unrecorded).
+`parseSheetNotes` **drops** a malformed block rather than repairing it, because
+the destination is a print layout where a headless section is a gap on the page.
+
+**Migration `0117` is the one that makes it usable at their scale:**
+`result_rank` + `result_points` on `ladder_placements`. Their organizer was
+explicit — *"for the app we don't need to input each score, just the final
+standings at the end of the night"* — and the movement engine never wanted the
+scores anyway, only the ranked list. Both columns nullable, so a league that
+enters every set is ranked from its matches exactly as before and one league can
+do both, week by week.
+
+**Org and league set up for real**, not seeded: the org is owned by their
+organizer (created for them, then recreated under their ownership after a
+deliberate delete — an org belongs to the person who runs it), 7 venues geocoded
+through Places `searchText`, 8 tiers, the 40 returning teams, and the season's
+dates and blackouts. **Leacock is two venues, not one** — two double gyms, two
+courts each — because court identity is `(venue, label)` and one venue with four
+courts would let the generator put a game on a court in the other building.
+
+**Courts became a count per gym.** The venues card assigned courts one at a
+time, which is fine for a 2-court league and absurd for seven gyms; it's now one
+row per gym with a count, a start time and prime-court chips.
+
+**Both migrations applied and verified** against the live database today, and
+`lib/db/schema.ts` now mirrors them — it had drifted, since `0117`/`0118` are
+hand-written and drizzle-kit never sees them.
+
+**Tests:** 1402 passing across 108 files.
+
+**Next:** the rank + total-points entry UI per tier per week (the storage is now
+there), `lockLadderWeek` preferring a typed rank over a match-derived one, and
+the gym-sheet print route in the app — it exists only as a one-off generator.
+
+---
+
 ## 2026-09-12 — Settings stops being one long scroll
 
 **Shipped.** A league's Settings tab had grown to fourteen cards in a single

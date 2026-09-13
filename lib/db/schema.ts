@@ -25,9 +25,17 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+
+// The parsing rules for these live with the printed sheet, not here: a
+// malformed block has to be DROPPED before it reaches a print layout, and
+// that logic belongs beside the renderer. Type-only, so nothing is imported
+// at runtime.
+import type { SheetNote } from "@/lib/competition/sheet-notes";
 
 // ---------------------------------------------------------------------------
 // JSONB shapes (PRD §6)
@@ -497,6 +505,14 @@ export const leagueSettings = pgTable("league_settings", {
   // tier i+1. Length is (tiers - 1). The exchange is balanced by construction —
   // n up always means n down — so tier sizes never drift.
   ladderSwaps: jsonb("ladder_swaps").$type<number[]>(),
+  // Titled instruction blocks printed on every score sheet (migration 0118).
+  // Scarborough's gym package is mostly standing instructions — who sets the
+  // clock, what the winning team does with the nets — and their executive's
+  // test for the app is whether it prints the same page. An array rather than
+  // one blob because the sheet prints each as a headed section; the array's
+  // order IS the document's order. Plain text, like every other
+  // organizer-authored field in v0. Null = this league prints no sheets.
+  sheetNotes: jsonb("sheet_notes").$type<SheetNote[]>(),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */
@@ -1447,6 +1463,21 @@ export const ladderPlacements = pgTable(
     week: integer("week").notNull(),
     /** Seat within the tier, 0 = top. Display order only. */
     position: integer("position").notNull().default(0),
+    // ── The night's OUTCOME, beside the night's draw (migration 0117) ──────
+    // `position` is an input: where the team sat when the week was drawn.
+    // These two are what happened. Both nullable, and that is the whole
+    // compatibility story — a league that enters every set leaves them null
+    // and is ranked from its matches exactly as before, while one that types
+    // the finishing order fills them in and records no match at all. A league
+    // can do both, week by week.
+    /** Finishing position in the tier that night, 1 = won the gym. */
+    resultRank: integer("result_rank"),
+    /** The Total Points column from the organizer's own sheet. Informational:
+     *  movement uses resultRank. Deliberately NOT derived from the tier
+     *  weighting (0115) — that weights a tier; this records what their sheet
+     *  said, and computing it would mean telling an organizer their own total
+     *  was wrong. */
+    resultPoints: integer("result_points"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1455,6 +1486,54 @@ export const ladderPlacements = pgTable(
     // A team sits in exactly one tier per week.
     unique("ladder_placements_team_week_key").on(t.teamId, t.week),
     index("ladder_placements_competition_week_idx").on(t.competitionId, t.week),
+    // Two teams cannot share a finishing position in one tier on one night.
+    // Partial, so the many rows with no result do not collide with each other.
+    uniqueIndex("ladder_placements_result_rank_unique")
+      .on(t.competitionId, t.divisionId, t.week, t.resultRank)
+      .where(sql`${t.resultRank} is not null`),
+  ],
+);
+
+/**
+ * The named officials working one gym on one night (migration 0118).
+ *
+ * Their sheets name PEOPLE — "#1 Ali Sharifalam, #2 Greg Horne" — and the app
+ * otherwise only knows how to assign a ref TEAM. These are league volunteers
+ * who mostly have no account and never will, so a name is the whole record:
+ * same reasoning as `matchAppearances.playerName`, where demanding an account
+ * would mean the night simply goes unrecorded.
+ *
+ * One row per (division, week) — a gym on a night. The array is ORDERED,
+ * because the sheet numbers them #1/#2/#3 and that is how the gym refers to
+ * them.
+ */
+export const ladderNightOfficials = pgTable(
+  "ladder_night_officials",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    divisionId: uuid("division_id")
+      .notNull()
+      .references(() => divisions.id, { onDelete: "cascade" }),
+    /** 1-based week, same numbering as ladderPlacements. */
+    week: integer("week").notNull(),
+    /** ["Ali Sharifalam", "Greg Horne", "Cecil Clarke"] — #1 first. */
+    officials: jsonb("officials").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("ladder_night_officials_division_week_key").on(t.divisionId, t.week),
+    index("ladder_night_officials_competition_week_idx").on(
+      t.competitionId,
+      t.week,
+    ),
   ],
 );
 

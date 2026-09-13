@@ -7,12 +7,12 @@
 
 ---
 
-## Current state (last session — 2026-09-08)
+## Current state (last session — 2026-09-13)
 
-- **Branch:** `main`. **Latest commit:** `38624a4` — hide finished events from discovery. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
+- **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0116`, and every one of `0060`–`0116` verified as applied against the live database** (audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0118`, and every one of `0060`–`0118` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -29,6 +29,7 @@
     | `0100`–`0101` | Aug 31–Sep 1 | waivers, and the pending-waiver gate |
     | `0102`–`0113` | Sep 7 | PayPal + offline individual payments, registration questions, individual caps, suggested answers, waiver initials, unique team names, address questions, home locality (competition then org), answer-upsert inference, confirmed reference |
     | `0114`–`0116` | Sep 8 | one team per captain, per-tier ladder weights, `hidden_from_discovery` |
+    | `0117`–`0118` | Sep 13 | ladder night results typed directly, printed-sheet notes + named officials |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -215,6 +216,10 @@ host that wants auto-sizing can listen; one that doesn't is unaffected.
 
 ## What shipped recently (newest first)
 
+- **Scarborough Men's format** (migrations `0117` + `0118`) — pinned pod grids
+  as data, golf-scored overall standings, the gym-sheet builder, and storage for
+  a night's typed result, the printed sheet's instructions and its named
+  officials. See the SMVA section below for the traps.
 - **Venues** (migration `0071`) — a competition can span several buildings.
   Org-scoped venues, `matches.venue_id`, venue-aware court identity and
   schedule grouping. Built for BVL's indoor season (9 divisions, 6 gyms).
@@ -360,12 +365,18 @@ with `regexp_replace(court, '^[Cc]ourt\s+', '')` for league competitions, and
 number the null rounds by distinct start time. **Do not run either without the
 owner's explicit go.**
 
-## Scarborough Men's (SMVA) — in progress, migration 0117 NOT applied
+## Scarborough Men's (SMVA) — format in, entry UI still to build
 
-**`0117_ladder_night_results.sql` is written and not applied.** It adds
-`result_rank` and `result_points` to `ladder_placements`, both nullable, so a
-league that enters scores is unaffected. Apply it when the rank-entry UI lands,
-not before — nothing reads the columns yet.
+**`0117` and `0118` are APPLIED** (2026-09-13, verified object by object).
+`0117` adds `result_rank` + `result_points` to `ladder_placements`; `0118` adds
+`league_settings.sheet_notes` and the `ladder_night_officials` table. All
+nullable or defaulted, so no existing league changes. **Nothing in the app reads
+them yet** — the storage landed ahead of the entry UI on purpose, so that UI is
+a pure-frontend slice when it comes.
+
+**`lib/db/schema.ts` mirrors both** as of the same day. It had drifted, which is
+the standing hazard with hand-written migrations: drizzle-kit never sees them,
+so nothing forces the two into agreement.
 
 **Their ladder is ONE linear chain of 8 tiers**, not a branching one. 2A sits
 above 2B and 5A above 5B, so `applyLadderMovement` models it directly with no
@@ -387,9 +398,43 @@ reproduces every sheet's printed line.
 
 **Their pod grids are DATA, not generated** (`lib/scheduler/pod-templates.ts`).
 Same matchups, same courts, same order every week; the organizer was explicit it
-"has to be this". Only 4 and 6 are pinned — the 5- and 7-team grids on the
-April 13 sheet came from a week where a gym fell through and teams were
-reshuffled, so they are not canonical.
+"has to be this".
+
+**4 and 6 are the REGULAR sizes; 5 and 7 are the cancellation case.** All four
+are pinned, separated by `kind` — 3 courts means 6 teams, 2 courts means 4, and
+in a regular week nobody ever sits. The 5- and 7-team grids on the April 13
+sheet are from a week where a gym fell through and the tiers were rebalanced, so
+they exist for that and are not what a normal week looks like.
+
+**Matches per team is not games per team**, and confusing the two misreads every
+sheet. A 4-team night is **3 matches × 3 games** (45-minute clock, 36 total
+points); a 6-team night is **5 matches × 2 games** (26-minute clock, 60 points).
+Both come to ~150 minutes with nobody sitting — that equivalence is *why* the
+clocks are 45 and 26 rather than round numbers, so don't tidy them.
+
+**The 2-points-per-game rule was derived from their printed totals** (60 and 36),
+which is what let the 5- and 7-team totals be computed (40, 84) instead of
+invented.
+
+**The sheet prints NAMES, not letters** (`lib/scheduler/gym-sheet.ts`). Their
+grid says "A vs C" with a legend because nobody can rewrite six team names into
+a printed grid by hand every week — the letters are an artefact of paper. They
+survive inside the template as the grid's stable shape, get bound to teams in
+seeded order, and are never shown. `buildGymSheet` returns **null** for a pod
+size with no pinned grid: the gym runs off this sheet, so a missing one beats an
+invented one.
+
+**⚠️ `resolveDuty` is only safe on text WE author.** It replaces bare letters,
+which is right for a template's "A and B setup courts" and catastrophic for
+prose — the organizer's "A 4-minute warning will be given" printed as "VOID
+4-minute warning". Organizer-authored text uses `{A}`–`{G}` placeholders and
+`resolvePlaceholders` instead. **29 unit tests passed over that bug; rendering
+the sample sheet is what caught it** — worth remembering before trusting a green
+suite on anything whose output is a printed page.
+
+**`parseSheetNotes` DROPS a malformed block rather than repairing it.** The
+destination is a print layout, where a titled section with no body is a gap on
+the page and a non-string body throws mid-render.
 
 **Why they want this at all:** the executive's objection to any system is that
 it adds work, so the first version must be strictly less work than the PDF.
@@ -397,8 +442,10 @@ Their organizer: *"for the app we don't need to input each score, just the final
 standings at the end of the night."* Rank in, sheets out. Per-match score entry
 is explicitly NOT wanted for v1.
 
-**Still to build:** rank + total-points entry per tier per week, `lockLadderWeek`
-preferring those over match-derived ranks, and the printable gym package.
+**Still to build:** rank + total-points entry per tier per week (storage is
+there now), `lockLadderWeek` preferring a typed rank over a match-derived one,
+the officials entry UI, and the gym-sheet **print route** — the sheet builder is
+done but only a one-off generator has ever called it.
 
 **Season standings are GOLF SCORING, lowest wins.** A team's score for a night
 is its position among all 40 teams — first in Tier 1 is 1, last in Tier 6 is
@@ -419,8 +466,18 @@ broken (tied teams share a seed and the next seed skips).
 
 **Open with the organizer:** Bethune and King printed the same fifteen 6-team
 fixtures on the same night with slots 3 and 5 exchanged — one is presumably a
-typo. Bethune is followed, being the sheet given as canonical. Tier weights for
-season standings have also been asked for and not yet supplied.
+typo. Bethune is followed, being the sheet given as canonical. Also unconfirmed:
+whether OUTTAHAND belongs at PPL.
+
+**The org is owned by their organizer, not by us.** It was created here once and
+then deliberately deleted and recreated under his ownership — an org belongs to
+whoever runs it, and starting it on our account makes every later handover a
+migration. 7 venues are geocoded, the 8 tiers exist, the 40 returning teams are
+in, and the season's dates and blackouts are set.
+
+**Leacock is TWO venues, not one.** Two double gyms, two courts each. Court
+identity is `(venue, label)`, so one venue with four courts would happily put a
+game on a court in the other building.
 
 ## Auditing the system — `npm run check:all`
 
