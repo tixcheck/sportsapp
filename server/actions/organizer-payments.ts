@@ -796,3 +796,53 @@ export async function recordPayerReferenceAction(
   revalidatePath("/orgs");
   return { saved: data === true };
 }
+
+const dismissOfflineSchema = z.object({
+  paymentId: z.string().uuid(),
+  /** Why it was cleared, for the organizer's own record. */
+  note: z.string().trim().max(300).optional(),
+});
+
+/**
+ * Clear a payment request nobody completed.
+ *
+ * Brampton's secretary: "remove incomplete registrations so they don't appear
+ * under the paypal section". Someone starts a registration, a request is
+ * created, they walk away — and until now that row sat in the inbox for good,
+ * next to the ones that represent real money waiting to be checked.
+ *
+ * The team or free agent is deliberately untouched: dismissing a request is
+ * not removing an entry, and `withdrawTeamAction` already exists for the other
+ * decision. The team stays on the organizer's list to be chased, and can be
+ * sent a fresh payment link — migration 0102's unique index only ever covered
+ * OPEN charges, so cancelling this one frees it.
+ */
+export async function dismissOfflinePaymentAction(
+  input: z.input<typeof dismissOfflineSchema>,
+): Promise<ActionError | { dismissed: boolean }> {
+  const parsed = dismissOfflineSchema.safeParse(input);
+  if (!parsed.success) return { error: "Check the request." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("dismiss_offline_payment", {
+    _payment_id: parsed.data.paymentId,
+    _note: parsed.data.note ?? null,
+  });
+
+  if (error) {
+    const message = error.message ?? "";
+    // The organizer's own situation, and worth showing verbatim.
+    if (
+      message.includes("Only the organizer") ||
+      message.includes("already confirmed") ||
+      message.includes("taken by card")
+    ) {
+      return { error: message };
+    }
+    console.error("[payments] dismiss_offline_payment failed");
+    return { error: "That couldn't be cleared. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { dismissed: data === true };
+}

@@ -3,9 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 
-import { confirmOfflinePaymentAction } from "@/server/actions/organizer-payments";
+import {
+  confirmOfflinePaymentAction,
+  dismissOfflinePaymentAction,
+} from "@/server/actions/organizer-payments";
 import type {
   OfflineFeesOwed,
   PendingOfflinePayment,
@@ -99,6 +102,34 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
   // Pre-filled with what the payer said, so confirming is CHECKING a reference
   // rather than retyping one — and a blank box is visibly blank.
   const [reference, setReference] = useState(row.payerReference ?? "");
+  // Two clicks rather than a dialog. The act is reversible — the request can be
+  // recreated — but it is still somebody's registration disappearing off a
+  // list, and a stray tap on a phone should not do it.
+  const [confirming, setConfirming] = useState(false);
+
+  function dismiss() {
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    start(async () => {
+      const res = await dismissOfflinePaymentAction({
+        paymentId: row.paymentId,
+        note: note.trim() || undefined,
+      });
+      setConfirming(false);
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        res.dismissed
+          ? `Cleared ${row.teamName}'s request.`
+          : "That request was already cleared.",
+      );
+      router.refresh();
+    });
+  }
 
   function confirm() {
     const dollars = Number(amount);
@@ -197,7 +228,28 @@ function OfflineRow({ row }: { row: PendingOfflinePayment }) {
           <Check className="size-4" />
           {pending ? "Saving…" : "Confirm received"}
         </Button>
+
+        {/* Deliberately quiet beside Confirm: clearing a row is the rarer
+            move, and money waiting to be checked is what this screen is for. */}
+        <Button
+          onClick={dismiss}
+          disabled={pending}
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground"
+        >
+          <X className="size-4" />
+          {confirming ? "Clear this?" : "Didn't pay"}
+        </Button>
       </div>
+
+      {confirming && (
+        <p className="text-muted-foreground text-xs">
+          Clears this request from the list. {row.teamName} stays registered and
+          unpaid, so you can still chase them or send a fresh link — click again
+          to confirm.
+        </p>
+      )}
     </li>
   );
 }

@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — Clearing a registration nobody finished (migration 0119)
+
+**Shipped.** The last of BVL's three asks: "remove incomplete registrations so
+they don't appear under the paypal section". Someone starts a registration, a
+payment request is created, they walk away — and that row sat in the organizer's
+inbox for good, beside the ones that represent real money waiting to be checked.
+The inbox only ever offered **confirm**.
+
+**No new status.** `cancelled` has meant "payer abandoned checkout or the
+session expired" since migration 0064. What was missing was a way for an
+organizer to say so.
+
+**It needed a migration even though the status existed**, because
+`registration_payments` carries SELECT policies and nothing else — every write
+is a SECURITY DEFINER function, deliberately, so money changes have one
+auditable door. `dismiss_offline_payment` refuses a card charge (Stripe's to
+cancel), refuses a paid row and says "refund it instead", and returns **false**
+rather than erroring on a second click.
+
+**The team is deliberately left alone.** Dismissing a request is not removing
+an entry — the team stays `pending_payment` and stays on the Teams list to be
+chased or withdrawn, and `withdrawTeamAction` already exists for that other
+decision. One button doing both would make a reversible act irreversible. 0102's
+unique index only covers OPEN offline charges, so cancelling frees the team to
+be sent a fresh link.
+
+**A bug the data volunteered.** BVL's inbox had a free agent withdrawn six days
+earlier whose $340 PayPal request was still sitting there — nobody was ever
+going to pay it, and the organizer was being asked to tidy up after the app. A
+trigger now cancels open requests when a team or free agent is withdrawn, from
+whichever path does the withdrawing, and the migration corrected the row already
+stranded. Pending offline requests went 8 → 7 on apply.
+
+**Verified against the live database in rolled-back transactions**, as BVL's own
+organizer: dismissing a pending row returns true and leaves it `cancelled`, a
+second call returns false, a plain rostered player is refused by name, and an
+already-paid row is refused with the refund advice. The live row was untouched.
+
+**Tests:** 1446 passing across 111 files.
+
+---
+
 ## 2026-09-14 — A Players tab, and an organizer who can correct it
 
 **Shipped.** BVL's secretary asked for "access to player data (to add phone
