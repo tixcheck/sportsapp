@@ -21,8 +21,11 @@ import { CompetitionWaiverCard } from "@/components/waivers/competition-waiver-c
 import { RegistrationQuestionsCard } from "@/components/registration/questions-card";
 import { LocalityCard } from "@/components/registration/locality-card";
 import { RosterMixCard } from "@/components/registration/roster-mix-card";
+import { PlayersCard } from "@/components/registration/players-card";
+import { addressAutocompleteAvailableAction } from "@/server/actions/places";
 import {
   getRegistrationQuestions,
+  getPlayerDirectory,
   getTeamChoiceMix,
   getTeamLocalities,
   getTeamStageFacts,
@@ -155,6 +158,10 @@ export default async function LeaguePage({
     ]);
   const localities = await getTeamLocalities(league.id);
   const choiceMix = await getTeamChoiceMix(league.id);
+  const [players, addressAutocomplete] = await Promise.all([
+    getPlayerDirectory(league.id),
+    addressAutocompleteAvailableAction(),
+  ]);
   // One gather for the whole Teams tab: fifteen teams would otherwise be
   // sixty round trips, and the organizer is scanning for the one or two rows
   // that actually need them.
@@ -902,6 +909,20 @@ export default async function LeaguePage({
             ? [{ value: "playoffs", label: "Playoffs", content: playoffsTab }]
             : []),
           { value: "teams", label: "Teams", content: teamsTabWithFreeAgents },
+          {
+            value: "players",
+            label: "Players",
+            content: (
+              <PlayersCard
+                competitionId={league.id}
+                players={players}
+                questions={registrationQuestions.filter(
+                  (q) => q.scope === "player",
+                )}
+                addressAutocomplete={addressAutocomplete}
+              />
+            ),
+          },
           { value: "stats", label: "Stats", content: statsTab },
           { value: "settings", label: "Settings", content: settingsTab },
         ]}

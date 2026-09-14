@@ -555,3 +555,103 @@ export async function getTeamChoiceMix(
     };
   });
 }
+
+/** One registered player, with everything the organizer holds about them. */
+export type PlayerDirectoryRow = {
+  userId: string;
+  /** The name the league asked for — see `lib/registration/player-name.ts`. */
+  name: string;
+  /** What they chose to be called publicly, when it differs from `name`. */
+  accountName: string | null;
+  email: string | null;
+  teamId: string | null;
+  teamName: string | null;
+  answers: AnswerMap;
+};
+
+/**
+ * Every player in a competition, with their answers — the organizer's people
+ * list.
+ *
+ * Their league secretary's words: "access to player data (to add phone
+ * numbers, tweak spellings, etc.)". Until now `getAllAnswers` existed for an
+ * export that was never built, so an organizer could set the questions and
+ * read none of the replies.
+ *
+ * Driven off the ROSTER rather than off the answers, so somebody who joined a
+ * team and has answered nothing still appears — they are exactly who an
+ * organizer is looking for. Admin-only by RLS: `registration_answers` returns
+ * a player their own rows and an admin everything, so this reads as an empty
+ * list for anyone else rather than leaking.
+ */
+export async function getPlayerDirectory(
+  competitionId: string,
+): Promise<PlayerDirectoryRow[]> {
+  const supabase = await createClient();
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, team_members(user_id, users(display_name, email))")
+    .eq("competition_id", competitionId)
+    .neq("status", "withdrawn")
+    .order("name");
+
+  const rosters = (teams ?? []) as unknown as {
+    id: string;
+    name: string;
+    team_members:
+      | {
+          user_id: string;
+          users: { display_name: string | null; email: string | null } | null;
+        }[]
+      | null;
+  }[];
+
+  const [{ data: answerRows }, names] = await Promise.all([
+    supabase
+      .from("registration_answers")
+      .select("question_id, value, user_id")
+      .eq("competition_id", competitionId)
+      .not("user_id", "is", null),
+    getPlayerNameAnswers(competitionId),
+  ]);
+
+  const byUser = new Map<string, AnswerMap>();
+  for (const a of (answerRows ?? []) as {
+    question_id: string;
+    value: string;
+    user_id: string;
+  }[]) {
+    const map = byUser.get(a.user_id) ?? {};
+    map[a.question_id] = a.value;
+    byUser.set(a.user_id, map);
+  }
+
+  const out: PlayerDirectoryRow[] = [];
+  for (const team of rosters) {
+    for (const m of team.team_members ?? []) {
+      const accountName = m.users?.display_name ?? null;
+      const email = m.users?.email ?? null;
+      const name = resolvePlayerName(
+        namePartsFor(names, m.user_id, accountName, email),
+      );
+      out.push({
+        userId: m.user_id,
+        name,
+        // Only worth carrying when it says something the name doesn't.
+        accountName:
+          accountName && accountName.trim() !== name ? accountName : null,
+        email,
+        teamId: team.id,
+        teamName: team.name,
+        answers: byUser.get(m.user_id) ?? {},
+      });
+    }
+  }
+
+  return out.sort(
+    (a, b) =>
+      (a.teamName ?? "").localeCompare(b.teamName ?? "") ||
+      a.name.localeCompare(b.name),
+  );
+}

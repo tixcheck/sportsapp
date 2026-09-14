@@ -5,6 +5,47 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — A Players tab, and an organizer who can correct it
+
+**Shipped.** BVL's secretary asked for "access to player data (to add phone
+numbers, tweak spellings, etc.)". There was none: an organizer could set the
+questions and read none of the replies. `getAllAnswers` had been written for an
+export and **never called by anything** — the questions went in, the answers
+went nowhere.
+
+**A Players tab**, beside Teams: everyone on a roster with their answers, a
+search box, and an edit dialog per person. Driven off the ROSTER rather than
+off the answers, so somebody who joined a team and filled in nothing still
+appears — they are exactly who an organizer is hunting for.
+
+**No migration.** Migration 0104's write policy on `registration_answers`
+already allowed a competition admin to write any answer in their own
+competition; the block was entirely in the server action, which hardcoded
+`user_id: auth.uid()`. So the fix was a second entry point, not a schema
+change.
+
+**Proved against the live database rather than assumed**, in a rolled-back
+transaction as V's own account: an org admin can update another player's answer
+and read all 355 in the competition, and a plain rostered player attempting the
+same update gets zero rows. RLS is doing the work; the check in the action is
+so the refusal is a sentence instead of an empty result.
+
+**One write path, not two.** The player saving their own answers and an
+organizer correcting them now share `writeAnswers` — scope filtering, blanking
+a cleared field, and the address lookup are identical, and a second
+implementation of any of them is a second chance to get it wrong. Scope is
+forced to `player`, so this can never reach a team answer.
+
+**Of the secretary's three asks, one was already built**: removing someone from
+the draft/free-agent pool. `setFreeAgentStatusAction` withdraws them, clears
+the placement and deletes the roster row — the button is on the free agents
+card in the Teams tab. Still missing: dismissing an incomplete registration
+from the offline-payments inbox, which only offers "confirm" today.
+
+**Tests:** 1446 passing across 111 files.
+
+---
+
 ## 2026-09-14 — The signature beside the name, where they disagree
 
 **Shipped.** The organizer wanted to see both the name the league holds and

@@ -176,6 +176,106 @@ export async function saveRegistrationAnswersAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please sign in." };
 
+  return writeAnswers(supabase, {
+    competitionId,
+    teamId: teamId ?? null,
+    userId: user.id,
+    answers,
+    metadata,
+    failure: "Couldn't save your answers. Please try again.",
+  });
+}
+
+const playerAnswersSchema = z.object({
+  competitionId: z.string().uuid(),
+  /** Whose answers these are — NOT the person doing the editing. */
+  userId: z.string().uuid(),
+  answers: z.record(z.string(), z.string()),
+  metadata: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+});
+
+/**
+ * An organizer correcting a player's own answers.
+ *
+ * Their league secretary asked for this in as many words: "access to player
+ * data (to add phone numbers, tweak spellings, etc.)". A misspelt surname or a
+ * missing phone number is the organizer's problem to fix on a Tuesday night,
+ * and telling them to ask the player to log in and edit it is how a league
+ * goes back to a spreadsheet.
+ *
+ * `is_competition_admin` is checked here AND enforced by RLS (migration 0104's
+ * write policy already allows an admin to write any answer in their own
+ * competition, which is why this needs no migration). The check here is so the
+ * refusal is a sentence rather than an empty result.
+ *
+ * Scope is forced to `player`: this cannot reach a team answer, because a team
+ * answer belongs to the entry rather than to a person and is edited elsewhere.
+ */
+export async function savePlayerAnswersAction(
+  input: z.input<typeof playerAnswersSchema>,
+): Promise<ActionError | { saved: number }> {
+  const parsed = playerAnswersSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the answers." };
+  }
+  const { competitionId, userId, answers, metadata } = parsed.data;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in." };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return {
+      error: "Only this competition's organizers can edit player details.",
+    };
+  }
+
+  return writeAnswers(supabase, {
+    competitionId,
+    teamId: null,
+    userId,
+    answers,
+    metadata,
+    failure: "Couldn't save those details. Please try again.",
+  });
+}
+
+type WriteAnswersInput = {
+  competitionId: string;
+  /** Set for a team answer; null for a player's own. */
+  teamId: string | null;
+  /** Whose player answers these are. Ignored when `teamId` is set. */
+  userId: string;
+  answers: Record<string, string>;
+  metadata?: Record<string, Record<string, unknown>>;
+  /** What to say if the write fails — the two callers address different people. */
+  failure: string;
+};
+
+/**
+ * Write one subject's answers.
+ *
+ * Shared by the player saving their own and an organizer correcting them,
+ * because the awkward parts — scope filtering, blanking, the address lookup —
+ * are identical and a second implementation of any of them is a second chance
+ * to get it wrong.
+ */
+async function writeAnswers(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  {
+    competitionId,
+    teamId,
+    userId,
+    answers,
+    metadata,
+    failure,
+  }: WriteAnswersInput,
+): Promise<ActionError | { saved: number }> {
   // Only questions belonging to this competition, and only of the scope being
   // saved — otherwise a team save could smuggle in a player answer.
   const { data: questions } = await supabase
@@ -206,7 +306,7 @@ export async function saveRegistrationAnswersAction(
       question_id: questionId,
       competition_id: competitionId,
       team_id: teamId ?? null,
-      user_id: teamId ? null : user.id,
+      user_id: teamId ? null : userId,
       value,
       // Null on a retyped address, deliberately: stale structured detail is
       // worse than none, because it would be trusted.
@@ -240,7 +340,7 @@ export async function saveRegistrationAnswersAction(
       .from("registration_answers")
       .delete()
       .in("question_id", blanks);
-    del = teamId ? del.eq("team_id", teamId) : del.eq("user_id", user.id);
+    del = teamId ? del.eq("team_id", teamId) : del.eq("user_id", userId);
     await del;
   }
 
@@ -250,7 +350,7 @@ export async function saveRegistrationAnswersAction(
     });
     if (error) {
       console.error("[answers] upsert failed", error.message);
-      return { error: "Couldn't save your answers. Please try again." };
+      return { error: failure };
     }
   }
 
