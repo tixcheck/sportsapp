@@ -17,8 +17,9 @@ import {
 } from "@/lib/payments/registration-plan";
 import { TeamPaymentCard } from "@/components/payments/team-payment-card";
 import { ScheduleView } from "@/components/schedule/schedule-view";
-import { WaiverGate } from "@/components/waivers/waiver-gate";
-import { getTeamWaiverGate } from "@/lib/queries/waivers";
+import { EntryGate } from "@/components/team/entry-gate";
+import { getTeamEntryGate } from "@/lib/queries/team-entry";
+import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
 import { MatchSections } from "@/components/scoring/match-sections";
 import {
   StandingsTable,
@@ -61,10 +62,10 @@ export default async function TeamPage({
     getTeamPaymentRows(team.id),
   ]);
   const orgAccount = await getPaymentAccount(view.orgId);
-  // A team held by the waiver gate has no fixtures to show, and saying "no
-  // matches yet" would send its captain looking for a scheduling fault
-  // instead of chasing the two people who haven't signed.
-  const waiverGate = await getTeamWaiverGate(team.id);
+  // A held team has no fixtures to show, and saying "no matches yet" would
+  // send its captain looking for a scheduling fault instead of doing the one
+  // thing that would fix it — chasing a signature, or finding a sixth player.
+  const entryGate = await getTeamEntryGate(team.id);
   const payment = teamPaymentState(paymentRows, {
     feeCents: feeSettings.registrationFeeCents,
   });
@@ -80,6 +81,12 @@ export default async function TeamPage({
     rates: feeRates,
   });
   const canPayOnline = paymentAccountStatus(orgAccount).canAcceptPayments;
+  // Matches `inviteTeammateAction`, which allows the captain or an organizer.
+  // Without this the gate's "the captain can add them below" pointed at a
+  // read-only list.
+  const canInvite =
+    view.isAdmin ||
+    roster.some((m) => m.role === "captain" && m.userId === view.viewerId);
   // Split shares only when the organizer allows them. planMemberShares reads
   // the roster we already loaded, so this costs no extra query.
   const shares = feeSettings.allowSplitPayment
@@ -133,13 +140,11 @@ export default async function TeamPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {waiverGate ? (
-            <WaiverGate
-              outstanding={waiverGate.outstanding.map((p) => ({
-                name: p.name,
-                isViewer: p.userId === view.viewerId,
-              }))}
+          {entryGate ? (
+            <EntryGate
+              gate={entryGate}
               isMember={isMember || view.isAdmin}
+              viewerId={view.viewerId}
             />
           ) : isMember ? (
             myMatches.length === 0 && projections.length === 0 ? (
@@ -191,7 +196,12 @@ export default async function TeamPage({
       {/* Roster */}
       <Card>
         <CardHeader>
-          <CardTitle>Roster</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Roster</CardTitle>
+            {canInvite && (
+              <InviteTeammateDialog teamId={team.id} teamName={team.name} />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {roster.length === 0 ? (

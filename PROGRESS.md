@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — The gate explains both reasons, not one
+
+**Shipped.** A BVL captain asked why their team said "Waiting on the waiver"
+when everyone had signed. The signatures were fine — the screenshot predated
+four of them by an evening. What the investigation found instead is that the
+team page could only explain ONE of the two reasons a team is held back, and it
+was the reason that no longer applied to anybody.
+
+**`teams.status` says `pending_waiver` for both reasons**, because that is all
+the scheduler needs to know. `team_entry_blocked` (migration 0101) already
+returns which one it is — roster or waiver — and the UI was throwing that away.
+
+**Rough Sets, at the moment of asking:** 5 rostered, all 5 signed and counted,
+`min_roster_for_entry` 6. So the waiver gate correctly returned null, the page
+fell through to **"No matches yet"**, and the captain was told nothing at all.
+That is the exact lie by omission the gate's own docstring says it exists to
+prevent — it just only prevented it for signatures.
+
+**Scale: 40 of 40 held BVL teams are held for ROSTER. None for waiver.** The
+only explanation the app offered was, right now, explaining nothing to anyone.
+
+**The decision is pure and mirrors the database** (`lib/teams/entry-gate.ts`),
+including the ORDER of the checks — roster first, then signatures. If the two
+ever disagree, the page explains one reason while the database enforces
+another, which is worse than explaining nothing; there is a test pinning that
+ordering with a team that is both short and unsigned.
+
+**The roster message needed a control to point at.** It says the captain can
+add players from the roster below, and until now that list was read-only —
+`InviteTeammateDialog` existed but only appeared in the organizer's management
+view. It is now on the team page too, gated to match `inviteTeammateAction`
+itself (captain or organizer), so the sentence is actionable rather than
+merely true.
+
+Most of those 40 teams sit at 1 of 6 because captains could not invite anyone
+until migration `0055` was applied on 09-11. They can now; many haven't yet,
+and this is the screen that tells them.
+
+**Tests:** 1412 passing across 109 files.
+
+---
+
 ## 2026-09-14 — The gym package, printed
 
 **Shipped.** `scripts/smva-sample-sheet.ts` renders Scarborough's whole night —
