@@ -646,6 +646,22 @@ The throwaway scripts (`lib/db/_inspectorg.ts`, `lib/db/_inspectpol.ts`) are
 already gone. Whether the SQL above was ever run is **unconfirmed** — it's
 harmless to run again (every statement is `if exists`).
 
+**`lib/db/backfill-localities.ts` — RUN 2026-09-14, nothing left pending.** All
+96 BVL address answers now resolve to a town: 70 structured (the player picked a
+Google suggestion), 26 geocoded, **0 unknown**. Nine typed addresses were
+looked up on that run and every one matched confidently.
+
+Two things a future session should not misread as bugs:
+- **Not every BVL player lives in Brampton.** The backfill placed captains in
+  Toronto and Caledon, and those are correct answers, not failures. The card is
+  counting residents, so a non-Brampton row is the finding.
+- **A bare postal code resolves.** "L7A 3J8" came back as Brampton. It works
+  because Places is doing the lookup, not the text parser — `addressLocality`
+  alone would report unknown, which is exactly why the geocode fallback exists.
+
+Re-running is safe and idempotent: it skips any answer that already has a town,
+so it is the right first move if the card ever shows *Not known* again.
+
 ## Environment (`.env.local` — gitignored; bring it on the USB stick)
 
 ```
