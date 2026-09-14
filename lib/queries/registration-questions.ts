@@ -10,6 +10,8 @@ import {
   tallyChoices,
   type ChoiceTally,
 } from "@/lib/registration/roster-mix";
+import { getPlayerNameAnswers, namePartsFor } from "@/lib/queries/player-names";
+import { resolvePlayerName } from "@/lib/registration/player-name";
 
 export type QuestionKind =
   | "short_text"
@@ -177,10 +179,17 @@ export async function getAllAnswers(
   competitionId: string,
 ): Promise<AnswerRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("registration_answers")
-    .select("question_id, value, user_id, team_id, users(display_name, email)")
-    .eq("competition_id", competitionId);
+  // The export's Name column was the account name while the First/Last columns
+  // beside it said something fuller — the same row disagreeing with itself.
+  const [{ data }, names] = await Promise.all([
+    supabase
+      .from("registration_answers")
+      .select(
+        "question_id, value, user_id, team_id, users(display_name, email)",
+      )
+      .eq("competition_id", competitionId),
+    getPlayerNameAnswers(competitionId),
+  ]);
 
   const rows = (data ?? []) as unknown as {
     question_id: string;
@@ -198,7 +207,16 @@ export async function getAllAnswers(
       row = {
         userId: r.user_id,
         teamId: r.team_id,
-        name: r.users?.display_name ?? "",
+        name: r.user_id
+          ? resolvePlayerName(
+              namePartsFor(
+                names,
+                r.user_id,
+                r.users?.display_name ?? null,
+                r.users?.email ?? null,
+              ),
+            )
+          : (r.users?.display_name ?? ""),
         email: r.users?.email ?? null,
         answers: {},
       };

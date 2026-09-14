@@ -5,6 +5,49 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — Organizer lists show the name the league asked for
+
+**Shipped.** BVL's waiver list read "Rob", "Steve", "Sharon V." — first names
+and initials — even though First name and Last name are required questions and
+**every one of the 95 players answered both**. Nothing was missing. The list
+was reading the wrong field.
+
+**Two names exist for the same person, and they are not interchangeable.**
+`users.display_name` is the ACCOUNT name — what teammates and the public see,
+and deliberately thin since migration 0077 let players choose how they appear.
+The First/Last answers are what the league asked for. An organizer chasing a
+signature needs the second; "Rob" does not distinguish two Robs.
+
+**So organizer-only surfaces resolve through the answers and nothing else
+changes.** The waiver signatory list and the answers export now do;
+`getTeamRoster` deliberately does **not**, because it feeds the team page and
+split payments, where a teammate would then see a full legal name the player
+chose not to show. That line — organizer sees what the league asked for, the
+public sees what the player chose — is the whole design.
+
+**Found by label, with the same reasoning as `suggested_player_answers`
+(migration 0106).** There is no "name" question kind: First name and Last name
+are an editable starter preset, plain short text. The match is EXACT after
+normalising, so "Last name of emergency contact" doesn't match, and a league
+that renames the field falls back to the account name — which is today's
+behaviour, and so the safe direction to fail.
+
+**The first version of this was a worse bug, and the live data caught it.**
+Preferring the answers unconditionally rewrote "Rachel da Cunha" as "RACHEL DA
+CUNHA", turned "Kelly A Walker" into "Kelly Walker" and dropped the middle name
+from "Bobbi Lynn Brake" — 20 changes, several of them regressions. The rule is
+now **fill in, never restyle**: the answers are used only when they carry a
+surname AND the account name is one word or ends in an initial. Names are not
+something to normalise algorithmically; every rule for it breaks on VanEerden,
+McCormack or da Cunha.
+
+**Re-checked against all 95 live rows: 11 filled in, 84 untouched, no
+regressions.** Rob Sleigh, Sharon VanEerden, Steve Grootenboer, Cecile Alleyne.
+
+**Tests:** 1442 passing across 111 files.
+
+---
+
 ## 2026-09-14 — Roster mix: how each team splits
 
 **Shipped.** Brampton asked to see each team's sex split on the registration

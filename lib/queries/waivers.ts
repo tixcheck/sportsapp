@@ -9,6 +9,8 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { getPlayerNameAnswers, namePartsFor } from "@/lib/queries/player-names";
+import { resolvePlayerName } from "@/lib/registration/player-name";
 
 export interface Waiver {
   id: string;
@@ -133,7 +135,10 @@ export async function getCompetitionWaiverState(
     };
   }
 
-  const [{ data: members }, { data: accepted }] = await Promise.all([
+  // The account name is what the PUBLIC sees and is often deliberately thin
+  // ("Sharon V.", "Steve"). An organizer chasing a signature needs the name
+  // the league actually asked for.
+  const [{ data: members }, { data: accepted }, names] = await Promise.all([
     supabase
       .from("team_members")
       .select("team_id, user_id, users(id, display_name, email)")
@@ -145,6 +150,7 @@ export async function getCompetitionWaiverState(
           .eq("competition_id", competitionId)
           .eq("waiver_id", waiverId)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    getPlayerNameAnswers(competitionId),
   ]);
 
   const signedBy = new Map(
@@ -165,7 +171,14 @@ export async function getCompetitionWaiverState(
     const sig = signedBy.get(m.user_id as string);
     return {
       userId: m.user_id as string,
-      name: (u?.display_name as string | null) ?? "—",
+      name: resolvePlayerName(
+        namePartsFor(
+          names,
+          m.user_id as string,
+          (u?.display_name as string | null) ?? null,
+          (u?.email as string | null) ?? null,
+        ),
+      ),
       email: (u?.email as string | null) ?? null,
       teamId: m.team_id as string,
       teamName: teamName.get(m.team_id as string) ?? "—",
