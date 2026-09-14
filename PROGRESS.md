@@ -5,6 +5,35 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — The signature beside the name, where they disagree
+
+**Shipped.** The organizer wanted to see both the name the league holds and
+what the player actually signed. A waiver records `signed_name` — what was
+typed into the signature box — which is a **third** thing, neither the account
+name nor the registration answers, frozen alongside the checksum of the exact
+text they were shown.
+
+**It is evidence, so nothing rewrites it.** The signing form pre-fills the box
+with the account name and 90 of 98 BVL players left it as it was, but 8
+overtyped it — and several of those typed their FULL name, so the legal record
+was already better than the list that was showing "Rob" and "Sharon V.".
+
+**Shown only where it disagrees with the name on file.** Printing both on every
+row is the same name twice, ninety-seven times, and would bury the four that
+differ. Case and spacing are ignored — "Sarah logozzo" against "Sarah Logozzo"
+is a person signing their own name, not something an organizer needs to look
+at.
+
+**Across all 101 live signatures that leaves four**, and every one is worth a
+look: Francisco Chavarria signed "Francisco", Cecile Alleyne signed
+"Cecile A.", Jenn Sheldrake Sundar signed "Jenn", and John Lewis signed
+"J. Lewis" — the last being the only person who signed SHORTER than the name
+already on their account.
+
+**Tests:** 1446 passing across 111 files.
+
+---
+
 ## 2026-09-14 — Organizer lists show the name the league asked for
 
 **Shipped.** BVL's waiver list read "Rob", "Steve", "Sharon V." — first names

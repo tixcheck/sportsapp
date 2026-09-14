@@ -6,6 +6,7 @@ import {
   looksComplete,
   nameCameFromAnswers,
   resolvePlayerName,
+  signatureWorthShowing,
 } from "@/lib/registration/player-name";
 
 describe("label matching", () => {
@@ -180,5 +181,34 @@ describe("nameCameFromAnswers", () => {
       }),
     ).toBe(false);
     expect(nameCameFromAnswers({ displayName: "Katrina Alves" })).toBe(false);
+  });
+});
+
+describe("signatureWorthShowing", () => {
+  // The row an organizer actually needs to look at: signed short of the name
+  // the league holds.
+  it("is true when the signature differs from the name on file", () => {
+    expect(signatureWorthShowing("John Lewis", "J. Lewis")).toBe(true);
+    expect(signatureWorthShowing("Alexandra Pucci", "Alex Pucci")).toBe(true);
+  });
+
+  // Printing the same name twice on ninety rows would bury the one above.
+  it("is false when they are the same name", () => {
+    expect(signatureWorthShowing("Rob Sleigh", "Rob Sleigh")).toBe(false);
+    expect(signatureWorthShowing("Sharon VanEerden", "Sharon VanEerden")).toBe(
+      false,
+    );
+  });
+
+  it("ignores case and spacing — that is the same person, not a discrepancy", () => {
+    expect(signatureWorthShowing("Sarah Logozzo", "Sarah logozzo")).toBe(false);
+    expect(signatureWorthShowing("Marco Zanette", "  marco   zanette ")).toBe(
+      false,
+    );
+  });
+
+  it("is false when nothing has been signed", () => {
+    expect(signatureWorthShowing("Rob Sleigh", null)).toBe(false);
+    expect(signatureWorthShowing("Rob Sleigh", "   ")).toBe(false);
   });
 });

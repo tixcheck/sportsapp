@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import type { CompetitionWaiverState, Waiver } from "@/lib/queries/waivers";
 import { setCompetitionWaiverAction } from "@/server/actions/waivers";
+import { signatureWorthShowing } from "@/lib/registration/player-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -218,11 +219,22 @@ export function CompetitionWaiverCard({
                     )}
                     aria-hidden
                   />
-                  <span className="min-w-0 flex-1 truncate">
-                    {s.name}
-                    <span className="text-ink-3 ml-2 text-xs">
-                      {s.teamName}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">
+                      {s.name}
+                      <span className="text-ink-3 ml-2 text-xs">
+                        {s.teamName}
+                      </span>
                     </span>
+                    {/* Only when it differs. A waiver records what the person
+                        typed, which is neither the account name nor their
+                        registration answers — and repeating an identical name
+                        on every row would bury the one that doesn't match. */}
+                    {signatureWorthShowing(s.name, s.signedName) && (
+                      <span className="text-ink-3 block truncate text-xs">
+                        signed &ldquo;{s.signedName}&rdquo;
+                      </span>
+                    )}
                   </span>
                   <span className="text-ink-3 shrink-0 text-xs">
                     {s.signedAt

@@ -126,6 +126,30 @@ export function resolvePlayerName(parts: PlayerNameParts): string {
 }
 
 /**
+ * Whether a signature is worth showing beside the name on file.
+ *
+ * A waiver records `signed_name` — what the person typed into the signature
+ * box — and that is a third thing, neither the account name nor the
+ * registration answers. It is frozen evidence and must never be rewritten to
+ * agree with them.
+ *
+ * Most signatures match the name on file, so printing both on every row would
+ * be the same name twice and would bury the one row where they genuinely
+ * differ. Case and spacing are ignored: "Sarah logozzo" against "Sarah
+ * Logozzo" is the same person signing their own name, not a discrepancy an
+ * organizer needs to look at.
+ */
+export function signatureWorthShowing(
+  nameOnFile: string,
+  signedName: string | null | undefined,
+): boolean {
+  const signed = (signedName ?? "").trim();
+  if (!signed) return false;
+  const flatten = (v: string) => v.trim().toLowerCase().replace(/\s+/g, " ");
+  return flatten(signed) !== flatten(nameOnFile);
+}
+
+/**
  * Whether resolving changed anything — for a UI that wants to say so.
  *
  * Kept separate from `resolvePlayerName` so the resolution itself stays a
