@@ -5,6 +5,46 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — Roster mix: how each team splits
+
+**Shipped.** Brampton asked to see each team's sex split on the registration
+page — a co-ed side that turns up with no women cannot field a legal lineup,
+and September is when an organizer can still do something about it.
+
+**No migration, and no new question.** BVL already asks it: a required
+per-player **Gender** select (Male / Female / Non-Binary), 73 answers across
+three leagues. This is a rollup of data that was already there, so the whole
+feature is a query, a tally and a card.
+
+**It does not look for a question about sex.** Any per-player multiple-choice
+question is tallied and the organizer picks which to read. Matching on the
+label — "gender", "sex" — would break the day a league words it differently,
+and would fail by quietly summarising the wrong question rather than visibly
+doing nothing. As a side effect BVL also gets their **Skill level** spread,
+which is the other thing they balance teams on.
+
+**"Not answered" is its own column**, never folded into a choice — same rule as
+the locality card. A team reading "4 men" when two people simply haven't filled
+the form in is precisely the number an organizer must not plan around. Every
+row adds up to the roster size, and there's a test pinning that.
+
+**An answer that outlived an option edit is kept, not dropped.** Options are
+editable after people have answered, and discarding a stray would leave the
+columns silently failing to total the roster. It gets its own column, after the
+declared ones.
+
+**Counts only — never who answered what.** The organizer can already see
+individual answers elsewhere, so this adds no exposure; it just has no reason
+to repeat it on a page meant for scanning.
+
+**Verified against the live database before shipping**, not just in tests: all
+four BVL leagues tallied, every row adding up. Rough Sets reads 3 Male / 2
+Female, which is the kind of row the card exists to surface.
+
+**Tests:** 1424 passing across 110 files.
+
+---
+
 ## 2026-09-14 — The gate explains both reasons, not one
 
 **Shipped.** A BVL captain asked why their team said "Waiting on the waiver"

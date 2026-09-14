@@ -20,8 +20,10 @@ import {
 import { CompetitionWaiverCard } from "@/components/waivers/competition-waiver-card";
 import { RegistrationQuestionsCard } from "@/components/registration/questions-card";
 import { LocalityCard } from "@/components/registration/locality-card";
+import { RosterMixCard } from "@/components/registration/roster-mix-card";
 import {
   getRegistrationQuestions,
+  getTeamChoiceMix,
   getTeamLocalities,
   getTeamStageFacts,
 } from "@/lib/queries/registration-questions";
@@ -152,6 +154,7 @@ export default async function LeaguePage({
       getRegistrationQuestions(league.id),
     ]);
   const localities = await getTeamLocalities(league.id);
+  const choiceMix = await getTeamChoiceMix(league.id);
   // One gather for the whole Teams tab: fifteen teams would otherwise be
   // sixty round trips, and the organizer is scanning for the one or two rows
   // that actually need them.
@@ -596,6 +599,10 @@ export default async function LeaguePage({
         ownCity={localities.ownCity}
         teams={localities.teams}
       />
+
+      {/* Next to the locality card: both answer "who is actually on this
+          team", off the same registration answers. */}
+      <RosterMixCard questions={choiceMix} />
 
       <CompetitionWaiverCard
         competitionId={league.id}

@@ -5,6 +5,11 @@ import {
   tallyLocalities,
   type AddressMetadata,
 } from "@/lib/registration/locality";
+import {
+  choiceColumns,
+  tallyChoices,
+  type ChoiceTally,
+} from "@/lib/registration/roster-mix";
 
 export type QuestionKind =
   | "short_text"
@@ -431,4 +436,104 @@ export async function getTeamStageFacts(competitionId: string): Promise<{
     signedUserIds: signedUsers,
     byTeam,
   };
+}
+
+/** One multiple-choice question, tallied across every team. */
+export type ChoiceQuestionMix = {
+  questionId: string;
+  label: string;
+  /** The organizer's declared options, in their order. */
+  options: string[];
+  /** Table headings: declared options, then any answer that outlived an edit. */
+  columns: string[];
+  teams: { teamId: string; teamName: string; tally: ChoiceTally }[];
+};
+
+/**
+ * Every per-player multiple-choice question, split by team.
+ *
+ * Brampton's reason for wanting this is the sex split — a co-ed team that
+ * turns up with no women cannot field a legal lineup — but nothing here looks
+ * for a question about sex. Any `select` asked of every player is tallied and
+ * the organizer reads the one they need; see `lib/registration/roster-mix.ts`
+ * for why matching on the label would be worse than useless.
+ *
+ * Counts only, never who answered what. The organizer can already see
+ * individual answers elsewhere, so this adds no exposure — it just has no
+ * reason to repeat it.
+ */
+export async function getTeamChoiceMix(
+  competitionId: string,
+): Promise<ChoiceQuestionMix[]> {
+  const supabase = await createClient();
+
+  const { data: questions } = await supabase
+    .from("registration_questions")
+    .select("id, label, options, position")
+    .eq("competition_id", competitionId)
+    .eq("scope", "player")
+    .eq("kind", "select")
+    .order("position");
+  const qs = (questions ?? []) as {
+    id: string;
+    label: string;
+    options: string[] | null;
+  }[];
+  if (qs.length === 0) return [];
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, name, team_members(user_id)")
+    .eq("competition_id", competitionId)
+    .neq("status", "withdrawn")
+    .order("name");
+  const rosters = (teams ?? []) as unknown as {
+    id: string;
+    name: string;
+    team_members: { user_id: string }[] | null;
+  }[];
+  if (rosters.length === 0) return [];
+
+  const { data: answers } = await supabase
+    .from("registration_answers")
+    .select("question_id, user_id, value")
+    .eq("competition_id", competitionId)
+    .in(
+      "question_id",
+      qs.map((q) => q.id),
+    );
+
+  // One lookup for every (question, player) rather than a filter per team —
+  // nineteen teams by two questions is otherwise thirty-eight passes.
+  const byKey = new Map<string, string>();
+  for (const a of (answers ?? []) as {
+    question_id: string;
+    user_id: string | null;
+    value: string | null;
+  }[]) {
+    if (!a.user_id) continue;
+    byKey.set(`${a.question_id}:${a.user_id}`, a.value ?? "");
+  }
+
+  return qs.map((q) => {
+    const options = q.options ?? [];
+    const teamRows = rosters.map((t) => ({
+      teamId: t.id,
+      teamName: t.name,
+      tally: tallyChoices(
+        (t.team_members ?? []).map((m) => byKey.get(`${q.id}:${m.user_id}`)),
+        options,
+      ),
+    }));
+    return {
+      questionId: q.id,
+      label: q.label,
+      options,
+      columns: choiceColumns(
+        teamRows.map((r) => r.tally),
+        options,
+      ),
+      teams: teamRows,
+    };
+  });
 }
