@@ -5,6 +5,43 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — The gym package, printed
+
+**Shipped.** `scripts/smva-sample-sheet.ts` renders Scarborough's whole night —
+a cover plus one sheet per tier — from the app's own data: the pinned pod grids,
+the 2026/27 roster, `movementLabel`, and `SMVA_SHEET_NOTES`. Print-to-PDF via
+headless Chrome. Nine pages for nine articles, which is also the proof that no
+tier overflows its page.
+
+**Court, time and games — not their grid.** The organizer asked for exactly
+that, so a 6-team tier is fifteen rows of `Time · Court · Home v Away` with the
+score boxes inline, rather than a courts-as-columns matrix. The score-entry half
+of the sheet is unchanged in spirit: per-game boxes, then Total Points and Rank
+per team, then the officials line.
+
+**Games per match is DERIVED, not read off the title.** Every game is worth 2
+points, so `totalPoints = fixtures × games × 2`; the renderer computes it and
+throws if it disagrees with the template's own title. A template whose title and
+total drift apart now fails loudly instead of quietly printing the wrong number
+of score boxes.
+
+**It is in the repo because rendering catches what unit tests cannot.** 29 tests
+passed while `resolveDuty` was printing "VOID 4-minute warning" for the
+organizer's "A 4-minute warning"; one rendered page found it. This run
+re-confirmed the fix — the article survives, and `Team {D}` resolves to MESLA
+CONSTRUCTION, INVICTUS, TRAFFIC and so on, tier by tier.
+
+**The cover states the three inferences rather than hiding them**: the
+Bethune/King slot-order discrepancy, OUTTAHAND's placement at PPL, and the
+borrowed scoring line on the 5-team adjustment grid. They are questions for
+their executive, and burying them in a schedule that looks authoritative is how
+they go unasked.
+
+**Still not the shippable path** — the in-app print route is unbuilt, and this
+generator writes a file rather than serving one.
+
+---
+
 ## 2026-09-13 — Scarborough Men's: their paper sheet, as data
 
 **Shipped.** SMVA run eight gyms a night off a printed package, and their
