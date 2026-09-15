@@ -5,6 +5,55 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — A drafted player is a player (migration 0120)
+
+**Shipped.** Audited every place that answers "who is on this team" against Big
+Shoots, whose draft is complete and correct — 24 players, six a side, three
+still in the pool. The draft IS captured; most readers were looking in the
+wrong table.
+
+```
+competition_player_names()          ->  0   public page + team-wide stats
+team_members                        ->  0   roster lists, split payments
+free_agents.placed_team_id          -> 24   the draft result
+match_appearances (distinct people) -> 24   player stats
+```
+
+**`team_members.user_id` is NOT NULL**, so somebody without an account cannot
+be a row in it. That is the whole reason the draft writes
+`free_agents.placed_team_id` instead — not an oversight, a constraint. Which
+means every reader has to take the union, and most did not.
+
+**`competition_player_names` was the one that mattered**: it drives the PUBLIC
+league page and the team-wide stats path, and it returned zero for a fully
+drafted league. Migration 0120 adds a third branch for placed free agents.
+Big Shoots 0 → 24, six per team; BVL unchanged to the row, since it has no
+placed free agents and the counts are still exactly members + invites.
+
+**Placed only, and never twice.** Somebody still in the pool has not joined a
+team and publishing their name would expose a sign-up rather than a roster — the
+same threshold every other branch uses. A `NOT EXISTS` keeps a drafted player
+who does have an account from appearing under both branches.
+
+**Stats never had this problem**, checked rather than assumed:
+`match_appearances` stores `player_name` beside a nullable `user_id`, and
+`identityKey` falls back to the normalised name. Replaying Big Shoots' real
+appearances against a simulated 25–20 / 25–22 produced all 12 rows with no
+accounts involved.
+
+**Left alone deliberately**, with reasons recorded in HANDOFF: `getTeamRoster`
+(shared with split payments, where a share needs someone who can pay it), the
+waiver signatory list (signing needs an account), and Roster mix (a drafted
+player's grade is a column, not an answer).
+
+**One latent trap recorded**: `team_entry_blocked` counts `team_members` for
+`min_roster_for_entry`. Big Shoots sets no minimum so nothing is held today, but
+set one on a drafted league and every full team would read as roster short.
+
+**Tests:** 1452 passing across 112 files.
+
+---
+
 ## 2026-09-14 — The Players list reads both kinds of membership
 
 **Fixed, same day as it shipped.** The Players tab read `team_members` only, so

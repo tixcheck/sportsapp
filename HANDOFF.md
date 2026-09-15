@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0119`, and every one of `0060`–`0119` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` on 2026-09-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0120`, and every one of `0060`–`0120` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -31,6 +31,7 @@
     | `0114`–`0116` | Sep 8 | one team per captain, per-tier ladder weights, `hidden_from_discovery` |
     | `0117`–`0118` | Sep 13 | ladder night results typed directly, printed-sheet notes + named officials |
     | `0119` | Sep 14 | dismiss an uncompleted offline payment request; withdrawal cancels open ones |
+    | `0120` | Sep 14 | drafted free agents count as players in `competition_player_names` |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -694,6 +695,44 @@ reading them out of `.env.local`.
   `DATABASE_URL` from Supabase → Project Settings → Database.
 - For just making + pushing a code fix you don't even need `.env.local` (Vercel
   builds with its own env); you only need it to run `npm run dev` locally.
+
+## ⚠️ Membership lives in TWO tables
+
+`team_members.user_id` is **NOT NULL**, so a person with no account cannot be a
+row in it. That is why the draft records its result on
+`free_agents.placed_team_id` instead, and why `place_free_agents` writes a
+`team_members` row only for players who happen to have an account.
+
+**Big Shoots is the live example:** four teams, six drafted players each, and
+`team_members` = 0. Anything that answers "who is on this team" from
+`team_members` alone reports an empty league.
+
+Already taking the union (correct):
+- `lib/queries/lineups.ts` — which is why "Record who played" works there
+- `lib/queries/registration-questions.ts` → `getPlayerDirectory` (the Players tab)
+- `public.competition_player_names` (migration `0120`) — the public page and
+  team-wide stats
+- `match_appearances` never needed it: it stores `player_name` with a nullable
+  `user_id`, so player stats already credit people without accounts (identity
+  falls back to the normalised name — see `identityKey`)
+
+Deliberately NOT taking the union:
+- `getTeamRoster` / `getTeamRosters` — shared with split payments, and a share
+  needs somebody who can actually pay it
+- `getCompetitionWaiverState` — signing needs an account
+- `getTeamChoiceMix` (Roster mix) — a drafted player's grade is
+  `free_agents.skill_level`, not a registration answer, so there is nothing to
+  tally
+
+**Latent trap:** `team_entry_blocked` (migration 0101) counts `team_members`
+for `min_roster_for_entry`. Big Shoots has no minimum set, so nothing is held
+today — but set one on a drafted league and every full team reads as roster
+short. Fix that before recommending the setting to a draft organizer.
+
+**When these players get accounts**, identity switches from name to `user_id`.
+Anyone with appearances recorded under a bare name AND later under an account
+counts as two people for the season; backfill `match_appearances.user_id` at
+the same time as creating the accounts.
 
 ## Known quirks
 
