@@ -132,8 +132,16 @@ function netClutchTint(n: number): string {
 export function PlayerStatsTable({
   rows,
   linkProfiles = false,
+  emptyMessage,
 }: {
   rows: PlayerStatRow[];
+  /**
+   * What to say when there is nothing to show. An appearance league has
+   * several reasons for an empty table and they need different advice — see
+   * `lib/stats/empty-reason.ts`. Omitted on the public page, where a visitor
+   * can act on none of them.
+   */
+  emptyMessage?: string;
   /**
    * Whether a name links to that player's profile. Off for the public page:
    * `/players/[id]` reads the user row, which RLS hides from anyone who
@@ -162,7 +170,7 @@ export function PlayerStatsTable({
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground py-6 text-center text-sm">
-        Player stats appear once scores are recorded.
+        {emptyMessage ?? "Player stats appear once scores are recorded."}
       </p>
     );
   }

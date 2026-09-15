@@ -5,6 +5,44 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — An empty stats table that says which half is missing
+
+**Shipped.** Big Shoots showed a scored match on the schedule, correct
+standings off it, and a Stats tab reading *"Player stats appear once scores are
+recorded"*. The score was already there. The sentence was sending the organizer
+to redo the one thing they had done.
+
+**The data was right; the message wasn't.** An appearance league credits a set
+to whoever was on court for it, so a stat needs **both** a scored set and a
+lineup on the same match. Big Shoots had a score on week 1 (Sep 1) and lineups
+on week 2 (Sep 8/9) — 1 scored match, 6 with lineups, and **0 with both**. An
+empty table was the honest answer; "record some scores" was not.
+
+**`statsEmptyReason` names whichever half is missing** and keeps the original
+wording for a team-wide league, where a score genuinely is all that is needed.
+The case worth having a sentence for is the one Big Shoots hit: both kinds of
+data present, never on the same game. Checked against all five live
+competitions — the four BVL leagues (team-wide, nothing entered) keep the old
+text, and only Big Shoots changes.
+
+**Counted, not inferred from the empty list**, and only when the list is empty,
+so a league with stats pays nothing for it.
+
+**Two things found on the way, not fixed here:**
+- Big Shoots' four teams have **0 `team_members`** while 24 free agents sit on
+  them via `placed_team_id` — the known `place_free_agents` behaviour for
+  drafted players with no account. The **Players tab and Roster mix card
+  shipped earlier today read `team_members` only**, so both show nothing for
+  that league. `lib/queries/lineups.ts` already has the correct union and is
+  the model for fixing it.
+- An accountless free agent has no `registration_answers` at all (they are
+  keyed by `user_id`), so including them in the Players tab would list names
+  that cannot be edited. That needs a decision before it needs code.
+
+**Tests:** 1452 passing across 112 files.
+
+---
+
 ## 2026-09-14 — Clearing a registration nobody finished (migration 0119)
 
 **Shipped.** The last of BVL's three asks: "remove incomplete registrations so

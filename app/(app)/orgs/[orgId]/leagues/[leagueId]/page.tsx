@@ -5,7 +5,8 @@ import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 import { getFreeAgents } from "@/lib/queries/free-agents";
 import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
 import { LadderNightStandings } from "@/components/league/ladder-night-standings";
-import { getPlayerStats } from "@/lib/queries/player-stats";
+import { getPlayerStats, getStatsReadiness } from "@/lib/queries/player-stats";
+import { statsEmptyReason } from "@/lib/stats/empty-reason";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
 import { DraftBoard } from "@/components/registration/draft-board";
@@ -158,6 +159,13 @@ export default async function LeaguePage({
     ]);
   const localities = await getTeamLocalities(league.id);
   const choiceMix = await getTeamChoiceMix(league.id);
+  // Only when there is nothing to show: an empty table has several causes
+  // in an appearance league, and "record the scores" is wrong advice for an
+  // organizer who already has.
+  const statsEmpty =
+    playerStats.length === 0
+      ? statsEmptyReason(await getStatsReadiness(league.id))
+      : undefined;
   const [players, addressAutocomplete] = await Promise.all([
     getPlayerDirectory(league.id),
     addressAutocompleteAvailableAction(),
@@ -563,7 +571,11 @@ export default async function LeaguePage({
             </Button>
           </div>
         )}
-        <PlayerStatsTable rows={playerStats} linkProfiles />
+        <PlayerStatsTable
+          rows={playerStats}
+          linkProfiles
+          emptyMessage={statsEmpty}
+        />
       </CardContent>
     </Card>
   );

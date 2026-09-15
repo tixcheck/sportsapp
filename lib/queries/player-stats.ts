@@ -18,6 +18,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import type { StatsReadiness } from "@/lib/stats/empty-reason";
 import {
   computePlayerStats,
   type PlayerStats,
@@ -470,4 +471,53 @@ async function seasonOrder(
     });
 
   return new Map(rows.map((r, i) => [r.id, i]));
+}
+
+/**
+ * Why the player-stats table is empty, for the sentence shown in its place.
+ *
+ * Counted here rather than inferred from the rows, because "no rows" has
+ * several causes in an appearance league and they need different advice. See
+ * `lib/stats/empty-reason.ts`.
+ *
+ * Only called when there is nothing to show, so the three extra reads cost
+ * nothing on a league with stats.
+ */
+export async function getStatsReadiness(
+  competitionId: string,
+): Promise<StatsReadiness> {
+  const supabase = await createClient();
+  const tracks = await tracksAppearances(competitionId);
+
+  const [{ data: matches }, { data: sets }, { data: apps }] = await Promise.all(
+    [
+      supabase.from("matches").select("id").eq("competition_id", competitionId),
+      supabase
+        .from("sets")
+        .select("match_id, matches!inner(competition_id)")
+        .eq("matches.competition_id", competitionId),
+      supabase
+        .from("match_appearances")
+        .select("match_id")
+        .eq("competition_id", competitionId),
+    ],
+  );
+
+  const known = new Set((matches ?? []).map((m) => m.id as string));
+  const scored = new Set(
+    (sets ?? []).map((s) => s.match_id as string).filter((id) => known.has(id)),
+  );
+  const lineup = new Set(
+    (apps ?? []).map((a) => a.match_id as string).filter((id) => known.has(id)),
+  );
+
+  let both = 0;
+  for (const id of scored) if (lineup.has(id)) both += 1;
+
+  return {
+    tracksAppearances: tracks,
+    scoredMatches: scored.size,
+    lineupMatches: lineup.size,
+    bothMatches: both,
+  };
 }
