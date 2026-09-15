@@ -10,6 +10,11 @@ import { statsEmptyReason } from "@/lib/stats/empty-reason";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
 import { DraftBoard } from "@/components/registration/draft-board";
+import { NeverTogetherCard } from "@/components/registration/never-together-card";
+import { PlayerPartnerGridCard } from "@/components/stats/player-partner-grid";
+import { getPartnerGrid } from "@/lib/queries/appearances";
+import { identityKey } from "@/lib/stats/attribution";
+import { neverTogetherForPool } from "@/lib/stats/partner-grid";
 import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
@@ -161,6 +166,23 @@ export default async function LeaguePage({
     ]);
   const localities = await getTeamLocalities(league.id);
   const choiceMix = await getTeamChoiceMix(league.id);
+  // Only a league that saves lineups knows who played with whom.
+  const partnerGrid = league.trackAppearances
+    ? await getPartnerGrid(league.id)
+    : null;
+  // The draft pool is everyone who can be dealt onto a team: placed or still
+  // available. Keyed by account where there is one, because that is how their
+  // lineups are keyed — matching by name would say they never played.
+  const draftPool = freeAgents
+    .filter((f) => f.status === "placed" || f.status === "available")
+    .map((f) => ({
+      key: identityKey({ userId: f.userId, playerName: f.name }),
+      name: f.name,
+    }));
+  const neverTogether =
+    partnerGrid && draftPool.length > 0
+      ? neverTogetherForPool(partnerGrid, draftPool)
+      : null;
   // Only when there is nothing to show: an empty table has several causes
   // in an appearance league, and "record the scores" is wrong advice for an
   // organizer who already has.
@@ -523,6 +545,14 @@ export default async function LeaguePage({
         />
       )}
 
+      {/* Beside the board, because it is read while dealing out new teams. */}
+      {neverTogether && (
+        <NeverTogetherCard
+          entries={neverTogether.entries}
+          newcomers={neverTogether.newcomers}
+        />
+      )}
+
       {(league.allowIndividualSignups || freeAgents.length > 0) && (
         <FreeAgentsCard
           competitionId={league.id}
@@ -548,39 +578,42 @@ export default async function LeaguePage({
     ) : null;
 
   const statsTab = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Player stats</CardTitle>
-        <CardDescription>
-          {league.trackAppearances
-            ? "Every set a player was actually there for — recorded night by night, so a sub is credited and someone who missed a week isn't."
-            : "Every set each player's team has played. Sorted by net clutch — sets won by two points or fewer, minus sets lost the same way. Tap any column to re-sort."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/*
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Player stats</CardTitle>
+          <CardDescription>
+            {league.trackAppearances
+              ? "Every set a player was actually there for — recorded night by night, so a sub is credited and someone who missed a week isn't."
+              : "Every set each player's team has played. Sorted by net clutch — sets won by two points or fewer, minus sets lost the same way. Tap any column to re-sort."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/*
           Without lineups this table is empty for an appearance league, so the
           way to fill it belongs beside it rather than somewhere else entirely.
         */}
-        {league.trackAppearances && (
-          <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-            <p className="text-muted-foreground text-sm">
-              These come from who turned out each night.
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/orgs/${orgId}/leagues/${leagueId}/lineups`}>
-                Record who played
-              </Link>
-            </Button>
-          </div>
-        )}
-        <PlayerStatsTable
-          rows={playerStats}
-          linkProfiles
-          emptyMessage={statsEmpty}
-        />
-      </CardContent>
-    </Card>
+          {league.trackAppearances && (
+            <div className="border-border bg-surface flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+              <p className="text-muted-foreground text-sm">
+                These come from who turned out each night.
+              </p>
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/orgs/${orgId}/leagues/${leagueId}/lineups`}>
+                  Record who played
+                </Link>
+              </Button>
+            </div>
+          )}
+          <PlayerStatsTable
+            rows={playerStats}
+            linkProfiles
+            emptyMessage={statsEmpty}
+          />
+        </CardContent>
+      </Card>
+      {partnerGrid && <PlayerPartnerGridCard grid={partnerGrid} />}
+    </div>
   );
 
   const settingsRegistration = (

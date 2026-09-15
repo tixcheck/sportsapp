@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Who has played with whom
+
+**Shipped.** The organizer asked where the "players playing with others" matrix
+was. It wasn't anywhere. `getPartnerships` had been written to count shared
+nights per pair, and nothing imported it. The only "Who has played with whom"
+grid on screen was the Reverse Pairs one, which tracks pairs of pairs in a
+different format.
+
+**Two places, the organizer's choice:**
+- **Stats tab (organizer):** a player × player grid in the same colours as the
+  Reverse Pairs grid. Red means never together, green means two or more
+  nights, and a plain 1 is the draft working. Rows are numbered, because a
+  24-wide grid of names cannot be read, and every cell names both players on
+  hover.
+- **Under the draft board:** "Never played together". For each player in the
+  pool it lists who they haven't shared a team with, which is what matters
+  while dealing out new teams. Players who haven't played yet are named once at
+  the bottom instead of on every line, where "never played with" them would be
+  true of everyone and tell the organizer nothing.
+
+**"Played with" means the same team on the same night**, from saved lineups.
+Subs count, and three games together on a Friday count once.
+
+**The unused query was wrong, and would have been wrong on screen.** It took a
+game's night from its UTC date. Big Shoots' 8:15 PM round is already past
+midnight UTC: 100 of its 198 games land on the wrong date, so every Friday
+splits in two. On Test Org's real lineups the UTC version reports **60 repeated
+pairings where there are none**. The replacement, `getPartnerGrid`, uses the
+competition's timezone through `nightOf`, the same as the attendance stats.
+
+**A drafted player with an account is matched by account.** `FreeAgent` had no
+`userId`, so the draft pool would have matched Liam, who is linked to his
+account in his own league, by name, and reported that he had never played with
+anyone. `userId` is now on the type and its query.
+
+**Checked on Test Org's real rows** (one saved night: four teams of six): 24
+players, 276 pairs, exactly 216 never together, every player with 5 teammates,
+no repeats. The draft pool has 27 players, and the three still available (Adam
+Garbe, Grant Davis, Sean Gade) are shown as not yet played. 12 grid tests.
+
+---
+
 ## 2026-09-15 — A team panel shows the current session, not the season
 
 **Fixed, same day.** The public team panel had just started listing players,

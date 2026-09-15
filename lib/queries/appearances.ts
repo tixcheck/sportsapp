@@ -4,6 +4,8 @@ import {
   partnershipCounts,
   type Appearance,
 } from "@/lib/stats/attribution";
+import { nightOf } from "@/lib/stats/night-lineup";
+import { buildPartnerGrid, type PartnerGrid } from "@/lib/stats/partner-grid";
 
 /**
  * Reading who played.
@@ -41,35 +43,41 @@ export async function getMatchLineup(
   ).map((r) => ({ userId: r.user_id, name: r.player_name, role: r.role }));
 }
 
-export interface PartnershipRow {
-  a: string;
-  b: string;
-  nights: number;
-}
-
 /**
  * How many nights each pair of players has been on the same team.
  *
  * The organizer's goal is "force as many combinations as possible and give
  * people an opportunity to play with everyone", so this counts shared NIGHTS —
- * six games together on one Tuesday is one occasion, not six.
+ * six games together on one Friday is one occasion, not six.
+ *
+ * A night is the date in the COMPETITION's timezone. The first version took
+ * the UTC date instead, and a Toronto league's 8:15 PM round is already past
+ * midnight UTC: 100 of Big Shoots' 198 games landed on the wrong night, every
+ * Friday split in two, and anyone in the last round would have been counted
+ * twice with the same teammates.
  */
-export async function getPartnerships(competitionId: string): Promise<{
-  rows: PartnershipRow[];
-  players: { key: string; name: string }[];
-}> {
+export async function getPartnerGrid(
+  competitionId: string,
+): Promise<PartnerGrid> {
   const supabase = await createClient();
 
-  const [{ data: apps }, { data: matches }] = await Promise.all([
-    supabase
-      .from("match_appearances")
-      .select("match_id, team_id, user_id, player_name, role")
-      .eq("competition_id", competitionId),
-    supabase
-      .from("matches")
-      .select("id, scheduled_at")
-      .eq("competition_id", competitionId),
-  ]);
+  const [{ data: apps }, { data: matches }, { data: comp }] = await Promise.all(
+    [
+      supabase
+        .from("match_appearances")
+        .select("match_id, team_id, user_id, player_name, role")
+        .eq("competition_id", competitionId),
+      supabase
+        .from("matches")
+        .select("id, scheduled_at")
+        .eq("competition_id", competitionId),
+      supabase
+        .from("competitions")
+        .select("timezone")
+        .eq("id", competitionId)
+        .maybeSingle(),
+    ],
+  );
 
   const appearances: Appearance[] = (
     (apps ?? []) as {
@@ -87,15 +95,15 @@ export async function getPartnerships(competitionId: string): Promise<{
     role: r.role,
   }));
 
-  // The night is the calendar date of the match. Good enough here because a
-  // league plays on one evening; a tournament spanning midnight would want the
-  // venue timezone, which is a problem for whoever builds that.
+  const timezone =
+    (comp as { timezone: string | null } | null)?.timezone ?? "America/Toronto";
   const nightOfMatch = new Map<string, string>();
   for (const m of (matches ?? []) as {
     id: string;
     scheduled_at: string | null;
   }[]) {
-    if (m.scheduled_at) nightOfMatch.set(m.id, m.scheduled_at.slice(0, 10));
+    const night = nightOf(m.scheduled_at, timezone);
+    if (night) nightOfMatch.set(m.id, night);
   }
 
   const nameByKey = new Map<string, string>();
@@ -103,16 +111,8 @@ export async function getPartnerships(competitionId: string): Promise<{
     nameByKey.set(identityKey(a), a.playerName.trim());
   }
 
-  const counts = partnershipCounts(appearances, nightOfMatch);
-  const rows: PartnershipRow[] = [...counts.entries()]
-    .map(([pair, nights]) => {
-      const [a, b] = pair.split("|");
-      return { a: nameByKey.get(a) ?? a, b: nameByKey.get(b) ?? b, nights };
-    })
-    .sort((x, y) => y.nights - x.nights);
-
-  return {
-    rows,
-    players: [...nameByKey.entries()].map(([key, name]) => ({ key, name })),
-  };
+  return buildPartnerGrid(
+    [...nameByKey.entries()].map(([key, name]) => ({ key, name })),
+    partnershipCounts(appearances, nightOfMatch),
+  );
 }

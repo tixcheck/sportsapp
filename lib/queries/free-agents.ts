@@ -18,6 +18,12 @@ export type FreeAgentStatus =
 
 export type FreeAgent = {
   id: string;
+  /**
+   * The account behind the sign-up, when there is one. Needed wherever a free
+   * agent is matched against lineups: an account holder's appearances are
+   * keyed by user, and matching them by name would say they never played.
+   */
+  userId: string | null;
   name: string;
   /** Null when an organizer added them without one (migration 0091). */
   email: string | null;
@@ -36,6 +42,7 @@ export type FreeAgent = {
 
 type Row = {
   id: string;
+  user_id: string | null;
   name: string;
   email: string;
   phone: string | null;
@@ -49,11 +56,12 @@ type Row = {
 };
 
 const COLUMNS =
-  "id, name, email, phone, positions, skill_level, notes, status, placed_team_id, draft_rank, created_at";
+  "id, user_id, name, email, phone, positions, skill_level, notes, status, placed_team_id, draft_rank, created_at";
 
 function toFreeAgent(r: Row, teamNames: Map<string, string>): FreeAgent {
   return {
     id: r.id,
+    userId: r.user_id,
     name: r.name,
     email: r.email,
     phone: r.phone,

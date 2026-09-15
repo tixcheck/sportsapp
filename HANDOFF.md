@@ -767,6 +767,17 @@ reading them out of `.env.local`.
   current placement. If past sessions ever need browsing, derive them from
   `match_appearances` (who actually played).
 
+## Who has played with whom
+
+- `getPartnerGrid` (`lib/queries/appearances.ts`) feeds the organizer's Stats
+  tab grid and the "Never played together" card under the draft board. It is
+  used only for leagues with `track_appearances`.
+- **Nights must be taken in the competition's timezone** (`nightOf`), never
+  from the UTC date. A Toronto 8:15 PM game is the next day in UTC, which
+  doubles every pairing from the last round.
+- The draft pool is matched **by account where there is one**
+  (`FreeAgent.userId`), because that is how lineups are keyed.
+
 ## ⚠️ Membership lives in TWO tables
 
 `team_members.user_id` is **NOT NULL**, so a person with no account cannot be a
