@@ -241,6 +241,8 @@ async function main() {
     ladder_target: srcSettings.ladder_target,
     ladder_swaps: srcSettings.ladder_swaps,
     sheet_notes: srcSettings.sheet_notes,
+    // Three nights a session; the third is the playoff (migration 0121).
+    session_nights: 3,
   };
   say(
     `settings ${WRITE ? "written " : "WRITE   "} rounds/team=${settings.rounds_per_team} games/week=${settings.games_per_week} ` +
@@ -261,7 +263,8 @@ async function main() {
         tiebreaker = excluded.tiebreaker,
         pairing_order = excluded.pairing_order,
         registration_open = excluded.registration_open,
-        max_teams = excluded.max_teams`;
+        max_teams = excluded.max_teams,
+        session_nights = excluded.session_nights`;
   }
 
   // --- teams ----------------------------------------------------------------

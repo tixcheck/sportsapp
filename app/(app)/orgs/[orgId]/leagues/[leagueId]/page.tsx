@@ -139,7 +139,9 @@ export default async function LeaguePage({
     getBrackets(leagueId),
     getLadderState(leagueId),
     getFreeAgents(leagueId),
-    getPlayerStats(leagueId),
+    // Absences are organizer-only (migration 0121); asking for them here and
+    // nowhere else is what keeps the Missed column off the public page.
+    getPlayerStats(leagueId, { includeAbsences: true }),
     getLadderNightStandings(leagueId),
     getPlayoffSchedule(leagueId),
     getCompetitionWaiverState(leagueId),
@@ -232,6 +234,7 @@ export default async function LeaguePage({
     venue: league.venue ?? "",
     courts: league.courts,
     roundsPerTeam: league.roundsPerTeam,
+    sessionNights: league.sessionNights,
     gamesPerTeam: league.gamesPerTeam,
     gamesPerWeek: league.gamesPerWeek,
     minutesPerGame: league.minutesPerGame,

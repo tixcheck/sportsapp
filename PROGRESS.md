@@ -5,6 +5,76 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Days played, nights missed, playoff game wins (migration 0121)
+
+**Shipped.** Big Shoots asked for two player stats: total playoff wins, and
+total days played, "to check how many times the organizer had to find subs for
+this player". The app could answer neither. Nothing said which nights were
+playoffs, and a saved lineup only ever recorded who PLAYED, so nobody absent
+was written down anywhere.
+
+**Three columns on the stats table**, each shown only where some row has a
+value:
+- **Days**: distinct nights on court, for any team, rostered or subbing.
+- **Missed**: nights on a team's roster without playing any of its games. A
+  player who arrived late and played two of three is not counted, because
+  nobody was sent for.
+- **PO W**: games won on playoff nights, counting only games they were on court
+  for. A game is two sets, so a 1–1 is a tie, not a win.
+
+**Playoff nights: every Nth played night** (`league_settings.session_nights`,
+3 for Big Shoots and null everywhere else). It counts nights the league
+actually plays, so a blacked-out Christmas yields no night and cannot shift the
+sessions. It is null by default because a default of 3 would hand BVL a
+"playoff" every third week.
+
+**Absences are their own table, `match_absences`.** Adding an 'absent' role to
+`match_appearances` would have been one column, but every reader of that table
+treats a row as a player on court, so absent players would be credited with
+sets across stats, partnerships and the lineup screen. The new table has the
+same per-match grain and is written by the same `writeLineup`. The roster is the
+union the lineup screen shows (team members plus drafted free agents); reading
+`team_members` alone would record nobody missing in a drafted league. **An empty
+lineup records no absences**, because "not recorded yet" is not "everyone
+stayed home". Absence writes are best-effort, so a failure logs rather than
+telling the organizer their already-saved lineup was lost.
+
+**Missed is organizer-only**, unlike appearances. Who played is the scoresheet;
+who did not turn up is between a player and their organizer. RLS lets
+competition admins and whoever can enter scores read it (the second group is
+needed so a DELETE can reach old rows). The public stats page never requests it,
+so its column is hidden, not shown as a misleading row of zeros.
+
+**Players with attendance now appear before scores are in.** Previously a row
+needed a scored set. Attendance is recorded the night it happens, so hiding it
+until someone enters results hid the number the organizer is chasing.
+
+**A trap found and fixed on the way: the Edit settings form capped round robins
+at 1× or 2×.** Big Shoots is saved at 33, one per night, because the generator
+reads that count and ignores the end date. That league's settings could not be
+saved, and choosing 2× to get past the error would have silently shrunk the
+season to three weeks. The edit schema now allows 1–60, and the dialog offers
+the league's current value as an option. The create wizard keeps its 1×/2×
+choice. "Nights per session" is a field in the same dialog.
+
+**Verified, not assumed:**
+- 17 pure attendance tests and 5 validation tests; 1474 tests pass overall;
+  typecheck, lint and build clean.
+- Migration applied and checked object by object: column, range check, table,
+  indexes, RLS, four policies.
+- RLS in rolled-back transactions: the organizer can insert, read and delete;
+  an unrelated signed-in user reads 0 and cannot insert; a signed-out visitor
+  reads 0.
+- On Test Org Big Shoots' real rows, a lineup saved without Jamie Orth writes
+  exactly one absence per match for him alone (so his draft-list name matches
+  his lineup name), giving Missed 1. Counted in venue time, all 72 recorded
+  appearances fall on one night (9 Sep), so every player there shows Days 1.
+
+**Known drift, not fixed here:** `match_appearances` (migration 0089) is not
+mirrored in `lib/db/schema.ts`. The new `matchAbsences` table is.
+
+---
+
 ## 2026-09-15 — Big Shoots runs until May, in three-week sessions
 
 **Corrected.** The first setup gave Big Shoots three weeks. The season actually

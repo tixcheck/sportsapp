@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0120`, and every one of `0060`–`0120` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0121`, and every one of `0060`–`0121` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -32,6 +32,7 @@
     | `0117`–`0118` | Sep 13 | ladder night results typed directly, printed-sheet notes + named officials |
     | `0119` | Sep 14 | dismiss an uncompleted offline payment request; withdrawal cancels open ones |
     | `0120` | Sep 14 | drafted free agents count as players in `competition_player_names` |
+    | `0121` | Sep 15 | `league_settings.session_nights`; `match_absences` (organizer-only) for the Missed stat |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -726,6 +727,28 @@ reading them out of `.env.local`.
   `user_id` plus a `team_members` row). The other 26 have no accounts.
 - The **Test Org** Big Shoots league is left as a sandbox. Liam is also a
   `competition_admins` entry there.
+
+## Attendance stats — Days, Missed, PO W (migration 0121)
+
+- **Playoff nights** = every `session_nights`-th *played* night, counted in the
+  venue timezone (`nightOf`). Null = no sessions. Only Big Shoots (Liam's org)
+  has it set, to 3.
+- **Missed needs absences, which are recorded only from 2026-09-15 onward.**
+  Lineups saved before 0121 wrote no absences, so no night before then can
+  show as missed. There was nothing real to lose: Test Org's only recorded
+  night had everyone present.
+- **Absences are rewritten on every lineup save**, in the same `writeLineup` as
+  appearances. An empty lineup records none. If captains ever record lineups in
+  a drafted league, note that `free_agents` may not be readable to them, so
+  drafted players could be missed out of absences. Big Shoots has captain entry
+  off.
+- `getPlayerStats(id, { includeAbsences: true })` is called only by the
+  organizer league page. The public page must never pass it.
+- **The Edit settings form used to cap round robins at 2** and would have
+  shrunk Big Shoots' 33-night season. It is now 1–60, with the current value
+  offered in the dialog. Do not reintroduce a 1×/2× refine on
+  `editLeagueSchema`.
+- `match_appearances` is still not mirrored in `schema.ts` (pre-existing drift).
 
 ## ⚠️ Membership lives in TWO tables
 

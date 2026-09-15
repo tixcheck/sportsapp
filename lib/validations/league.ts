@@ -82,10 +82,15 @@ export const editLeagueSchema = z
     endDate: z.string().regex(DATE_RE, "Pick an end date."),
     venue: z.string().trim().max(120).optional().or(z.literal("")),
     courts: z.number().int().min(1, "At least 1 court.").max(20),
+    // Not just 1× or 2×. A league of weekly round robins plays one per NIGHT —
+    // Big Shoots is 33 — and the generator reads this count, never the end
+    // date. Capping it at 2 made that league's settings unsavable, and forcing
+    // it back to 2 would silently shrink the season to three weeks.
     roundsPerTeam: z
       .number()
       .int()
-      .refine((n) => [1, 2].includes(n), { message: "Choose 1× or 2×." }),
+      .min(1, "At least one round robin.")
+      .max(60, "That's more round robins than a season holds."),
     gamesPerTeam: z.number().int().min(1).max(60).nullable(),
     // Games each team plays per week (default 1). 2 = two games a night.
     gamesPerWeek: z.number().int().min(1).max(7),
@@ -121,6 +126,16 @@ export const editLeagueSchema = z
     customDecidingSetTo: z.number().int().min(1).max(99).nullable().optional(),
     twoSetRoundRobin: z.boolean(),
     blackoutDates: z.array(z.string().regex(DATE_RE)),
+    // Every Nth played night is a playoff night (migration 0121). Null = the
+    // league has no sessions. A one-night session would make every night a
+    // playoff, so 2 is the floor.
+    sessionNights: z
+      .number()
+      .int()
+      .min(2, "A session needs at least 2 nights.")
+      .max(20, "That's too many nights for one session.")
+      .nullable()
+      .optional(),
   })
   .refine((v) => v.endDate >= v.startDate, {
     message: "End date must be on or after the start date.",

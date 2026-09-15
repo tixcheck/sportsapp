@@ -18,6 +18,14 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  matchOutcome,
+  playoffNightsFor,
+  tallyAttendance,
+  type Absence,
+  type MatchOutcome,
+} from "@/lib/stats/attendance";
+import { nightOf } from "@/lib/stats/night-lineup";
 import type { StatsReadiness } from "@/lib/stats/empty-reason";
 import {
   computePlayerStats,
@@ -26,6 +34,7 @@ import {
 } from "@/lib/stats/player-stats";
 import {
   attributeByAppearance,
+  identityKey,
   type Appearance,
   type MatchSets,
 } from "@/lib/stats/attribution";
@@ -39,6 +48,20 @@ export type PlayerStatRow = {
   /** True when this is a pending invite rather than a linked account. */
   pending: boolean;
   stats: PlayerStats;
+  /**
+   * Distinct nights on court, for any team. Null where the league does not
+   * record who played - there, every rostered player is credited with every
+   * set, so a night count would say nothing.
+   */
+  daysPlayed: number | null;
+  /** Games won on playoff nights. Null where the league has no sessions. */
+  playoffGameWins: number | null;
+  /**
+   * Nights on a roster without playing any of the team's games. Null unless
+   * the caller asked for absences, which only organizers can read - anyone
+   * else would get zero rows and see a perfect record that isn't one.
+   */
+  nightsMissed: number | null;
 };
 
 export type TeamStatRow = {
@@ -154,10 +177,18 @@ async function tracksAppearances(competitionId: string): Promise<boolean> {
  */
 async function playerStatsByAppearance(
   competitionId: string,
+  includeAbsences: boolean,
 ): Promise<PlayerStatRow[]> {
   const supabase = await createClient();
 
-  const [{ data: rows }, { data: teams }] = await Promise.all([
+  const [
+    { data: rows },
+    { data: teams },
+    { data: comp },
+    { data: settings },
+    { data: matchRows },
+    { data: absenceRows },
+  ] = await Promise.all([
     supabase
       .from("match_appearances")
       .select("match_id, team_id, user_id, player_name, role")
@@ -166,6 +197,28 @@ async function playerStatsByAppearance(
       .from("teams")
       .select("id, name")
       .eq("competition_id", competitionId),
+    supabase
+      .from("competitions")
+      .select("timezone")
+      .eq("id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("league_settings")
+      .select("session_nights")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("matches")
+      .select("id, scheduled_at")
+      .eq("competition_id", competitionId),
+    // Organizer-only (migration 0121). Asked for only when the caller may
+    // read it, so the public page hides the column instead of showing zeros.
+    includeAbsences
+      ? supabase
+          .from("match_absences")
+          .select("match_id, team_id, user_id, player_name")
+          .eq("competition_id", competitionId)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
 
   const appearances: Appearance[] = (
@@ -183,7 +236,20 @@ async function playerStatsByAppearance(
     playerName: r.player_name,
     role: r.role,
   }));
-  if (appearances.length === 0) return [];
+  const absences: Absence[] = (
+    (absenceRows ?? []) as {
+      match_id: string;
+      team_id: string;
+      user_id: string | null;
+      player_name: string;
+    }[]
+  ).map((r) => ({
+    matchId: r.match_id,
+    teamId: r.team_id,
+    userId: r.user_id,
+    playerName: r.player_name,
+  }));
+  if (appearances.length === 0 && absences.length === 0) return [];
 
   const teamName = new Map(
     ((teams ?? []) as { id: string; name: string }[]).map((t) => [
@@ -191,6 +257,20 @@ async function playerStatsByAppearance(
       t.name,
     ]),
   );
+  const timezone =
+    (comp as { timezone: string | null } | null)?.timezone ?? "America/Toronto";
+  const sessionNights =
+    (settings as { session_nights: number | null } | null)?.session_nights ??
+    null;
+
+  const nightOfMatch = new Map<string, string>();
+  for (const m of (matchRows ?? []) as {
+    id: string;
+    scheduled_at: string | null;
+  }[]) {
+    const night = nightOf(m.scheduled_at, timezone);
+    if (night) nightOfMatch.set(m.id, night);
+  }
 
   // Reuse the per-team set lists, re-keyed by match so an appearance can pick
   // out just the games that player was there for.
@@ -199,19 +279,78 @@ async function playerStatsByAppearance(
     seasonOrder(competitionId),
   ]);
 
-  return attributeByAppearance(appearances, matchSets, matchOrder)
-    .map((p) => {
-      const teamId = p.teamIds[p.teamIds.length - 1] ?? "";
-      return {
-        userId: p.userId,
-        name: p.name,
-        teamId,
-        teamName: teamName.get(teamId) ?? "",
-        pending: false,
-        stats: computePlayerStats(p.sets),
-      };
-    })
-    .filter((r) => r.stats.gamesPlayed > 0);
+  const outcomes = new Map<string, MatchOutcome | null>();
+  for (const ms of matchSets) {
+    outcomes.set(`${ms.matchId}:${ms.teamId}`, matchOutcome(ms.sets));
+  }
+  const attendance = tallyAttendance({
+    appearances,
+    absences,
+    nightOfMatch,
+    outcomeOf: (matchId, teamId) =>
+      outcomes.get(`${matchId}:${teamId}`) ?? null,
+    // Scheduled nights, not scored ones: a playoff is a playoff before anyone
+    // has entered its results.
+    playoffNights: playoffNightsFor([...nightOfMatch.values()], sessionNights),
+  });
+  const extras = (userId: string | null, name: string) => {
+    const t = attendance.get(identityKey({ userId, playerName: name }));
+    return {
+      daysPlayed: t?.daysPlayed ?? 0,
+      playoffGameWins: sessionNights ? (t?.playoffGameWins ?? 0) : null,
+      nightsMissed: includeAbsences ? (t?.nightsMissed ?? 0) : null,
+    };
+  };
+
+  const attributed: PlayerStatRow[] = attributeByAppearance(
+    appearances,
+    matchSets,
+    matchOrder,
+  ).map((p) => {
+    const teamId = p.teamIds[p.teamIds.length - 1] ?? "";
+    return {
+      userId: p.userId,
+      name: p.name,
+      teamId,
+      teamName: teamName.get(teamId) ?? "",
+      pending: false,
+      stats: computePlayerStats(p.sets),
+      ...extras(p.userId, p.name),
+    };
+  });
+
+  // Somebody who has only ever been absent has no appearance to attribute
+  // from - and is precisely who the Missed column exists to surface.
+  const seen = new Set(
+    attributed.map((r) =>
+      identityKey({ userId: r.userId, playerName: r.name }),
+    ),
+  );
+  const absentOnly: PlayerStatRow[] = [];
+  for (const ab of absences) {
+    const key = identityKey(ab);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    absentOnly.push({
+      userId: ab.userId,
+      name: ab.playerName.trim(),
+      teamId: ab.teamId,
+      teamName: teamName.get(ab.teamId) ?? "",
+      pending: false,
+      stats: computePlayerStats([]),
+      ...extras(ab.userId, ab.playerName),
+    });
+  }
+
+  // A night on court counts before its scores are in: attendance is recorded
+  // the night it happens, and hiding it until somebody enters results would
+  // hide the one number the organizer is chasing.
+  return [...attributed, ...absentOnly].filter(
+    (r) =>
+      r.stats.gamesPlayed > 0 ||
+      (r.daysPlayed ?? 0) > 0 ||
+      (r.nightsMissed ?? 0) > 0,
+  );
 }
 
 /** Every match's sets, from each side's perspective. */
@@ -274,9 +413,13 @@ async function setsByMatchAndTeam(competitionId: string): Promise<MatchSets[]> {
  */
 export async function getPlayerStats(
   competitionId: string,
+  options: { includeAbsences?: boolean } = {},
 ): Promise<PlayerStatRow[]> {
   if (await tracksAppearances(competitionId)) {
-    return playerStatsByAppearance(competitionId);
+    return playerStatsByAppearance(
+      competitionId,
+      options.includeAbsences === true,
+    );
   }
 
   const supabase = await createClient();
@@ -311,6 +454,9 @@ export async function getPlayerStats(
       teamName: teamName.get(n.team_id) ?? "",
       pending: n.pending,
       stats: computePlayerStats(sets.get(n.team_id) ?? []),
+      daysPlayed: null,
+      playoffGameWins: null,
+      nightsMissed: null,
     }))
     .filter((r) => r.stats.gamesPlayed > 0);
 }

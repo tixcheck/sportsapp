@@ -8,6 +8,7 @@ import {
   matchesForTeamOnNight,
   type NightMatch,
 } from "@/lib/stats/night-lineup";
+import { identityKey } from "@/lib/stats/attribution";
 
 type ActionError = { error: string };
 
@@ -219,6 +220,10 @@ function duplicateGuestName(
 /**
  * Replace one team's lineup for one match. Shared by both entry points so the
  * night path and the match path cannot drift into storing different things.
+ *
+ * Absences are rewritten with the lineup (migration 0121). Ticking somebody
+ * back in has to clear the night they were marked missing, so they are never
+ * left over from a previous save.
  */
 async function writeLineup(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -237,6 +242,19 @@ async function writeLineup(
     return { error: "That couldn't be saved. Please try again." };
   }
 
+  const { error: absDelErr } = await supabase
+    .from("match_absences")
+    .delete()
+    .eq("match_id", matchId)
+    .eq("team_id", teamId);
+  if (absDelErr) {
+    console.error("[appearances] absence clear failed", absDelErr.message);
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  // An empty lineup means "not recorded yet", never "everybody stayed home".
+  // Reading it the second way would mark a whole team missing for a night
+  // nobody has filled in.
   if (players.length === 0) return null;
 
   const { error: insErr } = await supabase.from("match_appearances").insert(
@@ -253,5 +271,86 @@ async function writeLineup(
     console.error("[appearances] insert failed", insErr.message);
     return { error: "That couldn't be saved. Please try again." };
   }
+
+  await recordAbsences(supabase, competitionId, matchId, teamId, players);
   return null;
+}
+
+/**
+ * Write down who from the team's roster was NOT in this lineup.
+ *
+ * The roster is the union the lineup screen shows: `team_members` for people
+ * with accounts, plus players drafted onto the team, most of whom have none
+ * (`place_free_agents` only writes a member row for an account). Reading
+ * `team_members` alone would record nobody missing in a drafted league.
+ *
+ * Best-effort. The lineup itself is already saved, and failing the whole save
+ * over a secondary statistic would tell the organizer their lineup was lost
+ * when it wasn't — so a failure here is logged, not returned.
+ */
+async function recordAbsences(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+  matchId: string,
+  teamId: string,
+  players: { userId: string | null; name: string }[],
+): Promise<void> {
+  const [{ data: members }, { data: drafted }] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("user_id, users(display_name)")
+      .eq("team_id", teamId),
+    supabase
+      .from("free_agents")
+      .select("user_id, name")
+      .eq("competition_id", competitionId)
+      .eq("placed_team_id", teamId)
+      .eq("status", "placed"),
+  ]);
+
+  const roster = new Map<string, { userId: string | null; name: string }>();
+  for (const m of (members ?? []) as unknown as {
+    user_id: string;
+    users:
+      | { display_name: string | null }
+      | { display_name: string | null }[]
+      | null;
+  }[]) {
+    const u = Array.isArray(m.users) ? m.users[0] : m.users;
+    const person = {
+      userId: m.user_id,
+      name: u?.display_name?.trim() || "Player",
+    };
+    roster.set(
+      identityKey({ userId: person.userId, playerName: person.name }),
+      person,
+    );
+  }
+  for (const d of (drafted ?? []) as {
+    user_id: string | null;
+    name: string;
+  }[]) {
+    const person = { userId: d.user_id, name: d.name.trim() };
+    const key = identityKey({ userId: person.userId, playerName: person.name });
+    // A drafted player with an account is already here from team_members.
+    if (!roster.has(key)) roster.set(key, person);
+  }
+
+  const present = new Set(
+    players.map((p) => identityKey({ userId: p.userId, playerName: p.name })),
+  );
+  const rows = [...roster.entries()]
+    .filter(([key]) => !present.has(key))
+    .map(([, p]) => ({
+      competition_id: competitionId,
+      match_id: matchId,
+      team_id: teamId,
+      user_id: p.userId,
+      player_name: p.name,
+    }));
+  if (rows.length === 0) return;
+
+  const { error } = await supabase.from("match_absences").insert(rows);
+  if (error)
+    console.error("[appearances] absence insert failed", error.message);
 }

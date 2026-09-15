@@ -80,6 +80,8 @@ export interface LeagueDetail {
   /** Editable settings (for the Edit-settings form). */
   matchFormat: MatchFormat;
   roundsPerTeam: number;
+  /** Every Nth played night is a playoff (migration 0121). Null = no sessions. */
+  sessionNights: number | null;
   gamesPerTeam: number | null;
   /** Games each team plays per week (default 1; 2 = two games a night). */
   gamesPerWeek: number;
@@ -219,7 +221,7 @@ export async function getLeagueDetail(
   const { data: settings } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order, session_nights",
     )
     .eq("competition_id", leagueId)
     .maybeSingle();
@@ -290,6 +292,7 @@ export async function getLeagueDetail(
     trackAppearances: league.track_appearances === true,
     matchFormat: league.match_format as MatchFormat,
     roundsPerTeam: settings?.rounds_per_team ?? 1,
+    sessionNights: (settings?.session_nights as number | null) ?? null,
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
     gamesPerWeek: (settings?.games_per_week as number | null) ?? 1,
     minutesPerGame: (settings?.minutes_per_game as number | null) ?? 45,

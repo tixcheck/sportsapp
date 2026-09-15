@@ -513,6 +513,11 @@ export const leagueSettings = pgTable("league_settings", {
   // order IS the document's order. Plain text, like every other
   // organizer-authored field in v0. Null = this league prints no sheets.
   sheetNotes: jsonb("sheet_notes").$type<SheetNote[]>(),
+  // Nights per session (migration 0121): every Nth played night is a playoff
+  // night. Counted over nights actually played, so a blacked-out holiday
+  // cannot shift the sessions. Null = no sessions, which is every league but
+  // the ones that re-draft in blocks — a default would invent playoffs for BVL.
+  sessionNights: integer("session_nights"),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */
@@ -1984,4 +1989,52 @@ export const registrationAnswers = pgTable(
       .defaultNow(),
   },
   (t) => [index("registration_answers_competition_idx").on(t.competitionId)],
+);
+
+/**
+ * Rostered players left out of a saved lineup, per match (migration 0121).
+ *
+ * A lineup only ever recorded who played. In a league that re-drafts every
+ * three weeks the roster moves on too, so "was this player supposed to be there
+ * that night?" became unanswerable — and it is the question behind "how many
+ * times did I have to find a sub for them".
+ *
+ * Its own table rather than an 'absent' role on match_appearances, because
+ * every reader of that table treats a row as a player on court.
+ *
+ * Organizer-only by RLS, unlike appearances: who played is the scoresheet, who
+ * didn't turn up is between a player and their organizer.
+ *
+ * NOTE: `match_appearances` itself (migration 0089) is not mirrored here yet —
+ * pre-existing drift, left for its own change.
+ */
+export const matchAbsences = pgTable(
+  "match_absences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    matchId: uuid("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    /** Null for a drafted player with no account. */
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    playerName: text("player_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("match_absences_unique_user")
+      .on(t.matchId, t.userId)
+      .where(sql`${t.userId} is not null`),
+    index("match_absences_competition_idx").on(t.competitionId),
+    index("match_absences_match_idx").on(t.matchId),
+  ],
 );

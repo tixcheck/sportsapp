@@ -199,6 +199,14 @@ export function EditLeagueSettingsDialog({
               >
                 <option value={1}>Single (play each team once)</option>
                 <option value={2}>Double (play each team twice)</option>
+                {/* A season of weekly round robins stores one per night. Without
+                    its own option the select would show "Single" and saving
+                    would quietly shrink the season. */}
+                {initial.roundsPerTeam > 2 && (
+                  <option value={initial.roundsPerTeam}>
+                    {initial.roundsPerTeam}× (one round robin per night)
+                  </option>
+                )}
               </select>
             </Field>
             <Field
@@ -248,6 +256,21 @@ export function EditLeagueSettingsDialog({
                 max={180}
                 step={5}
                 {...register("minutesPerGame", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field
+              label="Nights per session"
+              error={errors.sessionNights?.message}
+              hint="For leagues that re-draft in blocks. Every Nth night is a playoff night, and players' playoff game wins are counted on it. Blank = no sessions."
+            >
+              <Input
+                type="number"
+                min={2}
+                max={20}
+                placeholder="None"
+                {...register("sessionNights", {
+                  setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                })}
               />
             </Field>
           </div>

@@ -267,6 +267,8 @@ export async function updateLeagueSettingsAction(
       pairing_order: v.pairingOrder ?? "circle",
       court_list: v.courtList && v.courtList.length ? v.courtList : null,
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
+      // Every Nth played night is a playoff (migration 0121); null = none.
+      session_nights: v.sessionNights ?? null,
     })
     .eq("competition_id", competitionId);
   if (setErr) return { error: setErr.message };

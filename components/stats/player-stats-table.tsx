@@ -25,10 +25,48 @@ type Key =
   | "clutchWins"
   | "clutchLosses"
   | "netClutch"
-  | "clutchRate";
+  | "clutchRate"
+  | AttendanceKey;
+
+type AttendanceKey = "daysPlayed" | "nightsMissed" | "playoffGameWins";
+
+/**
+ * Night counts rather than set arithmetic, so they read off the row, not off
+ * `stats`. Each shows only where some row carries a value: null means the
+ * league cannot answer it (no lineups, no sessions) or the viewer may not see
+ * it (absences are organizer-only), and a column of dashes would suggest zero.
+ */
+const ATTENDANCE: { key: AttendanceKey; label: string; hint: string }[] = [
+  {
+    key: "daysPlayed",
+    label: "Days",
+    hint: "Nights on court, for any team — rostered or as a sub",
+  },
+  {
+    key: "nightsMissed",
+    label: "Missed",
+    hint: "Nights on a team's roster without playing any of its games — the times a sub had to be found",
+  },
+  {
+    key: "playoffGameWins",
+    label: "PO W",
+    hint: "Games won on playoff nights, counting only games they were on court for",
+  },
+];
+
+function isAttendanceKey(key: Key): key is AttendanceKey {
+  return (
+    key === "daysPlayed" || key === "nightsMissed" || key === "playoffGameWins"
+  );
+}
+
+function sortValue(r: PlayerStatRow, key: Exclude<Key, "name">): number {
+  // A hidden (null) value sorts below any real count.
+  return isAttendanceKey(key) ? (r[key] ?? -1) : r.stats[key];
+}
 
 type Column = {
-  key: Key;
+  key: Exclude<Key, "name" | AttendanceKey>;
   label: string;
   /** The long form, on hover — the header has to stay narrow. */
   hint: string;
@@ -158,8 +196,8 @@ export function PlayerStatsTable({
     const dir = sort.desc ? -1 : 1;
     return [...rows].sort((a, b) => {
       if (sort.key === "name") return dir * a.name.localeCompare(b.name);
-      const av = a.stats[sort.key];
-      const bv = b.stats[sort.key];
+      const av = sortValue(a, sort.key);
+      const bv = sortValue(b, sort.key);
       // An undefined ratio (nothing conceded) is the best possible value, so it
       // must sort to the top, not wherever Infinity happens to land.
       const norm = (v: number) => (Number.isFinite(v) ? v : Number.MAX_VALUE);
@@ -182,6 +220,10 @@ export function PlayerStatsTable({
         : { key, desc: key !== "name" },
     );
   }
+
+  const attendanceCols = ATTENDANCE.filter((c) =>
+    rows.some((r) => r[c.key] != null),
+  );
 
   const arrow = (key: Key) =>
     sort.key === key ? (
@@ -206,6 +248,17 @@ export function PlayerStatsTable({
                 </button>
               </th>
               <th className="px-3 pb-2 text-left font-bold">Team</th>
+              {attendanceCols.map((c) => (
+                <th
+                  key={c.key}
+                  title={c.hint}
+                  className="px-2 pb-2 text-center font-bold"
+                >
+                  <button type="button" onClick={() => toggle(c.key)}>
+                    {c.label} {arrow(c.key)}
+                  </button>
+                </th>
+              ))}
               {COLUMNS.map((c) => (
                 <th
                   key={c.key}
@@ -248,6 +301,11 @@ export function PlayerStatsTable({
                 <td className="text-ink-2 px-3 whitespace-nowrap">
                   {r.teamName}
                 </td>
+                {attendanceCols.map((c) => (
+                  <td key={c.key} className="px-2 text-center">
+                    {r[c.key] ?? "–"}
+                  </td>
+                ))}
                 {COLUMNS.map((c) => (
                   <td
                     key={c.key}
