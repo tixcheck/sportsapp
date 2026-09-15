@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 import type { Sport } from "@/lib/formats";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
 import type { RosterName } from "@/lib/queries/roster";
+import type { LeagueSession } from "@/lib/schedule/sessions";
 import { courtTbdLabel, formatCourtLabel } from "@/lib/scheduler/court-label";
 import { sportConfig } from "@/lib/sports";
 import {
@@ -30,6 +31,7 @@ export function TeamGames({
   className,
   sport,
   players,
+  session = null,
 }: {
   teamId: string;
   teamName: string;
@@ -45,9 +47,34 @@ export function TeamGames({
    * has nobody on it yet, and says so.
    */
   players?: RosterName[];
+  /**
+   * Limit the panel to one session. In a league that re-drafts every few weeks
+   * the roster above is only true for the current block, and listing the rest
+   * of the season under it would say those people play together until May.
+   */
+  session?: LeagueSession | null;
 }) {
-  const entries = teamScheduleEntries(teamId, schedule, timezone);
-  const timeline = teamTimeline(teamId, schedule, timezone);
+  // A match with no time belongs to no night, so no session can claim it.
+  const inSession = session
+    ? schedule.filter(
+        (m) =>
+          m.scheduledAt != null &&
+          session.nights.includes(
+            DateTime.fromISO(m.scheduledAt, { zone: timezone }).toFormat(
+              "yyyy-MM-dd",
+            ),
+          ),
+      )
+    : schedule;
+  const entries = teamScheduleEntries(teamId, inSession, timezone);
+  const timeline = teamTimeline(teamId, inSession, timezone);
+  const sessionLabel = session
+    ? `Session ${session.number} of ${session.total} · ${DateTime.fromISO(
+        session.nights[0],
+      ).toFormat("LLL d")} – ${DateTime.fromISO(
+        session.nights[session.nights.length - 1],
+      ).toFormat("LLL d")}`
+    : null;
   const playCount = entries.filter((e) => e.kind === "play").length;
   const refCount = entries.filter((e) => e.kind === "ref").length;
 
@@ -58,6 +85,11 @@ export function TeamGames({
         className,
       )}
     >
+      {sessionLabel && (
+        <p className="text-primary text-xs font-semibold tracking-wide uppercase">
+          {sessionLabel}
+        </p>
+      )}
       <p className="font-display text-sm font-semibold">
         {teamName} — {playCount} game{playCount === 1 ? "" : "s"}
         {refCount > 0 ? ` · ${refCount} ref${refCount === 1 ? "" : "s"}` : ""}
@@ -68,7 +100,7 @@ export function TeamGames({
       {players && (
         <div>
           <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-            Players
+            {session ? "This session's players" : "Players"}
           </p>
           {players.length === 0 ? (
             <p className="text-muted-foreground mt-1 text-sm">

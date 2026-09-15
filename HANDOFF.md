@@ -752,6 +752,21 @@ reading them out of `.env.local`.
   `editLeagueSchema`.
 - `match_appearances` is still not mirrored in `schema.ts` (pre-existing drift).
 
+## Sessions on public pages
+
+- In a league with `session_nights`, a public **team panel shows only the
+  current session** (`currentSession` in `lib/schedule/sessions.ts`, built on
+  `defaultScheduleDay`). This is deliberate, the organizer's choice on
+  2026-09-15: the roster shown is only true for the current block. The
+  Schedule tab still shows the whole season.
+- **Never regenerate a sessions league's schedule to "reset" a session.**
+  `generateLeagueScheduleAction` deletes every match, scores and lineups
+  included. The season-long 198-game schedule is the intended shape, and
+  re-drafting only moves players between the same Team 1–4.
+- Past sessions' rosters are not stored. The only roster is each player's
+  current placement. If past sessions ever need browsing, derive them from
+  `match_appearances` (who actually played).
+
 ## ⚠️ Membership lives in TWO tables
 
 `team_members.user_id` is **NOT NULL**, so a person with no account cannot be a

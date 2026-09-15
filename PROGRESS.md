@@ -5,6 +5,47 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — A team panel shows the current session, not the season
+
+**Fixed, same day.** The public team panel had just started listing players,
+and in Big Shoots that exposed a lie. "Team 1" is a slot, not a group of
+people: its six players stay together for one three-week session and are then
+re-drafted. The panel put today's six names above all 99 of Team 1's games
+through May, which reads as those six playing together all season.
+
+**The schedule itself was right, and stays.** Four team slots really do play
+every Friday. The other fix, generating one session at a time and regenerating
+after each re-draft, was checked and rejected: `generateLeagueScheduleAction`
+deletes every match in the league, recorded scores and lineups included, so
+each regeneration would have erased every previous session.
+
+**The organizer's choice: current session only.** In a league with
+`session_nights`, the panel shows the current block's nights and nothing else
+("Session 1 of 11 · Sep 18 – Oct 2 — 9 games · 6 players"), with the list
+titled "This session's players". Past and future sessions are not browsable
+from it. Leagues without sessions keep the full season, and the Schedule tab
+is unchanged: it already opens on the next night, and it names no players.
+
+**"Current" reuses `defaultScheduleDay`** instead of restating it: the session
+holding the next unfinished night, today included, or the last night once the
+season is over. The team panel and the Schedule tab therefore cannot disagree
+about which week "now" is. Between a playoff and the next session's first
+night, the next session is current, because the re-drafted teams are the ones
+about to play. Sessions are counted over played nights (`splitSessions`), the
+same rule `playoffNightsFor` uses, so a session's last night is always its
+playoff night and a holiday gap cannot shift either.
+
+**The roster is still each player's current placement**, the only roster the
+app stores. After a re-draft it becomes the new session's players with no
+further change needed.
+
+**Checked on Liam's league for today (15 Sep):** Session 1 of 11 (Sep 18,
+Sep 25, Oct 2). Team 1 shows 9 games instead of 99. Session 5 spans the
+holidays (Dec 11, Dec 18, Jan 8). The last session runs Apr 30 – May 14.
+11 session tests pass.
+
+---
+
 ## 2026-09-15 — Team panels list their players
 
 **Shipped.** On the public league page, tapping a team showed its games and

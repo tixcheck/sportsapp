@@ -176,6 +176,11 @@ export interface PublicLeague {
   registrationOpen: boolean;
   /** Registration close datetime (ISO), when set. */
   registrationDeadline: string | null;
+  /**
+   * Nights per session for a league that re-drafts in blocks (migration 0121).
+   * Null = no sessions. Scopes the public team panel to the current block.
+   */
+  sessionNights: number | null;
   /** `divisionId` groups the Teams tab by tier, the way the schedule is. */
   teams: { id: string; name: string; divisionId: string | null }[];
   schedule: ScheduleMatch[];
@@ -493,7 +498,7 @@ export async function getPublicLeague(
   // missing-column error can't take down the tiebreaker read above.
   const { data: regRow } = await supabase
     .from("league_settings")
-    .select("registration_open, registration_deadline")
+    .select("registration_open, registration_deadline, session_nights")
     .eq("competition_id", league.id)
     .maybeSingle();
 
@@ -525,6 +530,7 @@ export async function getPublicLeague(
     })),
     registrationOpen,
     registrationDeadline: deadline,
+    sessionNights: (regRow?.session_nights as number | null) ?? null,
     teams: (teams ?? []).map((t) => ({
       id: t.id,
       name: t.name,

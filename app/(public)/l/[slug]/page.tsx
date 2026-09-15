@@ -11,6 +11,7 @@ import { getPublicRosterNames } from "@/lib/queries/roster";
 import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
 import { getWeightedStandings } from "@/lib/queries/weighted-standings";
 import { defaultScheduleDay } from "@/lib/schedule/default-day";
+import { currentSession } from "@/lib/schedule/sessions";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
@@ -82,6 +83,10 @@ export default async function PublicLeaguePage({
     )
     .filter((d): d is string => d != null);
   const initialDay = defaultScheduleDay(playingDays, today);
+  // A league that re-drafts in blocks: a team's players are only true for the
+  // current session, so its panel shows that session and no other. Null for
+  // every league without sessions, which keeps the full season.
+  const session = currentSession(playingDays, league.sessionNights, today);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
   const deadlineText = league.registrationDeadline
@@ -159,6 +164,7 @@ export default async function PublicLeaguePage({
         <LeagueTabs
           playerStats={playerStats}
           rosters={rosters}
+          session={session}
           ladderNights={ladderNights}
           weighted={weighted}
           initialDay={initialDay}

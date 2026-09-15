@@ -21,6 +21,7 @@ import { MyTeamBadge } from "@/components/team/my-team-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PlayerStatRow } from "@/lib/queries/player-stats";
 import type { RosterName } from "@/lib/queries/roster";
+import type { LeagueSession } from "@/lib/schedule/sessions";
 import type { LadderNight } from "@/lib/queries/ladder-standings";
 import { LadderNightStandings } from "@/components/league/ladder-night-standings";
 import { WeightedStandingsTable } from "@/components/league/weighted-standings-table";
@@ -46,10 +47,16 @@ export function LeagueTabs({
   initialDay = null,
   initialTab,
   rosters = {},
+  session = null,
 }: {
   league: PublicLeague;
   /** Player names per team id, for the Teams tab. Empty lists nobody. */
   rosters?: Record<string, RosterName[]>;
+  /**
+   * The current session, for a league that re-drafts in blocks. Scopes each
+   * team's panel to it, because the roster shown is only true for this block.
+   */
+  session?: LeagueSession | null;
   standings: StandingsGroup[];
   /** Per-player figures for the Stats tab. Empty hides the tab entirely. */
   playerStats?: PlayerStatRow[];
@@ -232,6 +239,7 @@ export function LeagueTabs({
                             // [] not undefined: on the league page an empty
                             // team should say so rather than show no list.
                             players={rosters[t.id] ?? []}
+                            session={session}
                             className="mt-0 sm:col-span-2 lg:col-span-3"
                           />
                         )}
