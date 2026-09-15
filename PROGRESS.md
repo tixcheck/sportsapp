@@ -5,6 +5,43 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Big Shoots runs until May, in three-week sessions
+
+**Corrected.** The first setup gave Big Shoots three weeks. The season actually
+runs to May: the same drafted players play three Fridays together (two regular
+nights, then a playoff) and are then re-drafted. Still no schedule.
+
+**The generator never reads `end_date`.** It lays rounds onto weekly slots from
+the start date until it runs out of rounds, so the three-week season came from
+`rounds_per_team = 2`, not from the date. Moving the end date alone would have
+changed nothing. With four teams and three rounds a night, each Friday is exactly
+one complete round robin, so the season length is set as **33 nights**.
+
+**The calendar, decided by the organizer:**
+- Dec 25 and Jan 1 are both Fridays and are **blacked out**. The generator
+  *moves* a blacked-out night to the next Friday instead of dropping it, so
+  every later session shifts two weeks. Good Friday is played.
+- End on a **full session**. The 35 Fridays to the end of May make 11 whole
+  sessions (33 nights) plus 2 spare, so the season ends with the playoff on
+  **Fri 14 May 2027** and 21/28 May stay empty.
+
+**Playoff format, first version:** play everybody, and the team with the most
+wins that night takes the session. Level on wins goes to the team that scored
+more points that night. That night's fixtures are the same full round robin as
+any other Friday, and standings already show won/lost/tied per night, so no new
+mechanism is needed for this first format. Not built: a playoff-night label, a
+session-winner list, or standings scoped to one session. Season-long Team 1–4
+standings add up results across re-drafts and mean little.
+
+**Verified before writing, then after.** The real `generateRoundRobin` was run
+in memory with these exact settings (no DB) and produced 198 games, 99 rounds and
+33 nights on precisely the planned Fridays, every night a full round robin
+(6 games, every pair once, 3 each), session 5 jumping Dec 18 → Jan 8. The saved
+league then reads end 2027-05-14, 33 nights, both blackouts, zero matches, and
+the draft still 24 placed / 3 available.
+
+---
+
 ## 2026-09-15 — Big Shoots moves into its organizer's own org
 
 **Set up, not yet scheduled.** Liam Johnson created **Big Shoots Men's

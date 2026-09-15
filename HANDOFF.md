@@ -703,8 +703,22 @@ reading them out of `.env.local`.
 - **League:** Big Shoots Volleyball 2026-2027 (`be28ffa8-7994-486b-8d75-99e0d54cdcf1`),
   `/l/big-shoots-volleyball-2026-2027-2`, **status `draft`, unpublished on
   purpose**. It becomes live after verification, when you click publish.
-- Fridays 18:45 at Holody Centre (Guelph), 2 courts, Sep 18 → Oct 2 2026. Each
-  game is 2 sets to 25, cap 27. 3 rounds a night, 6 games a team.
+- Fridays 18:45 at Holody Centre (Guelph), 2 courts, **Sep 18 2026 → May 14
+  2027**. Each game is 2 sets to 25, cap 27. 3 rounds a night.
+- **Season = 11 three-week sessions.** Each session has two regular Fridays and
+  a playoff Friday, then everyone is re-drafted onto Team 1–4 (same team rows,
+  players move). Every Friday is one complete round robin, so `rounds_per_team`
+  = **33** (one per night). Blackouts are **Dec 25 and Jan 1**, which push later
+  nights back two weeks. Good Friday is played. 21 and 28 May are deliberately
+  unscheduled so the season ends on a full session.
+- **Playoff rule (first format, organizer 2026-09-15):** play everybody; the
+  most wins THAT night takes the session. Level on wins → more points scored
+  that night wins. Read it from the per-night won/lost/tied columns in standings.
+  The app has **no** playoff-night label or session-winner list yet.
+- ⚠️ **The generator ignores `end_date`.** Season length comes from
+  `rounds_per_team`, and a blacked-out night is moved, not dropped. Simulated
+  before saving: 198 games, 99 rounds, 33 Fridays, every night a full round
+  robin.
 - 4 teams with 6 drafted each, 3 sign-ups left available. Copied from Test Org
   by `lib/db/setup-big-shoots.ts`, which is rerun-safe.
 - **No schedule yet.** The next step is generating it from the league page.

@@ -17,7 +17,16 @@
  *
  *   - each game is 2 sets to 25, capped at 27
  *   - first serve 6:45 PM, Fridays, 3 rounds a night
- *   - season starts Friday 18 September 2026
+ *   - season runs Friday 18 September 2026 to Friday 14 May 2027
+ *
+ * THE SEASON IS A CHAIN OF THREE-WEEK SESSIONS. The same drafted teams play
+ * three Fridays together — two regular nights, then a playoff night — and then
+ * everyone is re-drafted onto Team 1–4. With four teams and three rounds a
+ * night, every Friday is one complete round robin, so the playoff night is the
+ * same fixtures as any other: the team with the most wins THAT NIGHT takes the
+ * session, and if two are level on wins, the one that scored more points that
+ * night wins it (the organizer's rule, 2026-09-15). The standings already show
+ * each night's won/lost/tied, which is where that is read.
  *
  * NO SCHEDULE. Matches are generated from the app once this has been checked.
  *
@@ -42,11 +51,27 @@ const LIAM_USER_ID = "a27c4055-834d-401f-9030-cc5174dad74f";
 
 const START_DATE = "2026-09-18";
 /**
- * Three Fridays: two weeks of round robin, then the playoff week. The Test Org
- * league ran 2 Sep → 16 Sep on exactly that shape; the season is the same
- * fourteen days from the new start.
+ * The playoff night of the last COMPLETE session in May. Every Friday from
+ * 18 Sep to the end of May, less the two holidays, is 35 nights: eleven whole
+ * sessions (33 nights) and two left over. The organizer chose to end on a full
+ * session rather than play a short one, so 21 and 28 May are not scheduled.
  */
-const END_DATE = "2026-10-02";
+const END_DATE = "2027-05-14";
+/**
+ * Christmas and New Year's Day both fall on a Friday this season. The
+ * generator moves a blacked-out night to the next Friday rather than dropping
+ * it, so every later session shifts back two weeks — which is what lands the
+ * eleventh playoff on 14 May. Good Friday (26 Mar) is played.
+ */
+const BLACKOUT_DATES = ["2026-12-25", "2027-01-01"];
+/**
+ * One full round robin per night. The generator does not read `end_date` at
+ * all — it keeps playing weekly until it runs out of rounds — so this count,
+ * not the date, is what makes the season last until May. With four teams a
+ * round robin is three rounds, and `games_per_week` is three, so each unit
+ * here is exactly one Friday: 11 sessions × 3 nights = 33.
+ */
+const NIGHTS = 33;
 const START_TIME = "18:45";
 /** 0 = Sunday … 6 = Saturday. 18 Sep 2026 is a Friday. */
 const FRIDAY = 5;
@@ -200,13 +225,13 @@ async function main() {
     competition_id: compId,
     weekly_slots: sql.json(slots as never),
     court_list: sql.json(courts as never),
-    rounds_per_team: srcSettings.rounds_per_team,
+    rounds_per_team: NIGHTS,
     games_per_week: srcSettings.games_per_week,
     games_per_team: srcSettings.games_per_team,
     minutes_per_game: srcSettings.minutes_per_game,
     tiebreaker: srcSettings.tiebreaker,
     pairing_order: srcSettings.pairing_order,
-    blackout_dates: srcSettings.blackout_dates,
+    blackout_dates: BLACKOUT_DATES,
     promotion_relegation: srcSettings.promotion_relegation,
     registration_open: srcSettings.registration_open,
     registration_deadline: null,
@@ -219,7 +244,7 @@ async function main() {
   };
   say(
     `settings ${WRITE ? "written " : "WRITE   "} rounds/team=${settings.rounds_per_team} games/week=${settings.games_per_week} ` +
-      `(= ${Number(settings.rounds_per_team) * 3} games a team over 2 weeks) · ${courts.length} courts · ` +
+      `(= ${settings.rounds_per_team} Fridays, one full round robin each, blackouts ${BLACKOUT_DATES.join(" & ")}) · ${courts.length} courts · ` +
       `${settings.pairing_order} pairing · ${settings.tiebreaker} · max ${settings.max_teams} teams · registration_open=${settings.registration_open}`,
   );
   if (WRITE) {
@@ -229,6 +254,7 @@ async function main() {
         weekly_slots = excluded.weekly_slots,
         court_list = excluded.court_list,
         rounds_per_team = excluded.rounds_per_team,
+        blackout_dates = excluded.blackout_dates,
         games_per_week = excluded.games_per_week,
         games_per_team = excluded.games_per_team,
         minutes_per_game = excluded.minutes_per_game,
