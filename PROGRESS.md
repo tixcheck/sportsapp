@@ -5,6 +5,40 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Big Shoots' draft found cleared, and restored
+
+**Data fix, no code change.** The organizer reported that the draft in Liam's
+league was empty: all 27 players showed as `available`, and Team 1–4 had no
+one on them.
+
+**What did it, established from the database rather than guessed:**
+- `free_agents` has **no trigger that updates `updated_at`**. The draft board's
+  "Clear all teams" (`clearDraftAction`) and "Save draft" tidy-up (players not on
+  the board go back to the pool) both set `status = 'available'` and
+  `placed_team_id = null` **without** touching `updated_at`. The setup script,
+  `place_free_agents` and removing a player all set it.
+- The last `updated_at` on those rows (00:16 Eastern) is the setup script
+  *placing* the 24, which its dry run confirms it does.
+- The players were still placed at about 00:46 Eastern: the public player list,
+  which only includes a drafted player while they are on a team, returned six
+  names per team.
+- Liam's `team_members` row on Team 1 survived, which fits a board clear, since
+  clearing does not remove memberships.
+- Nothing shipped that session writes placements. Those changes only read them.
+
+So an organizer on that league cleared the board, or saved it empty, some time
+after 00:46. The app keeps no record of who or when; only the Supabase API logs
+would show it.
+
+**Restored in one transaction** from the Test Org draft, which is the same
+saved draft. Only `status` and `placed_team_id` changed, name for name and team
+for team, and the whole restore was set to abort unless exactly 24 players
+matched. The full setup script was not rerun, because it also resets league
+settings the organizer may have changed since. Result: six per team, three
+available, 24 names on the public page.
+
+---
+
 ## 2026-09-15 — Who has played with whom
 
 **Shipped.** The organizer asked where the "players playing with others" matrix

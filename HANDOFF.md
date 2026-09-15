@@ -752,6 +752,19 @@ reading them out of `.env.local`.
   `editLeagueSchema`.
 - `match_appearances` is still not mirrored in `schema.ts` (pre-existing drift).
 
+## ⚠️ A cleared draft leaves no timestamp
+
+- `clearDraftAction` and the tidy-up step in `saveDraftAction` update
+  `free_agents` without setting `updated_at`, and there is no trigger to do it.
+  **A cleared draft therefore cannot be dated from the database**, and the last
+  `updated_at` belongs to whatever wrote before the clear. The Supabase API logs
+  are the only record of who cleared it and when.
+- Big Shoots' draft was cleared this way on 2026-09-15, some time after 00:46
+  Eastern, and restored the same day from the Test Org draft (placements only).
+- **Do not rerun `lib/db/setup-big-shoots.ts` to repair a draft.** It also
+  resets the league's settings. Restore `status`/`placed_team_id` directly
+  instead.
+
 ## Sessions on public pages
 
 - In a league with `session_nights`, a public **team panel shows only the
