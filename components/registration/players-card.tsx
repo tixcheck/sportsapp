@@ -117,7 +117,10 @@ export function PlayersCard({
                 </thead>
                 <tbody>
                   {filtered.map((p) => (
-                    <tr key={p.userId} className="border-rule/60 border-b">
+                    <tr
+                      key={p.userId ?? p.freeAgentId}
+                      className="border-rule/60 border-b"
+                    >
                       <td className="p-2">
                         <span className="text-foreground block font-medium">
                           {p.name}
@@ -130,6 +133,11 @@ export function PlayersCard({
                       </td>
                       <td className="text-muted-foreground p-2">
                         {p.teamName}
+                        {p.draft && p.draft.positions.length > 0 && (
+                          <span className="block text-xs">
+                            {p.draft.positions.join(", ")}
+                          </span>
+                        )}
                       </td>
                       {columns.map((q) => (
                         <td key={q.id} className="p-2">
@@ -139,15 +147,24 @@ export function PlayersCard({
                         </td>
                       ))}
                       <td className="p-2 text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditing(p)}
-                          aria-label={`Edit ${p.name}`}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
+                        {/* Answers are keyed by account, so there is nothing
+                            to edit for somebody drafted without one. Saying
+                            so beats a button that opens an empty form. */}
+                        {p.userId ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditing(p)}
+                            aria-label={`Edit ${p.name}`}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            from the draft
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -166,7 +183,7 @@ export function PlayersCard({
 
       {editing && (
         <EditPlayerDialog
-          key={editing.userId}
+          key={editing.userId ?? editing.freeAgentId}
           competitionId={competitionId}
           player={editing}
           questions={questions}
@@ -198,6 +215,7 @@ function EditPlayerDialog({
 
   function save() {
     start(async () => {
+      if (!player.userId) return;
       const res = await savePlayerAnswersAction({
         competitionId,
         userId: player.userId,

@@ -5,6 +5,43 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-14 — The Players list reads both kinds of membership
+
+**Fixed, same day as it shipped.** The Players tab read `team_members` only, so
+Big Shoots — four teams, six drafted players each — showed "Nobody is on a
+roster yet". The draft was correct; the query was looking in one of the two
+places membership lives.
+
+**Two tables hold "who is on this team", by design.** `team_members` holds
+people with accounts, written when a captain's invite is claimed.
+`free_agents.placed_team_id` holds people the organizer drafted — and
+`place_free_agents` only writes a `team_members` row when that person has an
+account, which none of Big Shoots' 24 do. `lib/queries/lineups.ts` already took
+the union for exactly this reason, which is why "Record who played" worked on a
+league the Players tab called empty.
+
+**Unplaced sign-ups stay unlisted.** The three in the draft board's Available
+column are not on a team, and the organizer was explicit that they do not have
+to be. Only `placed_team_id` counts.
+
+**Name is enough for now.** These are a testing phase with no accounts, so a row
+is a name, with the email only when there is one — no dash, no empty line.
+Positions come along from the sign-up, since the pool knows them and a
+registration answer does not exist. Accounts come later, and the row shape
+already carries `userId` for when they do.
+
+**No edit pencil for a drafted player**, because answers are keyed by
+`user_id` and there is nothing behind the button. It says "from the draft"
+instead, which is the true reason rather than a form that saves nothing.
+
+**Not changed: the Roster mix card.** A drafted player's grade lives in
+`free_agents.skill_level`, not in a registration answer, so there is nothing for
+it to tally — that is a different shape of data, not the same fix.
+
+**Tests:** 1452 passing across 112 files.
+
+---
+
 ## 2026-09-14 — An empty stats table that says which half is missing
 
 **Shipped.** Big Shoots showed a scored match on the schedule, correct

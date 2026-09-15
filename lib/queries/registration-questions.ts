@@ -558,7 +558,10 @@ export async function getTeamChoiceMix(
 
 /** One registered player, with everything the organizer holds about them. */
 export type PlayerDirectoryRow = {
-  userId: string;
+  /** Null for somebody drafted into the league who has no account. */
+  userId: string | null;
+  /** Set instead of `userId` for a drafted player. */
+  freeAgentId: string | null;
   /** The name the league asked for — see `lib/registration/player-name.ts`. */
   name: string;
   /** What they chose to be called publicly, when it differs from `name`. */
@@ -567,6 +570,20 @@ export type PlayerDirectoryRow = {
   teamId: string | null;
   teamName: string | null;
   answers: AnswerMap;
+  /**
+   * What the draft pool holds instead of registration answers.
+   *
+   * A drafted player without an account has no `registration_answers` at all —
+   * answers are keyed by `user_id` — but the sign-up that put them in the pool
+   * carries their phone, positions and grade. Showing that beats showing a row
+   * of dashes against a real person.
+   */
+  draft: {
+    phone: string | null;
+    positions: string[];
+    skillLevel: string | null;
+    notes: string | null;
+  } | null;
 };
 
 /**
@@ -578,23 +595,40 @@ export type PlayerDirectoryRow = {
  * export that was never built, so an organizer could set the questions and
  * read none of the replies.
  *
- * Driven off the ROSTER rather than off the answers, so somebody who joined a
- * team and has answered nothing still appears — they are exactly who an
- * organizer is looking for. Admin-only by RLS: `registration_answers` returns
- * a player their own rows and an admin everything, so this reads as an empty
- * list for anyone else rather than leaking.
+ * MEMBERSHIP COMES FROM TWO PLACES and this reads both, which the first
+ * version did not. `team_members` holds people with accounts — a captain's
+ * invited teammates. `free_agents.placed_team_id` holds people the organizer
+ * drafted, and `place_free_agents` only writes a `team_members` row when they
+ * have an account. Big Shoots' four teams therefore read 0 members while
+ * carrying 6 drafted players each, and a list built on `team_members` alone
+ * showed the organizer an empty league. `lib/queries/lineups.ts` already takes
+ * the union for exactly this reason; this now matches it.
+ *
+ * Admin-only by RLS: `registration_answers` returns a player their own rows
+ * and an admin everything, so this reads thin for anyone else rather than
+ * leaking.
  */
 export async function getPlayerDirectory(
   competitionId: string,
 ): Promise<PlayerDirectoryRow[]> {
   const supabase = await createClient();
 
-  const { data: teams } = await supabase
-    .from("teams")
-    .select("id, name, team_members(user_id, users(display_name, email))")
-    .eq("competition_id", competitionId)
-    .neq("status", "withdrawn")
-    .order("name");
+  const [{ data: teams }, { data: drafted }] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, team_members(user_id, users(display_name, email))")
+      .eq("competition_id", competitionId)
+      .neq("status", "withdrawn")
+      .order("name"),
+    supabase
+      .from("free_agents")
+      .select(
+        "id, user_id, name, email, phone, positions, skill_level, notes, placed_team_id",
+      )
+      .eq("competition_id", competitionId)
+      .not("placed_team_id", "is", null)
+      .neq("status", "withdrawn"),
+  ]);
 
   const rosters = (teams ?? []) as unknown as {
     id: string;
@@ -627,7 +661,10 @@ export async function getPlayerDirectory(
     byUser.set(a.user_id, map);
   }
 
+  const teamName = new Map(rosters.map((t) => [t.id, t.name]));
   const out: PlayerDirectoryRow[] = [];
+  const seen = new Set<string>();
+
   for (const team of rosters) {
     for (const m of team.team_members ?? []) {
       const accountName = m.users?.display_name ?? null;
@@ -635,8 +672,10 @@ export async function getPlayerDirectory(
       const name = resolvePlayerName(
         namePartsFor(names, m.user_id, accountName, email),
       );
+      seen.add(m.user_id);
       out.push({
         userId: m.user_id,
+        freeAgentId: null,
         name,
         // Only worth carrying when it says something the name doesn't.
         accountName:
@@ -645,8 +684,44 @@ export async function getPlayerDirectory(
         teamId: team.id,
         teamName: team.name,
         answers: byUser.get(m.user_id) ?? {},
+        draft: null,
       });
     }
+  }
+
+  for (const fa of (drafted ?? []) as {
+    id: string;
+    user_id: string | null;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    positions: string[] | null;
+    skill_level: string | null;
+    notes: string | null;
+    placed_team_id: string;
+  }[]) {
+    // Somebody drafted who DOES have an account already came through
+    // `team_members` above; listing them twice would be worse than either.
+    if (fa.user_id && seen.has(fa.user_id)) continue;
+    // A placement pointing at a withdrawn team is not a roster spot.
+    if (!teamName.has(fa.placed_team_id)) continue;
+
+    out.push({
+      userId: fa.user_id,
+      freeAgentId: fa.id,
+      name: fa.name,
+      accountName: null,
+      email: fa.email,
+      teamId: fa.placed_team_id,
+      teamName: teamName.get(fa.placed_team_id) ?? null,
+      answers: fa.user_id ? (byUser.get(fa.user_id) ?? {}) : {},
+      draft: {
+        phone: fa.phone,
+        positions: fa.positions ?? [],
+        skillLevel: fa.skill_level,
+        notes: fa.notes,
+      },
+    });
   }
 
   return out.sort(
