@@ -110,3 +110,49 @@ export async function getTeamRosters(
   }
   return out;
 }
+
+/** A name on a team, as the public may see it. */
+export type RosterName = {
+  name: string;
+  /** An invite nobody has claimed yet — a maybe, not a confirmed player. */
+  pending: boolean;
+};
+
+/**
+ * Who plays for each team, by name only — for the public league page.
+ *
+ * Read through `competition_player_names` rather than `team_members` + `users`:
+ * that function returns names and nothing else and restates the competition's
+ * visibility rule itself, so it is safe to call for a signed-out visitor. It
+ * also covers all three ways onto a team — claimed accounts, unclaimed invites
+ * and, since migration 0120, players the organizer drafted — which matters
+ * because a drafted league like Big Shoots has almost no `team_members` rows.
+ *
+ * Sorted by name within each team, confirmed players first.
+ */
+export async function getPublicRosterNames(
+  competitionId: string,
+): Promise<Record<string, RosterName[]>> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("competition_player_names", {
+    _competition_id: competitionId,
+  });
+
+  const byTeam: Record<string, RosterName[]> = {};
+  for (const row of (data ?? []) as {
+    team_id: string;
+    name: string | null;
+    pending: boolean;
+  }[]) {
+    const name = row.name?.trim();
+    if (!name) continue;
+    (byTeam[row.team_id] ??= []).push({ name, pending: row.pending });
+  }
+  for (const list of Object.values(byTeam)) {
+    list.sort(
+      (a, b) =>
+        Number(a.pending) - Number(b.pending) || a.name.localeCompare(b.name),
+    );
+  }
+  return byTeam;
+}

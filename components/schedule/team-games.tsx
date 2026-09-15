@@ -4,6 +4,7 @@ import { DateTime } from "luxon";
 
 import type { Sport } from "@/lib/formats";
 import type { ScheduleMatch } from "@/lib/queries/leagues";
+import type { RosterName } from "@/lib/queries/roster";
 import { courtTbdLabel, formatCourtLabel } from "@/lib/scheduler/court-label";
 import { sportConfig } from "@/lib/sports";
 import {
@@ -28,6 +29,7 @@ export function TeamGames({
   timezone,
   className,
   sport,
+  players,
 }: {
   teamId: string;
   teamName: string;
@@ -37,6 +39,12 @@ export function TeamGames({
   sport?: Sport;
   /** Lets a grid caller span the panel across the full row. */
   className?: string;
+  /**
+   * Who plays for this team. Omitted by callers that don't load names (the
+   * tournament page), which simply shows no list. An empty list means the team
+   * has nobody on it yet, and says so.
+   */
+  players?: RosterName[];
 }) {
   const entries = teamScheduleEntries(teamId, schedule, timezone);
   const timeline = teamTimeline(teamId, schedule, timezone);
@@ -53,7 +61,39 @@ export function TeamGames({
       <p className="font-display text-sm font-semibold">
         {teamName} — {playCount} game{playCount === 1 ? "" : "s"}
         {refCount > 0 ? ` · ${refCount} ref${refCount === 1 ? "" : "s"}` : ""}
+        {players && players.length > 0
+          ? ` · ${players.length} player${players.length === 1 ? "" : "s"}`
+          : ""}
       </p>
+      {players && (
+        <div>
+          <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            Players
+          </p>
+          {players.length === 0 ? (
+            <p className="text-muted-foreground mt-1 text-sm">
+              Nobody on this team yet.
+            </p>
+          ) : (
+            <ul className="mt-1.5 flex flex-wrap gap-1.5">
+              {players.map((p, i) => (
+                <li
+                  key={`${p.name}-${i}`}
+                  className={cn(
+                    "rounded-full border px-2.5 py-0.5 text-sm",
+                    p.pending
+                      ? "text-muted-foreground border-dashed"
+                      : "border-border bg-background",
+                  )}
+                  title={p.pending ? "Invited — hasn't joined yet" : undefined}
+                >
+                  {p.name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <ActivityStrip timeline={timeline} timezone={timezone} />
       {entries.length === 0 ? (
         <p className="text-muted-foreground text-sm">No games scheduled yet.</p>

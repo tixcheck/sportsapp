@@ -702,8 +702,7 @@ reading them out of `.env.local`.
 - **Org:** Big Shoots Men's Volleyball (`7ba804ce-a223-475a-80dd-48f7492f6078`),
   owned by Liam Johnson (liamjohnson934@gmail.com).
 - **League:** Big Shoots Volleyball 2026-2027 (`be28ffa8-7994-486b-8d75-99e0d54cdcf1`),
-  `/l/big-shoots-volleyball-2026-2027-2`, **status `draft`, unpublished on
-  purpose**. It becomes live after verification, when you click publish.
+  `/l/big-shoots-volleyball-2026-2027-2`, **status `scheduled`, public**. Published and scheduled by the organizer after verification on 2026-09-15.
 - Fridays 18:45 at Holody Centre (Guelph), 2 courts, **Sep 18 2026 → May 14
   2027**. Each game is 2 sets to 25, cap 27. 3 rounds a night.
 - **Season = 11 three-week sessions.** Each session has two regular Fridays and
@@ -722,7 +721,10 @@ reading them out of `.env.local`.
   robin.
 - 4 teams with 6 drafted each, 3 sign-ups left available. Copied from Test Org
   by `lib/db/setup-big-shoots.ts`, which is rerun-safe.
-- **No schedule yet.** The next step is generating it from the league page.
+- **Schedule generated (2026-09-15): 198 games on 33 Fridays**, Sep 18 6:45 PM
+  → May 14 2027. This is exactly the in-memory simulation run before the
+  settings were saved, so the blackouts and the 33-night count behaved as
+  designed. Public team panels now list each team's six players.
 - "Liam Johnson" on Team 1 is **linked to Liam's account** (free agent
   `user_id` plus a `team_members` row). The other 26 have no accounts.
 - The **Test Org** Big Shoots league is left as a sandbox. Liam is also a

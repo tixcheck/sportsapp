@@ -5,6 +5,33 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Team panels list their players
+
+**Shipped.** On the public league page, tapping a team showed its games and
+nothing about who is on it. The panel now lists the players, and its heading
+gives the count ("Team 1 — 0 games · 6 players").
+
+**Names come from `competition_player_names`, not `team_members` + `users`.**
+That function returns names and nothing else, and it restates the
+competition's visibility rule itself, so it is safe for a signed-out visitor.
+It also covers all three ways onto a team: claimed accounts, unclaimed invites
+and, since migration 0120, drafted players. A drafted league like Big Shoots
+has almost no `team_members` rows, so reading that table would have shown empty
+teams.
+
+**Confirmed players first, then invites**, alphabetical within each. An unclaimed
+invite is drawn with a dashed outline and "Invited — hasn't joined yet" on
+hover, because a maybe is not a confirmed player.
+
+**Shared component, opt-in.** `TeamGames` is also used by the public tournament
+page, which doesn't pass `players` and so is unchanged. On the league page an
+empty team shows "Nobody on this team yet." rather than no list at all.
+
+**Checked against Liam's league:** four teams with six names each, exactly the
+saved draft, and no team empty. Typecheck, lint, build and 1474 tests pass.
+
+---
+
 ## 2026-09-15 — Days played, nights missed, playoff game wins (migration 0121)
 
 **Shipped.** Big Shoots asked for two player stats: total playoff wins, and
