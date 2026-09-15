@@ -780,6 +780,18 @@ reading them out of `.env.local`.
   current placement. If past sessions ever need browsing, derive them from
   `match_appearances` (who actually played).
 
+## Individual registrants
+
+- The Players tab lists every non-withdrawn free agent — placed or still in the
+  pool — after the teams. Edit shows *Sign-up details* when there is a
+  `freeAgentId` and *League questions* when there is a `userId`.
+- **Individuals are NOT asked the league's registration questions** — the
+  sign-up form only collects its own fields. They have no Gender/address
+  answers and don't count in Roster mix until an organizer fills the answers in
+  from the Players tab (the organizer's choice, 2026-09-15). Changing the
+  sign-up form to ask them is a known, deliberately deferred option.
+- `updateFreeAgentDetailsAction` never changes status or placement.
+
 ## Who has played with whom
 
 - `getPartnerGrid` (`lib/queries/appearances.ts`) feeds the organizer's Stats

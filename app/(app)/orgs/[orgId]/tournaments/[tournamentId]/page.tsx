@@ -625,6 +625,7 @@ export default async function TournamentPage({
           {(t.allowIndividualSignups || freeAgents.length > 0) && (
             <FreeAgentsCard
               competitionId={t.id}
+              sport={t.sport}
               agents={freeAgents}
               teams={t.teams.map((tm) => ({ id: tm.id, name: tm.name }))}
               divisions={t.divisions.map((d) => ({ id: d.id, name: d.name }))}

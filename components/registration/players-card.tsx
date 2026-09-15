@@ -11,6 +11,13 @@ import type {
   RegistrationQuestion,
 } from "@/lib/queries/registration-questions";
 import { savePlayerAnswersAction } from "@/server/actions/registration-questions";
+import { updateFreeAgentDetailsAction } from "@/server/actions/free-agents";
+import type { Sport } from "@/lib/formats";
+import {
+  SignupDetailsFields,
+  toSignupDetails,
+  type SignupDetails,
+} from "@/components/registration/signup-details-fields";
 import { QuestionFields } from "@/components/registration/question-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,8 +54,11 @@ export function PlayersCard({
   players,
   questions,
   addressAutocomplete,
+  sport,
 }: {
   competitionId: string;
+  /** Which positions a sign-up can hold. */
+  sport: Sport;
   players: PlayerDirectoryRow[];
   /** Player-scope questions only — a team answer is not edited from here. */
   questions: RegistrationQuestion[];
@@ -78,8 +88,8 @@ export function PlayersCard({
           Players
         </CardTitle>
         <CardDescription>
-          Everyone on a roster, with what they answered at registration. Edit
-          anything that needs correcting — a phone number, a spelling.
+          Everyone on a roster, plus individuals still waiting to be placed.
+          Edit anything that needs correcting — a phone number, a spelling.
         </CardDescription>
       </CardHeader>
 
@@ -132,7 +142,13 @@ export function PlayersCard({
                         )}
                       </td>
                       <td className="text-muted-foreground p-2">
-                        {p.teamName}
+                        {p.teamName ?? (
+                          <span className="text-ink-2">
+                            {p.freeAgentStatus === "pending_payment"
+                              ? "Individual · unpaid"
+                              : "Individual — not on a team yet"}
+                          </span>
+                        )}
                         {p.draft && p.draft.positions.length > 0 && (
                           <span className="block text-xs">
                             {p.draft.positions.join(", ")}
@@ -147,10 +163,11 @@ export function PlayersCard({
                         </td>
                       ))}
                       <td className="p-2 text-right">
-                        {/* Answers are keyed by account, so there is nothing
-                            to edit for somebody drafted without one. Saying
-                            so beats a button that opens an empty form. */}
-                        {p.userId ? (
+                        {/* Editable whenever there is something to edit:
+                            league answers need an account, sign-up details
+                            need a sign-up. Only an invite-joined player with
+                            no account has neither. */}
+                        {(p.userId || p.freeAgentId) && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -160,10 +177,6 @@ export function PlayersCard({
                           >
                             <Pencil className="size-4" />
                           </Button>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">
-                            from the draft
-                          </span>
                         )}
                       </td>
                     </tr>
@@ -188,6 +201,7 @@ export function PlayersCard({
           player={editing}
           questions={questions}
           addressAutocomplete={addressAutocomplete}
+          sport={sport}
           onClose={() => setEditing(null)}
         />
       )}
@@ -200,33 +214,62 @@ function EditPlayerDialog({
   player,
   questions,
   addressAutocomplete,
+  sport,
   onClose,
 }: {
   competitionId: string;
   player: PlayerDirectoryRow;
   questions: RegistrationQuestion[];
   addressAutocomplete: boolean;
+  sport: Sport;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [values, setValues] = useState<AnswerMap>(player.answers);
   const [meta, setMeta] = useState<Record<string, Record<string, unknown>>>({});
+  const [details, setDetails] = useState<SignupDetails>(() =>
+    toSignupDetails({
+      // The name AS SIGNED UP, not the row's resolved league name - seeding
+      // from that would rewrite the sign-up's spelling on save.
+      name: player.draft?.name ?? player.name,
+      email: player.draft?.email ?? player.email,
+      phone: player.draft?.phone ?? null,
+      positions: player.draft?.positions ?? [],
+      skillLevel: player.draft?.skillLevel ?? null,
+      notes: player.draft?.notes ?? null,
+    }),
+  );
+
+  const editsSignup = player.freeAgentId != null;
+  // An account can hold answers; the questions may not exist for this league.
+  const editsAnswers = player.userId != null && questions.length > 0;
 
   function save() {
     start(async () => {
-      if (!player.userId) return;
-      const res = await savePlayerAnswersAction({
-        competitionId,
-        userId: player.userId,
-        answers: values,
-        metadata: Object.keys(meta).length > 0 ? meta : undefined,
-      });
-      if ("error" in res) {
-        toast.error(res.error);
-        return;
+      if (player.freeAgentId) {
+        const res = await updateFreeAgentDetailsAction({
+          freeAgentId: player.freeAgentId,
+          ...details,
+        });
+        if ("error" in res) {
+          toast.error(res.error);
+          return;
+        }
       }
-      toast.success(`Saved ${player.name}'s details.`);
+      if (editsAnswers && player.userId) {
+        const res = await savePlayerAnswersAction({
+          competitionId,
+          userId: player.userId,
+          answers: values,
+          metadata: Object.keys(meta).length > 0 ? meta : undefined,
+        });
+        if ("error" in res) {
+          toast.error(res.error);
+          return;
+        }
+      }
+      toast.success(`Saved ${editsSignup ? details.name : player.name}.`);
       router.refresh();
       onClose();
     });
@@ -238,21 +281,49 @@ function EditPlayerDialog({
         <DialogHeader>
           <DialogTitle>{player.name}</DialogTitle>
           <DialogDescription>
-            {player.teamName}
+            {player.teamName ??
+              (player.freeAgentStatus === "pending_payment"
+                ? "Individual · hasn't paid yet"
+                : "Individual — not on a team yet")}
             {player.accountName && ` · signs in as ${player.accountName}`}
           </DialogDescription>
         </DialogHeader>
 
-        <QuestionFields
-          questions={questions}
-          values={values}
-          onChange={(id, value) =>
-            setValues((prev) => ({ ...prev, [id]: value }))
-          }
-          onMeta={(id, m) => setMeta((prev) => ({ ...prev, [id]: m }))}
-          disabled={pending}
-          addressAutocomplete={addressAutocomplete}
-        />
+        {editsSignup && (
+          <section className="grid gap-3">
+            <h3 className="text-sm font-semibold">Sign-up details</h3>
+            <SignupDetailsFields
+              sport={sport}
+              value={details}
+              onChange={setDetails}
+              disabled={pending}
+            />
+          </section>
+        )}
+
+        {editsAnswers ? (
+          <section className="grid gap-3">
+            <h3 className="text-sm font-semibold">League questions</h3>
+            <QuestionFields
+              questions={questions}
+              values={values}
+              onChange={(id, value) =>
+                setValues((prev) => ({ ...prev, [id]: value }))
+              }
+              onMeta={(id, m) => setMeta((prev) => ({ ...prev, [id]: m }))}
+              disabled={pending}
+              addressAutocomplete={addressAutocomplete}
+            />
+          </section>
+        ) : (
+          editsSignup &&
+          player.userId == null && (
+            <p className="text-muted-foreground text-xs">
+              No account, so there are no league answers to edit - only the
+              details they signed up with.
+            </p>
+          )
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={pending}>

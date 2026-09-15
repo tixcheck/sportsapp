@@ -560,8 +560,17 @@ export async function getTeamChoiceMix(
 export type PlayerDirectoryRow = {
   /** Null for somebody drafted into the league who has no account. */
   userId: string | null;
-  /** Set instead of `userId` for a drafted player. */
+  /**
+   * The individual sign-up behind this row, when there is one - a drafted
+   * player, or somebody still in the pool. Null for a player who joined a team
+   * by invite. Present means the sign-up details are editable.
+   */
   freeAgentId: string | null;
+  /**
+   * The sign-up's status, when there is one. `available` / `pending_payment`
+   * mean they are waiting in the pool with no team yet.
+   */
+  freeAgentStatus: string | null;
   /** The name the league asked for — see `lib/registration/player-name.ts`. */
   name: string;
   /** What they chose to be called publicly, when it differs from `name`. */
@@ -579,6 +588,13 @@ export type PlayerDirectoryRow = {
    * of dashes against a real person.
    */
   draft: {
+    /**
+     * The name and email AS SIGNED UP. Not `name` above, which may be the
+     * league's resolved name: an edit dialog seeded from that would
+     * overwrite the sign-up with a different spelling on save.
+     */
+    name: string;
+    email: string | null;
     phone: string | null;
     positions: string[];
     skillLevel: string | null;
@@ -623,10 +639,9 @@ export async function getPlayerDirectory(
     supabase
       .from("free_agents")
       .select(
-        "id, user_id, name, email, phone, positions, skill_level, notes, placed_team_id",
+        "id, user_id, name, email, phone, positions, skill_level, notes, status, placed_team_id",
       )
       .eq("competition_id", competitionId)
-      .not("placed_team_id", "is", null)
       .neq("status", "withdrawn"),
   ]);
 
@@ -676,6 +691,7 @@ export async function getPlayerDirectory(
       out.push({
         userId: m.user_id,
         freeAgentId: null,
+        freeAgentStatus: null,
         name,
         // Only worth carrying when it says something the name doesn't.
         accountName:
@@ -698,34 +714,59 @@ export async function getPlayerDirectory(
     positions: string[] | null;
     skill_level: string | null;
     notes: string | null;
-    placed_team_id: string;
+    status: string;
+    placed_team_id: string | null;
   }[]) {
+    const draft = {
+      name: fa.name,
+      email: fa.email,
+      phone: fa.phone,
+      positions: fa.positions ?? [],
+      skillLevel: fa.skill_level,
+      notes: fa.notes,
+    };
+
     // Somebody drafted who DOES have an account already came through
     // `team_members` above; listing them twice would be worse than either.
-    if (fa.user_id && seen.has(fa.user_id)) continue;
-    // A placement pointing at a withdrawn team is not a roster spot.
-    if (!teamName.has(fa.placed_team_id)) continue;
+    // Point that row at the sign-up instead, so its details are editable too.
+    if (fa.user_id && seen.has(fa.user_id)) {
+      const existing = out.find((r) => r.userId === fa.user_id);
+      if (existing && !existing.freeAgentId) {
+        existing.freeAgentId = fa.id;
+        existing.freeAgentStatus = fa.status;
+        existing.draft = draft;
+      }
+      continue;
+    }
 
+    // Placed onto a team that has since been withdrawn: not a roster spot, and
+    // not waiting in the pool either.
+    if (fa.placed_team_id && !teamName.has(fa.placed_team_id)) continue;
+
+    // Waiting in the pool (available, or signed up but unpaid) belongs here
+    // too. The organizer's words: "where are the individual registrants
+    // sitting? I don't see them in the players tab."
     out.push({
       userId: fa.user_id,
       freeAgentId: fa.id,
+      freeAgentStatus: fa.status,
       name: fa.name,
       accountName: null,
       email: fa.email,
       teamId: fa.placed_team_id,
-      teamName: teamName.get(fa.placed_team_id) ?? null,
+      teamName: fa.placed_team_id
+        ? (teamName.get(fa.placed_team_id) ?? null)
+        : null,
       answers: fa.user_id ? (byUser.get(fa.user_id) ?? {}) : {},
-      draft: {
-        phone: fa.phone,
-        positions: fa.positions ?? [],
-        skillLevel: fa.skill_level,
-        notes: fa.notes,
-      },
+      draft,
     });
   }
 
+  // Teams first, alphabetically; the pool after them - they are the people
+  // still to be placed, and read as a group of their own.
   return out.sort(
     (a, b) =>
+      Number(a.teamName == null) - Number(b.teamName == null) ||
       (a.teamName ?? "").localeCompare(b.teamName ?? "") ||
       a.name.localeCompare(b.name),
   );

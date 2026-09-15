@@ -556,6 +556,7 @@ export default async function LeaguePage({
       {(league.allowIndividualSignups || freeAgents.length > 0) && (
         <FreeAgentsCard
           competitionId={league.id}
+          sport={league.sport}
           agents={freeAgents}
           teams={league.teams.map((t) => ({ id: t.id, name: t.name }))}
           divisions={league.tiers.map((t) => ({ id: t.id, name: t.name }))}
@@ -963,6 +964,7 @@ export default async function LeaguePage({
             content: (
               <PlayersCard
                 competitionId={league.id}
+                sport={league.sport}
                 players={players}
                 questions={registrationQuestions.filter(
                   (q) => q.scope === "player",

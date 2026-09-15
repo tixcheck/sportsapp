@@ -5,6 +5,52 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Individual registrants in the Players tab, and editable
+
+**Shipped.** BVL's organizer asked where individual registrants were — they
+weren't in the Players tab, and there was no way to correct their details. Both
+true. The Players tab listed only people ON a team, and nothing anywhere could
+change an individual sign-up's name, email, phone, positions, level or notes
+after they submitted it.
+
+**The Players tab now lists the pool too**, after the teams: every sign-up that
+isn't withdrawn, marked "Individual — not on a team yet", or "Individual ·
+unpaid" while their fee is outstanding. In BVL that is 12 people — four each in
+Non-Spiking Tuesday, Spiking Thursday and Women's Wednesday.
+
+**One edit dialog, two sections, each shown only where it applies.** *Sign-up
+details* for anyone who signed up as an individual; *League questions* for
+anyone with an account. Every BVL individual has an account, so both. A drafted
+player with no account (Big Shoots) now gets an edit button for their details
+instead of the old "from the draft" dead end.
+
+**The dialog loads the name AS SIGNED UP**, not the row's resolved league
+name. For a drafted player with an account those can differ, and seeding from
+the league name would have rewritten their sign-up's spelling on save.
+
+**The Free agents card gets the same edit button** for sign-up details, because
+the pool is where an organizer is placing people and a spelling fix shouldn't
+mean leaving it. League answers stay in the Players tab, which loads the
+questions.
+
+**`updateFreeAgentDetailsAction` edits details only.** Status and placement stay
+with the draft board and Remove/Restore, which carry the rules for moving
+people between teams. Positions are checked against the sport exactly as
+sign-up checks them. No migration: `free_agents_admin_write` already let an
+organizer update a sign-up — nothing had ever asked.
+
+**Found on the way: individuals are never asked the league's questions.** The
+sign-up form collects only its own fields, so all 12 BVL individuals have zero
+registration answers — no Gender, no address — and never count in Roster mix.
+The organizer chose to fill those in from the Players tab rather than prompt
+the players or change the sign-up form.
+
+**Verified:** as BVL's organizer in a rolled-back transaction an update to a
+sign-up is allowed, and a plain rostered player's is blocked; the live row was
+untouched. 1497 tests, typecheck, lint and build clean.
+
+---
+
 ## 2026-09-15 — Big Shoots' draft found cleared, and restored
 
 **Data fix, no code change.** The organizer reported that the draft in Liam's

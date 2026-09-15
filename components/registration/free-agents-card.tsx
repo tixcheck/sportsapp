@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, UserPlus, Users, X } from "lucide-react";
+import { Check, Pencil, UserPlus, Users, X } from "lucide-react";
 
 import {
   createTeamFromFreeAgentsAction,
@@ -11,6 +11,8 @@ import {
   setFreeAgentStatusAction,
 } from "@/server/actions/free-agents";
 import type { FreeAgent } from "@/lib/queries/free-agents";
+import type { Sport } from "@/lib/formats";
+import { EditSignupDialog } from "@/components/registration/edit-signup-dialog";
 import { DEFAULT_GROUP_ORDER } from "@/lib/draft/snake";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,8 +39,11 @@ export function FreeAgentsCard({
   agents,
   teams,
   divisions,
+  sport,
 }: {
   competitionId: string;
+  /** Which positions the edit form offers. */
+  sport: Sport;
   agents: FreeAgent[];
   teams: { id: string; name: string }[];
   divisions: { id: string; name: string }[];
@@ -49,6 +54,7 @@ export function FreeAgentsCard({
   const [teamName, setTeamName] = useState("");
   const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
   const [targetTeam, setTargetTeam] = useState(teams[0]?.id ?? "");
+  const [editing, setEditing] = useState<FreeAgent | null>(null);
 
   /**
    * The pool by position — an organizer building teams is counting setters and
@@ -242,6 +248,19 @@ export function FreeAgentsCard({
                         )}
                       </div>
 
+                      {/* Correcting a spelling or a phone number shouldn't mean
+                          leaving the pool the organizer is placing from. */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground shrink-0 px-2"
+                        disabled={pending}
+                        onClick={() => setEditing(a)}
+                        aria-label={`Edit ${a.name}`}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+
                       {a.status === "withdrawn" ? (
                         <Button
                           size="sm"
@@ -346,6 +365,14 @@ export function FreeAgentsCard({
           )}
         </div>
       </CardContent>
+      {editing && (
+        <EditSignupDialog
+          key={editing.id}
+          agent={editing}
+          sport={sport}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </Card>
   );
 }

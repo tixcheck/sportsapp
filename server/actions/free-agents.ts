@@ -407,3 +407,97 @@ async function revalidateForTeam(supabase: Client, teamId: string) {
   revalidatePath(`/teams/${teamId}`);
   if (t) await revalidateForCompetition(supabase, t.competition_id);
 }
+
+const detailsSchema = z.object({
+  freeAgentId: idSchema,
+  name: z.string().trim().min(1, "Give them a name.").max(120),
+  // Optional: an organizer-added sign-up may never have had one (0091).
+  email: z.string().trim().toLowerCase().max(254).optional(),
+  phone: z.string().trim().max(40).optional(),
+  positions: z.array(z.string().trim().min(1)).max(8).default([]),
+  skillLevel: z.enum(
+    SKILL_LEVELS.map((l) => l.value) as [string, ...string[]],
+    { message: "Pick a level." },
+  ),
+  notes: z.string().trim().max(1000).optional(),
+});
+
+export type FreeAgentDetailsInput = z.input<typeof detailsSchema>;
+
+/**
+ * An organizer correcting an individual sign-up's details.
+ *
+ * Asked for directly: "where are the individual registrants sitting ... in case
+ * I want to edit any information." Nothing could change these fields after
+ * sign-up — a misspelt name or a wrong phone number stayed wrong.
+ *
+ * `free_agents_admin_write` already limits updates to the competition's
+ * organizers; checking here turns a silent no-op into a sentence. Positions are
+ * checked against the sport exactly as sign-up checks them, so an edit cannot
+ * put free text into the list the draft board groups players by.
+ *
+ * Details only. Status and placement stay with the draft board and the
+ * Remove/Restore buttons, which carry the rules for moving people between
+ * teams — an edit form that could also re-place somebody would bypass them.
+ */
+export async function updateFreeAgentDetailsAction(
+  input: FreeAgentDetailsInput,
+): Promise<ActionError | { ok: true }> {
+  const parsed = detailsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the details." };
+  }
+  const v = parsed.data;
+  if (v.email && !z.string().email().safeParse(v.email).success) {
+    return { error: "That email doesn't look right." };
+  }
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("free_agents")
+    .select("competition_id")
+    .eq("id", v.freeAgentId)
+    .maybeSingle();
+  if (!row) return { error: "Unknown sign-up." };
+  const competitionId = (row as { competition_id: string }).competition_id;
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only an organizer can edit a sign-up." };
+  }
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("sport")
+    .eq("id", competitionId)
+    .maybeSingle();
+  const sport = ((comp as { sport: Sport } | null)?.sport ??
+    "indoor6") as Sport;
+  const allowed = sportConfig(sport).positions;
+  if (v.positions.some((position) => !allowed.includes(position))) {
+    return { error: "That isn't a position for this sport." };
+  }
+
+  const { error } = await supabase
+    .from("free_agents")
+    .update({
+      name: v.name,
+      email: v.email ? v.email : null,
+      phone: v.phone ? v.phone : null,
+      positions: v.positions,
+      skill_level: v.skillLevel,
+      notes: v.notes ? v.notes : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", v.freeAgentId);
+
+  if (error) {
+    console.error("[free-agents] details update failed");
+    return { error: "Those details couldn't be saved. Please try again." };
+  }
+
+  await revalidateForCompetition(supabase, competitionId);
+  return { ok: true };
+}
