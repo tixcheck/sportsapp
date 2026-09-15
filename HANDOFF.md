@@ -696,6 +696,23 @@ reading them out of `.env.local`.
 - For just making + pushing a code fix you don't even need `.env.local` (Vercel
   builds with its own env); you only need it to run `npm run dev` locally.
 
+## Big Shoots — now in its organizer's own org (set up 2026-09-15)
+
+- **Org:** Big Shoots Men's Volleyball (`7ba804ce-a223-475a-80dd-48f7492f6078`),
+  owned by Liam Johnson (liamjohnson934@gmail.com).
+- **League:** Big Shoots Volleyball 2026-2027 (`be28ffa8-7994-486b-8d75-99e0d54cdcf1`),
+  `/l/big-shoots-volleyball-2026-2027-2`, **status `draft`, unpublished on
+  purpose**. It becomes live after verification, when you click publish.
+- Fridays 18:45 at Holody Centre (Guelph), 2 courts, Sep 18 → Oct 2 2026. Each
+  game is 2 sets to 25, cap 27. 3 rounds a night, 6 games a team.
+- 4 teams with 6 drafted each, 3 sign-ups left available. Copied from Test Org
+  by `lib/db/setup-big-shoots.ts`, which is rerun-safe.
+- **No schedule yet.** The next step is generating it from the league page.
+- "Liam Johnson" on Team 1 is **linked to Liam's account** (free agent
+  `user_id` plus a `team_members` row). The other 26 have no accounts.
+- The **Test Org** Big Shoots league is left as a sandbox. Liam is also a
+  `competition_admins` entry there.
+
 ## ⚠️ Membership lives in TWO tables
 
 `team_members.user_id` is **NOT NULL**, so a person with no account cannot be a

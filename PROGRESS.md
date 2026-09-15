@@ -5,6 +5,63 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-15 — Big Shoots moves into its organizer's own org
+
+**Set up, not yet scheduled.** Liam Johnson created **Big Shoots Men's
+Volleyball** as his own organization. His league had been running inside Test
+Org, so it is recreated there by `lib/db/setup-big-shoots.ts`: the Holody Centre
+venue, the league, its settings, four teams and all 27 sign-ups with the draft
+as saved. The Test Org copy is untouched and stays a sandbox, still holding its
+practice schedule, one score and 72 lineup rows.
+
+**Copied from the live source rows, not retyped.** The script reads the Test
+Org league at run time, so matching "the same features" is a copy and not a
+transcription that could drift. Only what the organizer asked for is changed:
+
+- each game is **2 sets to 25, capped at 27** (`bestOf 2`, `capPoints 27`). The
+  test league had `[25, 15]` with no cap.
+- first serve **6:45 PM Fridays**. The competition's own `start_time` had said
+  19:00 while its weekly slot said 18:45; both now say 18:45.
+- season **Fri 18 Sep → Fri 2 Oct 2026**: the same fourteen days as the test
+  league, meaning two round-robin weeks and a playoff week
+- 3 rounds a night, `rounds_per_team 2`: 6 games a team, as before
+
+**Verified by diffing every column against the source**, not by trusting the
+script's log. On `competitions`, only id, org, slug, status, dates, start time,
+match format and created_at differ. On `league_settings`, only the courts and
+weekly slot differ, which now point at the new venue. The draft matches row for
+row on team, name, status, positions, grade and notes: 27 of 27, none missing,
+none extra. Zero matches exist. The public name list returns 24.
+
+**Three deliberate calls:**
+- **Left as `draft` (unpublished)** until it has been checked. The test league is
+  `open` with registration on. Publishing is one click, and doing it now would
+  expose a league with no schedule.
+- **The drafted "Liam Johnson" is linked to Liam's account**, with a
+  `team_members` row on Team 1, which is the same write `place_free_agents`
+  makes for a player who has one. His lineups and stats follow him from night one
+  instead of starting under a bare name and being split later. This rests on a
+  name match: he is the org's owner and the only Liam in the league.
+- **Slug `big-shoots-volleyball-2026-2027-2`.** Slugs are globally unique and the
+  test league holds the plain one. This is the app's own `uniqueSlug` rule.
+
+**There is no "lock" on a draft to copy.** `place_free_agents` records a
+placement as `status = placed` plus `placed_team_id`, and that saved placement
+is the locked draft. The new league has exactly that.
+
+**Access checked as Liam**, in a rolled-back transaction: `is_competition_admin`
+is true through org ownership (`is_org_admin` counts owners), and he sees the
+league, 4 teams and 27 players.
+
+**Correction to an earlier note:** Liam *does* have access to the Test Org
+league, as a named `competition_admins` entry granted 27 Aug. The first check
+looked only at org membership and missed it.
+
+**Rerun-safe.** A second dry run finds the venue, league, 4 teams and 27 players
+all present and plans nothing new.
+
+---
+
 ## 2026-09-14 — A drafted player is a player (migration 0120)
 
 **Shipped.** Audited every place that answers "who is on this team" against Big
