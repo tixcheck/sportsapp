@@ -870,6 +870,18 @@ the same time as creating the accounts.
   runs the file's statements against `DATABASE_URL` (split on
   `--> statement-breakpoint`). **Applying one to prod needs the owner's explicit
   go, every time.** Keep the schema in `lib/db/schema.ts` in sync by hand.
+- **`place_bracket_winner` is not track-aware** (found 2026-09-16 while scoping
+  double elimination; NOT fixed). `lib/db/migrations/0013_bracket_advance.sql`
+  writes the parent slot filtering on `competition_id`, `round + 1` and
+  `bracket_position` only — there is no `bracket_track` predicate. But
+  `dualBracketMatches` gives each track **independent** round/position numbering
+  (`lib/scheduler/bracket.ts`, the comment above it says so). So in a
+  competition that has both a championship and a consolation track, advancing
+  championship R1 P1 also writes the consolation R2 P1 row. No live competition
+  is known to have hit this — single-track brackets (`track = null`) are
+  unaffected, which is everything shipped so far. The fix is one predicate on
+  the `update`; it is also a hard prerequisite for double elimination, where the
+  losers bracket shares numbering with the winners bracket by construction.
 - `next build` can **OOM** on low-RAM machines during static generation. The
   reliable gates are `tsc --noEmit`, `npm run lint`, and `npm test` — the
   pre-commit hook runs `prettier --check` + eslint + vitest, so run
