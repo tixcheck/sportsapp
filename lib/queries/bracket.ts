@@ -66,7 +66,17 @@ export type BracketTrackKey =
 export interface BracketTrackView {
   /** Null = a single-elim bracket; otherwise the dual-format track. */
   track: BracketTrackKey;
-  /** Heading to show ("Championship"/"Consolation"); null for single-elim. */
+  /**
+   * Which division's bracket this is (migration 0123). Null = the competition
+   * runs one bracket for the whole field.
+   */
+  divisionId: string | null;
+  divisionName: string | null;
+  /**
+   * Heading to show — the division name ("Mens") where there is one, else the
+   * track ("Championship"/"Consolation"), and both when a division runs two.
+   * Null for a plain single-elim bracket.
+   */
   label: string | null;
   view: BracketView;
 }
@@ -76,6 +86,7 @@ type BracketMatchRow = {
   round: number | null;
   bracket_position: number | null;
   bracket_track: BracketTrackKey;
+  division_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
   status: string;
@@ -108,7 +119,7 @@ export async function getBrackets(
   const { data: matchData } = await supabase
     .from("matches")
     .select(
-      "id, round, bracket_position, bracket_track, home_team_id, away_team_id, status, court, scheduled_at",
+      "id, round, bracket_position, bracket_track, division_id, home_team_id, away_team_id, status, court, scheduled_at",
     )
     .eq("competition_id", competitionId)
     .not("bracket_position", "is", null)
@@ -239,15 +250,52 @@ export async function getBrackets(
     };
   };
 
+  // One bracket per division (migration 0123) — Mens and Womens run side by
+  // side in one competition. Division first, then track within it.
+  const divisionIds = [...new Set(matches.map((m) => m.division_id))];
+  const divisionName = new Map<string, string>();
+  if (divisionIds.some((id) => id !== null)) {
+    const { data: divs } = await supabase
+      .from("divisions")
+      .select("id, name, tier_order")
+      .eq("competition_id", competitionId);
+    const order = new Map<string, number>();
+    for (const d of divs ?? []) {
+      divisionName.set(d.id as string, d.name as string);
+      order.set(d.id as string, (d.tier_order as number | null) ?? 0);
+    }
+    // The organizer's own tier order, so the headings don't shuffle between loads.
+    divisionIds.sort((a, b) =>
+      a === null
+        ? -1
+        : b === null
+          ? 1
+          : (order.get(a) ?? 0) - (order.get(b) ?? 0),
+    );
+  }
+
   const out: BracketTrackView[] = [];
-  for (const track of TRACK_ORDER) {
-    const trackMatches = matches.filter((m) => m.bracket_track === track);
-    if (trackMatches.length === 0) continue;
-    out.push({
-      track,
-      label: track ? TRACK_LABEL[track] : null,
-      view: buildView(trackMatches, track !== "placement"),
-    });
+  for (const divisionId of divisionIds) {
+    for (const track of TRACK_ORDER) {
+      const trackMatches = matches.filter(
+        (m) => m.division_id === divisionId && m.bracket_track === track,
+      );
+      if (trackMatches.length === 0) continue;
+      const divName = divisionId
+        ? (divisionName.get(divisionId) ?? null)
+        : null;
+      const trackLabel = track ? TRACK_LABEL[track] : null;
+      out.push({
+        track,
+        divisionId,
+        divisionName: divName,
+        label:
+          divName && trackLabel
+            ? `${divName} — ${trackLabel}`
+            : (divName ?? trackLabel),
+        view: buildView(trackMatches, track !== "placement"),
+      });
+    }
   }
   return out;
 }

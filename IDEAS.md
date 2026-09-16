@@ -70,9 +70,21 @@ that: their majors run double elim until four remain, then play straight semis
 and a final, no reset. It changes the generator's last round, so settle it
 before writing code rather than building both.
 
-Tournament-side only; leagues (Big Shoots, BVL) are unaffected. **Note the
-prerequisite bug** recorded in HANDOFF "Known quirks": `place_bracket_winner`
-has no `bracket_track` predicate, which double elim cannot live with.
+Tournament-side only; leagues (Big Shoots, BVL) are unaffected.
+
+**The prerequisite bug is fixed** (2026-09-16, migration 0123):
+`place_bracket_winner` now has the `bracket_track` predicate it was missing. But
+that same migration added something double elim must respect — brackets are
+scoped **by division** (`matches.division_id`), so the generator, the loser
+routing and the `final_round` lookup all have to carry the division through
+alongside the track.
+
+And `place_bracket_winner` is now **five migrations deep** — 0013 (winners), 0026
+(track), 0094 (3rd-place game), 0099 (placement + first-round loser routing),
+0123 (division). A double-elim rewrite of it must carry every one of those
+forward; 0123's first draft was written from the 0013 text, dropped three of
+them, and reached prod that way before being caught. `lib/db/apply-0123.ts`
+asserts each behaviour by name — copy that pattern. See HANDOFF "Known quirks".
 
 ## AI-powered spreadsheet import — "Upload my existing schedule"
 

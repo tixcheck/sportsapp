@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0121`, and every one of `0060`–`0121` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0123`, and every one of `0060`–`0123` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122` and `0123` on 2026-09-16). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -33,6 +33,8 @@
     | `0119` | Sep 14 | dismiss an uncompleted offline payment request; withdrawal cancels open ones |
     | `0120` | Sep 14 | drafted free agents count as players in `competition_player_names` |
     | `0121` | Sep 15 | `league_settings.session_nights`; `match_absences` (organizer-only) for the Missed stat |
+    | `0122` | Sep 16 | `unconfirm_offline_payment` — undo an offline payment confirmed by mistake |
+    | `0123` | Sep 16 | `matches.division_id`; `place_bracket_winner` scoped by division (and track) |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -863,6 +865,30 @@ Anyone with appearances recorded under a bare name AND later under an account
 counts as two people for the season; backfill `match_appearances.user_id` at
 the same time as creating the accounts.
 
+## Summer Forever — two 12-team brackets in one competition (Sat Sep 19 2026)
+
+Beach Barbiez (`54a3e41d-ff3c-41e8-98e4-cd125edcf277`), competition
+`0cd5f0da-99e0-480c-a7c0-019b4d85d7a9`, beach 2s, **private**, Mooney's Bay.
+24 teams in two divisions — **Mens 12, Womens 12** — 3 pools each, 36 pool
+matches all scheduled **Sat Sep 19, 09:00–12:45** on 6 courts. Note `start_date`
+says Sep 18; the matches are the truth. Pool format best-of-2 to 21; the
+bracket inherits the competition format, best-of-3 to 21/21/15.
+
+The organizer wants **single elimination, everyone in, seeds 1–4 on byes** —
+the standard 12-team chart. Our generator already produces it exactly; it is
+locked by `tests/scheduler/bracket-12-team.test.ts`.
+
+**On the day:** pool play ends 12:45, then the Playoffs tab shows **one Generate
+panel per division**. Generate each separately — that is what migration 0123
+made safe; before it, generating the second wiped the first. 22 bracket matches
+over 4 sequential rounds on 6 courts is roughly 3 hours, inside the 17:00 close.
+
+**Two open items:**
+- `tournament_settings.playoff_teams` is still **8** and should be **12**
+  ("everyone makes playoffs"). The write was refused as a shared-resource
+  change; it is one `update` on that row.
+- Womens has a team literally named **"TBD"** at seed 2.
+
 ## Known quirks
 
 - **Migrations `0050`+ are hand-written SQL**, not drizzle-kit output — `npm run
@@ -870,18 +896,16 @@ the same time as creating the accounts.
   runs the file's statements against `DATABASE_URL` (split on
   `--> statement-breakpoint`). **Applying one to prod needs the owner's explicit
   go, every time.** Keep the schema in `lib/db/schema.ts` in sync by hand.
-- **`place_bracket_winner` is not track-aware** (found 2026-09-16 while scoping
-  double elimination; NOT fixed). `lib/db/migrations/0013_bracket_advance.sql`
-  writes the parent slot filtering on `competition_id`, `round + 1` and
-  `bracket_position` only — there is no `bracket_track` predicate. But
-  `dualBracketMatches` gives each track **independent** round/position numbering
-  (`lib/scheduler/bracket.ts`, the comment above it says so). So in a
-  competition that has both a championship and a consolation track, advancing
-  championship R1 P1 also writes the consolation R2 P1 row. No live competition
-  is known to have hit this — single-track brackets (`track = null`) are
-  unaffected, which is everything shipped so far. The fix is one predicate on
-  the `update`; it is also a hard prerequisite for double elimination, where the
-  losers bracket shares numbering with the winners bracket by construction.
+- **Rewriting `place_bracket_winner` is how you break a playoff night.** Five
+  migrations now define it — `0013` (winners), `0026` (track scoping), `0094`
+  (the 3rd-place game), `0099` (placement track + first-round loser routing) and
+  `0123` (division scoping). It is NOT a simple winner-advancer any more, and
+  each rewrite must carry all of it forward. 0123's first draft was written from
+  the 0013 text and silently dropped the placement early-return, the loser
+  routing and the bronze game; it reached prod in that state before being caught
+  and restored. `lib/db/apply-0123.ts` asserts each behaviour **by name** — copy
+  that pattern for any future rewrite, because the loss is invisible until an
+  organizer enters a score on the day.
 - `next build` can **OOM** on low-RAM machines during static generation. The
   reliable gates are `tsc --noEmit`, `npm run lint`, and `npm test` — the
   pre-commit hook runs `prettier --check` + eslint + vitest, so run

@@ -748,11 +748,21 @@ export const matches = pgTable(
     // League-only: the round-robin round number.
     round: integer("round"),
     // Tournament-only: slot in the bracket. Identity within a bracket is
-    // (bracket_track, round, bracket_position).
+    // (division_id, bracket_track, round, bracket_position).
     bracketPosition: integer("bracket_position"),
     // Which tree this bracket match is in (v1). Null for pool/league matches and
     // for a single-elim bracket; set for Championship/Consolation tracks.
     bracketTrack: bracketTrack("bracket_track"),
+    /**
+     * Bracket matches only (migration 0123): which division's bracket this slot
+     * belongs to, so one competition can run a bracket per division — Mens and
+     * Womens side by side — and generating one never touches the other. Null for
+     * pool/league matches (their division comes from pool_id) and for a
+     * competition with a single bracket.
+     */
+    divisionId: uuid("division_id").references(() => divisions.id, {
+      onDelete: "set null",
+    }),
     // Nullable so a bracket match can exist before its teams are decided
     // ("winner of match X"). set null keeps the slot if a team is removed.
     homeTeamId: uuid("home_team_id").references(() => teams.id, {
@@ -794,6 +804,11 @@ export const matches = pgTable(
     index("matches_pool_id_idx").on(t.poolId),
     index("matches_home_team_id_idx").on(t.homeTeamId),
     index("matches_away_team_id_idx").on(t.awayTeamId),
+    index("matches_division_bracket_idx").on(
+      t.competitionId,
+      t.divisionId,
+      t.bracketPosition,
+    ),
   ],
 );
 

@@ -163,6 +163,7 @@ function CourtListInput({
 
 export function GenerateBracketPanel({
   competitionId,
+  divisionId = null,
   pools,
   hasBracket,
   poolPlayComplete,
@@ -174,6 +175,12 @@ export function GenerateBracketPanel({
   allowReseed = false,
 }: {
   competitionId: string;
+  /**
+   * Which division this bracket is for (migration 0123). Generation then
+   * replaces only this division's bracket, leaving a sibling division's alone.
+   * Null = the competition runs one bracket for the whole field.
+   */
+  divisionId?: string | null;
   pools: StandingsGroup[];
   hasBracket: boolean;
   poolPlayComplete: boolean;
@@ -290,6 +297,7 @@ export function GenerateBracketPanel({
         bracketFormat,
         !isDual && reseed,
         thirdPlace,
+        divisionId,
       );
       if ("error" in res) {
         toast.error(res.error);

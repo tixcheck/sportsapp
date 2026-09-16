@@ -420,16 +420,38 @@ export default async function TournamentPage({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <GenerateBracketPanel
-          competitionId={t.id}
-          formatTemplate={t.formatTemplate}
-          dropsComplete={dropState.complete}
-          pools={standings}
-          hasBracket={brackets.length > 0 || !!reseedBracket}
-          poolPlayComplete={poolPlayComplete}
-          courts={t.courts}
-          allowReseed
-        />
+        {t.divisions.length > 1 ? (
+          // A bracket per division (migration 0123): Mens and Womens run side by
+          // side, each seeded from its own pools only, each replaceable on its
+          // own. Re-seeding is deliberately not offered here — the seed order is
+          // stored per competition, so two divisions would overwrite each other.
+          t.divisions.map((d) => (
+            <div key={d.id} className="space-y-3">
+              <h4 className="font-display text-lg font-semibold">{d.name}</h4>
+              <GenerateBracketPanel
+                competitionId={t.id}
+                divisionId={d.id}
+                formatTemplate={t.formatTemplate}
+                dropsComplete={dropState.complete}
+                pools={standings.filter((g) => g.divisionId === d.id)}
+                hasBracket={brackets.some((b) => b.divisionId === d.id)}
+                poolPlayComplete={poolPlayComplete}
+                courts={t.courts}
+              />
+            </div>
+          ))
+        ) : (
+          <GenerateBracketPanel
+            competitionId={t.id}
+            formatTemplate={t.formatTemplate}
+            dropsComplete={dropState.complete}
+            pools={standings}
+            hasBracket={brackets.length > 0 || !!reseedBracket}
+            poolPlayComplete={poolPlayComplete}
+            courts={t.courts}
+            allowReseed
+          />
+        )}
         {reseedBracket ? (
           <ReseedBracket
             bracket={reseedBracket}
@@ -438,7 +460,10 @@ export default async function TournamentPage({
           />
         ) : (
           brackets.map((b) => (
-            <div key={b.track ?? "single"} className="space-y-3">
+            <div
+              key={`${b.divisionId ?? "all"}:${b.track ?? "single"}`}
+              className="space-y-3"
+            >
               {b.label && (
                 <h4 className="font-display text-lg font-semibold">
                   {b.label}

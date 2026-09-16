@@ -5,6 +5,64 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — A bracket per division (migration 0123)
+
+**Shipped for a real event three days out.** Beach Barbiez run Summer Forever
+(Sat Sep 19, Mooney's Bay, 6 courts) with **Mens 12 and Womens 12 in one
+competition**, and sent through a printed 12-team chart: seeds 1–4 on byes,
+everybody in. Byron: _"This is basically what we want i think. Minus the double
+elim title"_ — confirmed as **single elimination**, so it is the chart's top
+bracket, twice.
+
+**The generator already drew that chart exactly.** Verified against the real
+thing before writing any code: byes to seeds 1–4, round 1 of 8v9 / 5v12 / 7v10 /
+6v11, the same four quarter-finals and the same semi-final pairings, 11 matches.
+No scheduler change was needed. `tests/scheduler/bracket-12-team.test.ts` now
+locks that shape — the file covered 8, 5, 2, 13, 6 and 16 teams, never 12.
+
+**What actually blocked it was that brackets were division-blind.**
+`generateBracketAction` deleted EVERY bracket match in the competition before
+inserting, and a slot was identified by `(bracket_track, round,
+bracket_position)` — competition-scoped. Generating the Womens bracket would
+have wiped the Mens one, finished scores and all. There was also no sequence of
+clicks that could produce two brackets: the panel's dual mode splits by **global
+rank** (top 12 vs bottom 12 of the whole field, a Mens/Womens mix), and
+`SeedList` only swaps adjacent entries within one list, so teams cannot be moved
+across tracks.
+
+**`matches.division_id`, nullable and deliberately not backfilled.** Only bracket
+rows set it; a pool match's division is already reachable through `pool_id`, so
+all 36 existing matches were untouched (verified: 0 rows changed). Generation
+scopes its delete and stamps the column; `getBrackets` groups by division and
+labels from the division name, so the headings read "Mens" and "Womens"; the
+tournament page renders one panel per division, each fed only its own pools —
+which is what makes `crossPoolSeedOrder` rank 12 teams and seed 1–12. Re-seeding
+is deliberately not offered per division: the seed order is stored per
+competition, so two divisions would overwrite each other.
+
+**A regression caught before it mattered, and worth the warning.** 0123 rewrote
+`place_bracket_winner` from the **0013** text — but four migrations had grown it
+since (0026 track scoping, 0094 the 3rd-place game, 0099 placement routing). The
+first version silently dropped the placement early-return, first-round losers
+dropping into the placement round, and the bronze game. It was applied to prod in
+that state. Restored, re-applied, and `apply-0123.ts` now asserts each carried
+behaviour **by name** rather than just the new one — a rewrite that loses one of
+these is invisible until an organizer enters a score on the day. `final_round` is
+scoped by division too: it reads `max(round)` from the data, and without that
+predicate it measures the sibling division's tree.
+
+**Also fixed, and no longer theoretical:** the missing `bracket_track` predicate
+recorded yesterday. POUNDTOWN — the same organizer's last event — has
+championship R2P1 and consolation R2P1 sitting side by side, and escaped only
+because that bracket was generated and never advanced.
+
+**Two things left undone, on purpose.** `tournament_settings.playoff_teams` is
+still `8` for Summer Forever and should be `12` ("everyone makes playoffs") — the
+write was refused as a shared-resource change and is the owner's to make. And
+`getBracketPreview` is still competition-wide, so between now and generation it
+projects a Mens/Womens-mixed bracket to players via `getMyPlayoffProjections`; it
+stops the moment the bracket exists.
+
 ## 2026-09-16 — Undo a payment confirmed by mistake (migration 0122)
 
 **Shipped, and the live mistake is already fixed.** Brampton's organizer: "I

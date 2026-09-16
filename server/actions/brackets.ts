@@ -73,6 +73,12 @@ export async function generateBracketAction(
    * bracket smaller than four, which has no semis.
    */
   thirdPlace = false,
+  /**
+   * Which division's bracket this is (migration 0123). A competition can run one
+   * bracket per division — Mens and Womens side by side — and each generation
+   * must replace only its own. Null = the competition's single bracket.
+   */
+  divisionId: string | null = null,
 ): Promise<ActionError | { matchCount: number }> {
   const supabase = await createClient();
   const {
@@ -138,12 +144,18 @@ export async function generateBracketAction(
   }
   const { data: teams } = await supabase
     .from("teams")
-    .select("id")
+    .select("id, division_id")
     .eq("competition_id", competitionId)
     .in("id", all);
   const valid = new Set((teams ?? []).map((t) => t.id));
   if (all.some((id) => !valid.has(id))) {
     return { error: "Some advancing teams aren't in this competition." };
+  }
+  // A division's bracket may only hold that division's teams. Without this a
+  // mis-wired panel could seed Womens teams into the Mens bracket, and the
+  // mistake would only surface when someone read the draw on the day.
+  if (divisionId && (teams ?? []).some((t) => t.division_id !== divisionId)) {
+    return { error: "Some advancing teams aren't in this division." };
   }
 
   const matches = dualBracketMatches({
@@ -153,11 +165,17 @@ export async function generateBracketAction(
   });
   if (matches.length === 0) return { error: "Not enough teams for a bracket." };
 
-  const { error: del } = await supabase
+  // Replace only this division's bracket. Before migration 0123 this deleted
+  // every bracket match in the competition, so generating the Womens bracket
+  // wiped the Mens one — finished scores and all.
+  const delQuery = supabase
     .from("matches")
     .delete()
     .eq("competition_id", competitionId)
     .not("bracket_position", "is", null);
+  const { error: del } = await (divisionId
+    ? delQuery.eq("division_id", divisionId)
+    : delQuery.is("division_id", null));
   if (del) return { error: del.message };
 
   // Estimated start: bracket play chains off the last pool match's end, else the
@@ -275,6 +293,7 @@ export async function generateBracketAction(
     const slotMs = times?.get(bracketSlotKey(m.track, m.round, m.position));
     return {
       competition_id: competitionId,
+      division_id: divisionId,
       round: m.round,
       bracket_position: m.position,
       bracket_track: m.track,
