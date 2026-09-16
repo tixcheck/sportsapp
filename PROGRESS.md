@@ -5,6 +5,47 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — Nobody has to referee, and the round robin got 45 minutes shorter (migration 0124)
+
+**Two questions from Beach Barbiez that turned out to be one.** "Is there no
+option to not have teams ref?" — there wasn't; reffing was unconditional, with
+no setting, no UI, and every competition in the database at 100% ref coverage.
+And "the system is only using 6 of our 8 courts" — because a pool is an
+indivisible block on one court, and they have exactly 6 pools.
+
+**Those are the same fact.** Reffing is the *only* reason a pool's games must
+share a court and run back to back: the idle teams have to be standing there.
+Remove it and the constraint goes too.
+
+**`competitions.teams_referee`, default true**, so nothing changed for the other
+34 competitions. When false, `layoutPoolSchedule` routes to a new pure
+wave-packer: up to one game per court per wave, team-disjoint, preferring
+whoever has waited longest.
+
+**The prize is arithmetic, not cleverness** — 36 games on 8 courts is
+ceil(36/8) = 5 waves however you arrange them, against 6 today. Exactly one
+wave: 45 minutes, 13:30 → 12:45. The tests assert it reaches that floor. I
+first framed 45 minutes as small; the owner pushed back, and he was right —
+it's a beach event, and finishing earlier is the point.
+
+**Two fairness properties are locked because the obvious greedy gets them
+wrong.** Ranking purely by rest marches one pool through waves 0, 1 and 2 —
+three games on the trot, *worse* than what it replaces — so ties break toward
+whoever has played least, which rotates the pools. And "a wave off between every
+game" is impossible here rather than merely unmet: 3 games with a gap of 2
+everywhere forces all 12 teams into wave 0 on 4 courts. The guarantees are that
+nobody plays three in a row and everybody gets a real break. I wrote the
+impossible assertion first and the test caught it.
+
+**Applied to Summer Forever through the re-optimize planner, not
+regeneration** — court, time and ref only, so the draw, the matchups and
+games-per-team are untouched. Verified live: Mens on Courts 1, 3, 5, 7, Womens
+on 2, 4, 6, 8, no shared court, 5 waves each, 0 refs, ends 12:45.
+
+**Regeneration honours the flag but does not split courts by division** — a
+redraw spreads both over all 8 courts. Same finish time; Re-optimize restores
+the split. Recorded rather than half-built.
+
 ## 2026-09-16 — A bracket per division (migration 0123)
 
 **Shipped for a real event three days out.** Beach Barbiez run Summer Forever

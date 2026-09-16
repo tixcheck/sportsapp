@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0123`, and every one of `0060`–`0123` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122` and `0123` on 2026-09-16). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0124`, and every one of `0060`–`0124` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123` and `0124` on 2026-09-16). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -35,6 +35,7 @@
     | `0121` | Sep 15 | `league_settings.session_nights`; `match_absences` (organizer-only) for the Missed stat |
     | `0122` | Sep 16 | `unconfirm_offline_payment` — undo an offline payment confirmed by mistake |
     | `0123` | Sep 16 | `matches.division_id`; `place_bracket_winner` scoped by division (and track) |
+    | `0124` | Sep 16 | `competitions.teams_referee` — off frees the scheduler to pack games onto every court |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -870,9 +871,22 @@ the same time as creating the accounts.
 Beach Barbiez (`54a3e41d-ff3c-41e8-98e4-cd125edcf277`), competition
 `0cd5f0da-99e0-480c-a7c0-019b4d85d7a9`, beach 2s, **private**, Mooney's Bay.
 24 teams in two divisions — **Mens 12, Womens 12** — 3 pools each, 36 pool
-matches all scheduled **Sat Sep 19, 09:00–12:45** on 6 courts. Note `start_date`
-says Sep 18; the matches are the truth. Pool format best-of-2 to 21; the
-bracket inherits the competition format, best-of-3 to 21/21/15.
+matches. Note `start_date` says Sep 18; the matches are the truth. Pool format
+best-of-2 to 21; the bracket inherits the competition format, best-of-3 to
+21/21/15. 8 courts.
+
+**Pool play was re-timed on 2026-09-16 and now runs 09:00–12:45** — five waves
+at 09:00 / 09:45 / 10:30 / 11:15 / 12:00, last game ending 12:45. It was six
+waves finishing 13:30. `teams_referee` is **false** for this competition (the
+only one), which is what let the scheduler pack games across pool boundaries;
+all 36 matches have `ref_team_id` null. **Mens play Courts 1, 3, 5, 7 and
+Womens 2, 4, 6, 8** — verified, no court hosts both. The last wave uses only
+two courts per division because 18 games don't divide by 4, and each pool has
+one back-to-back pair, which is unavoidable here (see the test file for why).
+
+This was applied through the **re-optimize** planner, not regeneration, so the
+draw, who plays whom and games-per-team are untouched. If anyone needs to redo
+it: Re-optimize schedule reproduces it, including the court split.
 
 The organizer wants **single elimination, everyone in, seeds 1–4 on byes** —
 the standard 12-team chart. Our generator already produces it exactly; it is
@@ -881,12 +895,16 @@ locked by `tests/scheduler/bracket-12-team.test.ts`.
 **On the day:** pool play ends 12:45, then the Playoffs tab shows **one Generate
 panel per division**. Generate each separately — that is what migration 0123
 made safe; before it, generating the second wiped the first. 22 bracket matches
-over 4 sequential rounds on 6 courts is roughly 3 hours, inside the 17:00 close.
+over 4 sequential rounds is roughly 3 hours on 6 courts, less on 8, inside the
+17:00 close. The panel defaults to **top 2 per pool = 6 teams**; it must be set
+to all 12 in *each* panel, or the two brackets won't even match each other.
 
-**Two open items:**
+**Three open items — all writes the owner has to make:**
 - `tournament_settings.playoff_teams` is still **8** and should be **12**
-  ("everyone makes playoffs"). The write was refused as a shared-resource
-  change; it is one `update` on that row.
+  ("everyone makes playoffs"). Refused twice as a shared-resource change.
+- `tournament_settings.target_games_per_team` is **2** while the draw gives
+  every team **3**. It does not affect the re-timed schedule, but anyone who
+  hits "draw pools" before Saturday silently cuts all 24 teams to 2 games.
 - Womens has a team literally named **"TBD"** at seed 2.
 
 ## Known quirks
