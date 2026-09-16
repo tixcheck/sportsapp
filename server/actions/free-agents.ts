@@ -11,6 +11,7 @@ import {
 
 import { createClient } from "@/lib/supabase/server";
 import { SKILL_LEVELS, sportConfig } from "@/lib/sports";
+import { canDeleteSignup } from "@/lib/registration/signup-removal";
 import type { Sport } from "@/lib/formats";
 
 type ActionError = { error: string };
@@ -500,4 +501,76 @@ export async function updateFreeAgentDetailsAction(
 
   await revalidateForCompetition(supabase, competitionId);
   return { ok: true };
+}
+
+/**
+ * Delete an individual sign-up for good.
+ *
+ * Brampton's organizer on a cancelled test entry: "I'd prefer they were removed
+ * completely if their registration was cancelled." Withdrawing only greys the
+ * row, and it stays in the pool the organizer reads every week.
+ *
+ * Refused once money has moved — see `canDeleteSignup`. The payment rows
+ * CASCADE off this one, so deleting a paid sign-up would take the ledger entry,
+ * the fee owed on it and any refund with it.
+ *
+ * The roster row goes too, the same as withdrawing: leaving it behind would
+ * keep a deleted person on a team sheet.
+ */
+export async function removeFreeAgentAction(input: {
+  freeAgentId: string;
+}): Promise<ActionError | { deleted: true }> {
+  if (!idSchema.safeParse(input.freeAgentId).success) {
+    return { error: "Unknown sign-up." };
+  }
+  const freeAgentId = input.freeAgentId;
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("free_agents")
+    .select("competition_id, user_id, placed_team_id")
+    .eq("id", freeAgentId)
+    .maybeSingle();
+  if (!row) return { error: "Unknown sign-up." };
+  const fa = row as {
+    competition_id: string;
+    user_id: string | null;
+    placed_team_id: string | null;
+  };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: fa.competition_id,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only an organizer can remove a sign-up." };
+  }
+
+  const { data: payments } = await supabase
+    .from("registration_payments")
+    .select("status")
+    .eq("free_agent_id", freeAgentId);
+  const check = canDeleteSignup((payments ?? []) as { status: string }[]);
+  if (!check.canDelete) return { error: check.reason };
+
+  if (fa.user_id && fa.placed_team_id) {
+    await supabase
+      .from("team_members")
+      .delete()
+      .eq("team_id", fa.placed_team_id)
+      .eq("user_id", fa.user_id)
+      // Never strip a captain off their own team as a side effect.
+      .neq("role", "captain");
+  }
+
+  const { error } = await supabase
+    .from("free_agents")
+    .delete()
+    .eq("id", freeAgentId);
+  if (error) {
+    console.error("[free-agents] delete failed", error.message);
+    return { error: "That couldn't be removed. Please try again." };
+  }
+
+  await revalidateForCompetition(supabase, fa.competition_id);
+  return { deleted: true };
 }

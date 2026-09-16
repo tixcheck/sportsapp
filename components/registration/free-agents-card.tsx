@@ -8,6 +8,7 @@ import { Check, Pencil, UserPlus, Users, X } from "lucide-react";
 import {
   createTeamFromFreeAgentsAction,
   placeFreeAgentsAction,
+  removeFreeAgentAction,
   setFreeAgentStatusAction,
 } from "@/server/actions/free-agents";
 import type { FreeAgent } from "@/lib/queries/free-agents";
@@ -55,6 +56,9 @@ export function FreeAgentsCard({
   const [divisionId, setDivisionId] = useState(divisions[0]?.id ?? "");
   const [targetTeam, setTargetTeam] = useState(teams[0]?.id ?? "");
   const [editing, setEditing] = useState<FreeAgent | null>(null);
+  // Deleting a sign-up cannot be undone, so it takes two taps rather than a
+  // dialog: the pool is a list people scroll on a phone.
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   /**
    * The pool by position — an organizer building teams is counting setters and
@@ -173,6 +177,26 @@ export function FreeAgentsCard({
     });
   }
 
+  /**
+   * Delete a sign-up outright. Refused by the action once money has moved,
+   * because the payment rows cascade off this one — the toast then says so.
+   */
+  function remove(id: string, name: string) {
+    if (confirming !== id) {
+      setConfirming(id);
+      return;
+    }
+    startTransition(async () => {
+      const result = await removeFreeAgentAction({ freeAgentId: id });
+      setConfirming(null);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      done(`${name} removed.`);
+    });
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -181,7 +205,9 @@ export function FreeAgentsCard({
           {pool.length} waiting to be placed
           {placed.length > 0 && ` · ${placed.length} placed`}
           {unpaid.length > 0 && ` · ${unpaid.length} awaiting payment`}
-          {withdrawn.length > 0 && ` · ${withdrawn.length} withdrawn`}
+          {withdrawn.length > 0 && ` · ${withdrawn.length} withdrawn`}. Removing
+          deletes the sign-up; one that has been paid stays until it is
+          refunded.
         </CardDescription>
       </CardHeader>
 
@@ -261,7 +287,7 @@ export function FreeAgentsCard({
                         <Pencil className="size-4" />
                       </Button>
 
-                      {a.status === "withdrawn" ? (
+                      {a.status === "withdrawn" && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -270,18 +296,32 @@ export function FreeAgentsCard({
                         >
                           Restore
                         </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-muted-foreground shrink-0 px-2"
-                          disabled={pending}
-                          onClick={() => setStatus(a.id, "withdrawn")}
-                          aria-label={`Remove ${a.name}`}
-                        >
-                          <X className="size-4" />
-                        </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className={cn(
+                          "shrink-0 px-2",
+                          confirming === a.id
+                            ? "text-claret"
+                            : "text-muted-foreground",
+                        )}
+                        disabled={pending}
+                        onClick={() => remove(a.id, a.name)}
+                        aria-label={
+                          confirming === a.id
+                            ? `Confirm removing ${a.name}`
+                            : `Remove ${a.name}`
+                        }
+                      >
+                        {confirming === a.id ? (
+                          <span className="text-xs font-medium">
+                            Remove for good?
+                          </span>
+                        ) : (
+                          <X className="size-4" />
+                        )}
+                      </Button>
                     </li>
                   );
                 })}

@@ -782,6 +782,14 @@ reading them out of `.env.local`.
 
 ## Individual registrants
 
+- **Remove deletes the sign-up** (`removeFreeAgentAction`), it does not withdraw
+  it. Refused while any payment is `paid` or `refunded`, because
+  `registration_payments.free_agent_id` CASCADES and the delete would take the
+  ledger row, its platform fee and any refund with it. `withdrawn` + Restore
+  remain for that case.
+- Roslyn Ng (BVL Thursday test entry) was deleted on 2026-09-16 under that rule;
+  her cancelled $340 request cascaded away with her.
+
 - The Players tab lists every non-withdrawn free agent — placed or still in the
   pool — after the teams. Edit shows *Sign-up details* when there is a
   `freeAgentId` and *League questions* when there is a `userId`.

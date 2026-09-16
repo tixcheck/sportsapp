@@ -5,6 +5,39 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — Removing a sign-up deletes it
+
+**Shipped.** Brampton's organizer, on a cancelled test registration: "she still
+shows up as a 'greyed out' free agent. I'd prefer they were removed completely
+if their registration was cancelled." Removing only withdrew them — the row
+stayed in the pool, greyed, with a Restore button, in the one list an organizer
+reads every week.
+
+**Remove now deletes the sign-up.** Two taps rather than a dialog, because the
+pool is a list people scroll on a phone: the ✕ becomes "Remove for good?" and
+the second tap does it. A roster row goes with it, exactly as withdrawing did,
+so nobody deleted is left on a team sheet.
+
+**Refused once money has moved.** `registration_payments.free_agent_id`
+CASCADES, so deleting a paid sign-up would take the ledger entry, the platform
+fee owed on it and any refund with it. `canDeleteSignup` allows a delete while
+every payment is `pending` or `cancelled` — a request nobody paid only ever
+existed to be chased — and refuses on `paid` or `refunded` with a sentence
+naming which. Withdrawing and Restore stay for exactly that case.
+
+**No migration:** `free_agents_admin_delete` already allowed an organizer to
+delete a sign-up. Nothing had ever called it.
+
+**Roslyn Ng removed** — the test entry that prompted this. Her only payment was
+the $340 PayPal request that migration 0119 cancelled, so nothing was owed or
+received; the row and that cancelled request are gone, her user account is
+untouched, and there are now zero withdrawn sign-ups platform-wide.
+
+**Tests:** 6 removal-rule tests; 1503 passing overall, typecheck, lint and
+build clean.
+
+---
+
 ## 2026-09-15 — Individual registrants in the Players tab, and editable
 
 **Shipped.** BVL's organizer asked where individual registrants were — they
