@@ -146,6 +146,27 @@ export const multiDayConfigSchema = z.object({
   ),
 });
 
+/**
+ * The playoff format, saved ahead of the event rather than chosen in the moment
+ * someone clicks Generate (migration 0125).
+ *
+ * Stored per COMPETITION, not per division: a tournament running Mens and
+ * Womens needs both brackets to have the same structure, and one saved format
+ * guarantees that instead of relying on two panels being set identically on the
+ * morning.
+ *
+ * `teams` means different things under each mode — that many from each pool, or
+ * that many across the whole field — which is why the mode travels with it.
+ */
+export const playoffFormatSchema = z.object({
+  mode: z.enum(["perPool", "overall"]),
+  teams: z.number().int().min(1, "At least 1 team.").max(64),
+  thirdPlace: z.boolean(),
+  // Court numbers the bracket spreads across. Empty = every court the
+  // competition has, which is the behaviour before anything was saved.
+  courts: z.array(z.number().int().min(1).max(40)).max(40),
+});
+
 // One roster entry: an email (the login key — required to actually stored) and
 // an optional readable name. Empty email = a blank row the form filters out.
 export const registerPlayerSchema = z.object({
@@ -178,4 +199,5 @@ export type RegisterPlayerInput = z.infer<typeof registerPlayerSchema>;
 export type CreateTournamentInput = z.infer<typeof createTournamentSchema>;
 export type EditTournamentInput = z.infer<typeof editTournamentSchema>;
 export type MultiDayConfigInput = z.infer<typeof multiDayConfigSchema>;
+export type PlayoffFormatInput = z.infer<typeof playoffFormatSchema>;
 export type RegisterTeamInput = z.infer<typeof registerTeamSchema>;

@@ -560,6 +560,23 @@ export const tournamentSettings = pgTable("tournament_settings", {
   // bracket preview (1v8, 2v7…) shown before pools are played. Null = decide at
   // bracket time. Rounded up to a power of two for the seed pairing.
   playoffTeams: integer("playoff_teams"),
+  /**
+   * The saved playoff format (migration 0125). Before this, who advances, how
+   * many, a 3rd-place game and the courts were component state chosen at the
+   * moment somebody clicked Generate — so a competition with two divisions
+   * relied on two panels being set identically on the morning of the event.
+   *
+   * Per competition, not per division, precisely so both brackets match.
+   * `playoffAdvanceMode` is what gives `playoffTeams` its meaning: that many
+   * from each pool, or that many across the field. Null = nothing saved yet and
+   * the panel keeps its own default.
+   */
+  playoffAdvanceMode: text("playoff_advance_mode").$type<
+    "perPool" | "overall"
+  >(),
+  playoffThirdPlace: boolean("playoff_third_place").notNull().default(false),
+  /** Court numbers the bracket spreads across. Null = all of them. */
+  playoffCourts: jsonb("playoff_courts").$type<number[]>(),
   // The named structure the organizer picked at creation (v1).
   formatTemplate: formatTemplate("format_template").notNull().default("single"),
   registrationDeadline: timestamp("registration_deadline", {

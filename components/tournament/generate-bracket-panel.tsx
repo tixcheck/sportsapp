@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, TriangleAlert, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 import { generateBracketAction } from "@/server/actions/brackets";
+import { savePlayoffFormatAction } from "@/server/actions/tournaments";
 import type { StandingsGroup } from "@/lib/standings/compute";
 import {
   advancementCutoffTies,
@@ -19,6 +20,7 @@ import {
 import { FORMAT_PRESETS, findPreset, type Sport } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -173,6 +175,8 @@ export function GenerateBracketPanel({
   playoffFormat,
   courts,
   allowReseed = false,
+  requireComplete = false,
+  savedFormat,
 }: {
   competitionId: string;
   /**
@@ -199,6 +203,24 @@ export function GenerateBracketPanel({
   courts?: number;
   /** Offer the re-seeding bracket option (single bracket only). */
   allowReseed?: boolean;
+  /**
+   * Hold generation until every qualifying game is final, rather than only
+   * warning about it. True for tournaments, where pool play is a phase that
+   * ends. Deliberately false for leagues: one abandoned game that never gets a
+   * score would otherwise lock an organizer out of their own playoffs for good.
+   */
+  requireComplete?: boolean;
+  /**
+   * The playoff format saved for this competition (migration 0125), used as the
+   * panel's starting point. Shared by every division so the brackets match each
+   * other. A null `mode` means nothing has been saved and the defaults stand.
+   */
+  savedFormat?: {
+    mode: "perPool" | "overall" | null;
+    teams: number | null;
+    thirdPlace: boolean;
+    courts: number[] | null;
+  };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -207,7 +229,9 @@ export function GenerateBracketPanel({
   const [formatId, setFormatId] = useState(playoffFormat?.default ?? "");
   // Re-seed each round (single bracket only): highest survivor plays lowest.
   const [reseed, setReseed] = useState(false);
-  const [thirdPlace, setThirdPlace] = useState(false);
+  const [thirdPlace, setThirdPlace] = useState(
+    savedFormat?.thirdPlace ?? false,
+  );
 
   const poolRows = pools.map((g) => g.rows);
   const nameById = new Map(
@@ -225,8 +249,14 @@ export function GenerateBracketPanel({
   const isDual = formatTemplate === "champ_consolation";
 
   // --- single bracket: top-N per pool / overall, one reorderable list --------
-  const [mode, setMode] = useState<AdvancementMode>("perPool");
-  const [n, setN] = useState(2);
+  // Seeded from the saved format where there is one. Without this the panel
+  // opens on top-2-per-pool every time — a 6-team bracket for a 12-team
+  // division, which is not what an organizer who saved "everyone advances"
+  // expects to find on the morning of the event.
+  const [mode, setMode] = useState<AdvancementMode>(
+    savedFormat?.mode ?? "perPool",
+  );
+  const [n, setN] = useState(savedFormat?.teams ?? 2);
   const [order, setOrder] = useState<string[]>([]);
   const nMax = mode === "perPool" ? Math.max(1, maxPerPool) : totalTeams;
   useEffect(() => {
@@ -252,7 +282,9 @@ export function GenerateBracketPanel({
     courts && courts >= 1
       ? Array.from({ length: courts }, (_, i) => i + 1)
       : [1, 2, 3];
-  const [champCourts, setChampCourts] = useState<number[]>(allCourts);
+  const [champCourts, setChampCourts] = useState<number[]>(
+    savedFormat?.courts?.length ? savedFormat.courts : allCourts,
+  );
   const [consoCourts, setConsoCourts] = useState<number[]>(allCourts);
   useEffect(() => {
     if (!isDual) return;
@@ -273,6 +305,27 @@ export function GenerateBracketPanel({
     .flat()
     .map((id) => nameById.get(id) ?? "?")
     .join(", ");
+
+  const [saving, startSaving] = useTransition();
+
+  // Saving records the format; it deliberately generates nothing, so it is safe
+  // weeks before the event and safe to press again after changing your mind.
+  function saveFormat() {
+    startSaving(async () => {
+      const res = await savePlayoffFormatAction(competitionId, {
+        mode,
+        teams: n,
+        thirdPlace,
+        courts: champCourts,
+      });
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Playoff format saved.");
+      router.refresh();
+    });
+  }
 
   function generate() {
     const payload = isDual
@@ -321,15 +374,26 @@ export function GenerateBracketPanel({
     );
   }
 
-  const blocked = !dropsComplete;
+  // Seeds are read from the standings, so a bracket drawn mid-pool is drawn
+  // from a table that is still moving — and fixing it afterwards means
+  // regenerating, which discards every playoff match including any already
+  // scored. Cheaper to wait for the last result than to undo a wrong draw.
+  const incomplete = requireComplete && !poolPlayComplete;
+  const blocked = !dropsComplete || incomplete;
 
   return (
     <div className="space-y-4">
       {!poolPlayComplete && (
-        <p className="text-ink-2 flex items-center gap-1.5 text-xs">
+        <p
+          className={cn(
+            "flex items-center gap-1.5 text-xs",
+            incomplete ? "text-claret" : "text-ink-2",
+          )}
+        >
           <TriangleAlert className="size-3.5" />
-          {phaseLabel} isn&apos;t finished — seeds may change as remaining
-          results come in.
+          {incomplete
+            ? `${phaseLabel} isn't finished — playoffs unlock once every game has a final score.`
+            : `${phaseLabel} isn't finished — seeds may change as remaining results come in.`}
         </p>
       )}
       {blocked && (
@@ -532,6 +596,25 @@ export function GenerateBracketPanel({
           left for you to set.
         </p>
       </div>
+
+      {!isDual && (
+        <div className="border-border bg-surface space-y-2 rounded-lg border p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={saveFormat}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save playoff format"}
+            </Button>
+            <p className="text-muted-foreground text-xs">
+              Saves who advances, how many, the 3rd-place game and the courts —
+              for every division, so the brackets match. Nothing is generated.
+            </p>
+          </div>
+        </div>
+      )}
 
       {hasBracket ? (
         <Dialog open={open} onOpenChange={setOpen}>

@@ -437,7 +437,14 @@ export default async function TournamentPage({
                 pools={standings.filter((g) => g.divisionId === d.id)}
                 hasBracket={brackets.some((b) => b.divisionId === d.id)}
                 poolPlayComplete={poolPlayComplete}
+                requireComplete
                 courts={t.courts}
+                savedFormat={{
+                  mode: t.playoffAdvanceMode,
+                  teams: t.playoffTeams,
+                  thirdPlace: t.playoffThirdPlace,
+                  courts: t.playoffCourts,
+                }}
               />
             </div>
           ))
@@ -449,7 +456,14 @@ export default async function TournamentPage({
             pools={standings}
             hasBracket={brackets.length > 0 || !!reseedBracket}
             poolPlayComplete={poolPlayComplete}
+            requireComplete
             courts={t.courts}
+            savedFormat={{
+              mode: t.playoffAdvanceMode,
+              teams: t.playoffTeams,
+              thirdPlace: t.playoffThirdPlace,
+              courts: t.playoffCourts,
+            }}
             allowReseed
           />
         )}

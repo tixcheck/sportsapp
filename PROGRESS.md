@@ -5,6 +5,49 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — Save the playoff format, and hold Generate until pool play is done (migration 0125)
+
+**Two asks from the same screenshot.** Beach Barbiez: _"let the organizer set
+the playoff format and save it"_, and _"have the generate playoff enabled only
+when all round robin games are completed"_.
+
+**Nothing about the format was saved.** Who advances, how many, the 3rd-place
+game and the courts were all component state, chosen in the moment somebody
+clicked Generate. For a competition with two divisions that is a real hazard:
+the panel defaults to top-2-per-pool, so Summer Forever's 12-team divisions
+would have produced **6-team brackets**, and two panels set differently would
+have produced two brackets that don't even match each other — the opposite of
+the organizer's "both must be the same structure".
+
+**So it is stored per competition, not per division** —
+`playoff_advance_mode`, `playoff_third_place`, `playoff_courts`, alongside the
+existing `playoff_teams`. One saved format, every division, consistent by
+construction rather than by care. The mode is what gives `playoff_teams` its
+meaning (that many per pool vs that many overall), which is why it has to be
+stored beside it rather than inferred. Saving deliberately generates nothing,
+so it is safe weeks ahead and safe to redo.
+
+**Generate now waits for the last result.** Seeds come from the standings, so a
+bracket drawn mid-pool is drawn from a table that is still moving — and the only
+fix afterwards is regenerating, which discards every playoff match including any
+already scored. `poolPlayComplete` already existed and already meant exactly
+"every pool match is `completed`"; it just drove a warning rather than the button.
+
+**Gated behind a `requireComplete` prop rather than applied everywhere.** The
+panel is shared with `LeaguePlayoffPanel`, and a league with one abandoned game
+that never gets a score would have been locked out of its own playoffs for good.
+Tournaments pass it; leagues keep the warning.
+
+**Scope kept honest:** Save is offered on the single-bracket path only. The dual
+Championship/Consolation mode carries its own split sizes, which 0125 has no
+columns for, and half-saving a format that can't be fully restored is worse than
+not offering it.
+
+**One thing the typecheck caught.** I added the three fields to `PublicTournament`
+instead of `TournamentDetail` — the anchor comment I matched on appears in both
+interfaces. Eight errors, named precisely, fixed by moving them. The public
+bracket preview needs only `playoffTeams` and was deliberately left alone.
+
 ## 2026-09-16 — Nobody has to referee, and the round robin got 45 minutes shorter (migration 0124)
 
 **Two questions from Beach Barbiez that turned out to be one.** "Is there no

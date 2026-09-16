@@ -64,6 +64,20 @@ export interface TournamentDetail {
   formatTemplate: FormatTemplate;
   /** How many pool finishers advance to the playoff bracket. Null = unset. */
   playoffTeams: number | null;
+  /**
+   * The saved playoff format (migration 0125), which is what the Generate panel
+   * opens on. `playoffAdvanceMode` is what gives `playoffTeams` its meaning —
+   * that many from each pool, or that many across the field — so a null mode
+   * means nothing was saved and the panel keeps its own default.
+   *
+   * Stored per competition, not per division, so every division's bracket comes
+   * out the same shape instead of depending on two panels being set identically
+   * on the morning of the event.
+   */
+  playoffAdvanceMode: "perPool" | "overall" | null;
+  playoffThirdPlace: boolean;
+  /** Courts the bracket is spread across. Null = all of the competition's. */
+  playoffCourts: number[] | null;
   maxTeams: number | null;
   /** Pool-play match format (2-set round-robin when bestOf is even). */
   poolFormat: MatchFormat;
@@ -157,7 +171,7 @@ export async function getTournamentDetail(
   const { data: settings } = await supabase
     .from("tournament_settings")
     .select(
-      "pool_size, target_games_per_team, minutes_per_game, courts, pool_format, format_template, playoff_teams, max_teams, registration_deadline, days",
+      "pool_size, target_games_per_team, minutes_per_game, courts, pool_format, format_template, playoff_teams, playoff_advance_mode, playoff_third_place, playoff_courts, max_teams, registration_deadline, days",
     )
     .eq("competition_id", tournamentId)
     .single();
@@ -210,6 +224,10 @@ export async function getTournamentDetail(
     courts: settings?.courts ?? 1,
     formatTemplate: (settings?.format_template ?? "single") as FormatTemplate,
     playoffTeams: (settings?.playoff_teams as number | null) ?? null,
+    playoffAdvanceMode:
+      (settings?.playoff_advance_mode as "perPool" | "overall" | null) ?? null,
+    playoffThirdPlace: settings?.playoff_third_place === true,
+    playoffCourts: (settings?.playoff_courts as number[] | null) ?? null,
     maxTeams: (settings?.max_teams as number | null) ?? null,
     poolFormat: (settings?.pool_format ?? t.match_format) as MatchFormat,
     matchFormat: t.match_format as MatchFormat,

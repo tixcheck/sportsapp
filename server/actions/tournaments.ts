@@ -18,10 +18,12 @@ import {
   createTournamentSchema,
   editTournamentSchema,
   multiDayConfigSchema,
+  playoffFormatSchema,
   registerTeamSchema,
   type CreateTournamentInput,
   type EditTournamentInput,
   type MultiDayConfigInput,
+  type PlayoffFormatInput,
   type RegisterTeamInput,
 } from "@/lib/validations/tournament";
 
@@ -246,6 +248,48 @@ export async function updateTournamentSettingsAction(
     })
     .eq("competition_id", competitionId);
   if (setErr) return { error: setErr.message };
+
+  revalidatePath("/orgs");
+  return { success: true };
+}
+
+/**
+ * Save the playoff format ahead of the event (migration 0125).
+ *
+ * Saved per competition rather than per division: the organizer's requirement
+ * is that every division's bracket has the same structure, and one stored
+ * format guarantees that instead of depending on two panels being set the same
+ * way on the morning. Generation reads it as its starting point; it does not
+ * generate anything by itself, so this is safe to set weeks in advance.
+ */
+export async function savePlayoffFormatAction(
+  competitionId: string,
+  values: PlayoffFormatInput,
+): Promise<ActionError | { success: true }> {
+  const parsed = playoffFormatSchema.safeParse(values);
+  if (!parsed.success) return { error: "Please check the playoff format." };
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can set the playoff format." };
+  }
+
+  const { error } = await supabase
+    .from("tournament_settings")
+    .update({
+      playoff_advance_mode: v.mode,
+      playoff_teams: v.teams,
+      playoff_third_place: v.thirdPlace,
+      // Empty means "every court", which is what null has always meant here —
+      // storing [] instead would quietly schedule the bracket onto no courts.
+      playoff_courts: v.courts.length > 0 ? v.courts : null,
+    })
+    .eq("competition_id", competitionId);
+  if (error) return { error: error.message };
 
   revalidatePath("/orgs");
   return { success: true };
