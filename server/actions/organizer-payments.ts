@@ -846,3 +846,52 @@ export async function dismissOfflinePaymentAction(
   revalidatePath("/orgs");
   return { dismissed: data === true };
 }
+
+const unconfirmSchema = z.object({
+  paymentId: z.string().uuid(),
+  /** Why it was undone, kept where the confirmation note lived. */
+  note: z.string().trim().max(300).optional(),
+});
+
+/**
+ * Undo an offline payment confirmed in error.
+ *
+ * Brampton's organizer confirmed a $2,040 team fee that had not arrived and
+ * asked whether to click Remove — which would have deleted the team. Nothing
+ * else could undo it: `dismissOfflinePaymentAction` refuses a paid row, and the
+ * refund path needs a Stripe charge an offline payment never has.
+ *
+ * The work is in `unconfirm_offline_payment` (migration 0122), which reverses
+ * exactly what confirming did and re-gates the team or free agent if that
+ * confirmation was what let them through.
+ */
+export async function unconfirmOfflinePaymentAction(
+  input: z.input<typeof unconfirmSchema>,
+): Promise<ActionError | { undone: boolean }> {
+  const parsed = unconfirmSchema.safeParse(input);
+  if (!parsed.success) return { error: "Check the request." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("unconfirm_offline_payment", {
+    _payment_id: parsed.data.paymentId,
+    _note: parsed.data.note ?? null,
+  });
+
+  if (error) {
+    const message = error.message ?? "";
+    // Each of these is the organizer's own situation, and actionable.
+    if (
+      message.includes("Only the organizer") ||
+      message.includes("taken by card") ||
+      message.includes("already been settled") ||
+      message.includes("refund recorded")
+    ) {
+      return { error: message };
+    }
+    console.error("[payments] unconfirm_offline_payment failed");
+    return { error: "That couldn't be undone. Please try again." };
+  }
+
+  revalidatePath("/orgs");
+  return { undone: data === true };
+}

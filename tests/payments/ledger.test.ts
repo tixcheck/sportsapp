@@ -33,6 +33,7 @@ function charge(
         ? "2026-08-01T00:00:00Z"
         : null,
     createdAt: "2026-08-01T00:00:00Z",
+    method: null,
     status,
     totalCents: quote.totalCents,
     priceCents,

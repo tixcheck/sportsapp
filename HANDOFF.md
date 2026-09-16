@@ -780,6 +780,20 @@ reading them out of `.env.local`.
   current placement. If past sessions ever need browsing, derive them from
   `match_appearances` (who actually played).
 
+## Undoing a payment confirmation
+
+- `unconfirm_offline_payment` (migration 0122, applied 2026-09-16) reverses a
+  confirmation made in error. Refuses card charges, settled platform fees and
+  refunded payments; a second call returns false.
+- **It re-gates a team it finds `active` and short of the fee** — including one
+  admitted unpaid on purpose, which it cannot distinguish. The organizer clicks
+  "Admit anyway" again.
+- **Never tell an organizer to use Remove for this.** `removeTeamAction` deletes
+  the team, cascades its payments, and deletes the league's matches and pools
+  where a schedule exists.
+- Used on 2026-09-16 to revert a $2,040 confirmation on BVL Thursday's Serves
+  You Right.
+
 ## Individual registrants
 
 - **Remove deletes the sign-up** (`removeFreeAgentAction`), it does not withdraw

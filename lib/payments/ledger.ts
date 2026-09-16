@@ -21,6 +21,12 @@ export type LedgerCharge = RefundableCharge & {
   payerName: string | null;
   paidAt: string | null;
   createdAt: string;
+  /**
+   * How it was taken: `card`, or an offline method (paypal / etransfer). Null
+   * on older rows. Offline means a human confirmed it, which is the only kind
+   * a human can un-confirm (migration 0122).
+   */
+  method: string | null;
 };
 
 export type LedgerTeam = {

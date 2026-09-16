@@ -5,6 +5,52 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — Undo a payment confirmed by mistake (migration 0122)
+
+**Shipped, and the live mistake is already fixed.** Brampton's organizer: "I
+accidentally approved SERVES YOU RIGHT as PAID, but they have not. How can I
+revert this? Should I click remove? Or would that fuck things up further?"
+
+**It would.** `removeTeamAction` DELETES the team, its payment rows cascade
+away with it, and where a schedule exists it deletes every match and pool in
+the league so the field can be redrawn. It only refuses once a match has been
+played.
+
+**Nothing could undo a confirmation.** `dismissOfflinePaymentAction` refuses a
+paid row on purpose, and the refund path needs a Stripe charge that a PayPal or
+e-transfer payment has never had — and a refund is the wrong record anyway: it
+says money went back, when none ever arrived.
+
+**`unconfirm_offline_payment` is the exact reverse of confirming**: back to
+`pending`, `paid_at` and `confirmed_by` cleared, the reason kept where the
+confirmation note lived, and the team or free agent re-gated only if that
+confirmation was what let them through. It refuses a card charge, a payment
+whose platform fee has been settled (undoing would un-bill it), and one with a
+refund recorded. A second call returns false rather than erroring.
+
+**One deliberate limitation, written into the migration:** a team the organizer
+admitted unpaid on purpose also sits at `active`, and this cannot tell the two
+apart, so it re-gates them and the organizer clicks "Admit anyway" again.
+Re-admitting is one click; a team silently counted as paid is a hole in the
+books.
+
+**The amounts are left alone.** Confirming overwrote the quote with what the
+organizer said arrived, and the original is not recoverable; re-confirming with
+the right figure restates it.
+
+**Undo sits on the charge in the payments dashboard**, for offline charges
+only, and asks once ("Not paid after all?"). The ledger charge now carries its
+`method`, which it didn't before — without it the screen cannot tell a card
+charge from a PayPal one.
+
+**Serves You Right, fixed in production:** the $2,040 row is back to `pending`
+with the note "Confirmed in error - payment had not arrived", back in the
+PayPal inbox to confirm properly when they do pay. The team's own status was
+untouched — it sits at `pending_waiver`, so the wrong confirmation had never
+admitted them.
+
+---
+
 ## 2026-09-16 — Removing a sign-up deletes it
 
 **Shipped.** Brampton's organizer, on a cancelled test registration: "she still

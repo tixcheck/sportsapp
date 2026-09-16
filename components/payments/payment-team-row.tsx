@@ -11,6 +11,7 @@ import { refundableCents } from "@/lib/payments/refunds";
 import { formatCents } from "@/lib/payments/format";
 import {
   admitTeamUnpaidAction,
+  unconfirmOfflinePaymentAction,
   refundTeamPaymentsAction,
   sendPaymentLinkAction,
 } from "@/server/actions/organizer-payments";
@@ -54,6 +55,32 @@ export function PaymentTeamRow({
 
   const isPending = team.status === "pending_payment";
   const withdrawn = team.status === "withdrawn";
+  // Two taps rather than a dialog: undoing is recoverable (confirm it again),
+  // and the row is read on a phone.
+  const [undoing, setUndoing] = useState<string | null>(null);
+
+  /** Undo a confirmation made in error — see migration 0122. */
+  function undoConfirmation(chargeId: string) {
+    if (undoing !== chargeId) {
+      setUndoing(chargeId);
+      return;
+    }
+    start(async () => {
+      const res = await unconfirmOfflinePaymentAction({ paymentId: chargeId });
+      setUndoing(null);
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        res.undone
+          ? "Marked unpaid again — it's back in your inbox to confirm."
+          : "That payment wasn't confirmed.",
+      );
+      router.refresh();
+    });
+  }
+
   const refundableCount = team.charges.filter(
     (c) => refundableCents(c) > 0,
   ).length;
@@ -187,14 +214,36 @@ export function PaymentTeamRow({
                           : c.status}
                       </span>
                     </span>
-                    {canRefund && (
-                      <RefundDialog
-                        paymentId={c.id}
-                        payerLabel={c.payerEmail ?? team.teamName}
-                        refundableCents={refundableCents(c)}
-                        currency={currency}
-                      />
-                    )}
+                    <span className="flex shrink-0 items-center gap-1">
+                      {/* Confirmed by hand, so it can be un-confirmed by hand.
+                          A card charge is Stripe's to reverse, and a refunded
+                          one is a record of money going back - neither can be
+                          undone by saying it never arrived. */}
+                      {c.status === "paid" &&
+                        c.method !== "card" &&
+                        c.refundedCents === 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={pending}
+                            className={cn(
+                              "px-2",
+                              undoing === c.id && "text-claret",
+                            )}
+                            onClick={() => undoConfirmation(c.id)}
+                          >
+                            {undoing === c.id ? "Not paid after all?" : "Undo"}
+                          </Button>
+                        )}
+                      {canRefund && (
+                        <RefundDialog
+                          paymentId={c.id}
+                          payerLabel={c.payerEmail ?? team.teamName}
+                          refundableCents={refundableCents(c)}
+                          currency={currency}
+                        />
+                      )}
+                    </span>
                   </li>
                 );
               })}

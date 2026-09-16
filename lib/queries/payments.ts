@@ -374,7 +374,7 @@ import {
 } from "@/lib/payments/ledger";
 
 const LEDGER_CHARGE_COLUMNS =
-  "id, team_id, kind, status, payer_email, price_cents, tax_cents, application_fee_cents, total_cents, refunded_cents, paid_at, created_at, payer:users!registration_payments_payer_user_id_fkey(display_name)";
+  "id, team_id, kind, status, payer_email, price_cents, tax_cents, application_fee_cents, total_cents, refunded_cents, paid_at, created_at, payer:users!registration_payments_payer_user_id_fkey(display_name), method";
 
 /**
  * Every team in a competition and what it has paid, rolled up for the
@@ -425,6 +425,9 @@ export async function getCompetitionLedger(
     refunded_cents: number;
     paid_at: string | null;
     created_at: string;
+    // Card or offline (paypal / etransfer). A confirmation made by hand can be
+    // undone by hand; a card charge is Stripe's to reverse.
+    method: string | null;
     payer: { display_name: string | null } | null;
   };
 
@@ -443,6 +446,7 @@ export async function getCompetitionLedger(
       refundedCents: raw.refunded_cents,
       paidAt: raw.paid_at,
       createdAt: raw.created_at,
+      method: raw.method,
     };
     const list = byTeam.get(raw.team_id);
     if (list) list.push(charge);
