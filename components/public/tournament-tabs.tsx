@@ -158,6 +158,7 @@ export function TournamentTabs({
             myTeamIds={effectiveMyTeamIds}
             scorableMatchIds={scorableMatchIds}
             sport={tournament.sport}
+            tierLabel="division"
             slotMinutes={
               tournament.minutesPerGame ??
               estimateMatchMinutes(tournament.poolFormat)

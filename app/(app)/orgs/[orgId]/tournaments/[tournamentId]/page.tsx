@@ -367,6 +367,7 @@ export default async function TournamentPage({
             timezone={t.timezone}
             editable
             sport={t.sport}
+            tierLabel="division"
             slotMinutes={t.minutesPerGame ?? estimateMatchMinutes(t.poolFormat)}
           />
         </CardContent>

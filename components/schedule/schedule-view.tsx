@@ -221,6 +221,9 @@ function groupByTier(
   matches: ScheduleMatch[],
   tz: string,
   sport: Sport | undefined,
+  /** What this competition calls a division — "tier" for a ladder league, but
+   * "division" for a tournament running Mens and Womens side by side. */
+  label = "tier",
 ): Group[] {
   const map = new Map<string, ScheduleMatch[]>();
   for (const m of matches) {
@@ -242,7 +245,7 @@ function groupByTier(
       const date = sorted.find((m) => m.scheduledAt)?.scheduledAt;
       return {
         key: `tier:${key}`,
-        heading: sorted[0]?.divisionName ?? "No tier",
+        heading: sorted[0]?.divisionName ?? `No ${label}`,
         // A tier usually owns one court for the night — say which, since that's
         // the first thing a captain looks for.
         sub: [
@@ -316,9 +319,16 @@ export function ScheduleView({
   slotMinutes,
   sport,
   initialDay = null,
+  tierLabel = "tier",
 }: {
   matches: ScheduleMatch[];
   timezone: string;
+  /**
+   * What to call a division in this competition — "tier" for a ladder league,
+   * "division" for a tournament with Mens and Womens. Names the toggle and the
+   * fallback heading; the grouping itself is the same either way.
+   */
+  tierLabel?: string;
   editable?: boolean;
   myTeamIds?: string[];
   /**
@@ -436,7 +446,7 @@ export function ScheduleView({
     effectiveView === "court"
       ? groupByCourt(shown, multiVenue, sport)
       : effectiveView === "tier"
-        ? groupByTier(shown, timezone, sport)
+        ? groupByTier(shown, timezone, sport, tierLabel)
         : effectiveView === "team"
           ? teamGroups
           : effectiveView === "agenda"
@@ -529,7 +539,7 @@ export function ScheduleView({
               onClick={() => setView("tier")}
             >
               <Layers className="size-4" />
-              By tier
+              By {tierLabel}
             </ToggleButton>
           )}
           <ToggleButton

@@ -391,6 +391,20 @@ export async function getPoolsView(
     setsByMatch.set(s.match_id, list);
   }
 
+  // Which division a pool belongs to, and that division's name/order. A
+  // tournament match has no division of its own — `matches.division_id` (0123)
+  // addresses bracket slots, not pool play — so the schedule reads it off the
+  // pool. Without these three fields the "By division" view has nothing to
+  // group on and hides itself, which is why a Mens game sat next to a Womens
+  // one in Round 1.
+  const divisionByPool = new Map(
+    (pools ?? []).map((p) => [
+      p.id as string,
+      (p.division_id as string | null) ?? null,
+    ]),
+  );
+  const divisionById = new Map(divisions.map((d) => [d.id, d]));
+
   const toScheduleMatch = (m: {
     id: string;
     round: number | null;
@@ -400,26 +414,36 @@ export async function getPoolsView(
     home_team_id: string | null;
     away_team_id: string | null;
     ref_team_id: string | null;
+    pool_id?: string | null;
     is_abnormal?: boolean;
-  }): ScheduleMatch => ({
-    id: m.id,
-    round: m.round,
-    scheduledAt: m.scheduled_at,
-    court: m.court,
-    status: m.status,
-    homeTeamId: m.home_team_id,
-    awayTeamId: m.away_team_id,
-    homeTeamName: m.home_team_id
-      ? (nameById.get(m.home_team_id) ?? "TBD")
-      : "TBD",
-    awayTeamName: m.away_team_id
-      ? (nameById.get(m.away_team_id) ?? "TBD")
-      : "TBD",
-    refTeamId: m.ref_team_id,
-    refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
-    isAbnormal: m.is_abnormal === true,
-    sets: setsByMatch.get(m.id) ?? [],
-  });
+  }): ScheduleMatch => {
+    const divisionId = m.pool_id
+      ? (divisionByPool.get(m.pool_id) ?? null)
+      : null;
+    const division = divisionId ? divisionById.get(divisionId) : undefined;
+    return {
+      id: m.id,
+      round: m.round,
+      scheduledAt: m.scheduled_at,
+      court: m.court,
+      status: m.status,
+      homeTeamId: m.home_team_id,
+      awayTeamId: m.away_team_id,
+      homeTeamName: m.home_team_id
+        ? (nameById.get(m.home_team_id) ?? "TBD")
+        : "TBD",
+      awayTeamName: m.away_team_id
+        ? (nameById.get(m.away_team_id) ?? "TBD")
+        : "TBD",
+      refTeamId: m.ref_team_id,
+      refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
+      isAbnormal: m.is_abnormal === true,
+      sets: setsByMatch.get(m.id) ?? [],
+      divisionId,
+      divisionName: division?.name ?? null,
+      tierOrder: division?.tierOrder ?? null,
+    };
+  };
 
   const matchesByPool = new Map<string, ScheduleMatch[]>();
   const schedule: ScheduleMatch[] = [];
