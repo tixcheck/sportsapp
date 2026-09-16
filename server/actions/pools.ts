@@ -23,6 +23,7 @@ import {
   planReoptimize,
   type ReoptInputMatch,
 } from "@/lib/scheduler/reoptimize";
+import { interleaveCourts } from "@/lib/scheduler/wave-packing";
 import { estimateMatchMinutes, toShortPoolFormat } from "@/lib/formats";
 import type { MatchFormat, TournamentDay } from "@/lib/db/schema";
 
@@ -71,7 +72,7 @@ export async function generatePoolsAction(
 
   const { data: comp, error: cErr } = await supabase
     .from("competitions")
-    .select("start_date, timezone, match_format")
+    .select("start_date, timezone, match_format, teams_referee")
     .eq("id", competitionId)
     .single();
   if (cErr || !comp) return { error: "Tournament not found." };
@@ -310,9 +311,16 @@ export async function generatePoolsAction(
     }));
   } else {
     // Original single-day layout: pack all pools globally onto the courts.
+    //
+    // With refs off (migration 0124) this packs games across pool boundaries
+    // instead, using every court. Note it does NOT split courts by division the
+    // way re-optimize does — a redraw spreads both divisions over all courts.
+    // Same finish time, but if the organizer wants Mens on the odd courts and
+    // Womens on the even ones, run Re-optimize afterwards.
     const slots = layoutPoolSchedule(
       orderedPools.map((p) => p.pool),
       courts,
+      { refs: comp.teams_referee ?? true },
     );
     if (detectCourtTimeCollisions(slots).length > 0) {
       return { error: "Scheduling collision detected — please try again." };
@@ -537,7 +545,7 @@ export async function reoptimizeScheduleAction(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("timezone, match_format")
+    .select("timezone, match_format, teams_referee")
     .eq("id", competitionId)
     .single();
   const { data: settings } = await supabase
@@ -604,7 +612,40 @@ export async function reoptimizeScheduleAction(
       played: m.status !== "scheduled" || scored.has(m.id),
     }));
 
-  const assignments = planReoptimize(inputs, courts);
+  // With refs off the pool-per-court constraint is gone (migration 0124), so
+  // each division packs its games across pool boundaries onto its own courts.
+  // Interleaved rather than blocked, so two divisions read as odds and evens —
+  // Mens on 1,3,5,7 while Womens run 2,4,6,8 — and neither can land on the
+  // other's court however the waves fall.
+  const teamsReferee = comp?.teams_referee ?? true;
+  const { data: poolRows } = await supabase
+    .from("pools")
+    .select("id, division_id")
+    .eq("competition_id", competitionId);
+  const divisionOf = new Map(
+    (poolRows ?? []).map((p) => [
+      p.id as string,
+      (p.division_id as string | null) ?? "",
+    ]),
+  );
+  const byDivision = new Map<string, ReoptInputMatch[]>();
+  for (const m of inputs) {
+    const key = divisionOf.get(m.poolId) ?? "";
+    byDivision.set(key, [...(byDivision.get(key) ?? []), m]);
+  }
+  // Sorted so the court split is stable across runs; a competition with one
+  // division (or none) is a single group and simply gets every court.
+  const divisionKeys = [...byDivision.keys()].sort();
+  const courtSets = interleaveCourts(courts, divisionKeys.length);
+
+  const assignments = teamsReferee
+    ? planReoptimize(inputs, courts)
+    : divisionKeys.flatMap((key, i) =>
+        planReoptimize(byDivision.get(key)!, courtSets[i].length, {
+          refs: false,
+          courtNumbers: courtSets[i],
+        }),
+      );
   if (assignments.length === 0) {
     return { error: "Nothing to re-optimize — the schedule is already set." };
   }

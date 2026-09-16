@@ -12,6 +12,7 @@ import {
 } from "./round-robin";
 import { orderPoolMatches } from "./pool-ordering";
 import { packPoolsOntoCourts } from "./court-packing";
+import { packPoolsIntoWaves } from "./wave-packing";
 import type { MatchFormat } from "@/lib/db/schema";
 
 /** Default minutes per match slot, shared by pool + bracket scheduling. */
@@ -248,11 +249,38 @@ export function assignPoolRefs(
  *
  * Either way no court hosts two matches in the same slot.
  */
+export interface PoolLayoutOptions {
+  /**
+   * Whether a non-playing team referees each game (migration 0124). Reffing is
+   * the ONLY reason a pool's games must share one court and run back to back —
+   * the idle teams have to be standing there. False lets the layout pack games
+   * across pool boundaries so every court can be busy; see wave-packing.ts.
+   */
+  refs?: boolean;
+  /**
+   * The actual court numbers to use, when they are not simply 1..courts — a
+   * division given its own courts (Mens on 1,3,5,7) passes them here. Only
+   * consulted on the no-refs path; the reffed layouts number courts locally.
+   */
+  courtNumbers?: number[];
+}
+
 export function layoutPoolSchedule(
   pools: LayoutPool[],
   courts: number,
+  options: PoolLayoutOptions = {},
 ): ScheduledPoolMatch[] {
   const courtCount = Math.max(1, courts);
+
+  // Nobody reffing → the pool-per-court constraint is gone, so pack games onto
+  // every available court instead. For Summer Forever that is 6 waves → 5.
+  if (options.refs === false) {
+    const list =
+      options.courtNumbers && options.courtNumbers.length > 0
+        ? options.courtNumbers
+        : Array.from({ length: courtCount }, (_, i) => i + 1);
+    return packPoolsIntoWaves(pools, list);
+  }
 
   // Single big pool with spare courts: spread it across multiple courts in
   // timed waves instead of stacking it on one court (see spreadSinglePool). Only

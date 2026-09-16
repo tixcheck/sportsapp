@@ -394,6 +394,16 @@ export const competitions = pgTable(
     timezone: text("timezone").notNull().default("America/Toronto"),
     matchFormat: jsonb("match_format").$type<MatchFormat>().notNull(),
     /**
+     * Whether a non-playing team referees each pool game (migration 0124).
+     *
+     * Not cosmetic: reffing is the only reason a pool's games must share one
+     * court and run back to back — the idle teams have to be standing there.
+     * False frees the scheduler to pack games across pools onto every court
+     * (`lib/scheduler/wave-packing.ts`) and leaves `ref_team_id` null. Default
+     * true, so every competition that existed before this behaves as it did.
+     */
+    teamsReferee: boolean("teams_referee").notNull().default(true),
+    /**
      * The approved waiver entrants must accept (migration 0100). Null = the
      * organizer hasn't turned waivers on, which is every competition by default.
      */

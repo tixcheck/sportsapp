@@ -16,7 +16,10 @@
  */
 
 import { assignPoolRefs, type LayoutPool } from "@/lib/scheduler/pools";
-import { layoutPoolSchedule } from "@/lib/scheduler/pools";
+import {
+  layoutPoolSchedule,
+  type PoolLayoutOptions,
+} from "@/lib/scheduler/pools";
 import { orderPoolMatches } from "@/lib/scheduler/pool-ordering";
 import type { TeamId } from "@/lib/scheduler/round-robin";
 
@@ -111,6 +114,7 @@ function matchByPair(
 export function planReoptimize(
   matches: ReoptInputMatch[],
   courts: number,
+  options: PoolLayoutOptions = {},
 ): ReoptAssignment[] {
   if (matches.length === 0) return [];
   const pools = groupByPool(matches);
@@ -130,6 +134,7 @@ export function planReoptimize(
     const laid = layoutPoolSchedule(
       ordered.map((p) => asLayoutPool(p.matches)),
       courts,
+      options,
     );
     const out: ReoptAssignment[] = [];
     for (const s of laid) {
@@ -156,10 +161,18 @@ export function planReoptimize(
     const court = inOrder[0].court ?? "Court 1";
     const lp = asLayoutPool(inOrder);
     const seq = orderPoolMatches(lp.teamIds, lp.rounds);
-    const refs = assignPoolRefs(
-      lp.teamIds,
-      seq.map((s) => ({ homeTeamId: s.homeTeamId, awayTeamId: s.awayTeamId })),
-    );
+    // Once the event is live a pool keeps its court, so there is no repacking to
+    // do — but it must still not be handed refs the organizer turned off.
+    const refs =
+      options.refs === false
+        ? seq.map(() => null)
+        : assignPoolRefs(
+            lp.teamIds,
+            seq.map((s) => ({
+              homeTeamId: s.homeTeamId,
+              awayTeamId: s.awayTeamId,
+            })),
+          );
     seq.forEach((s, k) => {
       const m = matchByPair(inOrder, s.homeTeamId, s.awayTeamId);
       if (m) {
