@@ -439,6 +439,11 @@ export default async function TournamentPage({
                 poolPlayComplete={poolPlayComplete}
                 requireComplete
                 courts={t.courts}
+                // This division's own courts win over the saved format's:
+                // Beach Barbiez run Mens and Womens on different NET HEIGHTS,
+                // so which courts a division plays on is physical, while the
+                // saved format is one row shared by every division.
+                divisionCourts={d.courts}
                 savedFormat={{
                   mode: t.playoffAdvanceMode,
                   teams: t.playoffTeams,

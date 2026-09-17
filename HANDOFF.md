@@ -921,13 +921,28 @@ The organizer wants **single elimination, everyone in, seeds 1–4 on byes** —
 the standard 12-team chart. Our generator already produces it exactly; it is
 locked by `tests/scheduler/bracket-12-team.test.ts`.
 
-**Set the playoff format BEFORE the day** (migration 0125). Either Generate
-panel has a **Save playoff format** button: set "Top N overall" with N = **12**
-("everyone makes playoffs"), tick or leave the 3rd-place game, set the courts,
-and save. It is stored per competition, so **both divisions pick it up** and the
-two brackets come out the same shape — which is the organizer's requirement and
-was previously left to whoever set two panels identically on the morning.
-Saving generates nothing and can be redone any time.
+**The playoff format is SAVED** (migration 0125, done 2026-09-17):
+`playoff_advance_mode = overall`, `playoff_teams = 12`
+("everyone makes playoffs"), `playoff_third_place = true`,
+`playoff_courts = [2,4,6,8]`. Stored per competition, so **both divisions pick
+it up** and the two brackets come out the same shape — the organizer's
+requirement, and previously left to whoever set two panels identically on the
+morning. Verified: 12 teams gives 11 matches, byes to seeds 1–4, round one
+8v9 / 5v12 / 7v10 / 6v11.
+
+**⚠️ THE TWO DIVISIONS PLAY ON DIFFERENT NET HEIGHTS.** Mens use courts
+**1, 3, 5, 7** and Womens **2, 4, 6, 8** — that split is physical, not a
+preference, and it is why `divisions.courts` is set. It also broke an assumption
+in 0125: `playoff_courts` is one row for the whole competition, so the saved
+`[2,4,6,8]` (whichever panel saved last) would have put the MENS bracket on the
+Womens nets. Since 2026-09-17 each Generate panel defaults to **its own
+division's courts**, ahead of the saved format — precedence is division courts →
+saved format → all courts. Do not "fix" the saved value by clearing it; blank
+means every court, which is the same mistake in reverse.
+
+The 3rd-place game saved as **true**. It was not in the organizer's chart and
+may have been caught by accident — worth confirming, since it adds a match per
+division alongside the final.
 
 **On the day:** pool play ends 12:45, then the Playoffs tab shows **one Generate
 panel per division**. Generate each separately — that is what migration 0123
@@ -941,12 +956,23 @@ turns red until then. Leagues keep the old warning-only behaviour on purpose: on
 abandoned game that never gets a score would otherwise lock an organizer out of
 their own playoffs permanently.
 
-**Two open items:**
-- `tournament_settings.target_games_per_team` is **2** while the draw gives
-  every team **3**. It does not affect the re-timed schedule, but anyone who
-  hits "draw pools" before Saturday silently cuts all 24 teams to 2 games. This
-  one still needs a direct write or the Edit-settings dialog ("Games per team").
-- Womens has a team literally named **"TBD"** at seed 2.
+**Both earlier open items are now closed** (2026-09-17):
+- `target_games_per_team` was corrected from 2 to **3**. That stale 2 was what
+  made the app keep proposing 4 pools of 3 — a target of 2 sizes pools at
+  target+1. With it at 3 the draw is 3 pools of 4 per division, each pairing
+  meeting once at best-of-2 = 2 sets, which is exactly what the organizer asked
+  for.
+- **"TBD" was re-seeded to the bottom.** It was a placeholder at seed 2 — Pool
+  B's TOP seed — and the team has since confirmed. It swapped places with
+  Stepladder Duo: TBD is now **seed 12 in Pool A**, Stepladder Duo **seed 2 in
+  Pool B**, and Pool C is untouched. Done as a swap of seed, pool and fixtures
+  rather than a redraw, so every time, court and wave stayed exactly as it was.
+  Safe only because nothing had been played; all three Womens pools were
+  re-verified as clean round robins afterwards. The team will likely be renamed
+  now it is confirmed — that is just a team edit and disturbs nothing.
+
+Note the snake draft puts seed 12 in **Pool A with the top seed** — correct, and
+the opposite of what "bottom seed" intuitively suggests.
 
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.

@@ -5,6 +5,37 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-17 — A division's own courts beat the saved playoff format
+
+The owner saved the playoff format for Summer Forever and the courts came out
+as `[2,4,6,8]` for both divisions. I suggested clearing the field so brackets
+would use all eight. He corrected me:
+
+> _"The reason I entered courts for playoffs is because mens and women play on
+> different height nets and it shouldn't make sense to put that field blank."_
+
+He is right, and it exposes a flaw in what I shipped in 0125. `playoff_courts`
+is stored **per competition** — deliberate, so both divisions get the same
+bracket shape — but courts are the one part that must NOT be shared when the
+nets differ. Whichever panel saved last set the courts for both, so one
+division's bracket would have been scheduled onto the other's nets. Blanking it
+would have done the same thing, just less visibly.
+
+**No migration: the app already knew.** `divisions.courts` holds Mens
+`[1,3,5,7]` and Womens `[2,4,6,8]` — that IS the net-height split, recorded when
+the pools were arranged. Each division's Generate panel now defaults to its own
+courts, ahead of the saved format.
+
+Precedence is **division courts → saved format → every court**, and the ordering
+is the point: a division's courts are a fact about the venue, while the saved
+format is a preference stored once for the whole competition. A physical
+constraint should not lose to a shared default.
+
+Worth noting what this is not: the saved format still governs who advances, how
+many, and the 3rd-place game, and it still applies to both divisions — which is
+what keeps the two brackets the same shape. Only the courts are read per
+division.
+
 ## 2026-09-17 — Regenerating threw away the no-referee layout
 
 Byron, two days before Summer Forever: _"Its also only using 6 nets again 😭"_.

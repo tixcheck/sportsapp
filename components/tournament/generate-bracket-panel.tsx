@@ -177,6 +177,7 @@ export function GenerateBracketPanel({
   allowReseed = false,
   requireComplete = false,
   savedFormat,
+  divisionCourts,
 }: {
   competitionId: string;
   /**
@@ -201,6 +202,18 @@ export function GenerateBracketPanel({
   playoffFormat?: { sport: Sport; default: string };
   /** The competition's court count — the bracket defaults to using all of them. */
   courts?: number;
+  /**
+   * The courts THIS division actually plays on, when it has its own.
+   *
+   * Takes precedence over the saved format's courts, because it is a fact about
+   * the venue rather than a preference: Beach Barbiez run their Mens and Womens
+   * divisions on different NET HEIGHTS, so the court split is physical. The
+   * saved playoff format is stored per competition — deliberately, so both
+   * divisions get the same bracket shape — which means whichever panel saved
+   * last would otherwise set the courts for both, and one division's bracket
+   * would be scheduled onto the other's nets.
+   */
+  divisionCourts?: number[] | null;
   /** Offer the re-seeding bracket option (single bracket only). */
   allowReseed?: boolean;
   /**
@@ -282,8 +295,14 @@ export function GenerateBracketPanel({
     courts && courts >= 1
       ? Array.from({ length: courts }, (_, i) => i + 1)
       : [1, 2, 3];
+  // This division's own courts first (net heights — a fact about the venue),
+  // then the saved format, then every court the competition has.
   const [champCourts, setChampCourts] = useState<number[]>(
-    savedFormat?.courts?.length ? savedFormat.courts : allCourts,
+    divisionCourts?.length
+      ? divisionCourts
+      : savedFormat?.courts?.length
+        ? savedFormat.courts
+        : allCourts,
   );
   const [consoCourts, setConsoCourts] = useState<number[]>(allCourts);
   useEffect(() => {
