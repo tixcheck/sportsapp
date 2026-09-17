@@ -1019,9 +1019,12 @@ uses it only when EVERY division has both `start_time` and `minutes_per_set`
 non-null; clear one and the whole league silently reverts to shared-court
 packing with tiers sharing a wave. Verified true for all six on 2026-09-16.
 
-**Timing has zero changeover** — 19:00 + 120 minutes is exactly 21:00, so the
-second wave starts as the first ends. Any warm-up between waves runs the night
-past 23:00.
+**The 20 minutes is a CAP, not the expected length** — and the two waves are
+back to back on purpose. 19:00 + 6 sets × 20 is exactly 21:00 with no
+changeover, which looks tight on paper; the owner confirmed (2026-09-17) that
+sets finish well inside the cap and they have run this format before. So the
+slack is real even though the arithmetic shows none. **Don't "fix" this by
+shortening the sets or padding the second wave.**
 
 **Open:** the set's point target is unconfirmed. `match_format` is best-of-1 to
 **25, win by 2**, carried from the Short Summer Season and left alone — with a
