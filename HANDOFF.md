@@ -935,18 +935,30 @@ their own playoffs permanently.
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
 
-## Mango Sports CoEd Fall 2026 — a 6-tier ladder (set up 2026-09-16)
+## Mango Sports Coed Fall Season 7 2026 — a 6-tier ladder (set up 2026-09-16)
 
 Org **Mango Sports** (`0c1cf5aa-c34c-4425-8a13-a711579dc53e`), competition
 `9e7025bd-0895-436d-b346-a1704edab5cb`, slug `mango-sports-coed-fall-2026`.
-indoor6, **draft** and **private** — nothing is public yet. Tuesdays **19:00**,
-venue "Mango Sports" (copied from their Short Summer Season), 3 courts.
-**Sep 22 → Dec 8 2026**, blackout **Oct 27**, so 12 weekly dates = **11 playing
-nights**. Created by script in one transaction, not through the UI.
+Created as "Mango Sports CoEd Fall 2026" and renamed by the owner the same day —
+the **slug did not change**, so it is still the fall-2026 one.
 
-**6 tiers × 3 teams**, `Team 1`–`Team 18` in tier order (Tier 1 = Teams 1-3, and
-so on). Ladder on, promotion/relegation on, `ladder_swaps = [1,1,1,1,1]` — one
-up and one down at each of the five boundaries.
+indoor6, **draft** and **private** — nothing is public yet. Tuesdays,
+**19:00–23:00**, venue "Mango Sports" (copied from their Short Summer Season),
+3 courts. **Sep 22 → Dec 8 2026**, blackout **Oct 27**, so 12 weekly dates =
+**11 playing nights**. Created by script in one transaction, not through the UI.
+
+**6 tiers × 3 teams.** Seeded as `Team 1`–`Team 18` in tier order (Tier 1 =
+Teams 1-3, and so on) and **being renamed in place by the owner** — 9 of 18 as of
+2026-09-16 (Mangalore Marvels, Toronto Panthers, Manila Phantoms, Colombo
+Tigers, Mississauga Lions, Muskoka Moose, Kingston Heat, Punjab Power, Kochi
+Knight Riders). `teams.seed` still carries the original 1–18, which is what puts
+them in tier order, so don't key anything off the name.
+
+Ladder on, promotion/relegation on, `ladder_swaps = [1,1,1,1,1]` — one up and
+one down at each of the five boundaries.
+
+**Nobody is invited yet**: 0 teams claimed, 0 pending invites (checked
+2026-09-16). The org's next step is an "Add captain" per team.
 
 **⚠️ The tier weights are an INFERENCE, not a given.** The owner asked for
 "what we developed for Scarborough mens… top team gets 1, 18th gets 18, the more
@@ -982,11 +994,40 @@ five questions on their dashboard like everyone else, not at registration. This
 flow only works because of the "Add captain" fix shipped the same day; before it,
 these 18 teams showed "No captain added yet." with no button.
 
-**Still placeholder, awaiting the per-night format:** `ladder_unit = sets`,
-`ladder_target = 6`, 1 game/week, 15 min/game, best-of-1 to 25,
-`rounds_per_team = 1`. All copied from the Short Summer Season purely so the rows
-were valid — three teams to a tier on one court is a different shape, so expect
-most of these to change. **No schedule has been generated.**
+**The per-night format** (set 2026-09-16). Each tier's 3 teams play each other
+**twice**, one set a time, **20 minutes a set** — 6 sets on the court, **4 per
+team**, 120 minutes. Two waves on 3 courts:
+
+| Court | 19:00 | 21:00 |
+|---|---|---|
+| 1 | Tier 1 | Tier 2 |
+| 2 | Tier 3 | Tier 4 |
+| 3 | Tier 5 | Tier 6 |
+
+Stored per division: `start_time`, `courts` (a plain court NUMBER array, first
+entry wins), `minutes_per_set = 20`, `ladder_target = 4`. `league_settings`
+carries the same target and `minutes_per_game = 20` as the fallback.
+
+**`ladder_target` is sets PER TEAM, not sets in the tier.** `splitTierNight`
+does `base = floor(target / (n - 1))`, so 3 teams at target 4 gives every pairing
+exactly 2. Setting it to 6 here — the natural misreading, and what the Short
+Summer placeholder held — would mean each pair three times and a 180-minute
+tier, which does not fit between 19:00 and 21:00.
+
+**⚠️ The per-tier night path is all-or-nothing.** `server/actions/ladder.ts`
+uses it only when EVERY division has both `start_time` and `minutes_per_set`
+non-null; clear one and the whole league silently reverts to shared-court
+packing with tiers sharing a wave. Verified true for all six on 2026-09-16.
+
+**Timing has zero changeover** — 19:00 + 120 minutes is exactly 21:00, so the
+second wave starts as the first ends. Any warm-up between waves runs the night
+past 23:00.
+
+**Open:** the set's point target is unconfirmed. `match_format` is best-of-1 to
+**25, win by 2**, carried from the Short Summer Season and left alone — with a
+20-minute clock over it. Change it if 25 is wrong.
+
+**No schedule has been generated.**
 
 ## Known quirks
 
