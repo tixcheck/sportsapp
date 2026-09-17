@@ -992,8 +992,33 @@ no screen reads them yet. Today this is recorded configuration, not standings.
 questions prompt **only from competitions with an outstanding waiver**
 (`dashboard/page.tsx`, and the comment there says so deliberately: the details
 ride on a gate that already exists). No waiver = nobody is ever asked, and
-"required" means nothing. The owner is adding the waiver separately — until then
-the questions exist and are invisible.
+"required" means nothing.
+
+**The waiver exists as a DRAFT** (2026-09-17): org waiver **v1**,
+`e19d7bc5-afbc-4097-b1cb-d04cc4382fdb`, "Mango Sports Co. — Fall Volleyball
+League Waiver", transcribed from the owner's Tally form
+(`tally.so/r/RGOxZJ`) into five numbered clauses — Assumption of Risk, Waiver
+and Release, Medical Authorization, Confirmation of Age, Acknowledgement — with
+`{{name}}` for the participant. The three Tally checkboxes became clauses 4 and
+5 so they can be initialled rather than flattened into prose.
+
+**It is deliberately not approved.** `approve_waiver` computes the body checksum
+and records who approved it; that is a legal act and should carry the owner's
+identity, not a setup script's. Nothing is enforced until the owner approves it
+and attaches it (Waivers card → approve → require for this league).
+
+**What attaching it does, precisely.** `setCompetitionWaiverAction` re-syncs
+every team, but `team_entry_blocked` tests `exists(... team_members ...)` — so a
+team with **no rostered players is NOT blocked**. Mango's 18 empty teams stay
+`active` on attach; the gate bites as players join, and adding a player later
+re-opens it. To hold teams until their rosters are filled, set
+`min_roster_for_entry` in the same dialog — that check runs FIRST and does catch
+an empty roster.
+
+**⚠️ Venue disagreement, unresolved.** The waiver names **Overtime Athletics,
+1400 Aimco Blvd Unit 22 & 23, Mississauga**. The competition's `venue` says
+"Mango Sports", copied from the Short Summer Season. One of them is wrong and
+the waiver is the likelier truth — confirm before the schedule is published.
 
 **How players arrive:** the org invites a captain per team, the captain invites
 the rest. Note the captain therefore **claims** a pre-made team rather than
