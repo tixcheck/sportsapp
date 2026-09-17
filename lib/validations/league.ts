@@ -204,6 +204,20 @@ export const manageLeagueTiersSchema = z.object({
 export type ManageLeagueTiersInput = z.infer<typeof manageLeagueTiersSchema>;
 
 /**
+ * Move one team into a different tier by hand, before the season starts.
+ *
+ * `addTeamSchema` sets a tier when the team is created and nothing could change
+ * it afterwards, so an organizer who mis-sorted the tiers had to delete and
+ * re-add the team. Null = take the team out of every tier.
+ */
+export const setTeamTierSchema = z.object({
+  teamId: z.string().uuid(),
+  divisionId: z.string().uuid().nullable(),
+});
+
+export type SetTeamTierInput = z.infer<typeof setTeamTierSchema>;
+
+/**
  * Open/close public self-registration for a league, with an optional deadline
  * (a date; the action pins it to end-of-day in the league's timezone). Empty
  * deadline = open until the organizer closes it.

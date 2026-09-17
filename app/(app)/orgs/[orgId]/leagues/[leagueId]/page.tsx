@@ -505,9 +505,11 @@ export default async function LeaguePage({
         <AddTeamForm competitionId={league.id} tiers={league.tiers} />
 
         <TeamManagementList
+          tiers={league.tiers.map((tier) => ({ id: tier.id, name: tier.name }))}
           teams={league.teams.map((t) => ({
             id: t.id,
             name: t.name,
+            divisionId: t.divisionId,
             status: t.status,
             claimed: !!t.captain_user_id,
             captainInvite: teamInvites[t.id]?.captain ?? null,

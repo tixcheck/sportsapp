@@ -5,6 +5,38 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-17 — Move a league team between tiers
+
+Mango's organizer mis-assigned teams to tiers before week 1 and had no way to
+correct it. A league team's `division_id` is written by `addTeamAction` when the
+team is created and **never updated again** — none of the nine league actions
+touched it. The only remedy was to delete the team and add it back, which throws
+away its captain invite too.
+
+Worse, the Teams card already told him he could: _"Pick which tier each team
+plays in."_ `ManageTiersDialog` manages the tiers themselves, and `AddTeamForm`
+sets a tier only at creation, so the copy promised something the page could not
+do once a team existed.
+
+**Pre-season only, and that's a real rule rather than a shortcut.** Tier
+membership changes hands at week 1: with no placements, `drawLadderWeekAction`
+reads `teams.division_id` and writes week 1's `ladder_placements` FROM it; from
+then on the draw reads the placements and ignores the column. So a hand-move
+after the season starts would look like it worked and move nobody. It refuses
+with a message pointing at promotion/relegation instead.
+
+The rule lives in `lib/ladder/tier-move.ts` as a pure function with its own
+tests, because "before the season only" is the kind of constraint that rots when
+it's buried in an action. It also covers the cases the dropdown actually
+produces: re-picking the current tier is a **no-op, not an error** (a select
+fires on every change), a withdrawn team is refused, and a tier belonging to
+another competition is refused — that last one would take the team out of this
+league without removing it.
+
+`TeamManagementList` gains an optional `tiers` prop, defaulted, so the
+tournament page and the KotC pair list are untouched; the dropdown only appears
+where there's more than one tier to move between.
+
 ## 2026-09-16 — A team with no captain invite was a dead end
 
 Setting up Mango Sports' new ladder surfaced this: **a team with no pending

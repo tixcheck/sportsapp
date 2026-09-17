@@ -28,17 +28,20 @@ import {
 } from "@/lib/scheduler/round-robin";
 import { planTieredLeagueSchedule } from "@/lib/scheduler/tiered-league";
 import { assignCourts } from "@/lib/scheduler/court-assign";
+import { canMoveTier } from "@/lib/ladder/tier-move";
 import {
   addTeamSchema,
   createLeagueSchema,
   editLeagueSchema,
   manageLeagueTiersSchema,
   setLeagueRegistrationSchema,
+  setTeamTierSchema,
   type AddTeamInput,
   type CreateLeagueInput,
   type EditLeagueInput,
   type ManageLeagueTiersInput,
   type SetLeagueRegistrationInput,
+  type SetTeamTierInput,
 } from "@/lib/validations/league";
 import {
   registerTeamSchema,
@@ -280,6 +283,87 @@ export async function updateLeagueSettingsAction(
 export type AddTeamResult =
   | ActionError
   | { claimUrl: string; emailSent: boolean; emailReason?: string };
+
+/**
+ * Move one team into a different tier, before the season starts.
+ *
+ * A league team's tier was written when the team was created and never again —
+ * nothing in this file updated `division_id` — so an organizer who mis-sorted
+ * the tiers had to delete the team and add it back, losing its captain invite
+ * with it. Mango's organizer did exactly that mis-assignment before week 1.
+ *
+ * `canMoveTier` holds the rule and is tested on its own; this is the IO around
+ * it: who the team belongs to, whether the season has started, and whether the
+ * target tier is really this league's.
+ */
+export async function setTeamTierAction(
+  values: SetTeamTierInput,
+): Promise<ActionError | { success: true }> {
+  const parsed = setTeamTierSchema.safeParse(values);
+  if (!parsed.success) return { error: "Unknown team or tier." };
+  const { teamId, divisionId } = parsed.data;
+
+  const supabase = await createClient();
+
+  const { data: team } = await supabase
+    .from("teams")
+    .select("competition_id, division_id, status")
+    .eq("id", teamId)
+    .maybeSingle();
+  if (!team) return { error: "Team not found." };
+  const competitionId = team.competition_id as string;
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can move a team between tiers." };
+  }
+
+  // The season has started the moment week 1 is drawn: from then on the night
+  // is built from `ladder_placements` and this column is no longer read, so a
+  // move here would look like it worked and change nothing.
+  const { data: placed } = await supabase
+    .from("ladder_placements")
+    .select("id")
+    .eq("competition_id", competitionId)
+    .limit(1);
+
+  // A tier id from another competition would take the team out of this league
+  // without removing it — gone from every tier here, showing up in theirs.
+  let targetInCompetition = divisionId === null;
+  if (divisionId !== null) {
+    const { data: division } = await supabase
+      .from("divisions")
+      .select("id")
+      .eq("id", divisionId)
+      .eq("competition_id", competitionId)
+      .maybeSingle();
+    targetInCompetition = !!division;
+  }
+
+  const check = canMoveTier({
+    hasPlacements: (placed ?? []).length > 0,
+    fromDivisionId: (team.division_id as string | null) ?? null,
+    toDivisionId: divisionId,
+    targetInCompetition,
+    withdrawn: team.status === "withdrawn",
+  });
+  if (!check.ok) {
+    // Re-picking the tier a team is already in is not worth a red toast.
+    if (check.noop) return { success: true };
+    return { error: check.reason };
+  }
+
+  const { error } = await supabase
+    .from("teams")
+    .update({ division_id: divisionId })
+    .eq("id", teamId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  return { success: true };
+}
 
 export async function addTeamAction(
   competitionId: string,

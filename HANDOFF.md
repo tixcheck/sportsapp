@@ -957,6 +957,14 @@ them in tier order, so don't key anything off the name.
 Ladder on, promotion/relegation on, `ladder_swaps = [1,1,1,1,1]` — one up and
 one down at each of the five boundaries.
 
+**Tiers can be corrected from the Teams tab** (shipped 2026-09-17): each team
+row has a tier dropdown, **while the season has not started**. The organizer
+mis-seeded the tiers here, which is what prompted it. Once week 1 is drawn the
+control refuses, because from then on the night is built from
+`ladder_placements` and `teams.division_id` is no longer read — a hand-move
+would appear to work and move nobody. Undo the latest week if a tier genuinely
+has to change mid-season. Rule and tests: `lib/ladder/tier-move.ts`.
+
 **Nobody is invited yet**: 0 teams claimed, 0 pending invites (checked
 2026-09-16). The org's next step is an "Add captain" per team.
 

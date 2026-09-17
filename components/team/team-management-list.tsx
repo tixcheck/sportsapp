@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { setTeamTierAction } from "@/server/actions/leagues";
 
 export interface ManagedTeamInvite {
   id: string;
@@ -45,6 +47,8 @@ export interface ManagedTeam {
   id: string;
   name: string;
   divisionName?: string | null;
+  /** The tier this team is in, for the picker. Null = not sorted into one. */
+  divisionId?: string | null;
   status: "active" | "withdrawn" | "pending_payment" | "pending_waiver";
   claimed: boolean;
   /** Pending captain invite (null once they've joined). */
@@ -513,6 +517,69 @@ function AddCaptainDialog({
   );
 }
 
+/**
+ * Move a team into a different tier, before the season starts.
+ *
+ * A league team's tier was set when the team was created and never again, so an
+ * organizer who mis-sorted the tiers had to delete and re-add the team. Saves on
+ * change rather than behind a dialog — correcting a mis-seeded ladder means
+ * several moves in a row, and a dialog per move turns a two-minute fix into a
+ * chore.
+ *
+ * The server decides whether the move is allowed (`canMoveTier`); this only
+ * reports what it said. Once week 1 is drawn the answer is no, because from
+ * then on the night is built from `ladder_placements` and changing the team's
+ * tier here would move nobody.
+ */
+function TierSelect({
+  team,
+  tiers,
+  onDone,
+}: {
+  team: ManagedTeam;
+  tiers: { id: string; name: string }[];
+  onDone: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const current = team.divisionId ?? "";
+
+  function change(value: string) {
+    start(async () => {
+      const res = await setTeamTierAction({
+        teamId: team.id,
+        divisionId: value === "" ? null : value,
+      });
+      if ("error" in res) {
+        toast.error(res.error);
+        onDone(); // Put the dropdown back to the tier the team is really in.
+        return;
+      }
+      const to = tiers.find((t) => t.id === value);
+      toast.success(
+        to ? `${team.name} moved to ${to.name}.` : `${team.name} un-sorted.`,
+      );
+      onDone();
+    });
+  }
+
+  return (
+    <NativeSelect
+      aria-label={`Tier for ${team.name}`}
+      className="w-auto"
+      value={current}
+      disabled={pending}
+      onChange={(e) => change(e.target.value)}
+    >
+      <option value="">No tier</option>
+      {tiers.map((t) => (
+        <option key={t.id} value={t.id}>
+          {t.name}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
 function EditNameDialog({
   team,
   onDone,
@@ -700,7 +767,18 @@ function WithdrawDialog({
   );
 }
 
-export function TeamManagementList({ teams }: { teams: ManagedTeam[] }) {
+export function TeamManagementList({
+  teams,
+  tiers = [],
+}: {
+  teams: ManagedTeam[];
+  /**
+   * The league's tiers, enabling a per-team tier picker. Omitted (the default)
+   * on screens with nothing to move between — a tournament's team list, or an
+   * untiered league — where the control would be a dropdown of one.
+   */
+  tiers?: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const refresh = () => router.refresh();
 
@@ -746,6 +824,9 @@ export function TeamManagementList({ teams }: { teams: ManagedTeam[] }) {
               </div>
               {!withdrawn && (
                 <div className="flex flex-wrap items-center gap-2">
+                  {tiers.length > 1 && (
+                    <TierSelect team={team} tiers={tiers} onDone={refresh} />
+                  )}
                   <EditNameDialog team={team} onDone={refresh} />
                   <InviteTeammateDialog
                     teamId={team.id}
