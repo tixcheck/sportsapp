@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, type ReactNode } from "react";
 import { DateTime } from "luxon";
 
 import type { MatchFormat } from "@/lib/db/schema";
@@ -336,7 +339,9 @@ export function StandingsLegend({
 
 /**
  * Render standings grouped by pool/division (tournament) — each group gets a
- * heading. A division heading is shown only when more than one division exists.
+ * heading. With more than one division the groups split across a tab strip so a
+ * phone shows one division's pools rather than every pool stacked; the division
+ * name then rides on the tab instead of sitting beside each pool heading.
  */
 export function StandingsGroups({
   groups,
@@ -356,6 +361,28 @@ export function StandingsGroups({
   /** Point-differential tiebreaker (leagues) — passed to each group's table. */
   differential?: boolean;
 }) {
+  // Division names in the order the groups arrive — i.e. seeded order.
+  const divisions = [
+    ...new Set(
+      groups.map((g) => g.divisionName).filter((n): n is string => !!n),
+    ),
+  ];
+  // Tab only when EVERY group names a division. Filtering to one tab would
+  // otherwise hide an unnamed group outright, and a team could not find itself.
+  const tabbed =
+    showDivision && divisions.length > 1 && groups.every((g) => g.divisionName);
+  // Open on the viewer's own division: the point of the tabs is to land a
+  // player on their own pool without scrolling, or even tapping.
+  const [picked, setPicked] = useState<string | null>(
+    () =>
+      groups.find(
+        (g) =>
+          g.divisionName && g.rows.some((r) => myTeamIds.includes(r.teamId)),
+      )?.divisionName ?? null,
+  );
+  // Fall back rather than hold a stale name if the groups change underneath.
+  const active = picked && divisions.includes(picked) ? picked : divisions[0];
+
   if (groups.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -370,16 +397,32 @@ export function StandingsGroups({
     ? standingsLegendFlags(format).singleSet
     : played.length > 0 &&
       played.every((r) => r.sw === r.mw && r.sl === r.ml && r.mt === 0);
+  const shown = tabbed
+    ? groups.filter((g) => g.divisionName === active)
+    : groups;
   return (
     <div className="space-y-6">
-      {groups.map((g) => (
+      {tabbed && (
+        <div className="bg-muted flex max-w-full flex-wrap rounded-lg p-0.5">
+          {divisions.map((d) => (
+            <ToggleButton
+              key={d}
+              active={d === active}
+              onClick={() => setPicked(d)}
+            >
+              {d}
+            </ToggleButton>
+          ))}
+        </div>
+      )}
+      {shown.map((g) => (
         <section
           key={g.poolId ?? g.divisionId ?? g.poolName ?? "all"}
           className="space-y-2"
         >
           <h4 className="font-display font-semibold">
             {g.poolName ?? "Standings"}
-            {showDivision && g.divisionName && (
+            {showDivision && !tabbed && g.divisionName && (
               <span className="text-muted-foreground ml-2 text-sm font-normal">
                 {g.divisionName}
               </span>
@@ -401,5 +444,38 @@ export function StandingsGroups({
         differential={differential}
       />
     </div>
+  );
+}
+
+/**
+ * Segmented control for the division strip. Mirrors the schedule view's toggle
+ * (which keeps its own copy — it is private to that file) so the two read as
+ * the same control.
+ */
+function ToggleButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        // shrink-0 + nowrap so a squeezed row wraps whole buttons rather than
+        // breaking a division name across two lines.
+        "inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
+        active
+          ? "bg-surface text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }

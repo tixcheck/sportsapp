@@ -5,6 +5,49 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-17 — Standings split by division, opening on your own
+
+> _"Add multi tabs here that shows divisions. So people don't have to scroll.
+> Make this easier for teams to just see where they are seeded easily"_
+
+Summer Forever's standings stacked six pool tables — Pool A/B/C Womens, then
+Pool A/B/C Mens — so a player on a phone scrolled past three tables that were
+not theirs to reach their own. `StandingsGroups` now renders a division strip
+above the tables and shows one division at a time.
+
+Three calls worth recording:
+
+**It opens on the viewer's own division.** The public page already passes
+`myTeamIds`, so the initial tab is the one holding the viewer's team. The ask
+was about finding *where they are seeded*, and the best version of that costs
+zero taps. Organizers pass no team ids and land on the first division.
+
+**Tabs only when every group names a division.** Filtering to one tab would
+otherwise hide an unnamed group outright — and a team that cannot find itself is
+a worse outcome than scrolling. The gate is `showDivision && divisions.length >
+1 && groups.every(divisionName)`. The selection also falls back to the first
+division rather than holding a stale name if the groups change underneath.
+
+**Leagues are untouched by construction, not by luck.** Every league call site
+passes `showDivision={false}`, and league groups carry `divisionName: null` (a
+tier's name rides on `poolName`). Both halves of the gate fail, so the league,
+team and embed standings render byte-identically. Mango's six tiers still stack
+— the same treatment would likely help there, but that is a separate decision
+and was not smuggled in here.
+
+The file became a client component. It already imported `PositionPill`, which is
+client, and its heavy imports (`MatchFormat`, `StandingsGroup`) are type-only
+and erase at compile, so nothing new crosses the boundary; the two public tab
+shells that render it were client already. The toggle mirrors the schedule
+view's `ToggleButton` rather than exporting it across features — one is private
+to `schedule-view.tsx` and copying eight lines beat coupling two features.
+
+Tab labels are the division names verbatim, so they were checked against the
+live rows: Summer Forever reads **Mens | Womens**, three pools each.
+
+**Tests:** 1552 passing across 121 files; `tsc --noEmit` and eslint clean. No
+migration, no schema change, no data touched.
+
 ## 2026-09-17 — A division's own courts beat the saved playoff format
 
 The owner saved the playoff format for Summer Forever and the courts came out
