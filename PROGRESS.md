@@ -5,6 +5,33 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — A team with no captain invite was a dead end
+
+Setting up Mango Sports' new ladder surfaced this: **a team with no pending
+captain invite had no way to get one.** The management list rendered "No captain
+added yet." as plain text with no control beside it, and the captain slot fell
+through to `null` whenever there was neither a captain nor an invite.
+
+`editTeamInviteAction` could always have done the job — it inserts an invite
+where none exists and reuses one where it does — but **nothing in the UI ever
+called it**. Every other control (`editInviteEmailAction`, `removeInviteAction`)
+works on an invite by id, so the first one had to come from somewhere else:
+the registration form, which creates the team *with* a captain email.
+
+That makes it a real bug, not just a consequence of creating teams by script.
+`removeInviteAction` exists, so any organizer who removes a captain invite lands
+in the same dead end and cannot undo it.
+
+**Added an "Add captain" dialog** wherever a team is unclaimed with no captain
+and no captain invite — including the case where a team has partners but no
+captain, which hit the same `null` branch. It shows the **claim link on
+success**, because the invite email is best-effort: when `emailSent` is false
+the organizer needs something to paste, and finding that out across eighteen
+teams is a bad moment to discover there's nothing to copy.
+
+No new test — a dialog wired to an existing, already-guarded action, with no
+pure logic of its own.
+
 ## 2026-09-16 — Ask individuals to sign in BEFORE the form, not after
 
 **Reported on BVL:** new users choosing to sign up on their own "doesn't look

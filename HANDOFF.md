@@ -935,6 +935,59 @@ their own playoffs permanently.
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
 
+## Mango Sports CoEd Fall 2026 — a 6-tier ladder (set up 2026-09-16)
+
+Org **Mango Sports** (`0c1cf5aa-c34c-4425-8a13-a711579dc53e`), competition
+`9e7025bd-0895-436d-b346-a1704edab5cb`, slug `mango-sports-coed-fall-2026`.
+indoor6, **draft** and **private** — nothing is public yet. Tuesdays **19:00**,
+venue "Mango Sports" (copied from their Short Summer Season), 3 courts.
+**Sep 22 → Dec 8 2026**, blackout **Oct 27**, so 12 weekly dates = **11 playing
+nights**. Created by script in one transaction, not through the UI.
+
+**6 tiers × 3 teams**, `Team 1`–`Team 18` in tier order (Tier 1 = Teams 1-3, and
+so on). Ladder on, promotion/relegation on, `ladder_swaps = [1,1,1,1,1]` — one
+up and one down at each of the five boundaries.
+
+**⚠️ The tier weights are an INFERENCE, not a given.** The owner asked for
+"what we developed for Scarborough mens… top team gets 1, 18th gets 18, the more
+points the lower they end up". Two things to know: SMVA has **no** `0115`
+weights at all (all null) — 0115 was in fact written *for Mango*, whose Short
+Summer Season is the only weighted league in the database (Tier 1 `10/5`,
+Tier 2 `5/2`). And 0115's `weight_base` means points *earned*, where more is
+better — the opposite direction. So `weight_base` here stores **the score the
+TOP team in each tier takes that night**: 1, 4, 7, 10, 13, 16, with 2nd and 3rd
+taking +1 and +2, spanning 1–18 with low being good. `weight_per_set_win` is
+left null, since the owner described placement, not set wins. **Six rows to
+change if that reading is wrong.**
+
+**Nothing in the app computes that total.** `0117` added `result_rank` /
+`result_points` to `ladder_placements` for typing a night's finishing order, and
+no screen reads them yet. Today this is recorded configuration, not standings.
+
+**Five player questions** (all required): First Name, Last Name, Sex
+(Male/Female/Non-Binary, matching Mango's four other leagues), Position you Play
+(LS/RS/Setter/Middle/Libero, single choice), Tshirt Size (XS–XXXL).
+
+**⚠️ The waiver is what makes those questions appear.** The dashboard builds its
+questions prompt **only from competitions with an outstanding waiver**
+(`dashboard/page.tsx`, and the comment there says so deliberately: the details
+ride on a gate that already exists). No waiver = nobody is ever asked, and
+"required" means nothing. The owner is adding the waiver separately — until then
+the questions exist and are invisible.
+
+**How players arrive:** the org invites a captain per team, the captain invites
+the rest. Note the captain therefore **claims** a pre-made team rather than
+registering one, and `/claim/[token]` asks nothing — so the captain answers the
+five questions on their dashboard like everyone else, not at registration. This
+flow only works because of the "Add captain" fix shipped the same day; before it,
+these 18 teams showed "No captain added yet." with no button.
+
+**Still placeholder, awaiting the per-night format:** `ladder_unit = sets`,
+`ladder_target = 6`, 1 game/week, 15 min/game, best-of-1 to 25,
+`rounds_per_team = 1`. All copied from the Short Summer Season purely so the rows
+were valid — three teams to a tier on one court is a different shape, so expect
+most of these to change. **No schedule has been generated.**
+
 ## Known quirks
 
 - **Migrations `0050`+ are hand-written SQL**, not drizzle-kit output — `npm run

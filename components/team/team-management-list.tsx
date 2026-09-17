@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   editInviteEmailAction,
+  editTeamInviteAction,
   removeInviteAction,
   removeMemberAction,
   removeTeamAction,
@@ -338,9 +339,19 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
     players.length > 0 ||
     team.captainInvite ||
     team.partnerInvites.length > 0;
+
+  // No captain, and nobody invited to be one. A team can reach this by being
+  // created outside the registration form (the organizer adds the team, or a
+  // script does) or by having its captain invite removed — and until now it was
+  // a dead end: the text below with no way to act on it.
+  const needsCaptain = !captain && !team.captainInvite && !team.claimed;
+
   if (!hasAny) {
     return (
-      <p className="text-muted-foreground text-xs">No captain added yet.</p>
+      <div className="space-y-1.5">
+        <p className="text-muted-foreground text-xs">No captain added yet.</p>
+        {needsCaptain && <AddCaptainDialog team={team} onDone={onDone} />}
+      </div>
     );
   }
 
@@ -366,6 +377,8 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
           inviteId={team.captainInvite.id}
           onDone={onDone}
         />
+      ) : needsCaptain ? (
+        <AddCaptainDialog team={team} onDone={onDone} />
       ) : null}
 
       {/* Partners: joined players, then any pending partner invites. */}
@@ -394,6 +407,109 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
         />
       ))}
     </div>
+  );
+}
+
+/**
+ * Send the FIRST captain invite for a team that has none.
+ *
+ * `editTeamInviteAction` could always do this — it inserts an invite where none
+ * exists and reuses one where it does — but nothing in the UI ever called it.
+ * Every other control here works on an invite by id, so a team without one had
+ * no route to a captain at all.
+ *
+ * The claim link is shown on success rather than only mentioned, because the
+ * email is best-effort: when `emailSent` is false the organizer still needs
+ * something to paste, and finding that out across a whole league of teams is a
+ * bad moment to discover there is nothing to copy.
+ */
+function AddCaptainDialog({
+  team,
+  onDone,
+}: {
+  team: ManagedTeam;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [claimUrl, setClaimUrl] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function send() {
+    start(async () => {
+      const res = await editTeamInviteAction(team.id, email.trim());
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      setClaimUrl(res.claimUrl);
+      toast.success(
+        res.emailSent
+          ? `Invite sent to ${email.trim()}.`
+          : "Invite created — copy the link below to share it.",
+      );
+      onDone();
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) {
+          setEmail("");
+          setClaimUrl(null);
+        }
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2">
+          Add captain
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Invite a captain to {team.name}</DialogTitle>
+          <DialogDescription>
+            They get a link to claim {team.name}. Once they have, they can
+            invite the rest of their team themselves.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5">
+          <Label htmlFor={`cap-${team.id}`}>Captain&apos;s email</Label>
+          <Input
+            id={`cap-${team.id}`}
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="captain@example.com"
+            autoFocus
+          />
+        </div>
+        {claimUrl && (
+          <div className="grid gap-1.5">
+            <Label htmlFor={`link-${team.id}`}>Claim link</Label>
+            <Input
+              id={`link-${team.id}`}
+              readOnly
+              value={claimUrl}
+              onFocus={(e) => e.currentTarget.select()}
+            />
+          </div>
+        )}
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost" disabled={pending}>
+              {claimUrl ? "Done" : "Cancel"}
+            </Button>
+          </DialogClose>
+          <Button onClick={send} disabled={pending || !email.trim()}>
+            {pending ? "Sending…" : claimUrl ? "Resend" : "Send invite"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
