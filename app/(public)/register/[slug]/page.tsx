@@ -65,10 +65,21 @@ export async function generateMetadata({
 
 export default async function RegisterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  /**
+   * `?as=individual` reopens the individual door after a round trip through
+   * sign-up. The chooser otherwise keeps its choice in component state, so
+   * somebody who picks "sign up on my own", goes off to create an account and
+   * confirms their email would come back to the two-door chooser with neither
+   * open — reading as "the redirect didn't work".
+   */
+  searchParams?: Promise<{ as?: string }>;
 }) {
   const { slug } = await params;
+  const sp = (await searchParams) ?? {};
+  const initialChoice = sp.as === "individual" ? "individual" : null;
   const [event, user] = await Promise.all([
     getRegistrationEvent(slug),
     getUser(),
@@ -289,7 +300,9 @@ export default async function RegisterPage({
       sport={event.sport}
       isAuthed={!!user}
       userEmail={user?.email}
-      returnTo={`/register/${slug}`}
+      // Carries the door they picked, so confirming an email brings them back
+      // to THIS form rather than to the chooser with nothing selected.
+      returnTo={`/register/${slug}?as=individual`}
       feeCents={feeSettings.individualFeeCents}
       existing={mySignup}
     />
@@ -376,6 +389,7 @@ export default async function RegisterPage({
                 individualDescription={individualBlurb}
                 teamForm={teamForm}
                 individualForm={individualForm}
+                initialChoice={initialChoice}
               />
             </div>
           ) : (

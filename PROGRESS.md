@@ -5,6 +5,42 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-16 — Ask individuals to sign in BEFORE the form, not after
+
+**Reported on BVL:** new users choosing to sign up on their own "doesn't look
+like the redirection works".
+
+**It wasn't a broken redirect — there was no redirect to break.**
+`IndividualSignupForm` took an `isAuthed` prop and never branched on it.
+`SignInOrCreate` was imported at the top of that file and never rendered. So a
+signed-out player got the entire form, filled in name, email, phone, positions,
+level and notes, pressed **Sign me up**, and only then met `register_individual`
+raising _"You need to be signed in to sign up."_ (0105, line 78 — the action
+even whitelists that message to pass it through). Nothing had attached a `next`
+anywhere along the way, so there was no route back either.
+
+The team path has had this gate the whole time
+(`stepped-registration.tsx:159`), which is why it only showed up for
+individuals. Added the matching early return — placed after the hooks, since an
+early return above `useForm` would break the rules of hooks.
+
+**Second bug, which the fix would otherwise have exposed.** `EntryChoice` keeps
+the team/individual choice in `useState` with nothing in the URL, and the page
+passed a bare `/register/[slug]` as `returnTo`. So even a perfect auth round
+trip returned people to the two-door chooser with neither door open — they'd
+have to work out that they must pick "sign up on my own" again. The individual
+form now returns to `/register/[slug]?as=individual`, and the chooser takes an
+`initialChoice` to reopen that door. `safeNext` and `isRegistrationPath` both
+accept the query string, so the cookie fallback still works.
+
+**Checked rather than assumed:** the closed-registration branch renders the same
+`individualForm` variable, so both doors were fixed by one change; and the
+fourth `returnTo` on that page is the waitlist form, which is a separate path
+and was left alone.
+
+**No new test.** It's an early return plus reading one search param — no pure
+logic to cover, and UI tests here are reserved for critical flows.
+
 ## 2026-09-16 — Save the playoff format, and hold Generate until pool play is done (migration 0125)
 
 **Two asks from the same screenshot.** Beach Barbiez: _"let the organizer set

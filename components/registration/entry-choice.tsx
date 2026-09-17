@@ -30,6 +30,7 @@ export function EntryChoice({
   individualDescription,
   teamForm,
   individualForm,
+  initialChoice = null,
 }: {
   teamTitle: string;
   teamDescription: React.ReactNode;
@@ -37,8 +38,18 @@ export function EntryChoice({
   individualDescription: React.ReactNode;
   teamForm: React.ReactNode;
   individualForm: React.ReactNode;
+  /**
+   * Which door to open on arrival, from the URL (`?as=individual`).
+   *
+   * Without this the choice lives only in component state, and someone who
+   * picks "sign up on my own", leaves to create an account and confirms their
+   * email comes back to this chooser with neither door open — having to work
+   * out that they must pick it again. The round trip through sign-up is exactly
+   * when the choice needs to survive.
+   */
+  initialChoice?: Choice | null;
 }) {
-  const [choice, setChoice] = useState<Choice | null>(null);
+  const [choice, setChoice] = useState<Choice | null>(initialChoice);
 
   if (choice === null) {
     return (

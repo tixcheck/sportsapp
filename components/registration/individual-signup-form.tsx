@@ -170,6 +170,25 @@ export function IndividualSignupForm({
 
   const isUpdate = !!existing;
 
+  // The account gate, the same one the team path uses (stepped-registration).
+  // It was missing here: SignInOrCreate was imported at the top of this file and
+  // never rendered, so a signed-out player got the whole form, filled in their
+  // name, positions and level, pressed Sign me up — and only then met
+  // `register_individual` raising "You need to be signed in to sign up."
+  // Nothing had attached a `next` along the way, so there was no route back
+  // either. Asking first costs one click; asking last costs the whole form.
+  //
+  // Placed after the hooks above, not before them: an early return that skips a
+  // useState/useForm call breaks the rules of hooks.
+  if (!isAuthed) {
+    return (
+      <SignInOrCreate
+        returnTo={returnTo}
+        prompt="Signing up takes a moment. Your account keeps the sign-up linked to you, so you can update it later and track the fee."
+      />
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
       {existing && (

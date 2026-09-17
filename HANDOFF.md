@@ -817,6 +817,18 @@ reading them out of `.env.local`.
   from the Players tab (the organizer's choice, 2026-09-15). Changing the
   sign-up form to ask them is a known, deliberately deferred option.
 - `updateFreeAgentDetailsAction` never changes status or placement.
+- **An individual must have an account before the form appears** (fixed
+  2026-09-16). `register_individual` requires `auth.uid()`, and the form now
+  shows *Create an account / I already have one* first, the same gate the team
+  path has always had. Before this the prop existed but nothing branched on it,
+  so a signed-out player filled in the whole form and was rejected at submit
+  with no way back. If individuals should ever be able to sign up WITHOUT an
+  account, that is a different change — the RPC and its RLS, plus a decision on
+  how an organizer later links the sign-up to a real account.
+- The individual form's `returnTo` is `/register/<slug>?as=individual`, and the
+  chooser reopens that door from the param. Without it the auth round trip lands
+  people back on the two-door chooser with nothing selected, which reads as a
+  failed redirect. Keep the param if you touch either piece.
 
 ## Who has played with whom
 
