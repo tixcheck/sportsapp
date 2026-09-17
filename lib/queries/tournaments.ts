@@ -366,12 +366,22 @@ export async function getPoolsView(
     .eq("competition_id", competitionId)
     .order("sort_order", { ascending: true });
 
+  // EVERY team, whatever its status — this list resolves NAMES and pool
+  // membership, and a name is not a privilege.
+  //
+  // It used to filter to `active` under migration 0066's rule that unpaid teams
+  // are not entrants. But 0101 later added `pending_waiver`, and a team held for
+  // an unsigned waiver fell out of this list too — so its fixtures rendered as
+  // "Toronto Panthers v TBD" while the match itself was perfectly intact. The
+  // more the waiver gate worked, the more teams lost their names.
+  //
+  // 0066's rule is enforced where it belongs: unpaid teams are kept out of
+  // pools, schedules and standings in the first place. Hiding what a team is
+  // CALLED never enforced anything — it only made the schedule unreadable.
   const { data: teams } = await supabase
     .from("teams")
     .select("id, name, seed, pool_id")
-    .eq("competition_id", competitionId)
-    // Unpaid teams are not entrants yet (migration 0066).
-    .eq("status", "active");
+    .eq("competition_id", competitionId);
   const nameById = new Map(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
   );

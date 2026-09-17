@@ -5,6 +5,45 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-17 — Turning the waiver on made two teams lose their names
+
+Mango's organizer: _"What is this TBD in schedule? All teams have names now."_
+
+He was right, and "TBD" was not a team. It is the fallback the schedule prints
+when it cannot resolve a team's NAME. The match was intact the whole time —
+stored as Toronto Panthers v Kavi, with both team ids set and nothing null.
+
+**Attaching the waiver caused it.** `sync_team_entry_status` moved the only two
+teams with rostered players to `pending_waiver`, and `loadSchedule` built its
+name map from a team list filtered to `status = 'active'`. So a held team fell
+out of the lookup and its fixtures rendered as "… v TBD". The better the gate
+worked, the more teams lost their names — exactly backwards.
+
+**The filter was written for a different problem.** Its comment says "Unpaid
+teams are not entrants yet (migration 0066)", and that rule is about who
+reaches a pool, a schedule or the standings. `pending_waiver` arrived later with
+0101 and was swept into the same `status = 'active'` test by accident. Hiding
+what a team is CALLED never enforced 0066 anyway; teams are kept out of
+schedules upstream, where it belongs.
+
+**Two queries fixed** — `loadSchedule` (leagues) and `getPoolsView`
+(tournaments). Both now load every team regardless of status, because a name is
+not a privilege. The genuine entrant filters are untouched: standings,
+registration and who gets scheduled all still say `active` only.
+
+**It was hiding a second fault.** That same list decides which TIER a game
+belongs to, so a held team's games were also falling back to the opponent's tier
+— or into no tier at all when both sides were held. One filter, two symptoms.
+
+**Checked before changing anything:** the printed gym sheet and a player's own
+match list look teams up by id with no status filter, so neither was affected —
+a paper sheet reading "TBD" on the night would have been the worse failure. Only
+two functions call `loadSchedule`, both wanting names, so nothing downstream
+treated that list as "entrants".
+
+No new test: the change removes a filter from a Supabase query, with no pure
+logic to cover.
+
 ## 2026-09-17 — Move a league team between tiers
 
 Mango's organizer mis-assigned teams to tiers before week 1 and had no way to

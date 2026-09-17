@@ -354,13 +354,25 @@ async function loadSchedule(
   supabase: Awaited<ReturnType<typeof createClient>>,
   leagueId: string,
 ): Promise<ScheduleMatch[]> {
+  // EVERY team, whatever its status. This list does two jobs — it resolves
+  // NAMES and it decides which tier a game belongs to — and neither is a
+  // privilege a team can lose.
+  //
+  // It used to filter to `active` under migration 0066's rule that unpaid teams
+  // are not entrants. Then 0101 added `pending_waiver`, and a team held for an
+  // unsigned waiver dropped out of this list too: its fixtures rendered as
+  // "Toronto Panthers v TBD", and its games fell back to the opponent's tier or
+  // into no tier at all. The better the waiver gate worked, the more teams lost
+  // their names — which is exactly backwards.
+  //
+  // 0066's rule is enforced where it belongs: an unpaid team never reaches a
+  // schedule or the standings in the first place. Hiding what a team is CALLED
+  // enforced nothing; it only made the schedule unreadable.
   const [{ data: teams }, { data: divisions }] = await Promise.all([
     supabase
       .from("teams")
       .select("id, name, division_id")
-      .eq("competition_id", leagueId)
-      // Unpaid teams are not entrants yet (migration 0066).
-      .eq("status", "active"),
+      .eq("competition_id", leagueId),
     supabase
       .from("divisions")
       .select("id, name, tier_order")
