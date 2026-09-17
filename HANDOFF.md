@@ -968,21 +968,40 @@ has to change mid-season. Rule and tests: `lib/ladder/tier-move.ts`.
 **Nobody is invited yet**: 0 teams claimed, 0 pending invites (checked
 2026-09-16). The org's next step is an "Add captain" per team.
 
-**⚠️ The tier weights are an INFERENCE, not a given.** The owner asked for
-"what we developed for Scarborough mens… top team gets 1, 18th gets 18, the more
-points the lower they end up". Two things to know: SMVA has **no** `0115`
-weights at all (all null) — 0115 was in fact written *for Mango*, whose Short
-Summer Season is the only weighted league in the database (Tier 1 `10/5`,
-Tier 2 `5/2`). And 0115's `weight_base` means points *earned*, where more is
-better — the opposite direction. So `weight_base` here stores **the score the
-TOP team in each tier takes that night**: 1, 4, 7, 10, 13, 16, with 2nd and 3rd
-taking +1 and +2, spanning 1–18 with low being good. `weight_per_set_win` is
-left null, since the owner described placement, not set wins. **Six rows to
-change if that reading is wrong.**
+**Scored by PLACEMENT, where the lowest total wins** — confirmed by the owner
+2026-09-17 and built as migration `0126`. `league_settings.ladder_scoring` is
+`placement` here; every other league in the database is `points` and unchanged.
 
-**Nothing in the app computes that total.** `0117` added `result_rank` /
-`result_points` to `ladder_placements` for typing a night's finishing order, and
-no screen reads them yet. Today this is recorded configuration, not standings.
+Each night a team scores its tier's number plus where it finished:
+`weight_base` is what finishing FIRST in that tier scores, so 1/2/3 in Tier 1,
+4/5/6 in Tier 2, down to 16/17/18 in Tier 6. Bases are 1, 4, 7, 10, 13, 16.
+Season total is the sum, **lowest wins**. Sets won score nothing, so
+`weight_per_set_win` being null is correct here rather than a half-filled
+config — which is exactly what it looked like before 0126 existed.
+
+**Why it needed a new mode rather than different numbers.** 0115's weighting
+(written for Mango's Short Summer Season: Tier 1 `10/5`, Tier 2 `5/2`) scores
+`base + setsWon × perSetWin` and sorts highest-first, so winning sets RAISES a
+total that placement scoring needs to fall. Opposite directions, irreconcilable
+by choice of weights. SMVA, despite being the stated reference, has no 0115
+weights at all — all null.
+
+**Where the finishing order comes from**, in order: `ladder_placements.result_rank`
+if an organizer typed it (0117), else derived from that night's results via
+`rankLadderNight` using the league's own tiebreaker. A night with no results is
+skipped, never scored — zero would beat winning Tier 1.
+
+**⚠️ Nothing will show until nights are scored.** As of 2026-09-17 there are
+week-1 placements for all 18 teams but **zero completed matches and zero sets**,
+so the table is legitimately empty. Also: nothing yet fills in `result_rank` —
+there is no UI for typing a night's finishing order, so today the only route is
+entering every set. For a six-court night of 20-minute sets that may not be
+realistic, and a rank-entry screen is the obvious next build.
+
+**⚠️ Missing a night lowers a total, which under "low is good" flatters it.**
+Inherent to summing; it doesn't bite while all 18 teams play weekly. A team
+matching a total over MORE nights is ranked ahead, which is the only defence in
+there. If absences become normal, average-per-night is the fix.
 
 **Five player questions** (all required): First Name, Last Name, Sex
 (Male/Female/Non-Binary, matching Mango's four other leagues), Position you Play

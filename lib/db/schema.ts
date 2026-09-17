@@ -515,6 +515,22 @@ export const leagueSettings = pgTable("league_settings", {
   // tier i+1. Length is (tiers - 1). The exchange is balanced by construction —
   // n up always means n down — so tier sizes never drift.
   ladderSwaps: jsonb("ladder_swaps").$type<number[]>(),
+  /**
+   * How the season table is scored (migration 0126).
+   *
+   * "points" (the default, and every league before this): a team earns its
+   * tier's `weight_base` plus `weight_per_set_win` per set won, and the HIGHEST
+   * total tops the table — Mango's Short Summer Season.
+   *
+   * "placement": a team scores its tier's `weight_base` plus where it finished
+   * that night, and the LOWEST total wins — 1/2/3 in Tier 1 through 16/17/18 in
+   * Tier 6. Sets won score nothing, so `weight_per_set_win` is unused and
+   * correctly left null.
+   *
+   * The two cannot be merged by choosing different numbers: under "points",
+   * winning more sets raises a total that "placement" needs to fall.
+   */
+  ladderScoring: text("ladder_scoring").notNull().default("points"),
   // Titled instruction blocks printed on every score sheet (migration 0118).
   // Scarborough's gym package is mostly standing instructions — who sets the
   // clock, what the winning team does with the nets — and their executive's

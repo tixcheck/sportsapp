@@ -5,6 +5,55 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-17 — A ladder table where the LOWEST score wins (migration 0126)
+
+Mango's organizer: _"The league doesn't look like it has overall standing with
+the weights we talked about."_ Two faults behind that, one mine and one deeper.
+
+**Mine first.** The weighted table already existed and was already on both the
+organizer and public league pages — I had told him nothing computed it, which
+was simply wrong. It rendered nothing because of how I filled it in: I set each
+tier's `weight_base` (1, 4, 7, 10, 13, 16) and left `weight_per_set_win` null,
+and `getWeightedStandings` skips any tier where either is null. Six unpriced
+tiers meant `tiers.length === 0` and an empty table.
+
+**The deeper fault is that the numbers could never have worked.** His rule is
+"top team gets 1, 18th gets 18, the more points the lower they end up". The
+existing table scores `base + setsWon × perSetWin` and sorts highest-first — so
+winning sets RAISES a total that his scheme needs to fall. No choice of weights
+reconciles that; the direction is opposite. I should have caught it when he gave
+me the rule instead of storing a half-filled config and moving on.
+
+**So a league now says which way it scores.** `league_settings.ladder_scoring`
+is `points` (the default — every existing league, unchanged) or `placement`. In
+placement mode a team scores its tier's number plus where it finished that
+night, and the lowest season total wins. Sets score nothing, which makes
+`weight_per_set_win` being null correct rather than a gap.
+
+**`lib/stats/placement-standings.ts`** is the pure scorer, mirroring rather than
+extending `weighted-standings.ts` — merging them would mean a sort direction
+flag threaded through scoring that means opposite things. Nine tests, including
+the one that matters: six tiers of three produce exactly 1 through 18, no gaps,
+no collisions.
+
+**Finishing order has two sources.** `result_rank` where an organizer typed it
+(0117, built for Scarborough, who won't enter forty scores a night), otherwise
+derived from that night's results with `rankLadderNight` and the league's own
+tiebreaker. A night with no results is skipped, never scored — zero would beat
+winning Tier 1.
+
+**Rendered as a separate table, deliberately.** Same card, different columns:
+Score not Points, nights not sets, and a heading that says lowest wins. A table
+that looks identical but ranks the other way round is how a captain reads
+themselves as top when they are bottom.
+
+**Two limits worth stating.** Missing a night lowers a total, which under "low
+is good" flatters it — inherent to summing, and it doesn't bite Mango because
+all 18 teams play weekly; a team matching a total over MORE nights is ranked
+ahead, which is the only defence here. And nothing shows until nights are
+actually scored: Mango has week-1 placements for all 18 teams but zero completed
+matches.
+
 ## 2026-09-17 — Turning the waiver on made two teams lose their names
 
 Mango's organizer: _"What is this TBD in schedule? All teams have names now."_
