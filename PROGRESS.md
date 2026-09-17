@@ -5,6 +5,46 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-17 — Regenerating threw away the no-referee layout
+
+Byron, two days before Summer Forever: _"Its also only using 6 nets again 😭"_.
+He had regenerated his pools, and the regenerate rebuilt the schedule **with
+referees, one pool per court** — 6 nets instead of 8, six waves instead of five,
+finishing 13:30 instead of 12:45. Tuesday's re-time was gone.
+
+**The cause was a path I only half-wired.** When I shipped `teams_referee`
+(0124) I passed it into `layoutPoolSchedule` on the single-day path and left
+`layoutMultiDaySchedule` alone. Giving each division its own courts is precisely
+what routes a competition through that second function — and following my own
+advice about splitting Mens onto 1/3/5/7 and Womens onto 2/4/6/8 is what put him
+there. So the better his setup got, the more certainly a regenerate reverted it.
+
+**Passing the flag through was not enough.** That function re-slots each court's
+games to 0, 1, 2… by position, which is right when a pool OWNS a court — the
+gaps are wasted time. Under wave packing the gaps are load-bearing: a court is
+idle in a wave *because* those teams are playing elsewhere in it. Compressing
+them slides a team's games on top of each other. A naive pass-through would have
+produced a schedule that looked fixed and double-booked people, two days before
+the event.
+
+So the wave is preserved when refs are off, and compressed when they are on. The
+reffed path is byte-for-byte unchanged, and there is a test asserting exactly
+that so the claim isn't just mine.
+
+**The test that matters** is the one that would have caught this: with refs off,
+no team may appear twice in the same (day, slot). Six new cases in all, covering
+no referees, court disjointness, divisions sharing courts still being blocked
+rather than interleaved, and a pool genuinely spreading across two courts.
+
+**His schedule was restored before any of this** — re-timed back to 5 waves, 8
+courts, 0 refs, Mens on 1/3/5/7 and Womens on 2/4/6/8, ending 12:45. Verified
+against the live data.
+
+**The other half of his message resolved itself.** "It keeps giving me 4 pools of
+3" was the stale `target_games_per_team = 2` flagged days earlier: a target of 2
+sizes pools at 3. With it corrected to 3 the draw is 3 pools of 4, and each
+pairing playing 2 sets at best-of-2 is exactly the 36 matches he wanted.
+
 ## 2026-09-17 — A ladder table where the LOWEST score wins (migration 0126)
 
 Mango's organizer: _"The league doesn't look like it has overall standing with

@@ -901,6 +901,22 @@ This was applied through the **re-optimize** planner, not regeneration, so the
 draw, who plays whom and games-per-team are untouched. If anyone needs to redo
 it: Re-optimize schedule reproduces it, including the court split.
 
+**⚠️ REGENERATING POOLS THROWS THIS AWAY.** It happened on 2026-09-17: the
+organizer re-drew his pools and the schedule came back with referees on all 36
+matches, 6 courts and 6 waves, finishing 13:30 again. Re-optimize restores it
+(and did), but the draw is rebuilt from scratch either way, so avoid
+regenerating this close to the event.
+
+The reason it reverted is worth knowing, because it is fixed but the shape of
+the trap is general: `divisions.courts` is now set here (**Mens `[1,3,5,7]`,
+Womens `[2,4,6,8]`**), and giving a division its own courts routes generation
+through `layoutMultiDaySchedule` instead of the single-day path.
+`teams_referee` was only wired into the single-day path in 0124, so the better
+the setup, the more certainly a regenerate undid it. `layoutMultiDaySchedule`
+now takes the same options — and preserves wave slots rather than compressing
+each court's games, because under wave packing an idle court in a wave means
+those teams are playing elsewhere in it. Compressing double-books people.
+
 The organizer wants **single elimination, everyone in, seeds 1–4 on byes** —
 the standard 12-team chart. Our generator already produces it exactly; it is
 locked by `tests/scheduler/bracket-12-team.test.ts`.

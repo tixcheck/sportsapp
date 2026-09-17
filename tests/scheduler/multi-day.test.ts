@@ -122,4 +122,117 @@ describe("layoutMultiDaySchedule", () => {
     expect(out).toHaveLength(6);
     expect(out.every((m) => m.day === 0 && m.court <= 2)).toBe(true);
   });
+
+  // Summer Forever: giving each division its own courts routes the event
+  // through this function, and it used to ignore the no-referee setting
+  // entirely — so a regenerate rebuilt a no-ref event WITH refs, one pool per
+  // court, dropping it from 8 nets to 6 and undoing the organizer's re-time.
+  describe("with nobody refereeing", () => {
+    const noRefs = { refs: false as const };
+
+    it("assigns no referee", () => {
+      const out = layoutMultiDaySchedule(
+        [division("A", 4, [1, 2]), division("B", 4, [3, 4])],
+        4,
+        [3],
+        noRefs,
+      );
+      expect(out.every((m) => m.refTeamId === null)).toBe(true);
+    });
+
+    // The one that matters. Wave packing leaves a court idle in a wave BECAUSE
+    // those teams are playing elsewhere in it, so the gaps carry meaning.
+    // Renumbering each court's games to 0,1,2… closed those gaps and slid a
+    // team's games on top of one another — a schedule that looked fine and
+    // double-booked people.
+    it("never puts a team in two places at once", () => {
+      const out = layoutMultiDaySchedule(
+        [division("A", 4, [1, 2]), division("B", 4, [3, 4])],
+        4,
+        [3],
+        noRefs,
+      );
+      const seen = new Map<string, string[]>();
+      for (const m of out) {
+        for (const id of [m.homeTeamId, m.awayTeamId]) {
+          const key = `${id}:${m.day}:${m.slot}`;
+          seen.set(key, [...(seen.get(key) ?? []), m.divisionId]);
+        }
+      }
+      for (const [key, hits] of seen) {
+        expect(hits.length, `${key} appears ${hits.length} times`).toBe(1);
+      }
+    });
+
+    it("still never double-books a court", () => {
+      const out = layoutMultiDaySchedule(
+        [division("A", 4, [1, 2]), division("B", 4, [3, 4])],
+        4,
+        [3],
+        noRefs,
+      );
+      expect(collisions(out)).toEqual([]);
+    });
+
+    it("keeps each division on its own courts", () => {
+      const out = layoutMultiDaySchedule(
+        [division("A", 4, [1, 3]), division("B", 4, [2, 4])],
+        4,
+        [3],
+        noRefs,
+      );
+      const courtsOf = (id: string) =>
+        [
+          ...new Set(
+            out.filter((m) => m.divisionId === id).map((m) => m.court),
+          ),
+        ].sort();
+      expect(courtsOf("A")).toEqual([1, 3]);
+      expect(courtsOf("B")).toEqual([2, 4]);
+    });
+
+    // Divisions sharing courts must still be sequenced, not interleaved —
+    // preserving waves must not break the blocking rule.
+    it("still blocks divisions that share a court pool", () => {
+      const out = layoutMultiDaySchedule(
+        [division("A", 4, null), division("B", 4, null)],
+        2,
+        [3],
+        noRefs,
+      );
+      expect(collisions(out)).toEqual([]);
+      const aSlots = out.filter((m) => m.divisionId === "A").map((m) => m.slot);
+      const bSlots = out.filter((m) => m.divisionId === "B").map((m) => m.slot);
+      expect(Math.max(...aSlots)).toBeLessThan(Math.min(...bSlots));
+    });
+
+    it("packs a pool onto more than one court, which is the whole point", () => {
+      // A 4-team pool has two team-disjoint games, so with 2 courts it should
+      // run them side by side rather than one after the other.
+      const out = layoutMultiDaySchedule(
+        [division("A", 4, [1, 2])],
+        2,
+        [3],
+        noRefs,
+      );
+      const waves = new Set(out.map((m) => m.slot));
+      expect(out).toHaveLength(6);
+      expect(waves.size).toBe(3); // 6 games, 2 at a time
+    });
+
+    it("leaves the reffed layout exactly as it was", () => {
+      const withRefs = layoutMultiDaySchedule(
+        [division("A", 4, [1, 2]), division("B", 4, [3, 4])],
+        4,
+        [3],
+      );
+      const explicit = layoutMultiDaySchedule(
+        [division("A", 4, [1, 2]), division("B", 4, [3, 4])],
+        4,
+        [3],
+        { refs: true },
+      );
+      expect(explicit).toEqual(withRefs);
+    });
+  });
 });

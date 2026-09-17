@@ -15,7 +15,11 @@
  * plain layoutPoolSchedule.
  */
 
-import { layoutPoolSchedule, type LayoutPool } from "./pools";
+import {
+  layoutPoolSchedule,
+  type LayoutPool,
+  type PoolLayoutOptions,
+} from "./pools";
 import { assignMatchDays } from "./day-split";
 import type { TeamId } from "./round-robin";
 
@@ -46,6 +50,13 @@ export function layoutMultiDaySchedule(
   divisions: DivisionLayoutInput[],
   totalCourts: number,
   perDayTargets: number[],
+  /**
+   * Passed straight through to `layoutPoolSchedule`. `refs: false` matters here
+   * as much as on the single-day path: giving each division its own courts is
+   * what routes a competition through this function, so a no-referee event that
+   * did so was silently rebuilt WITH refs, one pool per court.
+   */
+  options: PoolLayoutOptions = {},
 ): MultiDayMatch[] {
   const courtCount = Math.max(1, totalCourts);
   const allCourts = Array.from({ length: courtCount }, (_, i) => i + 1);
@@ -86,7 +97,7 @@ export function layoutMultiDaySchedule(
     const dayOffset = new Map<number, number>();
 
     for (const div of group) {
-      const local = layoutPoolSchedule(div.pools, courtSet.length);
+      const local = layoutPoolSchedule(div.pools, courtSet.length, options);
 
       // Assign a day to each match in play order (slot, then court).
       const ordered = [...local].sort(
@@ -120,22 +131,30 @@ export function layoutMultiDaySchedule(
           list.push(m);
           byCourt.set(m.court, list);
         }
+        // Compressing each court's games to 0,1,2… is right when a pool OWNS a
+        // court: the gaps are nothing but wasted time. It is wrong when games
+        // were packed into waves, because there the gaps are load-bearing — a
+        // court is idle in a wave precisely because those teams are playing
+        // elsewhere in it. Renumbering would slide a team's games on top of
+        // each other and double-book people, so the wave is kept as laid out.
+        const keepWaves = options.refs === false;
         let blockLen = 0;
         for (const [localCourt, ms] of byCourt) {
           ms.sort((a, b) => a.slot - b.slot);
           ms.forEach((m, pos) => {
+            const local = keepWaves ? m.slot : pos;
             out.push({
               divisionId: div.divisionId,
               poolIndex: m.poolIndex,
               day,
               court: courtSet[localCourt - 1],
-              slot: offset + pos,
+              slot: offset + local,
               round: m.round,
               homeTeamId: m.homeTeamId,
               awayTeamId: m.awayTeamId,
               refTeamId: m.refTeamId,
             });
-            blockLen = Math.max(blockLen, pos + 1);
+            blockLen = Math.max(blockLen, local + 1);
           });
         }
         dayOffset.set(day, offset + blockLen);

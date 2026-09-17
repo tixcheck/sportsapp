@@ -278,7 +278,18 @@ export async function generatePoolsAction(
 
   let matchRows: MatchInsert[];
   if (useMultiPath) {
-    const slots = layoutMultiDaySchedule(divisionInputs, courts, perDayTargets);
+    // The no-referee layout has to reach this path too. Giving each division
+    // its own courts is what routes a competition here, and Summer Forever did
+    // exactly that — so a regenerate silently rebuilt it with refs and one pool
+    // per court, undoing the re-time and dropping it back to 6 nets from 8.
+    const slots = layoutMultiDaySchedule(
+      divisionInputs,
+      courts,
+      perDayTargets,
+      {
+        refs: comp.teams_referee ?? true,
+      },
+    );
     // No two matches share a (day, court, slot).
     const seen = new Set<string>();
     for (const s of slots) {
