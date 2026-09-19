@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 
 import type { MatchFormat } from "@/lib/db/schema";
 import type { StandingsGroup, StandingsRowView } from "@/lib/standings/compute";
+import { overallRows } from "@/lib/standings/overall";
 import type { Sport } from "@/lib/formats";
 import { standingsLegendFlags } from "@/lib/formats";
 import { sportConfig } from "@/lib/sports";
@@ -382,6 +383,8 @@ export function StandingsGroups({
   );
   // Fall back rather than hold a stale name if the groups change underneath.
   const active = picked && divisions.includes(picked) ? picked : divisions[0];
+  // Pool tables, or the one cross-pool table the bracket is seeded from.
+  const [view, setView] = useState<"pool" | "overall">("pool");
 
   if (groups.length === 0) {
     return (
@@ -400,6 +403,12 @@ export function StandingsGroups({
   const shown = tabbed
     ? groups.filter((g) => g.divisionName === active)
     : groups;
+  // An overall ranking is a POOL idea: it interleaves parallel pools that all
+  // played the same stage. A tiered league's groups are tiers, where the same
+  // maths would rank tier 6's winner alongside tier 1's — so this is offered
+  // only when every visible group is a real pool.
+  const canOverall = shown.length >= 2 && shown.every((g) => g.poolId);
+  const overall = canOverall && view === "overall" ? overallRows(shown) : null;
   return (
     <div className="space-y-6">
       {tabbed && (
@@ -415,28 +424,62 @@ export function StandingsGroups({
           ))}
         </div>
       )}
-      {shown.map((g) => (
-        <section
-          key={g.poolId ?? g.divisionId ?? g.poolName ?? "all"}
-          className="space-y-2"
-        >
+      {canOverall && (
+        <div className="bg-muted flex max-w-full flex-wrap rounded-lg p-0.5">
+          <ToggleButton
+            active={view === "pool"}
+            onClick={() => setView("pool")}
+          >
+            By pool
+          </ToggleButton>
+          <ToggleButton
+            active={view === "overall"}
+            onClick={() => setView("overall")}
+          >
+            Overall
+          </ToggleButton>
+        </div>
+      )}
+      {overall ? (
+        <section className="space-y-2">
           <h4 className="font-display font-semibold">
-            {g.poolName ?? "Standings"}
-            {showDivision && !tabbed && g.divisionName && (
-              <span className="text-muted-foreground ml-2 text-sm font-normal">
-                {g.divisionName}
-              </span>
-            )}
+            Overall
+            <span className="text-muted-foreground ml-2 text-sm font-normal">
+              seed order across pools
+            </span>
           </h4>
           <StandingsTable
-            rows={g.rows}
+            rows={overall}
             myTeamIds={myTeamIds}
             format={format}
             sport={sport}
             differential={differential}
           />
         </section>
-      ))}
+      ) : (
+        shown.map((g) => (
+          <section
+            key={g.poolId ?? g.divisionId ?? g.poolName ?? "all"}
+            className="space-y-2"
+          >
+            <h4 className="font-display font-semibold">
+              {g.poolName ?? "Standings"}
+              {showDivision && !tabbed && g.divisionName && (
+                <span className="text-muted-foreground ml-2 text-sm font-normal">
+                  {g.divisionName}
+                </span>
+              )}
+            </h4>
+            <StandingsTable
+              rows={g.rows}
+              myTeamIds={myTeamIds}
+              format={format}
+              sport={sport}
+              differential={differential}
+            />
+          </section>
+        ))
+      )}
       <StandingsLegend
         singleSet={singleSet}
         format={format}

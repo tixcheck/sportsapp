@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-19 — The overall ranking existed all along, unshown
+
+> _"Why isnt there an overall ranking in this one?"_
+
+It was a fair question with a surprising answer: **no tournament has ever had
+one.** "Overall standings" is a league table — `WeightedStandingsTable`, rendered
+on exactly two pages — while the tournament Standings tab renders per-pool
+groups and stops there. Nothing was misconfigured on Summer Forever.
+
+The ranking itself was never missing. `crossPoolSeedOrder` ranks every team
+across its pools, normalising onto set/point **ratios** so a pool that ran to 15
+and one that ran to 25 compare fairly. It ran when the bracket was seeded,
+produced the order, and threw it away. Twelve teams were seeded 1–12 and the
+only surviving trace was which four got byes.
+
+So this surfaces the same function's output as a table: a **By pool / Overall**
+toggle under the division tabs, and `lib/standings/overall.ts` to map groups
+through `crossPoolSeedOrder`. No new query and no second data path —
+`StandingsRowView extends StandingRow`, so the rows already on the page carry
+the ratio and tiebreaker fields the ranking needs.
+
+**The bug worth the test.** `position` is a team's rank *within its pool*, and
+the table renders that field for both the rank column and the leader's claret
+highlight. Re-ordering the rows without renumbering produced a table reading
+1, 1, 2, 2 with two teams styled as the leader. `overallRows` renumbers to
+1..N, and a named test pins it, along with one asserting the caller's rows are
+never mutated — they belong to the per-pool tables rendering right beside it.
+
+**Offered only where it means something.** An overall ranking interleaves
+*parallel pools* that played the same stage. A tiered league's groups are tiers,
+where identical maths would rank tier 6's winner alongside tier 1's — confidently
+wrong. The gate is `every(g => g.poolId)`: non-null for real pools, null for
+league tiers, so leagues never see the toggle.
+
+**A diagnostic note for next time.** The screenshot that prompted this showed
+"Helix x Brownie" in the org chip, but the teams in it belonged to SUMMER
+FOREVER. The chip is the org *switcher*, not the competition's own org, and it
+sent me inspecting the wrong event first. Team names identified the real one.
+
+**Tests:** 1558 passing across 122 files (6 new); `tsc --noEmit` and eslint
+clean. No migration, no schema change.
+
 ## 2026-09-17 — Standings split by division, opening on your own
 
 > _"Add multi tabs here that shows divisions. So people don't have to scroll.
