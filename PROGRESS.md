@@ -5,6 +5,46 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-21 — Whose money was it? The delete rule now asks
+
+BVL again, and the part Withdraw didn't cover:
+
+> _"I have 3 players to be removed from the free agents AND have their payment
+> records removed, as it was a complete withdrawal, not just off a team."_
+
+`canDeleteSignup` refused because a payment was `paid`. Its reason — the delete
+would take "the ledger entry, the platform fee owed on it and any refund" — is
+sound for a card charge and **empty** for these: every BVL individual payment is
+PayPal with `application_fee_cents = $0`, `platform_fee_settled_at` null, and no
+Stripe refund object. Nothing is owed to us. What the guard was protecting was
+the organizer's own note to themselves, about money they had already refunded
+from their own PayPal, where the real record lives.
+
+So the rule now asks whose money it was rather than whether money moved. Card
+refuses, always. Off-platform with zero fee and nothing settled is allowed. A
+null `method` refuses — provenance unknown, and a wrong guess destroys something
+unrecoverable. A non-zero fee or a settled fee refuses whatever the method,
+because that row is part of our accounting however the money travelled.
+
+Owner's call, and the reason this is coherent rather than merely convenient:
+_"We are not accountable for refunds outside of the platform."_ If we are not
+the book of record for that money, we should not hold the organizer's record of
+it hostage.
+
+**What I rejected, and why it wasn't free.** The obvious safety net — snapshot
+the sign-up before deleting — looked like a cheap reuse of `restore_points`
+(text `scope`, jsonb `payload`, nullable `match_id`: no migration). It isn't.
+`restoreFromPointAction` casts the payload to `SnapshotPayload`, runs
+`resolveTeams`, and rebuilds fixtures; `getRestorePoints` has no scope filter;
+and `RestorePointsCard` renders a Restore button on every row it is given. A
+signup snapshot would sit there reading "0 fixtures · 0 results" beside a button
+that runs the schedule path against a payload with no matches. Recorded in
+`HANDOFF.md`: a delete leaves no trace at all, and that was accepted knowingly.
+
+**Tests:** 1575 passing across 123 files; the off-platform branch has its own
+cases, including the one BVL row that matters — a double-payer whose two PayPal
+charges are both off-platform. `tsc --noEmit` and eslint clean. No migration.
+
 ## 2026-09-21 — Individual payments get a panel of their own
 
 The other half of BVL's question. Withdraw fixed the list; this fixes _"I can

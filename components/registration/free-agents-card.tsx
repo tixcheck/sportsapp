@@ -207,7 +207,8 @@ export function FreeAgentsCard({
           {unpaid.length > 0 && ` · ${unpaid.length} awaiting payment`}
           {withdrawn.length > 0 && ` · ${withdrawn.length} withdrawn`}. Withdraw
           takes someone out of the pool but keeps their sign-up and payment
-          record; Remove deletes it outright, and refuses once they have paid.
+          record; Remove deletes both, and refuses for anything paid through the
+          platform.
         </CardDescription>
       </CardHeader>
 

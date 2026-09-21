@@ -510,9 +510,10 @@ export async function updateFreeAgentDetailsAction(
  * completely if their registration was cancelled." Withdrawing only greys the
  * row, and it stays in the pool the organizer reads every week.
  *
- * Refused once money has moved — see `canDeleteSignup`. The payment rows
- * CASCADE off this one, so deleting a paid sign-up would take the ledger entry,
- * the fee owed on it and any refund with it.
+ * Refused once money the PLATFORM handled has moved — see `canDeleteSignup`.
+ * The payment rows CASCADE off this one, so deleting a card-paid sign-up would
+ * take the ledger entry, the fee owed on it and Stripe's refund with it. Money
+ * taken off-platform is the organizer's own record and goes when they say so.
  *
  * The roster row goes too, the same as withdrawing: leaving it behind would
  * keep a deleted person on a team sheet.
@@ -545,11 +546,28 @@ export async function removeFreeAgentAction(input: {
     return { error: "Only an organizer can remove a sign-up." };
   }
 
+  // The fee columns decide it, not just the status: an off-platform payment we
+  // were owed nothing on is the organizer's own record to discard, while a card
+  // charge is Stripe's. See `canDeleteSignup`.
   const { data: payments } = await supabase
     .from("registration_payments")
-    .select("status")
+    .select("status, method, application_fee_cents, platform_fee_settled_at")
     .eq("free_agent_id", freeAgentId);
-  const check = canDeleteSignup((payments ?? []) as { status: string }[]);
+  const check = canDeleteSignup(
+    (
+      (payments ?? []) as {
+        status: string;
+        method: string | null;
+        application_fee_cents: number;
+        platform_fee_settled_at: string | null;
+      }[]
+    ).map((p) => ({
+      status: p.status,
+      method: p.method,
+      applicationFeeCents: p.application_fee_cents,
+      platformFeeSettledAt: p.platform_fee_settled_at,
+    })),
+  );
   if (!check.canDelete) return { error: check.reason };
 
   if (fa.user_id && fa.placed_team_id) {

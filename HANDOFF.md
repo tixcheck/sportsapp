@@ -801,10 +801,26 @@ reading them out of `.env.local`.
 ## Individual registrants
 
 - **Remove deletes the sign-up** (`removeFreeAgentAction`), it does not withdraw
-  it. Refused while any payment is `paid` or `refunded`, because
-  `registration_payments.free_agent_id` CASCADES and the delete would take the
-  ledger row, its platform fee and any refund with it. **Withdraw** is the way
-  out for that case.
+  it. `registration_payments.free_agent_id` CASCADES, so the payment rows go
+  with it. Whether that is allowed depends on **whose money it was** (rule
+  changed 2026-09-21):
+  - **Card** — refused, always. Stripe holds the truth, a real application fee
+    was taken, and the refund is an object we created. **Withdraw** instead.
+  - **PayPal / e-transfer with zero fee and nothing settled** — allowed. We
+    never touched it and are owed nothing on it; the real record is in the
+    organizer's own account. Owner's call: _"We are not accountable for refunds
+    outside of the platform."_
+  - **`method` null** (rows predating the column) — refused. Provenance unknown,
+    and a wrong guess destroys a record that cannot be recovered.
+  - A non-zero `application_fee_cents` or a set `platform_fee_settled_at`
+    refuses whatever the method, because that row is part of our accounting.
+- **A delete leaves NO trace.** No audit row (`match_audit` is matches only), no
+  restore point, and nothing snapshots the sign-up first. Off-platform backups
+  are still parked, so the only net is Supabase's 7-day whole-database restore.
+  Considered and accepted when the rule changed; reusing `restore_points` was
+  rejected because `restoreFromPointAction` is schedule-shaped and
+  `getRestorePoints` has no scope filter — a signup-scoped row would appear in
+  the Restore points card offering a Restore that runs the fixture path.
 - Roslyn Ng (BVL Thursday test entry) was deleted on 2026-09-16 under that rule;
   her cancelled $340 request cascaded away with her.
 - **The Withdraw button only exists from 2026-09-21.** Before that this section
