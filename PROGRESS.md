@@ -201,6 +201,30 @@ organizer surface at all.
 **Tests:** 1559 passing across 122 files (1 new); `tsc --noEmit` and eslint
 clean. No migration.
 
+**Correction, same day — the button broke the layout it sits in.** The reasoning
+above ("in the slot Restore already occupies, so the row is width-neutral") was
+wrong, and wrong in a way worth naming: Restore only ever rendered on
+**withdrawn** rows, which are rare and greyed, so its ~85px never competed with
+anything. Giving *every* row a text button put ~200px of fixed content —
+checkbox, Edit, Withdraw, X and three gaps — into a position column that is
+~260px wide at `xl:grid-cols-4`. Every child but the name is `shrink-0`, so the
+name, carrying `min-w-0` and `truncate`, was the only thing that could give. It
+collapsed to a single character, which is what the organizer saw.
+
+Fixed by letting the controls move rather than the name: `flex-wrap` on the row,
+`min-w-[8rem]` on the name so it claims a real width instead of nothing, and the
+three buttons grouped in one `ml-auto` wrapper so they wrap to a second line
+together and stay right-aligned instead of breaking apart one at a time. At
+four-column widths that is now deterministically two lines rather than a lucky
+fit.
+
+The label stays a **word**. An icon would have saved the 85px and re-created the
+exact problem the button was added to solve — nobody could find this control
+when it did not exist, and an unlabelled one is barely better.
+
+A layout claim reasoned about but never looked at is worth no more than a guess;
+this one cost a round trip through the organizer.
+
 ## 2026-09-19 — The overall ranking existed all along, unshown
 
 > _"Why isnt there an overall ranking in this one?"_

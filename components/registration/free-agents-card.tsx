@@ -234,7 +234,11 @@ export function FreeAgentsCard({
                     <li
                       key={a.id}
                       className={cn(
-                        "flex items-start gap-2 py-2",
+                        // Wraps: the controls below carry ~200px of fixed
+                        // width, and a position column at xl is ~260px. Without
+                        // this the name is the only child that can shrink, and
+                        // it collapses to a single character.
+                        "flex flex-wrap items-start gap-2 py-2",
                         a.status === "withdrawn" && "opacity-60",
                       )}
                     >
@@ -255,7 +259,9 @@ export function FreeAgentsCard({
                         {on && <Check className="size-3.5" />}
                       </button>
 
-                      <div className="min-w-0 flex-1">
+                      {/* Claims a real width rather than `min-w-0`, which let
+                          it be squeezed to nothing. The buttons wrap instead. */}
+                      <div className="min-w-[8rem] flex-1">
                         <p className="truncate text-sm font-medium">{a.name}</p>
                         {/* Only the SECOND position — the first is the column. */}
                         {a.positions.length > 1 && (
@@ -275,73 +281,81 @@ export function FreeAgentsCard({
                         )}
                       </div>
 
-                      {/* Correcting a spelling or a phone number shouldn't mean
-                          leaving the pool the organizer is placing from. */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground shrink-0 px-2"
-                        disabled={pending}
-                        onClick={() => setEditing(a)}
-                        aria-label={`Edit ${a.name}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
+                      {/* One group, so the three wrap together onto a second
+                          line instead of breaking apart raggedly, and stay
+                          right-aligned when they do. */}
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                        {/* Correcting a spelling or a phone number shouldn't
+                            mean leaving the pool the organizer is placing
+                            from. */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground shrink-0 px-2"
+                          disabled={pending}
+                          onClick={() => setEditing(a)}
+                          aria-label={`Edit ${a.name}`}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
 
-                      {/* One slot, two mutually exclusive controls — so a
-                          narrow position column never grows a fourth button.
-                          Withdrawing is reversible (Restore is right here), so
-                          it takes no confirm step, unlike the X beside it. It
-                          is also the ONLY way out for a sign-up that has been
-                          paid: the delete refuses, because the payment rows
-                          cascade off this one. */}
-                      {a.status === "withdrawn" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          disabled={pending}
-                          onClick={() => setStatus(a.id, "available")}
-                        >
-                          Restore
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          disabled={pending}
-                          onClick={() => setStatus(a.id, "withdrawn")}
-                          aria-label={`Withdraw ${a.name}`}
-                        >
-                          Withdraw
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className={cn(
-                          "shrink-0 px-2",
-                          confirming === a.id
-                            ? "text-claret"
-                            : "text-muted-foreground",
-                        )}
-                        disabled={pending}
-                        onClick={() => remove(a.id, a.name)}
-                        aria-label={
-                          confirming === a.id
-                            ? `Confirm removing ${a.name}`
-                            : `Remove ${a.name}`
-                        }
-                      >
-                        {confirming === a.id ? (
-                          <span className="text-xs font-medium">
-                            Remove for good?
-                          </span>
+                        {/* Withdraw and Restore are mutually exclusive, so this
+                            is one slot. Withdrawing is reversible (Restore is
+                            right here), so it takes no confirm step, unlike the
+                            X beside it. It is also the ONLY way out for a
+                            sign-up paid through the platform: that delete
+                            refuses, because the payment rows cascade off this
+                            one. The label stays a word rather than an icon —
+                            nobody found this control when it did not exist, and
+                            an unlabelled one would repeat that. */}
+                        {a.status === "withdrawn" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            disabled={pending}
+                            onClick={() => setStatus(a.id, "available")}
+                          >
+                            Restore
+                          </Button>
                         ) : (
-                          <X className="size-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            disabled={pending}
+                            onClick={() => setStatus(a.id, "withdrawn")}
+                            aria-label={`Withdraw ${a.name}`}
+                          >
+                            Withdraw
+                          </Button>
                         )}
-                      </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className={cn(
+                            "shrink-0 px-2",
+                            confirming === a.id
+                              ? "text-claret"
+                              : "text-muted-foreground",
+                          )}
+                          disabled={pending}
+                          onClick={() => remove(a.id, a.name)}
+                          aria-label={
+                            confirming === a.id
+                              ? `Confirm removing ${a.name}`
+                              : `Remove ${a.name}`
+                          }
+                        >
+                          {confirming === a.id ? (
+                            <span className="text-xs font-medium">
+                              Remove for good?
+                            </span>
+                          ) : (
+                            <X className="size-4" />
+                          )}
+                        </Button>
+                      </div>
                     </li>
                   );
                 })}
