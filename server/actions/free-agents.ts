@@ -580,10 +580,12 @@ export async function removeFreeAgentAction(input: {
       .neq("role", "captain");
   }
 
-  const { error } = await supabase
-    .from("free_agents")
-    .delete()
-    .eq("id", freeAgentId);
+  // Snapshot and delete in one call (migration 0127). Doing it from here would
+  // be two statements: a record of a removal that did not happen, or — worse,
+  // because nobody would ever notice — a deletion with no record.
+  const { error } = await supabase.rpc("remove_free_agent", {
+    _free_agent_id: freeAgentId,
+  });
   if (error) {
     console.error("[free-agents] delete failed", error.message);
     return { error: "That couldn't be removed. Please try again." };
@@ -591,4 +593,52 @@ export async function removeFreeAgentAction(input: {
 
   await revalidateForCompetition(supabase, fa.competition_id);
   return { deleted: true };
+}
+
+const noteSchema = z.object({
+  removedSignupId: idSchema,
+  /** Empty clears it — an organizer should be able to take a note back. */
+  note: z.string().trim().max(2000, "That note is too long.").default(""),
+});
+
+/**
+ * The organizer's note on a removed sign-up.
+ *
+ * Editable rather than written once: the reason someone left, and whether they
+ * were refunded, is usually known after the removal rather than during it.
+ *
+ * Authorization is the table's UPDATE policy (`is_org_admin`), which is why
+ * there is no admin check here — the update simply matches no row for anyone
+ * else. The snapshot columns are never touched; only the note.
+ */
+export async function updateRemovedSignupNoteAction(
+  input: z.input<typeof noteSchema>,
+): Promise<ActionError | { ok: true }> {
+  const parsed = noteSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the note." };
+  }
+  const { removedSignupId, note } = parsed.data;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("removed_signups")
+    .update({
+      note: note === "" ? null : note,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", removedSignupId)
+    .select("competition_id")
+    .maybeSingle();
+  if (error) {
+    console.error("[free-agents] note update failed", error.message);
+    return { error: "That couldn't be saved. Please try again." };
+  }
+  if (!data) return { error: "Only an organizer can edit that note." };
+
+  await revalidateForCompetition(
+    supabase,
+    (data as { competition_id: string }).competition_id,
+  );
+  return { ok: true };
 }

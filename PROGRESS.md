@@ -5,6 +5,57 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-21 — A removed list, so a deletion stops being a disappearance
+
+Earlier today the delete rule was loosened to let organizers remove sign-ups
+paid off-platform, and `HANDOFF.md` recorded the cost honestly: a delete left
+**no trace at all**. No audit row, no snapshot, and `registration_payments`
+cascading off `free_agents` took the fee with the person. The owner's answer,
+which is the better one: _"Put these removed players in a removed list and let
+org add a note."_
+
+Migration **0127** adds `removed_signups` — the sign-up, the summary of what
+they had actually paid, a jsonb snapshot of every payment row as it was, and an
+editable note. Applied and verified against production: 15 columns, RLS on, all
+four policies, `remove_free_agent()` present, 0 rows.
+
+**Why a new table rather than `restore_points`.** That was the obvious reuse and
+it is a trap. `restoreFromPointAction` casts the payload to a `SnapshotPayload`,
+resolves teams and rebuilds fixtures; `getRestorePoints` has no scope filter;
+and `RestorePointsCard` renders a Restore button on every row it is handed. A
+signup snapshot parked there would sit in that card reading "0 fixtures · 0
+results" beside a button that runs the schedule path against a payload with no
+matches.
+
+**Why an RPC.** The Supabase client issues each statement separately, so doing
+this from the action would be an insert and then a delete: either a record of a
+removal that did not happen, or — the one nobody would ever notice — a deletion
+with no record. `remove_free_agent()` snapshots and deletes in one call.
+
+**What is deliberately NOT in that function.** Any rule about *which* sign-ups
+may be deleted. It carries only the admin check, exactly like
+`delete_competition`. The card-versus-off-platform rule stays in
+`canDeleteSignup`, where it is unit-tested — a second copy in plpgsql would be
+free to drift from the first, which is precisely how 0123 dropped three
+behaviours.
+
+**Two smaller calls.** The table cascades with the competition, the opposite of
+`restore_points`: that exists to outlive a deletion, this is a note in the
+organizer's books, and keeping a withdrawn person's name and email after their
+league is gone is exposure with no purpose. And it has an UPDATE policy, which
+`restore_points` deliberately lacks — the note is written and rewritten, because
+the reason someone left usually lands after the removal rather than during it.
+
+The note is added from the Removed list afterwards, not typed at removal time,
+so the two-tap "Remove for good?" confirm is unchanged.
+
+**Tests:** 1575 passing across 123 files; `tsc --noEmit` and eslint clean.
+
+**Not verified in situ:** `remove_free_agent()` gates on `is_competition_admin`,
+which reads `auth.uid()`, so it cannot be smoke-tested from a script — as the
+Postgres role that is null and the function refuses. Its existence and shape are
+verified; the first real removal is the first real test.
+
 ## 2026-09-21 — Whose money was it? The delete rule now asks
 
 BVL again, and the part Withdraw didn't cover:

@@ -5,7 +5,9 @@ import { CalendarDays, Clock, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getPoolsView, getTournamentDetail } from "@/lib/queries/tournaments";
 import { getFreeAgents } from "@/lib/queries/free-agents";
+import { getRemovedSignups } from "@/lib/queries/removed-signups";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
+import { RemovedSignupsCard } from "@/components/registration/removed-signups-card";
 import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
@@ -143,6 +145,9 @@ export default async function TournamentPage({
     feeCents: feeSettings.individualFeeCents,
     agents: freeAgents,
   });
+  // Removing a sign-up cascades its payment rows, so this table is the only
+  // surviving trace of who was here and what they paid (migration 0127).
+  const removedSignups = await getRemovedSignups(t.id);
   const hasPools = poolsView?.hasPools ?? false;
   const poolMatches = poolsView?.schedule ?? [];
   const poolPlayComplete =
@@ -692,6 +697,14 @@ export default async function TournamentPage({
               agents={freeAgents}
               teams={t.teams.map((tm) => ({ id: tm.id, name: tm.name }))}
               divisions={t.divisions.map((d) => ({ id: d.id, name: d.name }))}
+            />
+          )}
+          {/* Only once something has been removed — an empty box here would be
+              clutter for every organizer who has never used it. */}
+          {removedSignups.length > 0 && (
+            <RemovedSignupsCard
+              entries={removedSignups}
+              timezone={t.timezone}
             />
           )}
         </div>

@@ -1890,6 +1890,65 @@ export const freeAgents = pgTable(
   ],
 );
 
+/**
+ * Individual sign-ups an organizer deleted, with a note (migration 0127).
+ *
+ * Deleting a sign-up cascades its `registration_payments`, so before this the
+ * person, their fee and the removal itself vanished together — no audit row, no
+ * restore point, no trace. This keeps the record the organizer's books need
+ * while still letting the pool and the payments panel be cleared.
+ *
+ * Written by the `remove_free_agent()` RPC, which snapshots and deletes in one
+ * call because the client cannot do the two atomically. `free_agent_id` is
+ * deliberately NOT a foreign key — the row it names is deleted as this one is
+ * written.
+ */
+export const removedSignups = pgTable(
+  "removed_signups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /**
+     * Cascades with the competition, the opposite of `restore_points`. That
+     * table exists to outlive a deletion; this is a note in the organizer's own
+     * books, and holding a withdrawn person's name and email after their league
+     * is gone is exposure with no purpose.
+     */
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    /** The sign-up this was. Reference only — that row no longer exists. */
+    freeAgentId: uuid("free_agent_id").notNull(),
+    name: text("name").notNull(),
+    email: text("email"),
+    /** Text, not the enum: a historical record shouldn't break if it changes. */
+    statusAtRemoval: text("status_at_removal").notNull(),
+    /** Organizer's net after refunds, so the list reads without parsing JSON. */
+    paidCents: integer("paid_cents").notNull().default(0),
+    paymentCount: integer("payment_count").notNull().default(0),
+    paymentMethods: text("payment_methods").array().notNull().default([]),
+    /** The sign-up and every payment row as they were. The summary is derived. */
+    payload: jsonb("payload").notNull(),
+    /** The organizer's own words — editable, since the reason often lands later. */
+    note: text("note"),
+    removedByUserId: uuid("removed_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("removed_signups_competition_idx").on(t.competitionId, t.createdAt),
+    index("removed_signups_org_idx").on(t.orgId, t.createdAt),
+  ],
+);
+
 // ---------------------------------------------------------------------------
 // Liability waivers (migration 0100). Owned by the organization, opted into per
 // competition. Approved text is frozen by a trigger and acceptances are

@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 
 import { getFreeAgents } from "@/lib/queries/free-agents";
+import { getRemovedSignups } from "@/lib/queries/removed-signups";
 import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
 import { LadderNightStandings } from "@/components/league/ladder-night-standings";
 import { getPlayerStats, getStatsReadiness } from "@/lib/queries/player-stats";
 import { statsEmptyReason } from "@/lib/stats/empty-reason";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
+import { RemovedSignupsCard } from "@/components/registration/removed-signups-card";
 import { DraftBoard } from "@/components/registration/draft-board";
 import { NeverTogetherCard } from "@/components/registration/never-together-card";
 import { PlayerPartnerGridCard } from "@/components/stats/player-partner-grid";
@@ -232,6 +234,9 @@ export default async function LeaguePage({
     feeCents: feeSettings.individualFeeCents,
     agents: freeAgents,
   });
+  // Removing a sign-up cascades its payment rows, so this table is the only
+  // surviving trace of who was here and what they paid (migration 0127).
+  const removedSignups = await getRemovedSignups(league.id);
 
   // Only offered once the org has venues on file — a single-site league has
   // nothing to assign.
@@ -573,6 +578,14 @@ export default async function LeaguePage({
           agents={freeAgents}
           teams={league.teams.map((t) => ({ id: t.id, name: t.name }))}
           divisions={league.tiers.map((t) => ({ id: t.id, name: t.name }))}
+        />
+      )}
+      {/* Only once something has been removed — an empty box here would be
+          clutter for every organizer who has never used it. */}
+      {removedSignups.length > 0 && (
+        <RemovedSignupsCard
+          entries={removedSignups}
+          timezone={league.timezone}
         />
       )}
     </div>
