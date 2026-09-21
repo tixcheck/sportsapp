@@ -159,6 +159,37 @@ export function embedTheme({
  * Only ever built from values that survived `parseHexColor`, so nothing here
  * can carry anything but `#rrggbb`.
  */
+/**
+ * The theme as a `:root` rule.
+ *
+ * It has to be `:root`, and that is the whole point — setting these on a
+ * wrapper element looks right and does nothing.
+ *
+ * `globals.css` declares the palette twice over: raw tokens (`--paper`), and
+ * aliases derived from them (`--background: var(--paper)`, `--border:
+ * var(--rule)`, `--card`, `--foreground`, plus the legacy `--surface`/`--text`
+ * family). Custom properties are substituted at computed-value time on the
+ * element where the declaration lives, so every alias was already resolved
+ * against :root's beige before any descendant is reached. Overriding `--paper`
+ * further down changes `bg-paper` and nothing else: `bg-background` keeps
+ * painting the default, and so does `body`, which carries `bg-background` from
+ * `@layer base`.
+ *
+ * Declared at :root instead, the cascade picks our `--paper` and the aliases
+ * substitute from it — so the body, the table rules and every shadcn semantic
+ * follow without this function having to enumerate twenty of them.
+ *
+ * Safe to render as CSS text: every value came through `parseHexColor`, so it
+ * is `#rrggbb` and nothing else — no angle brackets, no braces, no semicolons
+ * beyond the ones written here.
+ */
+export function embedThemeCss(theme: EmbedTheme): string {
+  const body = Object.entries(embedThemeVars(theme))
+    .map(([name, value]) => `${name}:${value}`)
+    .join(";");
+  return `:root{${body}}`;
+}
+
 export function embedThemeVars(theme: EmbedTheme): Record<string, string> {
   return {
     "--paper": theme.background,

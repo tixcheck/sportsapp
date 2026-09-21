@@ -5,6 +5,52 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-21 — `bg=ffffff` was always supported; it just couldn't reach the page
+
+Mango's developer, embedding the league on mangosportsco.ca:
+
+> _"Even though bg=ffffff is passed in the query parameters, the embed continues
+> to render with the default beige/cream background… Because the iframe is
+> cross-origin, we cannot override the internal CSS from our parent page."_
+
+Right about the symptom, wrong about both causes. The parameter exists and
+`ffffff` parses fine — `parseHexColor` strips an optional `#` and matches six
+hex digits. And the iframe has nothing to do with it; it was ours.
+
+**The bug is one line of CSS semantics.** `globals.css` declares the palette
+twice: raw tokens (`--paper: #f1e9d9`) and aliases derived from them
+(`--background: var(--paper)`, `--border: var(--rule)`, `--card`,
+`--foreground`, plus the legacy `--surface`/`--text` family). Custom properties
+substitute **at computed-value time on the element where the declaration
+lives** — so every alias was resolved against :root's beige before a descendant
+was ever reached. `EmbedTheme` set the raw tokens in a `style` attribute on a
+wrapper div, which moved `bg-paper` and nothing else. The wrapper's own
+`bg-background` stayed beige, and so did `body`, which carries `bg-background`
+from `@layer base` — filling everything the content didn't inside a fixed
+700px-tall iframe. That is precisely what he was looking at.
+
+Confirmed against the deployed page rather than reasoned about: the live
+wrapper serves `class="bg-background text-foreground p-3"` alongside
+`style="--paper:#ffffff;…"`. Both true at once, which is the whole bug.
+
+**The fix declares the same variables on `:root`** (`embedThemeCss`), where the
+cascade picks our `--paper` and the aliases then substitute from it. So the
+body, the table rules, the cards and every shadcn semantic follow — without the
+function enumerating twenty aliases it would drift from. Rendered as the
+children of a `<style>` element rather than `dangerouslySetInnerHTML`, which
+this codebase has nowhere: every value came through `parseHexColor`, so the text
+is `:root{--name:#rrggbb;…}` and contains nothing React would escape. A test
+pins that, by stripping the braces and requiring every remaining token to match
+`--name:#rrggbb`.
+
+**Also fixed, unreported:** `--border` was aliased the same way, so table rules
+stayed beige on a white embed, and `--foreground` only looked right because the
+default ink happens to equal the themed ink on white — it would have been
+unreadable on a dark background.
+
+**Tests:** 1578 passing across 123 files (3 new); `tsc --noEmit` and eslint
+clean. No migration.
+
 ## 2026-09-21 — A removed list, so a deletion stops being a disappearance
 
 Earlier today the delete rule was loosened to let organizers remove sign-ups

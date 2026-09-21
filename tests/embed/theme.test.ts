@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   contrastRatio,
   embedTheme,
+  embedThemeCss,
   embedThemeVars,
   luminance,
   parseHexColor,
@@ -155,5 +156,49 @@ describe("embedThemeVars", () => {
     expect(vars["--claret"]).toBe(t.accentText);
     // --primary is a fill, so it keeps the brand colour exactly.
     expect(vars["--primary"]).toBe(MANGO);
+  });
+});
+
+describe("embedThemeCss", () => {
+  /**
+   * The bug this exists for. globals.css derives --background, --border,
+   * --card and the legacy --surface/--text aliases FROM the raw tokens, at
+   * :root. Custom properties substitute where they are DECLARED, so those
+   * aliases are fixed to the default palette before any descendant is reached.
+   * Setting --paper on a wrapper div moved `bg-paper` and left `bg-background`
+   * beige — on the wrapper itself, and on `body`, which is what filled the rest
+   * of Mango's 700px iframe. Targeting :root is what makes the override reach
+   * the aliases at all.
+   */
+  it("declares the palette on :root, not on a descendant", () => {
+    const t = embedTheme({ accent: MANGO, background: WHITE })!;
+    expect(embedThemeCss(t)).toMatch(/^:root\{/);
+    expect(embedThemeCss(t)).toMatch(/\}$/);
+  });
+
+  it("carries every variable the theme defines", () => {
+    const t = embedTheme({ accent: MANGO, background: WHITE })!;
+    const css = embedThemeCss(t);
+    for (const [name, value] of Object.entries(embedThemeVars(t))) {
+      expect(css).toContain(`${name}:${value}`);
+    }
+  });
+
+  /**
+   * It is rendered as the children of a <style> element, so it must contain
+   * nothing React would escape — and nothing that could close the element or
+   * the rule early. Every value came through parseHexColor, which is what makes
+   * that true; this pins it rather than trusting it.
+   */
+  it("contains nothing but hex colours and its own punctuation", () => {
+    const t = embedTheme({ accent: MANGO, background: WHITE })!;
+    const css = embedThemeCss(t);
+    expect(css).not.toMatch(/[<>&]/);
+    // Strip the rule's own braces, then every `--name:#rrggbb` pair. Anything
+    // left over would be something we did not intend to emit.
+    const inner = css.replace(/^:root\{/, "").replace(/\}$/, "");
+    for (const decl of inner.split(";")) {
+      expect(decl).toMatch(/^--[a-z0-9-]+:#[0-9a-f]{6}$/);
+    }
   });
 });

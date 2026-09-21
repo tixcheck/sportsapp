@@ -217,6 +217,19 @@ standings table nobody could read. See `lib/embed/theme.ts`.
 layouts don't receive `searchParams`; `tsc` won't tell you, and the symptom is
 params that are silently ignored.
 
+**Gotcha, and the reason `bg` looked broken until 2026-09-21:** the palette must
+be declared on **`:root`** (`embedThemeCss`), never as a `style` attribute on a
+wrapper. `globals.css` derives `--background`, `--border`, `--card`,
+`--foreground` and the legacy `--surface`/`--text` aliases FROM the raw tokens,
+at `:root`, and custom properties substitute where they are DECLARED — so those
+aliases are already fixed to the default palette before any descendant is
+reached. Overriding `--paper` on a wrapper moved `bg-paper` and left
+`bg-background` beige, on the wrapper AND on `body` (which carries
+`bg-background` from `@layer base`) — the latter filling whatever the content
+did not, inside a fixed-height iframe. Mango's developer saw exactly that and
+reasonably concluded the parameter did not exist. It did; it just could not
+reach the thing painting the page.
+
 The embed posts its height to the parent (`{ type: "mysportsapp:height" }`) so a
 host that wants auto-sizing can listen; one that doesn't is unaffected.
 
