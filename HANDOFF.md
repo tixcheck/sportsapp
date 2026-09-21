@@ -814,20 +814,28 @@ reading them out of `.env.local`.
   someone already withdrawn). No organizer could reach the state, which is why
   no BVL free agent was ever in it. The refusal message pointed there anyway
   and sent BVL's organizer hunting for a payment screen that does not exist.
-- **⚠️ There is still no way to refund an individual's payment.**
+- **Individual payments have their own card from 2026-09-21**
+  (`IndividualPaymentsCard`, fed by `getIndividualLedger`), on both the league
+  and tournament organizer pages. Before it, individuals appeared in no payments
+  screen once their payment was confirmed: `getCompetitionLedger` groups charges
+  by `team_id` and an individual's charge has none, so those rows fell under a
+  `null` key and were dropped — they were never filtered out, just never
+  represented. The offline inbox (`getPendingOfflinePayments`) only ever showed
+  them while `status = 'pending'`.
+- **That query is deliberately NOT Stripe-gated**, unlike `getCompetitionLedger`
+  and `getTeamPaymentRows` beside it, and the card renders OUTSIDE the
+  `{ledger && …}` guard on both pages. BVL has no connected account at all and
+  takes every individual fee through PayPal; bailing on `!mode.configured` would
+  blank the panel for exactly the organizers who need it. The `livemode` filter
+  still applies when a key IS configured. Keep both properties if you touch it.
+- **⚠️ There is still no way to refund an individual's payment, by choice.**
   `RefundDialog` renders only from `payment-team-row`, and
   `getRefundablePayment` returns early unless Stripe is configured and hands
   back a `teamId` — it never reads `free_agent_id`. BVL's individual fees are
-  PayPal, confirmed offline, with no payment intent to refund against. Withdraw
-  unblocks the *list*; the money has no organizer surface. Refund outside the
-  app and leave the record standing.
-- **A confirmed individual payment has no screen at all.** The only view that
-  includes individuals is the offline payments inbox
-  (`getPendingOfflinePayments`), which filters `status = 'pending'` — a to-do
-  list of *unconfirmed* payments. Once the organizer confirms one it leaves that
-  list and appears nowhere else. Teams have the payments dashboard
-  (`getTeamPaymentRows`); individuals have nothing equivalent. This is the gap
-  behind "I can only seem to find payment records for team, and not INDY".
+  PayPal, confirmed offline, with no payment intent to refund against. The
+  owner's position (2026-09-21): _"We are not accountable for refunds outside of
+  the platform."_ So the card shows the record and says refunds happen in the
+  organizer's own PayPal. Do not add a refund button that implies otherwise.
 
 - The Players tab lists every non-withdrawn free agent — placed or still in the
   pool — after the teams. Edit shows *Sign-up details* when there is a

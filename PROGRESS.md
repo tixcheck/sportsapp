@@ -5,6 +5,57 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-21 — Individual payments get a panel of their own
+
+The other half of BVL's question. Withdraw fixed the list; this fixes _"I can
+only seem to find payment records for team, and not INDY player/registrants."_
+
+**They were never filtered out — they were never represented.**
+`getCompetitionLedger` groups charges by `team_id`, and an individual's charge
+has none; it hangs off `free_agent_id`. Those rows landed under a `null` key
+and were dropped. The only view that ever included an individual was the
+offline payments inbox, which filters `status = 'pending'` — a to-do list of
+*unconfirmed* payments. Confirm one and it left that list for nowhere.
+
+`lib/payments/individual-ledger.ts` mirrors `competitionLedger` deliberately, so
+the two panels read the same way: settled means paid or refunded, outstanding is
+measured against the event's individual fee rather than by counting rows, and
+someone withdrawn owes nothing while money they already paid still counts as
+collected. Ten unit tests, including the real BVL Wednesday shape.
+
+**Three calls worth recording:**
+
+**It is not Stripe-gated, unlike every neighbouring query.** Those open with
+`if (!mode.configured) return null`, which is right for card payments and fatal
+here: BVL has no connected account at all and collects every dollar through
+PayPal. Copying that line would have blanked the panel for precisely the
+organizer who asked for it. The `livemode` filter still applies when a key IS
+configured, so a test row can never colour a live total. For the same reason the
+card renders OUTSIDE the `{ledger && …}` guard on both pages.
+
+**No refund control, by policy.** _"We are not accountable for refunds outside
+of the platform."_ These fees are taken off-platform, so a refund happens in the
+organizer's own PayPal. A button implying the app can send money back would be a
+lie about what it touched. The card says where refunds actually happen instead.
+
+**No tax or platform-fee stat.** Every offline row carries `tax = 0` and
+`fee = 0` — we never handled the money, so no fee was taken. Those stats would
+read a permanent $0 beside real money, which looks like a bug rather than a
+fact. Collected and Outstanding only.
+
+**A stale type corrected on the way past.** `registration_payment_kind` has three
+values in `schema.ts` and the database (`team_full`, `player_share`,
+`individual`), but `LedgerCharge` and `TeamPaymentRow` both declared only two —
+so the cast in `getCompetitionLedger` was quietly untrue about 20 live rows.
+
+**Verified against production, not just the types:** BVL's four leagues run
+through the real function give Wednesday $2,040 collected against $340
+outstanding, which matches the six confirmed PayPal payments and the one still
+pending.
+
+**Tests:** 1569 passing across 123 files (10 new); `tsc --noEmit` and eslint
+clean. No migration.
+
 ## 2026-09-21 — A Withdraw button, because the refusal pointed nowhere
 
 BVL's organizer, on three women who pulled out of individual registration:

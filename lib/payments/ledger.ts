@@ -15,7 +15,13 @@ import { netPriceCents, type RefundableCharge } from "@/lib/payments/refunds";
 
 export type LedgerCharge = RefundableCharge & {
   id: string;
-  kind: "team_full" | "player_share";
+  /**
+   * Mirrors `registration_payment_kind` in schema.ts. `individual` belongs to a
+   * free agent rather than a team, so it never reaches a `LedgerTeam` — but it
+   * is a value this column genuinely holds, and leaving it out of the union
+   * made the cast in `getCompetitionLedger` quietly untrue.
+   */
+  kind: "team_full" | "player_share" | "individual";
   /** Null for a `team_full` charge — it belongs to the team, not a person. */
   payerEmail: string | null;
   payerName: string | null;

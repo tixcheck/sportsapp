@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ConnectAccountFlags } from "@/lib/payments/account-status";
 import { currentStripeMode } from "@/lib/payments/stripe-mode";
+import {
+  individualLedger,
+  type IndividualCharge,
+  type IndividualLedger,
+  type IndividualSignupStatus,
+} from "@/lib/payments/individual-ledger";
 
 export interface PaymentAccountRow extends ConnectAccountFlags {
   id: string;
@@ -226,7 +232,8 @@ export async function getPlatformFeeRatesFor(
 
 export type TeamPaymentRow = {
   status: "pending" | "paid" | "cancelled" | "refunded";
-  kind: "team_full" | "player_share";
+  /** Mirrors `registration_payment_kind` in schema.ts — see LedgerCharge. */
+  kind: "team_full" | "player_share" | "individual";
   payerEmail: string | null;
   priceCents: number;
   totalCents: number;
@@ -469,6 +476,96 @@ export async function getCompetitionLedger(
   }));
 
   return competitionLedger({ teams, feeCents });
+}
+
+/**
+ * Every individual sign-up's payment position for one competition.
+ *
+ * Takes the free agents the caller already loaded rather than fetching them
+ * again — the organizer pages all have them for the Free agents card.
+ *
+ * Deliberately NOT gated on `currentStripeMode().configured`, unlike the team
+ * ledger. An individual fee is usually taken off-platform: BVL has no connected
+ * account at all and collects every dollar through PayPal. Bailing without a
+ * Stripe key would blank this panel for precisely the organizers who need it.
+ * The `livemode` filter still applies when a key IS configured, because a
+ * test-mode row must never colour a live deployment's totals.
+ */
+export async function getIndividualLedger(
+  competitionId: string,
+  {
+    feeCents,
+    agents,
+  }: {
+    feeCents: number;
+    agents: {
+      id: string;
+      name: string;
+      email: string | null;
+      status: IndividualSignupStatus;
+    }[];
+  },
+): Promise<IndividualLedger> {
+  if (agents.length === 0) return individualLedger({ signups: [], feeCents });
+
+  const mode = currentStripeMode();
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("registration_payments")
+    .select(
+      "id, free_agent_id, status, method, price_cents, tax_cents, application_fee_cents, total_cents, refunded_cents, paid_at, created_at, payer_reference",
+    )
+    .eq("competition_id", competitionId)
+    .not("free_agent_id", "is", null)
+    .order("created_at", { ascending: true });
+  if (mode.configured) query = query.eq("livemode", mode.livemode);
+
+  const { data } = await query;
+
+  const byAgent = new Map<string, IndividualCharge[]>();
+  for (const raw of (data ?? []) as unknown as {
+    id: string;
+    free_agent_id: string;
+    status: IndividualCharge["status"];
+    method: string | null;
+    price_cents: number;
+    tax_cents: number;
+    application_fee_cents: number;
+    total_cents: number;
+    refunded_cents: number;
+    paid_at: string | null;
+    created_at: string;
+    payer_reference: string | null;
+  }[]) {
+    const charge: IndividualCharge = {
+      id: raw.id,
+      status: raw.status,
+      method: raw.method,
+      priceCents: raw.price_cents,
+      taxCents: raw.tax_cents,
+      applicationFeeCents: raw.application_fee_cents,
+      totalCents: raw.total_cents,
+      refundedCents: raw.refunded_cents,
+      paidAt: raw.paid_at,
+      createdAt: raw.created_at,
+      payerReference: raw.payer_reference,
+    };
+    const list = byAgent.get(raw.free_agent_id);
+    if (list) list.push(charge);
+    else byAgent.set(raw.free_agent_id, [charge]);
+  }
+
+  return individualLedger({
+    feeCents,
+    signups: agents.map((a) => ({
+      freeAgentId: a.id,
+      name: a.name,
+      email: a.email,
+      status: a.status,
+      charges: byAgent.get(a.id) ?? [],
+    })),
+  });
 }
 
 export type RefundablePayment = {

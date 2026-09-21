@@ -62,13 +62,17 @@ import { RegistrationFeeCard } from "@/components/payments/registration-fee-card
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { OfflinePaymentsInbox } from "@/components/payments/offline-payments-inbox";
+import { IndividualPaymentsCard } from "@/components/payments/individual-payments-card";
 import { getWaitlist } from "@/lib/queries/waitlist";
 import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
   getOfflineFeesOwed,
   getPendingOfflinePayments,
 } from "@/lib/queries/payments";
-import { getCompetitionLedger } from "@/lib/queries/payments";
+import {
+  getCompetitionLedger,
+  getIndividualLedger,
+} from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import {
@@ -131,6 +135,13 @@ export default async function TournamentPage({
   // hidden rather than showing an empty dashboard that reads as "nobody paid".
   const ledger = await getCompetitionLedger(t.id, {
     feeCents: feeSettings.registrationFeeCents,
+  });
+  // Individuals are NOT in that ledger — it groups charges by team, and a free
+  // agent's charge has none. Fetched separately, and not behind the same Stripe
+  // gate: an individual fee is usually taken off-platform.
+  const individualPayments = await getIndividualLedger(t.id, {
+    feeCents: feeSettings.individualFeeCents,
+    agents: freeAgents,
   });
   const hasPools = poolsView?.hasPools ?? false;
   const poolMatches = poolsView?.schedule ?? [];
@@ -572,6 +583,13 @@ export default async function TournamentPage({
             splitAllowed={payment.settings.allowSplitPayment}
           />
         </>
+      )}
+      {/* Outside the `ledger &&` guard on purpose: that goes null without a
+          Stripe key, and an org taking individual fees by PayPal alone would
+          then see no individual payments at all — which is the gap this card
+          exists to close. */}
+      {(t.allowIndividualSignups || freeAgents.length > 0) && (
+        <IndividualPaymentsCard ledger={individualPayments} />
       )}
 
       <EventBlurbCard

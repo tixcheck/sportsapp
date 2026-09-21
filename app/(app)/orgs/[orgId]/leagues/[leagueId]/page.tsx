@@ -89,6 +89,7 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { OfflinePaymentsInbox } from "@/components/payments/offline-payments-inbox";
+import { IndividualPaymentsCard } from "@/components/payments/individual-payments-card";
 import { getWaitlist } from "@/lib/queries/waitlist";
 import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
@@ -99,7 +100,10 @@ import { CourtVenuesCard } from "@/components/venues/court-venues-card";
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
 import { getOrgVenues, getVenueIssues } from "@/lib/queries/venues";
 import { ScheduleIssuesCard } from "@/components/venues/schedule-issues-card";
-import { getCompetitionLedger } from "@/lib/queries/payments";
+import {
+  getCompetitionLedger,
+  getIndividualLedger,
+} from "@/lib/queries/payments";
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { getLadderState } from "@/lib/queries/ladder";
@@ -220,6 +224,13 @@ export default async function LeaguePage({
   // hidden rather than showing an empty dashboard that reads as "nobody paid".
   const ledger = await getCompetitionLedger(league.id, {
     feeCents: feeSettings.registrationFeeCents,
+  });
+  // Individuals are NOT in that ledger — it groups charges by team, and a free
+  // agent's charge has none. Fetched separately, and not behind the same Stripe
+  // gate: an individual fee is usually taken off-platform.
+  const individualPayments = await getIndividualLedger(league.id, {
+    feeCents: feeSettings.individualFeeCents,
+    agents: freeAgents,
   });
 
   // Only offered once the org has venues on file — a single-site league has
@@ -706,6 +717,13 @@ export default async function LeaguePage({
             splitAllowed={payment.settings.allowSplitPayment}
           />
         </>
+      )}
+      {/* Outside the `ledger &&` guard on purpose: that goes null without a
+          Stripe key, and an org taking individual fees by PayPal alone would
+          then see no individual payments at all — which is the gap this card
+          exists to close. */}
+      {(league.allowIndividualSignups || freeAgents.length > 0) && (
+        <IndividualPaymentsCard ledger={individualPayments} />
       )}
     </div>
   );
