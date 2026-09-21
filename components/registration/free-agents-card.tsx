@@ -205,9 +205,9 @@ export function FreeAgentsCard({
           {pool.length} waiting to be placed
           {placed.length > 0 && ` · ${placed.length} placed`}
           {unpaid.length > 0 && ` · ${unpaid.length} awaiting payment`}
-          {withdrawn.length > 0 && ` · ${withdrawn.length} withdrawn`}. Removing
-          deletes the sign-up; one that has been paid stays until it is
-          refunded.
+          {withdrawn.length > 0 && ` · ${withdrawn.length} withdrawn`}. Withdraw
+          takes someone out of the pool but keeps their sign-up and payment
+          record; Remove deletes it outright, and refuses once they have paid.
         </CardDescription>
       </CardHeader>
 
@@ -287,14 +287,33 @@ export function FreeAgentsCard({
                         <Pencil className="size-4" />
                       </Button>
 
-                      {a.status === "withdrawn" && (
+                      {/* One slot, two mutually exclusive controls — so a
+                          narrow position column never grows a fourth button.
+                          Withdrawing is reversible (Restore is right here), so
+                          it takes no confirm step, unlike the X beside it. It
+                          is also the ONLY way out for a sign-up that has been
+                          paid: the delete refuses, because the payment rows
+                          cascade off this one. */}
+                      {a.status === "withdrawn" ? (
                         <Button
                           size="sm"
                           variant="outline"
+                          className="shrink-0"
                           disabled={pending}
                           onClick={() => setStatus(a.id, "available")}
                         >
                           Restore
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          disabled={pending}
+                          onClick={() => setStatus(a.id, "withdrawn")}
+                          aria-label={`Withdraw ${a.name}`}
+                        >
+                          Withdraw
                         </Button>
                       )}
                       <Button

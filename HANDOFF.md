@@ -803,10 +803,31 @@ reading them out of `.env.local`.
 - **Remove deletes the sign-up** (`removeFreeAgentAction`), it does not withdraw
   it. Refused while any payment is `paid` or `refunded`, because
   `registration_payments.free_agent_id` CASCADES and the delete would take the
-  ledger row, its platform fee and any refund with it. `withdrawn` + Restore
-  remain for that case.
+  ledger row, its platform fee and any refund with it. **Withdraw** is the way
+  out for that case.
 - Roslyn Ng (BVL Thursday test entry) was deleted on 2026-09-16 under that rule;
   her cancelled $340 request cascaded away with her.
+- **The Withdraw button only exists from 2026-09-21.** Before that this section
+  claimed "`withdrawn` + Restore remain for that case" and it was not true in
+  practice: `setFreeAgentStatusAction` accepted `"withdrawn"`, but the only
+  button wired to it passed `"available"` (Restore, which renders only on
+  someone already withdrawn). No organizer could reach the state, which is why
+  no BVL free agent was ever in it. The refusal message pointed there anyway
+  and sent BVL's organizer hunting for a payment screen that does not exist.
+- **⚠️ There is still no way to refund an individual's payment.**
+  `RefundDialog` renders only from `payment-team-row`, and
+  `getRefundablePayment` returns early unless Stripe is configured and hands
+  back a `teamId` — it never reads `free_agent_id`. BVL's individual fees are
+  PayPal, confirmed offline, with no payment intent to refund against. Withdraw
+  unblocks the *list*; the money has no organizer surface. Refund outside the
+  app and leave the record standing.
+- **A confirmed individual payment has no screen at all.** The only view that
+  includes individuals is the offline payments inbox
+  (`getPendingOfflinePayments`), which filters `status = 'pending'` — a to-do
+  list of *unconfirmed* payments. Once the organizer confirms one it leaves that
+  list and appears nowhere else. Teams have the payments dashboard
+  (`getTeamPaymentRows`); individuals have nothing equivalent. This is the gap
+  behind "I can only seem to find payment records for team, and not INDY".
 
 - The Players tab lists every non-withdrawn free agent — placed or still in the
   pool — after the teams. Edit shows *Sign-up details* when there is a

@@ -39,7 +39,7 @@ export function canDeleteSignup(payments: SignupPayment[]): RemovalCheck {
     reason:
       paid.some((p) => p.status === "refunded") &&
       !paid.some((p) => p.status === "paid")
-        ? "That sign-up has a refund on record. Removing it would delete the refund too — leave them withdrawn instead."
-        : "That sign-up has been paid. Removing it would delete the payment record — refund it first, or leave them withdrawn.",
+        ? "That sign-up has a refund on record. Removing it would delete the refund too — use Withdraw instead, which keeps the record."
+        : "That sign-up has been paid. Removing it would delete the payment record — use Withdraw instead, which keeps the record and frees their spot.",
   };
 }

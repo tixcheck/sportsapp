@@ -5,6 +5,60 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-21 — A Withdraw button, because the refusal pointed nowhere
+
+BVL's organizer, on three women who pulled out of individual registration:
+
+> _"I went to remove them from the available list … but it said I need to remove
+> their payment record first. Where can I do this? As currently, I can only seem
+> to find payment records for team, and not INDY player/registrants."_
+
+**The refusal was right.** `registration_payments.free_agent_id` cascades, so
+deleting a paid sign-up takes the payment row, the ledger entry, the platform
+fee owed on it and any refund with it. All three were `paid`, $340 by PayPal.
+
+**The advice was not.** It read "refund it first, or leave them withdrawn", and
+for an individual the organizer UI offered neither:
+
+- **No Withdraw control existed at all.** `setStatus` accepted `"withdrawn"` and
+  `setFreeAgentStatusAction` took it, but the only button wired to it passed
+  `"available"` — **Restore**, which renders only on someone already withdrawn.
+  Nothing could put them in that state. The edit dialog is details-only; the
+  Players tab merely displays status. That is why zero BVL free agents were
+  withdrawn: not a preference, an impossibility.
+- **Refunds are team-and-Stripe only.** `RefundDialog` renders only from
+  `payment-team-row`, and `getRefundablePayment` returns early without Stripe
+  and hands back a `teamId`. These fees are PayPal, confirmed offline, with no
+  payment intent to refund against.
+
+**And her literal question has a literal answer.** Individual payments surface
+in exactly one screen — the offline payments inbox — which filters
+`status = 'pending'`. It is a to-do list of *unconfirmed* payments. She had
+already confirmed these three, so they left the list. After confirmation an
+individual's payment has no screen anywhere. Teams have a dashboard.
+
+**The fix is one button**, in the slot Restore already occupies. The two are
+mutually exclusive, so a narrow position column never grows a fourth control,
+and the row is width-identical to the withdrawn case that already rendered
+fine. No confirm step: withdrawing is reversible and Restore sits right there —
+unlike the X beside it, which deletes for good.
+
+Everything downstream already existed. The action clears `placed_team_id` and
+pulls their roster row, withdrawn rows already render greyed with Restore, the
+count already shows in the card description, and withdrawn sign-ups already
+free their cap spot. The feature was built; only the way in was missing.
+
+Both refusal messages now name Withdraw, with a test pinning that they point at
+a control that exists. The old wording is what sent an organizer hunting for a
+screen that was never built — refusing is right, misdirecting is not.
+
+**Still missing, and recorded in `HANDOFF.md`:** there is no way to refund an
+individual's offline payment. Withdraw unblocks the list; the money side has no
+organizer surface at all.
+
+**Tests:** 1559 passing across 122 files (1 new); `tsc --noEmit` and eslint
+clean. No migration.
+
 ## 2026-09-19 — The overall ranking existed all along, unshown
 
 > _"Why isnt there an overall ranking in this one?"_

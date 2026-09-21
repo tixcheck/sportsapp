@@ -46,4 +46,20 @@ describe("canDeleteSignup", () => {
     const check = canDeleteSignup([{ status: "paid" }, { status: "refunded" }]);
     expect(check).toMatchObject({ reason: expect.stringContaining("paid") });
   });
+
+  /**
+   * The wording is the fix, not a detail. This used to read "refund it first,
+   * or leave them withdrawn" — and for an individual the organizer UI offered
+   * neither: there was no Withdraw control at all, and the refund dialog is
+   * team-and-Stripe only. BVL's organizer went looking for an INDY payment
+   * screen that does not exist. Refusing is right; sending someone somewhere
+   * that isn't there is not.
+   */
+  it("points at Withdraw, the one way out that exists", () => {
+    for (const payments of [[{ status: "paid" }], [{ status: "refunded" }]]) {
+      expect(canDeleteSignup(payments)).toMatchObject({
+        reason: expect.stringContaining("Withdraw"),
+      });
+    }
+  });
 });
