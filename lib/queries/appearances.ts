@@ -6,6 +6,8 @@ import {
 } from "@/lib/stats/attribution";
 import { nightOf } from "@/lib/stats/night-lineup";
 import { buildPartnerGrid, type PartnerGrid } from "@/lib/stats/partner-grid";
+import { getFullTimeRoster } from "@/lib/queries/full-time-roster";
+import { isFullTime } from "@/lib/stats/roster-split";
 
 /**
  * Reading who played.
@@ -106,13 +108,29 @@ export async function getPartnerGrid(
     if (night) nightOfMatch.set(m.id, night);
   }
 
+  // Subs are excluded, on the organizer's instruction: "for the who has played
+  // with whom chart, don't want it to include subs, just need the combos for
+  // active players." The grid exists to spread the DRAFT pool across each
+  // other, and a one-night stand-in is noise in both directions — a column of
+  // their own, and a "never played together" pair that will never be fixed.
+  //
+  // Membership, not `role`: a drafted player who turned out for another team
+  // that night is still one of the league's own. See `roster-split.ts`.
+  const rosterKeys = await getFullTimeRoster(competitionId);
+  const counted =
+    rosterKeys.size === 0
+      ? appearances
+      : appearances.filter((a) =>
+          isFullTime({ userId: a.userId, name: a.playerName }, rosterKeys),
+        );
+
   const nameByKey = new Map<string, string>();
-  for (const a of appearances) {
+  for (const a of counted) {
     nameByKey.set(identityKey(a), a.playerName.trim());
   }
 
   return buildPartnerGrid(
     [...nameByKey.entries()].map(([key, name]) => ({ key, name })),
-    partnershipCounts(appearances, nightOfMatch),
+    partnershipCounts(counted, nightOfMatch),
   );
 }

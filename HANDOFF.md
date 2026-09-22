@@ -771,6 +771,40 @@ reading them out of `.env.local`.
   `editLeagueSchema`.
 - `match_appearances` is still not mirrored in `schema.ts` (pre-existing drift).
 
+### Full-time vs subs (2026-09-22)
+
+- **Full-time means ROSTER MEMBERSHIP, never `match_appearances.role`.** The
+  organizer's rule: "if a player is on an active roster when the teams were
+  created they are a full time player … rest all are subs that are replacing
+  them for that night." `PlayerStatRow.fullTime` carries the answer, the stats
+  tab renders two tables from it, and `getPartnerGrid` counts only full-timers.
+- The two definitions disagree for exactly one player, which is why the
+  distinction is not academic: **David Aitken was drafted onto Team 4 but every
+  appearance he has is `role: "sub"`** for Team 3. Classifying on role would
+  file a drafted player under subs.
+- `getFullTimeRoster` unions `team_members` (accounts) with placed
+  `free_agents` (everyone else) — the same pair `recordAbsences` uses. Big
+  Shoots has **one** `team_members` row for 24 drafted players, so reading that
+  table alone reports a roster of one and calls 23 real players subs.
+- An **undrafted league** has an empty roster, so every row is flagged
+  full-time and one sheet shows. Do not invert this: filing a whole competition
+  under "subs" is a worse misreading than not splitting.
+- **Renaming a name-keyed player now propagates.** A player with no account IS
+  their name (`identityKey` = `n:<normalised name>`), so
+  `updateFreeAgentDetailsAction` rewrites `match_appearances` and
+  `match_absences` when the name changes. Before this, correcting a spelling on
+  the free-agent record created a SECOND player: Big Shoots had three
+  appearances as "David Aitken" and three absences as "David Aitkin", showing
+  as two rows, one with the games and one with the missed night. Those three
+  absence rows were deleted on 2026-09-22 (36 → 33).
+- **⚠️ Absences regenerate from the roster, so a stale placement keeps coming
+  back.** David's `placed_team_id` is still **Team 4** while he plays for Team
+  3. `recordAbsences` marks every placed player not in the lineup as absent, so
+  each Team 4 lineup save re-adds his Missed nights — correctly spelled now, so
+  they merge into his one row rather than making a phantom, but he accrues
+  Missed for a team he does not play for. **Open with the organizer:** whether
+  his roster row should move to Team 3.
+
 ## ⚠️ A cleared draft leaves no timestamp
 
 - `clearDraftAction` and the tidy-up step in `saveDraftAction` update

@@ -456,11 +456,16 @@ export async function updateFreeAgentDetailsAction(
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("free_agents")
-    .select("competition_id")
+    .select("competition_id, name, user_id")
     .eq("id", v.freeAgentId)
     .maybeSingle();
   if (!row) return { error: "Unknown sign-up." };
-  const competitionId = (row as { competition_id: string }).competition_id;
+  const existing = row as {
+    competition_id: string;
+    name: string;
+    user_id: string | null;
+  };
+  const competitionId = existing.competition_id;
 
   const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
     _competition_id: competitionId,
@@ -499,8 +504,50 @@ export async function updateFreeAgentDetailsAction(
     return { error: "Those details couldn't be saved. Please try again." };
   }
 
+  await renameInLineups(supabase, competitionId, existing, v.name);
   await revalidateForCompetition(supabase, competitionId);
   return { ok: true };
+}
+
+/**
+ * Carry a corrected name through to the nights already recorded.
+ *
+ * Big Shoots' organizer fixed a misspelling here and got a second player: the
+ * roster said "David Aitken" while three recorded absences still said "David
+ * Aitkin", and a player with no account IS their name — `identityKey` is
+ * `n:<normalised name>` — so the stats table showed two people, one with the
+ * games and one with the missed night.
+ *
+ * Only for name-keyed players. Someone with an account is keyed on the id and
+ * their display name comes from `users`, so rewriting typed names would be
+ * both pointless and wrong.
+ *
+ * Best-effort, like `recordAbsences`: the detail edit itself has already saved,
+ * and failing it here would tell the organizer their correction was lost when
+ * it wasn't. The rows can be renamed again.
+ */
+async function renameInLineups(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+  existing: { name: string; user_id: string | null },
+  nextName: string,
+): Promise<void> {
+  if (existing.user_id !== null) return;
+  const from = existing.name?.trim() ?? "";
+  const to = nextName.trim();
+  if (!from || from === to) return;
+
+  for (const table of ["match_appearances", "match_absences"] as const) {
+    const { error } = await supabase
+      .from(table)
+      .update({ player_name: to })
+      .eq("competition_id", competitionId)
+      .eq("player_name", from)
+      .is("user_id", null);
+    if (error) {
+      console.error(`[free-agents] rename in ${table} failed`, error.message);
+    }
+  }
 }
 
 /**

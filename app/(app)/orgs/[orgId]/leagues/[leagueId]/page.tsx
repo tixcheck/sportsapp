@@ -9,6 +9,7 @@ import { LadderNightStandings } from "@/components/league/ladder-night-standings
 import { getPlayerStats, getStatsReadiness } from "@/lib/queries/player-stats";
 import { statsEmptyReason } from "@/lib/stats/empty-reason";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
+import { splitFullTime } from "@/lib/stats/roster-split";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
 import { RemovedSignupsCard } from "@/components/registration/removed-signups-card";
 import { DraftBoard } from "@/components/registration/draft-board";
@@ -604,6 +605,12 @@ export default async function LeaguePage({
       <LadderPanel competitionId={league.id} state={ladder} />
     ) : null;
 
+  // Two sheets, on the organizer's rule: drafted onto a team = full time,
+  // everyone else in a lineup was covering a night. Membership, not the role
+  // they played — see `roster-split.ts`.
+  const { fullTime: fullTimeStats, subs: subStats } =
+    splitFullTime(playerStats);
+
   const statsTab = (
     <div className="space-y-6">
       <Card>
@@ -633,10 +640,25 @@ export default async function LeaguePage({
             </div>
           )}
           <PlayerStatsTable
-            rows={playerStats}
+            rows={fullTimeStats}
             linkProfiles
             emptyMessage={statsEmpty}
           />
+          {subStats.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <h3 className="font-display font-semibold">
+                Subs
+                <span className="text-muted-foreground ml-2 text-sm font-normal">
+                  {subStats.length} covering a night
+                </span>
+              </h3>
+              <p className="text-muted-foreground text-xs">
+                Players who filled in but weren&apos;t drafted onto a team.
+                Their sets count here rather than in the table above.
+              </p>
+              <PlayerStatsTable rows={subStats} linkProfiles />
+            </div>
+          )}
         </CardContent>
       </Card>
       {partnerGrid && <PlayerPartnerGridCard grid={partnerGrid} />}

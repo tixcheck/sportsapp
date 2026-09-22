@@ -18,6 +18,8 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { getFullTimeRoster } from "@/lib/queries/full-time-roster";
+import { isFullTime } from "@/lib/stats/roster-split";
 import {
   matchOutcome,
   playoffNightsFor,
@@ -62,6 +64,13 @@ export type PlayerStatRow = {
    * else would get zero rows and see a perfect record that isn't one.
    */
   nightsMissed: number | null;
+  /**
+   * Drafted onto a team, rather than covering a night. Roster MEMBERSHIP, not
+   * how they played: a drafted player who turned out as a sub for another team
+   * is still full-time. True for every row where the league drafted nobody, so
+   * an undrafted league shows one sheet rather than filing everyone as a sub.
+   */
+  fullTime: boolean;
 };
 
 export type TeamStatRow = {
@@ -302,7 +311,10 @@ async function playerStatsByAppearance(
     };
   };
 
-  const attributed: PlayerStatRow[] = attributeByAppearance(
+  // Incomplete until the roster is known: `fullTime` is added by `flag` below,
+  // once `getFullTimeRoster` has answered. Typing these as full rows and
+  // filling in a placeholder would be a lie the compiler would let through.
+  const attributed: Omit<PlayerStatRow, "fullTime">[] = attributeByAppearance(
     appearances,
     matchSets,
     matchOrder,
@@ -326,7 +338,7 @@ async function playerStatsByAppearance(
       identityKey({ userId: r.userId, playerName: r.name }),
     ),
   );
-  const absentOnly: PlayerStatRow[] = [];
+  const absentOnly: Omit<PlayerStatRow, "fullTime">[] = [];
   for (const ab of absences) {
     const key = identityKey(ab);
     if (seen.has(key)) continue;
@@ -342,15 +354,28 @@ async function playerStatsByAppearance(
     });
   }
 
+  // Full-time is the roster, not the role played on the night — see
+  // `roster-split.ts`. An undrafted league has an empty roster, and flagging
+  // everyone as a sub there would be a worse reading than not splitting at all.
+  const rosterKeys = await getFullTimeRoster(competitionId);
+  const flag = (r: Omit<PlayerStatRow, "fullTime">): PlayerStatRow => ({
+    ...r,
+    fullTime:
+      rosterKeys.size === 0 ||
+      isFullTime({ userId: r.userId, name: r.name }, rosterKeys),
+  });
+
   // A night on court counts before its scores are in: attendance is recorded
   // the night it happens, and hiding it until somebody enters results would
   // hide the one number the organizer is chasing.
-  return [...attributed, ...absentOnly].filter(
-    (r) =>
-      r.stats.gamesPlayed > 0 ||
-      (r.daysPlayed ?? 0) > 0 ||
-      (r.nightsMissed ?? 0) > 0,
-  );
+  return [...attributed, ...absentOnly]
+    .filter(
+      (r) =>
+        r.stats.gamesPlayed > 0 ||
+        (r.daysPlayed ?? 0) > 0 ||
+        (r.nightsMissed ?? 0) > 0,
+    )
+    .map(flag);
 }
 
 /** Every match's sets, from each side's perspective. */
@@ -457,6 +482,9 @@ export async function getPlayerStats(
       daysPlayed: null,
       playoffGameWins: null,
       nightsMissed: null,
+      // Every name here came from a roster — team members, unclaimed invites,
+      // or drafted players. A league with no lineups has no subs to separate.
+      fullTime: true,
     }))
     .filter((r) => r.stats.gamesPlayed > 0);
 }

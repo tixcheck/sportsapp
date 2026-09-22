@@ -260,7 +260,19 @@ export function LeagueTabs({
             sets won by two points or fewer, minus sets lost the same way. Tap
             any column to re-sort.
           </p>
-          <PlayerStatsTable rows={playerStats} />
+          {/* Drafted players first; anyone who covered a night follows in
+              their own table, so a sub's three sets don't sit alongside a
+              full season as though they were the same thing. */}
+          <PlayerStatsTable rows={playerStats.filter((r) => r.fullTime)} />
+          {playerStats.some((r) => !r.fullTime) && (
+            <div className="space-y-2 pt-2">
+              <h3 className="font-display font-semibold">Subs</h3>
+              <p className="text-muted-foreground text-xs">
+                Players who filled in but weren&apos;t drafted onto a team.
+              </p>
+              <PlayerStatsTable rows={playerStats.filter((r) => !r.fullTime)} />
+            </div>
+          )}
         </TabsContent>
       )}
 

@@ -5,6 +5,66 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-22 — A misspelling became a second player, and subs got their own sheet
+
+Big Shoots' organizer, three things at once:
+
+> _"dave ended up playing on a different team and I fixed his spelling in the
+> app — David Aitken* (so David Aitkin shouldn't exist anymore). … I'd like to
+> have 1 stat sheet for our full time players. and then a sub stat sheet
+> separated. … for the who has played with whom chart, don't want it to include
+> subs, just need the combos for active players."_
+
+**Why one person was two.** A player with no account IS their name —
+`identityKey` is `n:<normalised name>`. He had three appearances spelled "David
+Aitken" (Team 3, as a sub) and three absences spelled "David **Aitkin**" (Team
+4). Two names, two identities, two rows: one carrying the games, one carrying
+the missed night. He had fixed the spelling on the free-agent record at 15:24;
+the absence rows, written at 15:15, kept the old one.
+
+The three absence rows are deleted — the owner's call, since the correctly
+spelled player already existed. Verified after: no `aitk` absences remain, his
+three appearances intact, 36 absence rows down to 33.
+
+**Renaming now carries through.** The organizer renamed him in the one place
+the app offers, and it changed nothing downstream, which is what created the
+phantom. `updateFreeAgentDetailsAction` now propagates a changed name into
+`match_appearances` and `match_absences` — only for name-keyed players, since
+an account-backed one is keyed on their id and their name comes from `users`.
+Best-effort, like `recordAbsences`: the edit itself has already saved, and
+failing it would report a lost correction that wasn't lost.
+
+**Full-time is roster MEMBERSHIP, not how you played.** The organizer's rule:
+"if a player is on an active roster when the teams were created they are a full
+time player … rest all are subs that are replacing them for that night." Big
+Shoots is 24 drafted of 27 signed up, six per team. Classifying on
+`appearances.role` would have been the obvious shortcut and would have been
+wrong for exactly one player — David, drafted onto Team 4, whose every
+appearance is `role: "sub"` because he turned out for Team 3. The rule that
+matters is the roster; the role on the night answers a different question.
+
+`getFullTimeRoster` unions the same two sources `recordAbsences` already uses —
+`team_members` for accounts, placed `free_agents` for everyone else. Reading
+`team_members` alone would have reported a roster of **one** here and called 23
+drafted players subs.
+
+The stats tab now shows the drafted players, then a separate Subs table;
+`getPartnerGrid` counts only drafted players, so the grid is combinations among
+people who will actually be re-drafted. An undrafted league has an empty roster
+and every row is flagged full-time, so it still shows one sheet rather than
+filing a whole competition under "subs".
+
+**A type that told the truth.** Adding a required `fullTime` to `PlayerStatRow`
+broke two intermediate arrays inside `playerStatsByAppearance`, because the
+answer isn't known until the roster loads. They are now
+`Omit<PlayerStatRow, "fullTime">[]` rather than carrying a placeholder `false`
+the compiler would have accepted and nobody would have questioned. Worth noting
+the suite was green while those errors stood — vitest doesn't typecheck, so
+passing tests were never evidence this compiled.
+
+**Tests:** 1587 passing across 124 files (9 new); `tsc --noEmit` and eslint
+clean. No migration.
+
 ## 2026-09-21 — `bg=ffffff` was always supported; it just couldn't reach the page
 
 Mango's developer, embedding the league on mangosportsco.ca:
