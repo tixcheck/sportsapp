@@ -65,6 +65,29 @@ passing tests were never evidence this compiled.
 **Tests:** 1587 passing across 124 files (9 new); `tsc --noEmit` and eslint
 clean. No migration.
 
+**Follow-on, same day — Missed now follows the player too.** The owner, on the
+principle behind all of this: _"Stats goes to players irrespective of what team
+they play. Players could play for other teams if the org realizes they dont have
+enough players. They shuffle. But stats are supposed to stay with players."_
+
+`daysPlayed` already counted nights on court for ANY team. `nightsMissed` did
+not: it forgave an absence only if the player appeared for the team that
+rostered them, so someone shuffled to another side got `Days 1` and `Missed 1`
+for the same night — credited for turning out and marked absent for it at once.
+
+Worth recording that this **overturns a deliberate decision**, not an oversight.
+The exact case was pinned by a test whose comment read "their own team still
+needed covering, whatever they did elsewhere" — a defensible, genuinely useful
+team-side reading. I put the conflict to the owner rather than quietly
+redefining a column for the one organizer using it, and he chose the
+player-centric meaning. The test is reversed and carries the reason; the column
+hint no longer says "the times a sub had to be found", because it no longer
+measures that.
+
+The live count of affected players is zero today, which is not evidence it was
+harmless: David Aitken was exactly this case until his mis-spelled absence rows
+were deleted the same morning.
+
 ## 2026-09-21 — `bg=ffffff` was always supported; it just couldn't reach the page
 
 Mango's developer, embedding the league on mangosportsco.ca:

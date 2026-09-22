@@ -45,7 +45,7 @@ const ATTENDANCE: { key: AttendanceKey; label: string; hint: string }[] = [
   {
     key: "nightsMissed",
     label: "Missed",
-    hint: "Nights on a team's roster without playing any of its games — the times a sub had to be found",
+    hint: "Nights a team had them rostered and they didn't play at all — turning out for another team that night doesn't count as missed",
   },
   {
     key: "playoffGameWins",

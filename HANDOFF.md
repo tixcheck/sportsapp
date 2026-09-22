@@ -758,6 +758,17 @@ reading them out of `.env.local`.
   Lineups saved before 0121 wrote no absences, so no night before then can
   show as missed. There was nothing real to lose: Test Org's only recorded
   night had everyone present.
+- **Missed means "did not play AT ALL that night" (changed 2026-09-22).** It
+  was previously scoped to the team that rostered you, so a shuffled player
+  showed `Days 1` and `Missed 1` for the same night — credited for turning out
+  and marked absent for it at once. Owner's rule: "stats goes to players
+  irrespective of what team they play … they shuffle. But stats are supposed to
+  stay with players." `tallyAttendance` now forgives an absence when the player
+  appeared anywhere that night. The old behaviour was deliberate and tested
+  ("their own team still needed covering"); that test is reversed, not deleted,
+  and carries the reason. **The cost, knowingly accepted:** there is no longer
+  any figure for "how often did this team have to find cover" — if an organizer
+  ever asks for it, it is a new team-side stat, not a change back.
 - **Absences are rewritten on every lineup save**, in the same `writeLineup` as
   appearances. An empty lineup records none. If captains ever record lineups in
   a drafted league, note that `free_agents` may not be readable to them, so

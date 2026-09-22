@@ -2,10 +2,17 @@
  * Attendance: who turned up, who didn't, and what they won on playoff nights.
  *
  * Two questions a drafted league's organizer asks every few weeks. "How many
- * nights has this person actually played?" and, the one that costs them an
- * evening on the phone, "how many times have I had to find a sub for them?"
- * Neither is a set statistic — six sets on a Friday is ONE night — so they live
- * here rather than in `player-stats.ts`, which is arithmetic over sets.
+ * nights has this person actually played?" and "how many nights did they not
+ * turn up at all?" Neither is a set statistic — six sets on a Friday is ONE
+ * night — so they live here rather than in `player-stats.ts`, which is
+ * arithmetic over sets.
+ *
+ * Both are asked of the PLAYER, not of a team. Owner's rule, 2026-09-22:
+ * "stats goes to players irrespective of what team they play … they shuffle.
+ * But stats are supposed to stay with players." So someone lent to another
+ * side for the night has played, full stop. The team-side question that used
+ * to live here — "how often did I have to find cover for this slot?" — is a
+ * real question and is no longer answered anywhere; see HANDOFF.
  *
  * Pure: no DB, no clock.
  */
@@ -29,9 +36,10 @@ export interface AttendanceTally {
   /** Games won on playoff nights, counting only games they were on court for. */
   playoffGameWins: number;
   /**
-   * Nights they were on a team's roster and played none of its games — the
-   * nights somebody had to be found to cover them. A player who arrived late
-   * and played two of three is not counted: nobody was sent for.
+   * Nights a team had them rostered and they did not play AT ALL — for that
+   * team or any other. Two people are therefore NOT counted: one who arrived
+   * late and played two of three, and one who turned out for a different side
+   * because that team was short. Both were on court.
    */
   nightsMissed: number;
 }
@@ -89,8 +97,6 @@ export function tallyAttendance(input: {
     input;
 
   const nightsPlayed = new Map<string, Set<string>>();
-  // night:team the player appeared for — what an absence is checked against.
-  const appearedFor = new Map<string, Set<string>>();
   const playoffWins = new Map<string, Set<string>>();
 
   for (const a of appearances) {
@@ -98,7 +104,6 @@ export function tallyAttendance(input: {
     if (!night) continue;
     const key = identityKey(a);
     addTo(nightsPlayed, key, night);
-    addTo(appearedFor, key, `${night}:${a.teamId}`);
     if (playoffNights.has(night) && outcomeOf(a.matchId, a.teamId) === "win") {
       // A set keyed by match: listed twice for one game is still one game won.
       addTo(playoffWins, key, a.matchId);
@@ -110,8 +115,17 @@ export function tallyAttendance(input: {
     const night = nightOfMatch.get(ab.matchId);
     if (!night) continue;
     const key = identityKey(ab);
-    // Played any of that team's games that night → not a missed night.
-    if (appearedFor.get(key)?.has(`${night}:${ab.teamId}`)) continue;
+    // Played ANYWHERE that night → not a missed night, even if it was for
+    // another team. Owner's rule, 2026-09-22: "stats goes to players
+    // irrespective of what team they play … they shuffle. But stats are
+    // supposed to stay with players."
+    //
+    // This used to be scoped to the team that rostered them, on the reasoning
+    // that their own side still had to find cover. That is a true and useful
+    // fact, but it is a fact about the TEAM, and reading it off a player's row
+    // gave a shuffled player `Days 1` and `Missed 1` for the same night —
+    // credited for turning out and marked absent for it at once.
+    if (nightsPlayed.get(key)?.has(night)) continue;
     addTo(missed, key, night);
   }
 

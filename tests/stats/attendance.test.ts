@@ -171,15 +171,25 @@ describe("tallyAttendance", () => {
     expect(t.get("n:rowan adam")?.daysPlayed).toBe(1);
   });
 
-  // Their own team still needed covering, whatever they did elsewhere.
-  it("still counts a miss if they subbed for a different team that night", () => {
+  /**
+   * Reversed on 2026-09-22, on the owner's instruction: "stats goes to players
+   * irrespective of what team they play … they shuffle. But stats are supposed
+   * to stay with players."
+   *
+   * This previously asserted `nightsMissed: 1` — the reasoning being that the
+   * player's own team still had to find cover. That is true, and a useful
+   * thing for an organizer to know, but it is a fact about the TEAM. Read off
+   * a player's row it said they turned out (`Days 1`) and failed to turn out
+   * (`Missed 1`) on the same night.
+   */
+  it("does not count a miss if they played for a different team that night", () => {
     const t = tally(
       [appear("n1g1", "t2", "Rowan Adam", "sub")],
       [absent("n1g2", "t1", "Rowan Adam")],
     );
     expect(t.get("n:rowan adam")).toMatchObject({
       daysPlayed: 1,
-      nightsMissed: 1,
+      nightsMissed: 0,
     });
   });
 
