@@ -475,9 +475,16 @@ export const leagueSettings = pgTable("league_settings", {
   gamesPerTeam: integer("games_per_team"),
   blackoutDates: date("blackout_dates").array(),
   promotionRelegation: boolean("promotion_relegation").notNull().default(false),
-  // Standings tiebreaker hierarchy (lib/scheduler/tiebreakers.ts RankMode):
-  // "ova" = match wins → head-to-head → set ratio → point ratio (default);
-  // "differential" = match wins → head-to-head → point differential (PF−PA).
+  // Standings tiebreaker hierarchy (lib/scheduler/tiebreakers.ts RankMode).
+  // These descriptions were wrong until 2026-09-23 — they put head-to-head
+  // second in both modes, where the code has always resolved it LAST. The
+  // settings dropdown carried the same error, so an organizer reading it was
+  // told the opposite of what the app did.
+  // "ova"        = match wins → set ratio → point ratio → head-to-head (default)
+  // "differential" = match wins → point differential (PF−PA) → head-to-head
+  // "headToHead" = match wins → head-to-head → set ratio → point ratio
+  // May carry a "_projected" suffix (see projectShortTeams) — parse with
+  // startsWith/replace, never ===.
   tiebreaker: text("tiebreaker").notNull().default("ova"),
   // Fixture ordering within a round (migration 0092). "circle" is the Berger
   // method with rotating courts — correct where courts differ and the printed

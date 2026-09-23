@@ -73,13 +73,38 @@ export interface TeamStats {
 export type TiebreakerStep = 1 | 2 | 3 | 4 | 5;
 
 /**
- * Which hierarchy to rank by (head-to-head is the final step in both):
+ * Which hierarchy to rank by. The steps themselves live in `STEP_ORDER`.
  *  - "ova": match wins → set ratio → point ratio → head-to-head (the default).
+ *    Head-to-head LAST is deliberate — see STEP_ORDER.
  *  - "differential": match wins → point differential (PF − PA) → head-to-head;
  *    steps 2 and 3 both use point differential. Used by leagues whose rules rank
  *    on point differential rather than ratios.
+ *  - "headToHead": match wins → head-to-head → set ratio → point ratio. Asked
+ *    for by a ladder whose tiers are three teams playing each other twice,
+ *    where finishing level is routine and beating someone is felt to settle it.
  */
-export type RankMode = "ova" | "differential";
+export type RankMode = "ova" | "differential" | "headToHead";
+
+/**
+ * Decode `league_settings.tiebreaker` into a mode.
+ *
+ * Always go through this rather than comparing the column directly. Two traps:
+ * the value may carry a `_projected` suffix (the short-team projection rides
+ * on this same column instead of getting one of its own), and an unrecognised
+ * value must fall back to the default rather than throw.
+ *
+ * The danger it exists to prevent is asymmetry. `lockLadderWeekAction` casts
+ * the raw string straight to `RankMode`, so a mode that the DISPLAY paths
+ * quietly downgraded to "ova" would promote teams by one hierarchy while the
+ * standings table showed another — the two disagreeing is far worse than
+ * either rule on its own.
+ */
+export function parseRankMode(stored: string | null | undefined): RankMode {
+  const base = (stored ?? "").replace(/_projected$/, "");
+  if (base === "differential") return "differential";
+  if (base === "headToHead") return "headToHead";
+  return "ova";
+}
 
 /**
  * Optional normalization for teams whose SCHEDULE is shorter than the rest
@@ -342,9 +367,7 @@ function valuerFor(
   droppedByTeam?: DroppedByTeam,
   projection?: RankProjection,
 ): (id: TeamId) => number {
-  // Head-to-head is the FINAL tiebreaker (step 4): a team only reaches it when
-  // it's still tied on wins AND ratio, so it compares just that residual subset.
-  if (step === 4) {
+  if (criterionAt(step, mode) === "headToHead") {
     const table = new Map(
       headToHeadTable(group, matches, droppedByTeam).map((e) => [
         e.teamId,
@@ -357,14 +380,52 @@ function valuerFor(
     const s = stats.get(id)!;
     // Match wins and point differential are totals, so a short-handed team is
     // pro-rated up to the full slate; ratios are already per-game.
-    if (step === 1)
-      return projectionFactor(s, projection) * (s.mw + 0.5 * s.mt);
-    if (mode === "differential") {
-      return projectionFactor(s, projection) * (s.pf - s.pa);
+    switch (criterionAt(step, mode)) {
+      case "wins":
+        return projectionFactor(s, projection) * (s.mw + 0.5 * s.mt);
+      case "differential":
+        return projectionFactor(s, projection) * (s.pf - s.pa);
+      case "setRatio":
+        return s.setRatio;
+      default:
+        return s.pointRatio;
     }
-    if (step === 2) return s.setRatio;
-    return s.pointRatio; // step 3
   };
+}
+
+/** What each step compares. The ORDER is the whole difference between modes. */
+type Criterion =
+  | "wins"
+  | "setRatio"
+  | "pointRatio"
+  | "differential"
+  | "headToHead";
+
+/**
+ * Steps 1–4 for each mode.
+ *
+ * `ova` puts head-to-head LAST, deliberately: "most wins, then best ratio, and
+ * only if two teams are still exactly tied, whoever beat the other" is simpler
+ * to explain than the published OVA order, and a test pins it.
+ *
+ * `headToHead` is the order Mango asked for (2026-09-23): "can we do head to
+ * head first and if there is a tie then points". In a three-team tier playing
+ * each other twice, two sides finishing level is the normal case rather than
+ * the exception, and the organizer's instinct is that beating someone should
+ * settle it before a points average does.
+ *
+ * `differential` repeats its criterion at steps 2 and 3 — there is only one
+ * number to compare, so the second pass separates nobody and falls through.
+ */
+const STEP_ORDER: Record<RankMode, readonly Criterion[]> = {
+  ova: ["wins", "setRatio", "pointRatio", "headToHead"],
+  differential: ["wins", "differential", "differential", "headToHead"],
+  headToHead: ["wins", "headToHead", "setRatio", "pointRatio"],
+};
+
+function criterionAt(step: TiebreakerStep, mode: RankMode): Criterion {
+  // Step 5 is "unresolved" and never asks for a value.
+  return STEP_ORDER[mode][Math.min(step, 4) - 1];
 }
 
 function resolveGroup(
@@ -462,22 +523,23 @@ function explain(
   value: number,
   s: TeamStats,
 ): string {
-  switch (step) {
-    case 1:
+  // Step 5 is the only one that isn't a criterion — nothing separated them.
+  if (step === 5) return "Unresolved — coin flip / organizer decision (TBD)";
+  // Reads the same table the ranking used, so the sentence shown to an
+  // organizer can never describe a different hierarchy from the one applied.
+  switch (criterionAt(step, mode)) {
+    case "wins":
       return `Match wins: ${s.mw + 0.5 * s.mt}`;
-    case 2:
-    case 3:
-      if (mode === "differential") {
-        const diff = s.pf - s.pa;
-        return `Point differential ${s.pf}−${s.pa} = ${diff >= 0 ? "+" : ""}${diff}`;
-      }
-      return step === 2
-        ? `Set ratio ${s.sw}/${s.sl} = ${formatRatio(s.setRatio)}`
-        : `Point ratio ${s.pf}/${s.pa} = ${formatRatio(s.pointRatio)}`;
-    case 4:
+    case "differential": {
+      const diff = s.pf - s.pa;
+      return `Point differential ${s.pf}−${s.pa} = ${diff >= 0 ? "+" : ""}${diff}`;
+    }
+    case "setRatio":
+      return `Set ratio ${s.sw}/${s.sl} = ${formatRatio(s.setRatio)}`;
+    case "pointRatio":
+      return `Point ratio ${s.pf}/${s.pa} = ${formatRatio(s.pointRatio)}`;
+    case "headToHead":
       return `Head-to-head among tied teams: ${formatRatio(value)}`;
-    case 5:
-      return "Unresolved — coin flip / organizer decision (TBD)";
   }
 }
 

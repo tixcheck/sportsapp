@@ -1,5 +1,6 @@
 import type { Sport } from "@/lib/formats";
 import { createClient } from "@/lib/supabase/server";
+import { parseRankMode } from "@/lib/scheduler/tiebreakers";
 import {
   getMyMatches,
   getMyPlayoffProjections,
@@ -101,7 +102,10 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
       .select("tiebreaker")
       .eq("competition_id", comp.id)
       .single();
-    differential = ls?.tiebreaker === "differential";
+    // Through the decoder: `=== "differential"` missed `differential_projected`
+    // entirely, so a league using the projection showed ratio columns while
+    // ranking on differential.
+    differential = parseRankMode(ls?.tiebreaker) === "differential";
   }
 
   let myMatches: MyMatch[] = [];

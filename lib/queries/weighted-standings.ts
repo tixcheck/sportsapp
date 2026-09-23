@@ -14,7 +14,7 @@ import {
   type WeekFinish,
 } from "@/lib/stats/placement-standings";
 import { rankLadderNight } from "@/lib/scheduler/ladder-week";
-import type { RankMode } from "@/lib/scheduler/tiebreakers";
+import { parseRankMode } from "@/lib/scheduler/tiebreakers";
 
 export type WeightedStanding = WeightedRow & { teamName: string };
 
@@ -217,10 +217,9 @@ export async function getWeightedStandings(
     }[];
 
     // A "_projected" suffix encodes a display option, not a different order.
-    const mode = (((settings?.tiebreaker as string) ?? "ova").replace(
-      "_projected",
-      "",
-    ) || "ova") as RankMode;
+    // The shared decoder rather than a local replace: this ranking has to be
+    // the same one the week-lock promotes on.
+    const mode = parseRankMode(settings?.tiebreaker as string | null);
 
     const derived = new Map<string, number>();
     for (const week of new Set(placementRows.map((p) => p.week))) {

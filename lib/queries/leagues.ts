@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { parseRankMode, type RankMode } from "@/lib/scheduler/tiebreakers";
 import type { Sport } from "@/lib/formats";
 import type { LeagueCourt, MatchFormat, WeeklySlot } from "@/lib/db/schema";
 
@@ -88,7 +89,7 @@ export interface LeagueDetail {
   /** Minutes each game occupies — spacing + rest gaps (default 45). */
   minutesPerGame: number;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
-  tiebreaker: "ova" | "differential";
+  tiebreaker: RankMode;
   /** Fixture order within a round — see league_settings.pairing_order. */
   pairingOrder: "circle" | "sequential";
   /** Pro-rate short-handed (mid-season) teams to the full slate for ranking. */
@@ -169,7 +170,7 @@ export interface PublicLeague {
   /** Match format — drives the standings ranking legend. */
   matchFormat: MatchFormat;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
-  tiebreaker: "ova" | "differential";
+  tiebreaker: RankMode;
   /** Skill tiers (divisions) teams can register into. Empty = untiered. */
   tiers: LeagueTier[];
   /** Whether self-registration is currently accepting teams (open + in window). */
@@ -301,11 +302,7 @@ export async function getLeagueDetail(
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
     gamesPerWeek: (settings?.games_per_week as number | null) ?? 1,
     minutesPerGame: (settings?.minutes_per_game as number | null) ?? 45,
-    tiebreaker: ((settings?.tiebreaker as string | null) ?? "").startsWith(
-      "differential",
-    )
-      ? "differential"
-      : "ova",
+    tiebreaker: parseRankMode(settings?.tiebreaker as string | null),
     projectShortTeams: ((settings?.tiebreaker as string | null) ?? "").endsWith(
       "_projected",
     ),
@@ -531,11 +528,7 @@ export async function getPublicLeague(
     endDate: league.end_date,
     timezone: league.timezone,
     matchFormat: league.match_format as MatchFormat,
-    tiebreaker: ((settings?.tiebreaker as string | null) ?? "").startsWith(
-      "differential",
-    )
-      ? "differential"
-      : "ova",
+    tiebreaker: parseRankMode(settings?.tiebreaker as string | null),
     tiers: (divisionRows ?? []).map((d) => ({
       id: d.id as string,
       name: d.name as string,

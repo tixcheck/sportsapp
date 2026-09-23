@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-23 — Head-to-head first, and a dropdown that had been lying
+
+Mango's organizer, on who goes up when a tier finishes level:
+
+> _"Can we do head to head first and if there is a tie then points … For
+> example, your team and kochi yesterday. Tied 3-3. But you beat them by 1
+> point. Head to head."_
+
+**Traced before promising anything.** `lockLadderWeekAction` reads
+`league_settings.tiebreaker`, hands it to `rankLadderNight` → `rankStandings`,
+and `applyLadderMovement` promotes the top of that order. So the setting decides
+who is promoted, not merely what the table shows. The one path that could have
+bypassed it — a typed-in `result_rank` — is filled **nowhere on the platform**
+(0 rows) and the lock has no branch for it.
+
+**The discovery that mattered more than the feature.** The settings dropdown
+read "OVA — match wins → **head-to-head** → set ratio → point ratio", and
+`schema.ts` said the same. The code has always resolved head-to-head LAST, and
+a test named "ratio beats head-to-head (the owner's rule)" pins it deliberately.
+So the UI had been describing the opposite of the behaviour, to the one person
+who reads it when answering an organizer's question. Both are corrected.
+
+**`headToHead` mode:** match wins → head-to-head → set ratio → point ratio. The
+hierarchy now lives in one `STEP_ORDER` table rather than being spelled out in
+`if (step === …)` branches, so `explain()` reads the same table the ranking used
+and cannot describe a different order from the one applied.
+
+**The real risk was never the maths.** `lockLadderWeekAction` CASTS the stored
+string straight to `RankMode`, while every display path decoded it with
+`startsWith("differential") ? … : "ova"`. A new value would therefore have been
+honoured when promoting and silently downgraded on screen — promotions and
+standings disagreeing, which is worse than either rule alone. One
+`parseRankMode` now serves every reader, and it also handles the `_projected`
+suffix that the projection setting rides on.
+
+That suffix was already breaking something: `team-view.ts` compared
+`=== "differential"`, so a league using the projection ranked on differential
+while its table showed ratio columns. Fixed by the same decoder.
+
+**Tests:** 1594 passing across 125 files (7 new); `tsc --noEmit` and eslint
+clean. No migration — `tiebreaker` is free text with no check constraint.
+
 ## 2026-09-22 — A misspelling became a second player, and subs got their own sheet
 
 Big Shoots' organizer, three things at once:

@@ -28,7 +28,7 @@ export const createLeagueSchema = z
     gamesPerWeek: z.number().int().min(1).max(7),
     // Minutes each game occupies (spacing + rest gaps). Default 45.
     minutesPerGame: z.number().int().min(15).max(180),
-    tiebreaker: z.enum(["ova", "differential"]),
+    tiebreaker: z.enum(["ova", "differential", "headToHead"]),
     // Fixture order within a round. "circle" spreads evenly and rotates courts;
     // "sequential" fixes the first team and pins courts to the listed order.
     pairingOrder: z.enum(["circle", "sequential"]).optional(),
@@ -96,7 +96,7 @@ export const editLeagueSchema = z
     gamesPerWeek: z.number().int().min(1).max(7),
     // Minutes each game occupies (spacing + rest gaps). Default 45.
     minutesPerGame: z.number().int().min(15).max(180),
-    tiebreaker: z.enum(["ova", "differential"]),
+    tiebreaker: z.enum(["ova", "differential", "headToHead"]),
     // Fixture order within a round. "circle" spreads evenly and rotates courts;
     // "sequential" fixes the first team and pins courts to the listed order.
     pairingOrder: z.enum(["circle", "sequential"]).optional(),

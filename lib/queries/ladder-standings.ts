@@ -20,8 +20,11 @@
 import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
-import { rankStandings, type MatchResult } from "@/lib/scheduler/tiebreakers";
-import type { RankMode } from "@/lib/scheduler/tiebreakers";
+import {
+  parseRankMode,
+  rankStandings,
+  type MatchResult,
+} from "@/lib/scheduler/tiebreakers";
 import type { StandingsRowView } from "@/lib/standings/compute";
 import { buildStandingsExplainer } from "@/lib/standings/compute";
 
@@ -101,12 +104,11 @@ export async function getLadderNightStandings(
   }[];
   if (placementRows.length === 0) return [];
 
-  const mode = (
-    ((settings as { tiebreaker?: string } | null)?.tiebreaker ?? "ova") ===
-    "differential"
-      ? "differential"
-      : "ova"
-  ) as RankMode;
+  // Through the shared decoder: this table has to show the SAME hierarchy the
+  // week-lock promotes on, and the lock reads the raw column.
+  const mode = parseRankMode(
+    (settings as { tiebreaker?: string } | null)?.tiebreaker,
+  );
 
   const divisionName = new Map(
     ((divisions ?? []) as { id: string; name: string }[]).map((d) => [

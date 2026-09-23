@@ -1116,6 +1116,27 @@ them in tier order, so don't key anything off the name.
 Ladder on, promotion/relegation on, `ladder_swaps = [1,1,1,1,1]` — one up and
 one down at each of the five boundaries.
 
+**Who goes up is decided by `league_settings.tiebreaker`.**
+`lockLadderWeekAction` reads it, `rankLadderNight` → `rankStandings` orders each
+tier on that night alone, and `applyLadderMovement` promotes the top. Nothing
+bypasses it: `ladder_placements.result_rank` (a typed-in finishing order) is
+filled **nowhere in the database** and the lock has no branch for it.
+
+Mango is still on **`ova`** (wins → set ratio → point ratio → head-to-head). The
+owner asked on 2026-09-23 for head-to-head first, and the mode exists
+(`headToHead`), but it was **not applied**: ranking week 1 under both modes
+gives identical tier orders and the identical ten moves, so switching would
+have meant unlocking a locked week and discarding week 2's 36 drawn fixtures to
+change nothing. Switch it only if the organizer wants it for FUTURE nights.
+
+**If it is ever switched mid-season, the order is unlock → re-lock → draw.**
+`unlockLadderWeekAction` deletes the next week's placements and puts teams back
+in the tier they played in, but it does **not** delete that week's fixtures —
+which were drawn from the placements just removed. `drawLadderWeekAction` draws
+`latestWeek`, so drawing before the re-lock targets the already-played week and
+is refused; after it, the stale fixtures are deleted and redrawn (it refuses
+only where results are already settled).
+
 **Tiers can be corrected from the Teams tab** (shipped 2026-09-17): each team
 row has a tier dropdown, **while the season has not started**. The organizer
 mis-seeded the tiers here, which is what prompted it. Once week 1 is drawn the

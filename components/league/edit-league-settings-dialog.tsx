@@ -441,11 +441,18 @@ export function EditLeagueSettingsDialog({
             hint="How teams tied on match wins are separated."
           >
             <select className={selectClass} {...register("tiebreaker")}>
+              {/* These labels described head-to-head as the SECOND step until
+                  2026-09-23. It has always resolved last. An organizer reading
+                  this was told the opposite of what the app did. */}
               <option value="ova">
-                OVA — match wins → head-to-head → set ratio → point ratio
+                OVA — match wins → set ratio → point ratio → head-to-head
+              </option>
+              <option value="headToHead">
+                Head-to-head first — match wins → head-to-head → set ratio →
+                point ratio
               </option>
               <option value="differential">
-                Point differential — match wins → head-to-head → PF − PA
+                Point differential — match wins → PF − PA → head-to-head
               </option>
             </select>
           </Field>
