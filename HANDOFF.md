@@ -1122,12 +1122,21 @@ tier on that night alone, and `applyLadderMovement` promotes the top. Nothing
 bypasses it: `ladder_placements.result_rank` (a typed-in finishing order) is
 filled **nowhere in the database** and the lock has no branch for it.
 
-Mango is still on **`ova`** (wins → set ratio → point ratio → head-to-head). The
-owner asked on 2026-09-23 for head-to-head first, and the mode exists
-(`headToHead`), but it was **not applied**: ranking week 1 under both modes
-gives identical tier orders and the identical ten moves, so switching would
-have meant unlocking a locked week and discarding week 2's 36 drawn fixtures to
-change nothing. Switch it only if the organizer wants it for FUTURE nights.
+Mango is on **`headToHead`** since 2026-09-23 (was `ova`). That mode resolves
+**wins → head-to-head wins → head-to-head POINT DIFFERENCE → point ratio**. The
+second head-to-head pass exists because this league's tiers are three teams
+meeting twice, so splitting a pair is routine and the organizer's rule is that
+the margin across the two games settles it: "beijing came in on top by 1 point.
+And they need to be top." Difference, not points scored — confirmed against
+Tier 5, where the team that scored the most also had the worst margin.
+
+**Week 1 was unlocked by the owner on 2026-09-23 and needs re-locking**, then
+week 2 redrawn. Under the new rule two moves differ from what the first lock
+produced: **Beijing Dragons** go up to Tier 2 instead of **Kochi Knight
+Riders**, and **Dubai Falcons** drop to Tier 3 instead of **Osaka Onis** (Osaka
+escape on a +1 head-to-head margin, 48 v 47). The other eight moves are
+unchanged, and Tiers 4 and 5 are unaffected — their ties were for second place,
+which moves nobody.
 
 **If it is ever switched mid-season, the order is unlock → re-lock → draw.**
 `unlockLadderWeekAction` deletes the next week's placements and puts teams back

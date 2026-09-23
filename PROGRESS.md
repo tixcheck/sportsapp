@@ -47,6 +47,40 @@ while its table showed ratio columns. Fixed by the same decoder.
 **Tests:** 1594 passing across 125 files (7 new); `tsc --noEmit` and eslint
 clean. No migration — `tiebreaker` is free text with no check constraint.
 
+**Second pass, same day — head-to-head needed two levels.** Switching Mango to
+the new mode changed nothing, which was the clue that "head to head" had been
+read too narrowly. Kochi and Beijing had won one game each, so head-to-head was
+level and fell straight through to ratios. What the organizer meant:
+
+> _"in the 2 games Beijing and kochi played, beijing came in on top by 1 point.
+> And they need to be top."_
+
+The margin across the pair, not who won more of them. So the mode now resolves
+**wins → head-to-head wins → head-to-head point difference → point ratio**, and
+`headToHeadTable` carries `pointsFor`/`pointsAgainst`/`pointDiff` alongside the
+wins it already counted. Difference, not points scored, confirmed by the owner
+against the case that separates them — Tier 5 had all three teams on 2 wins,
+where Mangalore scored the MOST points (90) and had the WORST margin (−4).
+
+`ova` is untouched: head-to-head stays its final step, with no points pass, so
+the other thirteen leagues rank exactly as before.
+
+**Two tests failed on the way, and only one was the code's fault — neither.**
+One was a `toEqual` pinning the old four-field `HeadToHeadEntry`, widened to
+`objectContaining` because the row simply learned new fields. The other was my
+own fixture: I had asserted the real Tier 5 margins over six invented matches
+that did not produce them. Rebuilt from the scores as played, which is what the
+assertion always claimed to be about.
+
+**What it actually changes for Mango:** two moves, both at the Tier 2/3
+boundary. Beijing Dragons go up instead of Kochi Knight Riders, and Dubai
+Falcons drop instead of Osaka Onis — Osaka escaping by a +1 head-to-head margin
+over Dubai (48 v 47). Tiers 4 and 5 are unaffected: the ties there were for
+second place, which moves nobody.
+
+**Tests:** 1598 passing across 125 files (4 more); `tsc --noEmit` and eslint
+clean.
+
 ## 2026-09-22 — A misspelling became a second player, and subs got their own sheet
 
 Big Shoots' organizer, three things at once:

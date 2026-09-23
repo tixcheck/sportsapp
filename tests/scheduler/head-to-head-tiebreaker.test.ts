@@ -93,6 +93,98 @@ describe("rankStandings — head-to-head-first mode", () => {
   });
 });
 
+/**
+ * The second head-to-head pass. Mango's tiers are three teams meeting twice, so
+ * two sides splitting their pair is routine — and the organizer's rule is that
+ * the margin across those two games settles it: "in the 2 games Beijing and
+ * kochi played, beijing came in on top by 1 point. And they need to be top."
+ */
+describe("rankStandings — head-to-head points, when the meetings are level", () => {
+  // Beijing/Kochi as actually played, week 1 Tier 3. One win each; Beijing 46
+  // points across the pair to Kochi's 45.
+  const TIER: MatchResult[] = [
+    m("Kochi", "Beijing", single(20, 25)), // Beijing by 5
+    m("Kochi", "Beijing", single(25, 21)), // Kochi by 4
+    m("Kochi", "Toronto", single(25, 14)),
+    m("Kochi", "Toronto", single(25, 18)),
+    m("Toronto", "Beijing", single(14, 25)),
+    m("Toronto", "Beijing", single(21, 25)),
+  ];
+
+  it("gives it to the better margin across the two meetings", () => {
+    const rows = rankStandings(
+      ["Kochi", "Beijing", "Toronto"],
+      TIER,
+      undefined,
+      "headToHead",
+    );
+    expect(rows.map((r) => r.teamId)).toEqual(["Beijing", "Kochi", "Toronto"]);
+    // Step 3 is the points pass: wins were level, so it went one further.
+    expect(rows[0]).toMatchObject({ teamId: "Beijing", tiebreakerStep: 3 });
+    expect(rows[0].explanation).toContain("Head-to-head points");
+  });
+
+  // The rule it must NOT become: OVA reads the same games the other way, on
+  // overall point ratio, and puts Kochi first. That is the result the organizer
+  // was disputing.
+  it("differs from OVA on the same tier", () => {
+    const ova = rankStandings(["Kochi", "Beijing", "Toronto"], TIER);
+    expect(ova[0].teamId).toBe("Kochi");
+  });
+
+  it("does not reach points when one side won the meetings outright", () => {
+    const rows = rankStandings(
+      ["A", "B", "C"],
+      [
+        m("A", "B", single(21, 19)), // A wins both meetings narrowly
+        m("A", "B", single(21, 19)),
+        m("A", "C", single(21, 10)),
+        m("C", "A", single(21, 10)),
+        m("B", "C", single(25, 5)), // B racks up points elsewhere
+        m("C", "B", single(5, 25)),
+      ],
+      undefined,
+      "headToHead",
+    );
+    const a = rows.find((r) => r.teamId === "A")!;
+    const b = rows.find((r) => r.teamId === "B")!;
+    // A beat B twice, so it resolves at the wins pass and the margin never
+    // matters — B's blowouts against C cannot buy it the tier.
+    expect(a.position).toBeLessThan(b.position);
+    expect(a.tiebreakerStep).toBeLessThanOrEqual(2);
+  });
+
+  /**
+   * Three level teams, which is where "best margin" and "most points scored"
+   * part company: Mangalore scored the most (90) and has the worst margin (−4).
+   * The organizer chose differential, so Kingston (+3) tops it.
+   */
+  it("separates a three-way tie by margin, not by points scored", () => {
+    // Mango's Tier 5, week 1, exactly as played — all three finished on 2 wins.
+    const rows = rankStandings(
+      ["Mangalore", "Kingston", "Mississauga"],
+      [
+        m("Kingston", "Mississauga", single(16, 25)),
+        m("Mangalore", "Mississauga", single(25, 22)),
+        m("Kingston", "Mississauga", single(21, 14)),
+        m("Mangalore", "Kingston", single(17, 25)),
+        m("Mangalore", "Mississauga", single(23, 25)),
+        m("Mangalore", "Kingston", single(25, 22)),
+      ],
+      undefined,
+      "headToHead",
+    );
+    // Margins: Kingston 84/81 = +3, Mississauga 86/85 = +1,
+    // Mangalore 90/94 = −4. Mangalore scored the MOST points and still comes
+    // last, which is the whole distinction the organizer chose.
+    expect(rows.map((r) => r.teamId)).toEqual([
+      "Kingston",
+      "Mississauga",
+      "Mangalore",
+    ]);
+  });
+});
+
 describe("parseRankMode", () => {
   it("reads every mode the settings column can hold", () => {
     expect(parseRankMode("ova")).toBe("ova");

@@ -151,6 +151,12 @@ export interface HeadToHeadEntry {
   wins: number;
   played: number;
   ratio: number;
+  /** Points scored and conceded in the matches against the other tied teams. */
+  pointsFor: number;
+  pointsAgainst: number;
+  /** `pointsFor - pointsAgainst`. The margin, not the volume — a team in
+   *  high-scoring games should not out-rank one that simply won by more. */
+  pointDiff: number;
 }
 
 // --- match math ------------------------------------------------------------
@@ -276,6 +282,8 @@ export function headToHeadTable(
   const subset = new Set(teamIds);
   const wins = new Map<TeamId, number>(teamIds.map((id) => [id, 0]));
   const played = new Map<TeamId, number>(teamIds.map((id) => [id, 0]));
+  const pf = new Map<TeamId, number>(teamIds.map((id) => [id, 0]));
+  const pa = new Map<TeamId, number>(teamIds.map((id) => [id, 0]));
 
   for (const match of matches) {
     if (!subset.has(match.homeTeamId) || !subset.has(match.awayTeamId))
@@ -288,6 +296,18 @@ export function headToHeadTable(
       played.set(match.homeTeamId, played.get(match.homeTeamId)! + 1);
     if (!awayOut)
       played.set(match.awayTeamId, played.get(match.awayTeamId)! + 1);
+    // Points between the tied teams, per side and under the same drop rule:
+    // a dropped game scores nothing for the side that dropped it.
+    for (const s of match.sets) {
+      if (!homeOut) {
+        pf.set(match.homeTeamId, pf.get(match.homeTeamId)! + s.home);
+        pa.set(match.homeTeamId, pa.get(match.homeTeamId)! + s.away);
+      }
+      if (!awayOut) {
+        pf.set(match.awayTeamId, pf.get(match.awayTeamId)! + s.away);
+        pa.set(match.awayTeamId, pa.get(match.awayTeamId)! + s.home);
+      }
+    }
     const winner = matchWinner(match);
     if (winner) {
       if (!isDropped(droppedByTeam, winner, match))
@@ -312,7 +332,17 @@ export function headToHeadTable(
   return teamIds.map((id) => {
     const w = wins.get(id)!;
     const p = played.get(id)!;
-    return { teamId: id, wins: w, played: p, ratio: p === 0 ? 0 : w / p };
+    const scored = pf.get(id)!;
+    const conceded = pa.get(id)!;
+    return {
+      teamId: id,
+      wins: w,
+      played: p,
+      ratio: p === 0 ? 0 : w / p,
+      pointsFor: scored,
+      pointsAgainst: conceded,
+      pointDiff: scored - conceded,
+    };
   });
 }
 
@@ -367,11 +397,12 @@ function valuerFor(
   droppedByTeam?: DroppedByTeam,
   projection?: RankProjection,
 ): (id: TeamId) => number {
-  if (criterionAt(step, mode) === "headToHead") {
+  const criterion = criterionAt(step, mode);
+  if (criterion === "headToHead" || criterion === "headToHeadPoints") {
     const table = new Map(
       headToHeadTable(group, matches, droppedByTeam).map((e) => [
         e.teamId,
-        e.ratio,
+        criterion === "headToHead" ? e.ratio : e.pointDiff,
       ]),
     );
     return (id) => table.get(id)!;
@@ -399,7 +430,8 @@ type Criterion =
   | "setRatio"
   | "pointRatio"
   | "differential"
-  | "headToHead";
+  | "headToHead"
+  | "headToHeadPoints";
 
 /**
  * Steps 1–4 for each mode.
@@ -420,7 +452,13 @@ type Criterion =
 const STEP_ORDER: Record<RankMode, readonly Criterion[]> = {
   ova: ["wins", "setRatio", "pointRatio", "headToHead"],
   differential: ["wins", "differential", "differential", "headToHead"],
-  headToHead: ["wins", "headToHead", "setRatio", "pointRatio"],
+  // Head-to-head resolves in TWO passes before anything else is consulted:
+  // who won the meetings, then — only if that is level — the points margin
+  // across them. Mango's organizer, on two teams who split their two games:
+  // "in the 2 games Beijing and kochi played, beijing came in on top by 1
+  // point. And they need to be top." Margin, not volume: the team in the
+  // higher-scoring games should not out-rank the one that won by more.
+  headToHead: ["wins", "headToHead", "headToHeadPoints", "pointRatio"],
 };
 
 function criterionAt(step: TiebreakerStep, mode: RankMode): Criterion {
@@ -540,6 +578,8 @@ function explain(
       return `Point ratio ${s.pf}/${s.pa} = ${formatRatio(s.pointRatio)}`;
     case "headToHead":
       return `Head-to-head among tied teams: ${formatRatio(value)}`;
+    case "headToHeadPoints":
+      return `Head-to-head points among tied teams: ${value >= 0 ? "+" : ""}${value}`;
   }
 }
 

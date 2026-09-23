@@ -378,11 +378,25 @@ describe("headToHeadTable — known-good OVA fixture", () => {
       m("T3", "T4", SWEEP),
     ];
     const table = headToHeadTable(teams, matches);
+    // objectContaining, not toEqual: the entry also carries the points a team
+    // scored and conceded against the others (added 2026-09-23 for the
+    // head-to-head points pass). This test is about the OVA modal's wins and
+    // ratio, and should not fail simply because the row learned a new field.
     expect(table).toEqual([
-      { teamId: "T1", wins: 3, played: 3, ratio: 1 },
-      { teamId: "T2", wins: 2, played: 3, ratio: 2 / 3 },
-      { teamId: "T3", wins: 1, played: 3, ratio: 1 / 3 },
-      { teamId: "T4", wins: 0, played: 3, ratio: 0 },
+      expect.objectContaining({ teamId: "T1", wins: 3, played: 3, ratio: 1 }),
+      expect.objectContaining({
+        teamId: "T2",
+        wins: 2,
+        played: 3,
+        ratio: 2 / 3,
+      }),
+      expect.objectContaining({
+        teamId: "T3",
+        wins: 1,
+        played: 3,
+        ratio: 1 / 3,
+      }),
+      expect.objectContaining({ teamId: "T4", wins: 0, played: 3, ratio: 0 }),
     ]);
     // Exact float formatting matches the OVA display strings.
     expect(String(table[1].ratio)).toBe("0.6666666666666666");
