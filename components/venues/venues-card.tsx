@@ -27,11 +27,19 @@ type Draft = {
   id?: string;
   name: string;
   address: string;
+  /** Held as a string so the box can be empty — "" means not stated. */
+  courts: string;
   entryNotes: string;
   doorsNote: string;
 };
 
-const EMPTY: Draft = { name: "", address: "", entryNotes: "", doorsNote: "" };
+const EMPTY: Draft = {
+  name: "",
+  address: "",
+  courts: "",
+  entryNotes: "",
+  doorsNote: "",
+};
 
 function VenueForm({
   draft,
@@ -69,6 +77,24 @@ function VenueForm({
             onChange={(e) => setDraft({ ...draft, address: e.target.value })}
           />
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="venue-courts">Courts</Label>
+        <Input
+          id="venue-courts"
+          type="number"
+          min={1}
+          max={40}
+          inputMode="numeric"
+          className="max-w-28 tabular-nums"
+          value={draft.courts}
+          placeholder="3"
+          onChange={(e) => setDraft({ ...draft, courts: e.target.value })}
+        />
+        <p className="text-muted-foreground text-xs">
+          How many courts this building has. Leagues played here start from this
+          number instead of asking again — a league can still use fewer.
+        </p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="venue-entry">Getting in</Label>
@@ -135,10 +161,14 @@ export function VenuesCard({
   function save() {
     if (!draft) return;
     start(async () => {
+      const typed = draft.courts.trim();
       const payload = {
         orgId,
         name: draft.name.trim(),
         address: draft.address.trim() || undefined,
+        // Null, not undefined: an emptied box means "not stated", and the
+        // action writes that back rather than keeping a stale number.
+        courts: typed === "" ? null : Number(typed),
         entryNotes: draft.entryNotes.trim() || undefined,
         doorsNote: draft.doorsNote.trim() || undefined,
       };
@@ -177,8 +207,9 @@ export function VenuesCard({
         <div className="min-w-0">
           <CardTitle>Venues</CardTitle>
           <CardDescription>
-            The gyms and parks you play in. Add them once and assign courts to
-            them on each league.
+            The gyms and parks you play in, with how many courts each has. Add
+            them once — the address, the way in and the court count are worth
+            typing once, not once per league.
           </CardDescription>
         </div>
         {!draft && (
@@ -222,7 +253,14 @@ export function VenuesCard({
                   className="flex flex-wrap items-start justify-between gap-3 py-3"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{v.name}</p>
+                    <p className="font-medium">
+                      {v.name}
+                      {v.courts != null && (
+                        <span className="text-muted-foreground ml-2 text-xs font-normal">
+                          {v.courts} court{v.courts === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </p>
                     {v.address && (
                       <p className="text-muted-foreground text-xs">
                         {maps ? (
@@ -262,6 +300,7 @@ export function VenuesCard({
                           id: v.id,
                           name: v.name,
                           address: v.address ?? "",
+                          courts: v.courts == null ? "" : String(v.courts),
                           entryNotes: v.entryNotes ?? "",
                           doorsNote: v.doorsNote ?? "",
                         })

@@ -21,6 +21,9 @@ const venue = (
   address,
   entryNotes: null,
   doorsNote: null,
+  // Not stated. These tests are about court LABELS and which building a game
+  // is in; a gym's capacity has no bearing on either.
+  courts: null,
 });
 
 const TERRY = venue("v-terry", "Terry Miller", "1295 Williams Pkwy");

@@ -5,6 +5,54 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-24 — A gym's court count belongs to the gym (0128)
+
+The owner, looking at BVL: _"I want the org to be able to add the total courts
+when adding a venue. So we dont need to have them add them again in each and
+every league."_
+
+He is right, and the storage was always half-way there. `LeagueCourt` has
+carried a `venueId` since 0071, and `court-counts.ts` already says the quiet
+part — _"A gym has a number of courts. So the count is the thing edited, and the
+court rows are derived from it."_ But the number lived on the LEAGUE: either
+`weekly_slots[].courts` as one figure for the whole competition, or a
+`court_list` grouped by venue. Both describe one season's use of a building, so
+an org running eight gyms retyped the same facts every league — four a season
+for BVL, who rotate gyms weekly.
+
+**`venues.courts`, nullable.** Null means "not stated", which is all 26 existing
+venues, and every league falls back to its own number exactly as before. A
+`not null default 1` would have asserted that two dozen real gyms have a single
+court each — and the generator believes what it is told, wrapping court numbers
+and double-booking a gym all night behind a schedule that looks fine.
+
+It is a **default, never an override**. An org with a four-court gym may
+deliberately use two of them on a Tuesday; the league's own court list is where
+that gets said, and it still wins.
+
+**Not yet wired: leagues do not read it.** That is the half the request was
+actually about, and it is a design decision rather than a line of plumbing. The
+seam is `venueCourts` in `server/actions/leagues.ts` — a map of venue to court
+LABELS, which `labelFor` indexes into to name each court. Seeding it from a bare
+count means generating labels ("1".."4"), and whether those should be numbers,
+or letters, or inherited from a sibling league, is the organizer's vocabulary,
+not mine to guess at the end of a change. Recorded in `HANDOFF.md`.
+
+**For BVL specifically**, nothing changes until someone types the numbers: their
+four 2026/27 leagues each run a single slot at `courts: 3`, with no court list,
+no divisions, and `competitions.venue` still "TBD". The four gyms are on file
+(Jim Archdekin, Notre Dame, St. Marguerite d'Youville, Terry Miller).
+
+**A test caught what the suite could not.** `tsc` flagged the one other place a
+`VenueSummary` is built — a fixture in `tests/venues/resolve.test.ts` — while
+the suite ran 1598 green, because vitest does not typecheck. Second time today
+that passing tests were not evidence the code compiled.
+
+**Tests:** 1598 passing across 125 files, unchanged — this is data plumbing, and
+`court-counts.ts` already owns the pure logic. `tsc --noEmit` and eslint clean.
+Migration 0128 applied and verified: nullable integer, sanity check, 26 venues
+all reading "not stated".
+
 ## 2026-09-23 — A ladder game now records its tier, and an undo cleans up after itself
 
 Mango's owner: _"Is there something wrong with our scheduler? The org asked

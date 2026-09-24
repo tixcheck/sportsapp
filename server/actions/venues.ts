@@ -25,6 +25,22 @@ const venueSchema = z.object({
   /** Directions printed on the PUBLIC schedule — never door codes. */
   entryNotes: z.string().trim().max(400).optional(),
   doorsNote: z.string().trim().max(120).optional(),
+  /**
+   * How many courts this building has (migration 0128). Null = not stated,
+   * which is every venue predating the column — leagues then fall back to
+   * their own court count exactly as before.
+   *
+   * A DEFAULT for leagues played here, never an override: an org with a
+   * four-court gym may deliberately use two of them on a Tuesday, and the
+   * league's own court list is where that is said.
+   */
+  courts: z
+    .number()
+    .int()
+    .min(1, "A venue has at least one court.")
+    .max(40, "That's more courts than a building holds.")
+    .nullable()
+    .optional(),
 });
 
 /**
@@ -74,6 +90,7 @@ export async function createVenueAction(
       address: parsed.data.address || null,
       entry_notes: parsed.data.entryNotes || null,
       doors_note: parsed.data.doorsNote || null,
+      courts: parsed.data.courts ?? null,
     })
     .select("id")
     .single();
@@ -112,6 +129,9 @@ export async function updateVenueAction(
       address: parsed.data.address || null,
       entry_notes: parsed.data.entryNotes || null,
       doors_note: parsed.data.doorsNote || null,
+      // Absent clears it. The card always sends the field, so an emptied box
+      // means "not stated" rather than quietly keeping a stale number.
+      courts: parsed.data.courts ?? null,
     })
     .eq("id", parsed.data.id)
     .eq("org_id", parsed.data.orgId);

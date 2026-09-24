@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { VenueSummary } from "@/lib/venues/resolve";
 
-const COLUMNS = "id, name, address, entry_notes, doors_note";
+const COLUMNS = "id, name, address, entry_notes, doors_note, courts";
 
 type Row = {
   id: string;
@@ -9,6 +9,7 @@ type Row = {
   address: string | null;
   entry_notes: string | null;
   doors_note: string | null;
+  courts: number | null;
 };
 
 function toSummary(r: Row): VenueSummary {
@@ -18,6 +19,7 @@ function toSummary(r: Row): VenueSummary {
     address: r.address,
     entryNotes: r.entry_notes,
     doorsNote: r.doors_note,
+    courts: r.courts,
   };
 }
 

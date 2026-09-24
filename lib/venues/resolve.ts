@@ -19,6 +19,12 @@ export type VenueSummary = {
   address: string | null;
   entryNotes: string | null;
   doorsNote: string | null;
+  /**
+   * How many courts the building has (migration 0128). Null = not stated.
+   * A default for leagues played here, never an override of the league's own
+   * court list.
+   */
+  courts: number | null;
 };
 
 /** The bit of a match this module needs. */

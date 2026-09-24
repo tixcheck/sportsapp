@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0127`, and every one of `0060`–`0127` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0128`, and every one of `0060`–`0128` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -39,6 +39,7 @@
     | `0125` | Sep 16 | playoff format saved per competition: `playoff_advance_mode`, `playoff_third_place`, `playoff_courts` |
     | `0126` | Sep 17 | `league_settings.ladder_scoring` — `placement` scores lowest-wins (Mango Fall, the only league on it); every other league stays `points` |
     | `0127` | Sep 21 | `removed_signups` + `remove_free_agent()` — a deleted individual sign-up now leaves a snapshot and an editable note instead of vanishing |
+    | `0128` | Sep 24 | `venues.courts` — how many courts a gym has, recorded once on the building instead of per league |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -93,6 +94,20 @@
     `venueId` on each `LeagueCourt`. Org-scoped on purpose: the same gyms come
     back every season, and BVL's Terry Miller is now one row shared by two
     leagues.
+  - **`0128` adds `venues.courts`** — 2026-09-24. How many courts the building
+    has, typed once on the venue instead of per league. **Nullable**: null means
+    "not stated" (all 26 venues on the day it shipped), and a league keeps
+    falling back to its own count. Never make it `not null default 1` — the
+    generator believes what it is told and would silently wrap court numbers.
+    It is a DEFAULT, not an override: a league's own `court_list` still wins,
+    because an org with a four-court gym may use two of them on a Tuesday.
+    - **⚠️ Leagues do NOT read it yet.** The seam is `venueCourts` in
+      `server/actions/leagues.ts` (~807), a map of venue → court LABELS that
+      `labelFor` indexes into. Seeding it from a bare count means generating
+      labels, and whether those are "1".."4", letters, or copied from a sibling
+      league is the organizer's vocabulary — deliberately left undecided.
+      Until that is wired, entering a court count on a venue changes nothing
+      about generation; it is a record, and it prefills nothing.
     - **Court labels are NOT unique across venues.** Every school gym has a
       "Court A". Court identity is `(venue, label)` — never the label alone.
       Anything comparing courts by label is a latent bug; `sameCourtRef` in

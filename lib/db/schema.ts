@@ -356,6 +356,19 @@ export const venues = pgTable(
     entryNotes: text("entry_notes"),
     /** e.g. "Doors open at 6:05pm and 8:05pm". */
     doorsNote: text("doors_note"),
+    /**
+     * How many courts this building has (migration 0128).
+     *
+     * Null = not stated, which is every venue predating the column — leagues
+     * then fall back to their own court count exactly as before. A `not null
+     * default 1` would instead assert that real gyms have one court each, and
+     * the generator would believe it.
+     *
+     * A DEFAULT for leagues played here, never an override: an org with a
+     * four-court gym may deliberately use two on a Tuesday, and the league's
+     * own `court_list` is where that is said.
+     */
+    courts: integer("courts"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
