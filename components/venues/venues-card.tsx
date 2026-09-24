@@ -80,20 +80,24 @@ function VenueForm({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="venue-courts">Courts</Label>
+        {/*
+          Words, not a number. A greyed "3" is indistinguishable from a typed 3:
+          the organizer reads it as already filled in, saves without touching it,
+          and stores nothing. BVL hit this on day one across eight venues.
+        */}
         <Input
           id="venue-courts"
           type="number"
           min={1}
           max={40}
           inputMode="numeric"
-          className="max-w-28 tabular-nums"
+          className="max-w-36 tabular-nums"
           value={draft.courts}
-          placeholder="3"
+          placeholder="Not stated"
           onChange={(e) => setDraft({ ...draft, courts: e.target.value })}
         />
         <p className="text-muted-foreground text-xs">
-          How many courts this building has. Leagues played here start from this
-          number instead of asking again — a league can still use fewer.
+          How many courts this building has. Leave it blank if it varies.
         </p>
       </div>
       <div className="space-y-1.5">
@@ -207,9 +211,8 @@ export function VenuesCard({
         <div className="min-w-0">
           <CardTitle>Venues</CardTitle>
           <CardDescription>
-            The gyms and parks you play in, with how many courts each has. Add
-            them once — the address, the way in and the court count are worth
-            typing once, not once per league.
+            The gyms and parks you play in, with how many courts each has —
+            recorded once for the whole organization.
           </CardDescription>
         </div>
         {!draft && (

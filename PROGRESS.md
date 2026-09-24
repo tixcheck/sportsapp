@@ -53,6 +53,27 @@ that passing tests were not evidence the code compiled.
 Migration 0128 applied and verified: nullable integer, sanity check, 26 venues
 all reading "not stated".
 
+### Same day: the first real user found two holes in it
+
+BVL added seven venues within hours. Only three kept a court count.
+
+**A placeholder that looks like a default IS a default.** The field carried
+`placeholder="3"`. Greyed placeholder text is indistinguishable from a typed 3,
+so the organizer read the box as already filled, saved without touching it, and
+we stored null. He diagnosed it precisely without seeing the code: _"if I change
+the number of gyms from 3 to anything else, OR change it from 3 to 2, then back
+to three, then save, the # of gyms will appear."_ Typing is what turns the
+placeholder into a value. It now reads "Not stated" — words cannot be mistaken
+for a number.
+
+**The copy promised a feature that does not exist.** The same block said
+_"Leagues played here start from this number instead of asking again."_ They do
+not: the inheritance half was deliberately left unwired that morning, and the
+seam is still `venueCourts` in `leagues.ts`. Shipping the honest caveat to
+`HANDOFF.md` while the UI told organizers the opposite is the worse half of that
+mistake. The field hint and the card description now claim only what is true
+today.
+
 ## 2026-09-23 — A ladder game now records its tier, and an undo cleans up after itself
 
 Mango's owner: _"Is there something wrong with our scheduler? The org asked
