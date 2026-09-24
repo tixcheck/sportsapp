@@ -5,6 +5,73 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-24 — Individuals get asked the league's questions too
+
+BVL's organizer, forming teams from the individual pool: _"is there any way to
+have their gender listed? I have to make teams of equal M to F ratio, and I
+can't tell sometimes based on names alone."_
+
+They were already asking. **Gender** is a REQUIRED player question on all four
+BVL leagues (Male / Female / Non-Binary). The answer rates are the whole story:
+
+| League | Team roster | Free agents |
+| --- | --- | --- |
+| Non-Spiking (Tue) | 80/83 · 96% | 0/2 |
+| Reverse 4s (Tue) | 33/33 · 100% | 0/1 |
+| Spiking 6s (Thu) | 192/193 · 99% | 1/7 |
+| Women's (Wed) | 69/73 · 95% | 2/7 |
+
+374 of 382 rostered players answered. 3 of 17 free agents did. That is not
+people declining — **the individual sign-up form never asked.**
+`IndividualSignupForm` rendered name, email, phone, positions, level and notes,
+and nothing else. The register page loads `playerQuestions` and handed them
+only to the team paths. The one other screen that asks, `PlayerDetailsForm`, is
+gated behind an outstanding WAIVER on the dashboard, so an individual with no
+waiver obligation never met it — which is most likely how those 3 answered.
+
+So the request was really two things, and doing only the visible half would
+have been the worse outcome: showing gender on the draft board today would have
+printed blanks against 14 of 17 real people. Same shape as the placeholder bug
+higher up this page — a screen that looks filled in and isn't.
+
+**Answers are saved BEFORE the sign-up, and before payment.** The other order
+is exactly the bug: a sign-up exists, the answers don't, and nothing ever asks
+again. It also means nobody reaches a Stripe checkout before the organizer's
+questions have been put to them — the owner's own call when we scoped it.
+
+**Enforced server-side, not just in the form.** `registerIndividualAction` now
+calls `unanswered_player_questions` (migration 0104) and refuses while any
+remain. That is the same rule and the same implementation the waiver gate uses,
+rather than a second one that could drift. No migration: the RPC already
+existed and already defaults to the signed-in user, so it cannot be pointed at
+anybody else.
+
+**It binds self-serve sign-ups only, which is the point.** An organizer
+transcribing a roster goes through `organizer_add_individual` (migration 0090),
+untouched here. They cannot answer a question about a person on that person's
+behalf, and a guest with no account cannot hold answers at all — they are keyed
+on `user_id`. Checking who called `registerIndividualAction` before adding the
+gate was the difference between a fix and an outage on the draft screen.
+
+**`missingRequired` moved to `lib/registration/required-answers.ts`** with ten
+tests. It had none, and it has just become the client half of a rule the
+database enforces: if the two disagree, a player either fills in everything and
+is refused by a sentence naming no field, or is blocked on something the
+database would have allowed. `question-fields.tsx` re-exports it so the three
+existing consumers were not touched.
+
+**Still outstanding:** the 17 existing sign-ups have no answers and nothing
+backfills them — inventing a gender is not available to us. They can be filled
+in from the organizer's Players tab (which already edits league questions for
+anyone with an account, and all 17 have one), or the player can re-save their
+own sign-up. And the draft board still does not DISPLAY the answer; that is the
+small half, and it is worth doing once the data is actually there.
+
+**Tests:** 1608 passing across 126 files, up ten. `tsc --noEmit` and eslint
+clean.
+
+---
+
 ## 2026-09-24 — A gym's court count belongs to the gym (0128)
 
 The owner, looking at BVL: _"I want the org to be able to add the total courts

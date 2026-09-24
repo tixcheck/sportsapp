@@ -305,6 +305,12 @@ export default async function RegisterPage({
       returnTo={`/register/${slug}?as=individual`}
       feeCents={feeSettings.individualFeeCents}
       existing={mySignup}
+      // The same questions the team path already asks. Loaded above for the
+      // captain; individuals were simply never handed them.
+      questions={playerQuestions}
+      initialAnswers={myAnswers}
+      suggestedAnswers={suggestedAnswers}
+      addressAutocomplete={addressAutocomplete}
     />
   );
 

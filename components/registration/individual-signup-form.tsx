@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -17,6 +17,13 @@ import {
 import { SKILL_LEVELS, skillLabel, sportConfig } from "@/lib/sports";
 import type { Sport } from "@/lib/formats";
 import type { FreeAgent } from "@/lib/queries/free-agents";
+import type {
+  AnswerMap,
+  RegistrationQuestion,
+} from "@/lib/queries/registration-questions";
+import { saveRegistrationAnswersAction } from "@/server/actions/registration-questions";
+import { QuestionFields } from "@/components/registration/question-fields";
+import { missingRequired } from "@/lib/registration/required-answers";
 import { formatCents } from "@/lib/payments/format";
 import { SignInOrCreate } from "@/components/auth/sign-in-or-create";
 import { Button } from "@/components/ui/button";
@@ -52,6 +59,10 @@ export function IndividualSignupForm({
   cardAvailable = true,
   paypalUrl = null,
   existing,
+  questions = [],
+  initialAnswers = {},
+  suggestedAnswers = {},
+  addressAutocomplete = false,
 }: {
   competitionId: string;
   sport: Sport;
@@ -67,10 +78,30 @@ export function IndividualSignupForm({
   paypalUrl?: string | null;
   /** Their existing sign-up, when they've already done this. */
   existing?: FreeAgent | null;
+  /**
+   * The organizer's per-player questions. Individuals were never asked these —
+   * only the team path was — so BVL held a gender for 374 of 382 rostered
+   * players and 3 of 17 free agents, on a question marked required.
+   */
+  questions?: RegistrationQuestion[];
+  /** What this player has already answered for this competition. */
+  initialAnswers?: AnswerMap;
+  /** Carried from another competition of the same org, awaiting confirmation. */
+  suggestedAnswers?: AnswerMap;
+  /** Whether a Places key is configured; false renders a plain input. */
+  addressAutocomplete?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const positions = sportConfig(sport).positions;
+  // A suggestion only fills a gap; anything answered here already wins.
+  const [answers, setAnswers] = useState<AnswerMap>({
+    ...suggestedAnswers,
+    ...initialAnswers,
+  });
+  // Structured detail behind a picked address, sent with the answers.
+  const [meta, setMeta] = useState<Record<string, Record<string, unknown>>>({});
+  const missing = missingRequired(questions, answers);
 
   const form = useForm<Values>({
     defaultValues: {
@@ -108,7 +139,29 @@ export function IndividualSignupForm({
       toast.error("Pick the level that fits you best.");
       return;
     }
+    // Named here rather than left to the server's refusal: the database will
+    // reject this too, but it can only say how many are outstanding, not which.
+    if (missing.length > 0) {
+      toast.error(`Still needed: ${missing.map((q) => q.label).join(", ")}`);
+      return;
+    }
     startTransition(async () => {
+      // Answers FIRST, and the sign-up only if they saved. The other order is
+      // precisely the bug this fixes — a sign-up exists, the answers don't, and
+      // nothing ever asks again. It also means nobody reaches a payment screen
+      // before the organizer's questions have been put to them.
+      if (questions.length > 0) {
+        const saved = await saveRegistrationAnswersAction({
+          competitionId,
+          answers,
+          metadata: meta,
+        });
+        if ("error" in saved) {
+          toast.error(saved.error);
+          return;
+        }
+      }
+
       const payload: IndividualSignupInput = {
         competitionId,
         name: values.name,
@@ -319,6 +372,33 @@ export function IndividualSignupForm({
           {...register("notes")}
         />
       </div>
+
+      {questions.length > 0 && (
+        <section className="border-rule grid gap-4 border-t pt-4">
+          <div>
+            <h3 className="text-sm font-medium">
+              A few more from the organizer
+            </h3>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              The same details everyone registering for this league is asked
+              for.
+            </p>
+          </div>
+          <QuestionFields
+            questions={questions}
+            values={answers}
+            onChange={(id, v) => setAnswers((s) => ({ ...s, [id]: v }))}
+            onMeta={(id, m) => setMeta((s) => ({ ...s, [id]: m }))}
+            disabled={pending}
+            suggested={suggestedAnswers}
+            addressAutocomplete={addressAutocomplete}
+          />
+          <p className="text-ink-3 text-xs">
+            These answers go to the organizer and to nobody else — not to the
+            team you end up on, and not to other players.
+          </p>
+        </section>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>

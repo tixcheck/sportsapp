@@ -190,20 +190,11 @@ function Field({
 }
 
 /**
- * Which required questions are still blank, accounting for follow-ups that
- * aren't showing. Shared so the caller's "can we continue" test and the
- * database's `unanswered_player_questions` agree on what counts.
+ * Re-exported so the forms that already import it from here keep working.
+ *
+ * The function itself moved to `lib/registration/required-answers.ts`: it is
+ * now the client half of a rule the database enforces too, so it needed tests
+ * of its own, and it cannot be unit-tested from a module that imports React
+ * components.
  */
-export function missingRequired(
-  questions: RegistrationQuestion[],
-  values: AnswerMap,
-): RegistrationQuestion[] {
-  return questions.filter((q) => {
-    if (!q.required) return false;
-    if (q.parentQuestionId) {
-      const parent = values[q.parentQuestionId] ?? "";
-      if (parent !== q.showWhen) return false;
-    }
-    return (values[q.id] ?? "").trim() === "";
-  });
-}
+export { missingRequired } from "@/lib/registration/required-answers";

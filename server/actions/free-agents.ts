@@ -75,6 +75,31 @@ export async function registerIndividualAction(
     return { error: "That isn't a position for this sport." };
   }
 
+  // The organizer's required player questions, enforced here as well as in the
+  // form. Individuals were never asked them at all, so a league could mark
+  // Gender required, collect it from every rostered player, and hold nothing
+  // for the pool the teams are built from.
+  //
+  // Same rule and the same implementation the waiver gate uses (migration
+  // 0104), rather than a second one that could disagree. It defaults to the
+  // signed-in user, so this cannot be pointed at anybody else.
+  //
+  // Self-serve only: an organizer adding somebody from a spreadsheet goes
+  // through `organizer_add_individual` (migration 0090), which this does not
+  // touch — they cannot answer a question about a person on that person's
+  // behalf, and a guest with no account cannot hold answers at all.
+  const { data: owed } = await supabase.rpc("unanswered_player_questions", {
+    _competition_id: v.competitionId,
+  });
+  if (typeof owed === "number" && owed > 0) {
+    return {
+      error:
+        owed === 1
+          ? "One of the organizer's questions still needs an answer."
+          : `${owed} of the organizer's questions still need answers.`,
+    };
+  }
+
   const { data, error } = await supabase.rpc("register_individual", {
     _competition_id: v.competitionId,
     _name: v.name,

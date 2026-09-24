@@ -943,11 +943,31 @@ reading them out of `.env.local`.
 - The Players tab lists every non-withdrawn free agent — placed or still in the
   pool — after the teams. Edit shows *Sign-up details* when there is a
   `freeAgentId` and *League questions* when there is a `userId`.
-- **Individuals are NOT asked the league's registration questions** — the
-  sign-up form only collects its own fields. They have no Gender/address
-  answers and don't count in Roster mix until an organizer fills the answers in
-  from the Players tab (the organizer's choice, 2026-09-15). Changing the
-  sign-up form to ask them is a known, deliberately deferred option.
+- **Individuals ARE now asked the league's registration questions** (changed
+  2026-09-24; this bullet said the opposite before). `IndividualSignupForm`
+  renders `QuestionFields`, and the answers are saved BEFORE the sign-up and
+  before any payment — the reverse order was the bug: a sign-up existed, the
+  answers didn't, and nothing ever asked again.
+  - Enforced server-side too. `registerIndividualAction` calls
+    `unanswered_player_questions` (migration 0104) and refuses while any
+    remain. Same rule and same implementation as the waiver gate, so the form
+    and the database cannot drift apart. **No migration** — the RPC already
+    existed and already defaults to the signed-in user.
+  - **Self-serve only, deliberately.** `organizer_add_individual` (0090) is
+    untouched: an organizer transcribing a roster cannot answer for somebody
+    else, and a guest with no account cannot hold answers at all — they key on
+    `user_id`. Check who calls `registerIndividualAction` before adding to that
+    gate; today it is only the sign-up form.
+  - **Sign-ups made BEFORE this hold no answers, and nothing backfills them.**
+    BVL had 3 of 17 answered at the time (against 374 of 382 rostered players,
+    on a question marked required). They can be filled in from the Players tab,
+    or the player re-saves their own sign-up. Do not invent values.
+  - The free-agent draft board still does NOT display the answers; the
+    organizer's ask was to see gender while forming teams, and only the
+    collection half is done.
+- `missingRequired` lives in `lib/registration/required-answers.ts`, not beside
+  the form — it is the client half of the rule above and has its own tests.
+  `question-fields.tsx` re-exports it for the three older consumers.
 - `updateFreeAgentDetailsAction` never changes status or placement.
 - **An individual must have an account before the form appears** (fixed
   2026-09-16). `register_individual` requires `auth.uid()`, and the form now
