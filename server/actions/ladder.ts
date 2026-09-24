@@ -252,6 +252,16 @@ export async function drawLadderWeekAction(
   type Row = {
     competition_id: string;
     round: number;
+    /**
+     * The tier this game belongs to, recorded rather than inferred.
+     *
+     * It used to be left null on the reasoning that a game's tier is implied
+     * by its teams. That holds for exactly as long as nobody moves — which in
+     * a ladder is one week. After a promotion the same fixture reads as
+     * belonging to whichever tier its teams landed in, so a drawn night
+     * becomes unreadable the moment it is locked.
+     */
+    division_id: string;
     home_team_id: string;
     away_team_id: string;
     ref_team_id?: string | null;
@@ -309,6 +319,7 @@ export async function drawLadderWeekAction(
         rows.push({
           competition_id: competitionId,
           round: week,
+          division_id: d.id as string,
           home_team_id: m.homeTeamId,
           away_team_id: m.awayTeamId,
           ref_team_id: m.refTeamId,
@@ -332,11 +343,13 @@ export async function drawLadderWeekAction(
       (settings.minutes_per_game as number | null) ??
       estimateMatchMinutes(format);
     shorted = plan.shortedTeamIds;
-    // No division_id on matches — a game's tier is implied by its teams, the
-    // same way the tiered round-robin generator does it.
+    // `planLadderWeek` already knows which tier each game came from, so record
+    // it. Inferring it later from the teams breaks as soon as anyone is
+    // promoted — see the note on `Row.division_id`.
     rows = plan.matches.map((m) => ({
       competition_id: competitionId,
       round: week,
+      division_id: m.divisionId,
       home_team_id: m.homeTeamId,
       away_team_id: m.awayTeamId,
       court: courtLabelAt(m.courtIndex),
@@ -489,8 +502,17 @@ export async function lockLadderWeekAction(
 }
 
 /**
- * Undo the most recent lock: drop the week's placements and put teams back.
+ * Undo the most recent lock: drop the next week's placements AND the fixtures
+ * drawn from them, and put teams back in the tier they played in.
+ *
  * For the organizer who locked a week before a late score came in.
+ *
+ * The fixtures go too because they are derived from exactly the placements
+ * being removed. Leaving them behind is what bit Mango on 2026-09-23: week 2
+ * had already been drawn when week 1 was unlocked and re-locked under a
+ * corrected tiebreaker, and the surviving fixtures still paired teams by the
+ * old ladder — internally consistent, completely wrong, and with nothing on
+ * screen to say so. Redrawing is a click; noticing was four queries.
  */
 export async function unlockLadderWeekAction(
   competitionId: string,
@@ -522,12 +544,37 @@ export async function unlockLadderWeekAction(
     return { error: "That week isn't locked." };
   }
 
+  const { data: nextMatches } = await supabase
+    .from("matches")
+    .select("id, status")
+    .eq("competition_id", competitionId)
+    .eq("round", week + 1);
+
+  // Scores are never discarded by an undo. If the next week has already been
+  // played, the organizer has to deal with that deliberately — losing results
+  // to a button meant for "I locked too early" would be the worse accident.
+  if ((nextMatches ?? []).some((m) => SETTLED.has(m.status as string))) {
+    return {
+      error: `Week ${week + 1} already has results, so undoing week ${week} would discard them. Clear those scores first.`,
+    };
+  }
+
   const { error: delErr } = await supabase
     .from("ladder_placements")
     .delete()
     .eq("competition_id", competitionId)
     .eq("week", week + 1);
   if (delErr) return { error: delErr.message };
+
+  // The drawn night goes with the ladder it was drawn from.
+  if ((nextMatches ?? []).length > 0) {
+    const { error: matchErr } = await supabase
+      .from("matches")
+      .delete()
+      .eq("competition_id", competitionId)
+      .eq("round", week + 1);
+    if (matchErr) return { error: matchErr.message };
+  }
 
   // Put every team back in the tier it played that week in.
   const { data: thisWeek } = await supabase

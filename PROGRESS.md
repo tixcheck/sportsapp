@@ -5,6 +5,49 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-23 — A ladder game now records its tier, and an undo cleans up after itself
+
+Mango's owner: _"Is there something wrong with our scheduler? The org asked
+specifically to have tiers 1,3,5 at 7pm and 2,4,6 at 9pm. Week 2 doesnt look
+like its aligned."_
+
+**Nothing was wrong with the scheduler.** Attributed against the ladder that
+existed when the draw ran, week 2 is exactly the grid the organizer asked for —
+tiers 1/3/5 at 19:00, 2/4/6 at 21:00, one tier per court, zero cross-tier games.
+The timestamps tell the real story: week 2's fixtures were written at **09:04**
+and week 2's placements at **21:10**. The night was drawn, and the ladder
+beneath it was rewritten twelve hours later by the re-lock. The fixtures still
+pair teams by the ladder they were drawn from.
+
+**Two fixes, both aimed at how long that took to see.**
+
+**`matches.division_id` is now set when a ladder week is drawn**, on both the
+per-tier and shared-packing paths. It was deliberately left null, on the
+reasoning that "a game's tier is implied by its teams" — true for exactly as
+long as nobody moves, which in a ladder is one week. After a promotion the same
+fixture reads as belonging to whichever tier its teams landed in, so every
+question about a drawn night has to be answered by inference. That inference is
+what made me wrong twice here: I reported eight cross-tier games and a broken
+draw, when the games were internally consistent and only my attribution was
+stale. `planLadderWeek` had carried `divisionId` on every match all along —
+nothing was ever written down.
+
+**Unlocking now deletes the next week's fixtures along with its placements.**
+They are derived from precisely the rows being removed, so leaving them behind
+produces a schedule that is internally consistent and completely wrong, with
+nothing on screen to say so. Guarded: if that week already has results, the
+undo refuses rather than discarding scores — losing a played night to a button
+meant for "I locked too early" would be the worse accident.
+
+**Historical rows keep their null `division_id`.** Nothing backfills; weeks
+already drawn stay as they are unless someone asks.
+
+**Tests:** 1598 passing across 125 files, unchanged — neither fix touches pure
+logic, and these are Server Actions, which need a test Supabase instance this
+repo doesn't have. `tsc --noEmit` and eslint clean. No migration:
+`matches.division_id` already existed (0123) and was simply never populated
+here.
+
 ## 2026-09-23 — Head-to-head first, and a dropdown that had been lying
 
 Mango's organizer, on who goes up when a tier finishes level:

@@ -1130,21 +1130,32 @@ the margin across the two games settles it: "beijing came in on top by 1 point.
 And they need to be top." Difference, not points scored — confirmed against
 Tier 5, where the team that scored the most also had the worst margin.
 
-**Week 1 was unlocked by the owner on 2026-09-23 and needs re-locking**, then
-week 2 redrawn. Under the new rule two moves differ from what the first lock
-produced: **Beijing Dragons** go up to Tier 2 instead of **Kochi Knight
-Riders**, and **Dubai Falcons** drop to Tier 3 instead of **Osaka Onis** (Osaka
-escape on a +1 head-to-head margin, 48 v 47). The other eight moves are
-unchanged, and Tiers 4 and 5 are unaffected — their ties were for second place,
-which moves nobody.
+**Week 1 was unlocked and re-locked on 2026-09-23** under the corrected
+tiebreaker. Two moves differ from what the first lock produced: **Beijing
+Dragons** went up to Tier 2 instead of **Kochi Knight Riders**, and **Dubai
+Falcons** dropped to Tier 3 instead of **Osaka Onis** (Osaka escaped on a +1
+head-to-head margin, 48 v 47). The other eight moves are unchanged, and Tiers 4
+and 5 were unaffected — their ties were for second place, which moves nobody.
+
+**⚠️ Week 2's fixtures still encode the PRE-correction ladder and must be
+redrawn.** They were drawn at 09:04, before the re-lock wrote the new
+placements at 21:10, so they pair Kochi into Tier 2 and Beijing into Tier 3.
+The games are internally consistent and the 19:00/21:00 court grid is correct —
+they are simply the wrong teams. Redrawing week 2 replaces all 36 (none have
+results). This cannot recur: unlocking now removes the fixtures too.
 
 **If it is ever switched mid-season, the order is unlock → re-lock → draw.**
-`unlockLadderWeekAction` deletes the next week's placements and puts teams back
-in the tier they played in, but it does **not** delete that week's fixtures —
-which were drawn from the placements just removed. `drawLadderWeekAction` draws
-`latestWeek`, so drawing before the re-lock targets the already-played week and
-is refused; after it, the stale fixtures are deleted and redrawn (it refuses
-only where results are already settled).
+`drawLadderWeekAction` draws `latestWeek`, so drawing before the re-lock targets
+the already-played week and is refused; after it, the week is drawn from the
+corrected ladder.
+
+**Since 2026-09-23 `unlockLadderWeekAction` also deletes the next week's
+FIXTURES**, not just its placements — they are derived from exactly the rows it
+removes. It refuses outright if that week already has results, rather than
+discarding scores. Before this change the fixtures survived the undo and still
+paired teams by the old ladder: internally consistent, completely wrong, and
+invisible. That is what happened to Mango's week 2 (drawn 09:04, re-locked
+21:10 the same day).
 
 **Tiers can be corrected from the Teams tab** (shipped 2026-09-17): each team
 row has a tier dropdown, **while the season has not started**. The organizer
