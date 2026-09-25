@@ -46,6 +46,7 @@
     | `0132` | Sep 25 | `my_pool_signups()` — "you're in the pool for this league" on the dashboard, for somebody signed up but not yet drafted |
     | `0133` | Sep 25 | `reverse_pairs_settings.point_cap` — most one game may swing the standings. Null = uncapped, so every night already played scores as before |
     | `0134` | Sep 25 | `my_pool_signups()` also returns `visibility`, so a dashboard pool card links only to a page its holder can actually read |
+    | `0135` | Sep 25 | `match_absences` is publicly readable, like `match_appearances` — the stats table reads the same for a visitor as for the organizer. Reverses 0121's organizer-only stance, on the owner's instruction |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -795,8 +796,19 @@ reading them out of `.env.local`.
   a drafted league, note that `free_agents` may not be readable to them, so
   drafted players could be missed out of absences. Big Shoots has captain entry
   off.
-- `getPlayerStats(id, { includeAbsences: true })` is called only by the
-  organizer league page. The public page must never pass it.
+- **`getPlayerStats(id)` takes no options as of 0135 — every caller gets the
+  same table.** It previously took `{ includeAbsences: true }`, passed only by
+  the organizer page, and that flag was doing far more than hiding a column:
+  somebody who missed every night has no `match_appearances` row, so their row
+  exists ONLY in the absence pass. The public page therefore listed 8 players
+  in a league of 20. The option is deleted rather than flipped — its only
+  purpose was to make two views differ, which is how they drift apart again.
+- **Absences are public (0135), reversing 0121.** A signed-out visitor can see
+  that a named player was rostered and did not play. This was the owner's call:
+  "I need the same stats displayed to the org to everyone else as well even in
+  public page." Do not re-restrict the policy without asking — and note that
+  restricting it while the page still asks would show every player `Missed 0`,
+  a perfect attendance record that isn't one.
 - **The Edit settings form used to cap round robins at 2** and would have
   shrunk Big Shoots' 33-night season. It is now 1–60, with the current value
   offered in the dialog. Do not reintroduce a 1×/2× refine on
@@ -814,10 +826,19 @@ reading them out of `.env.local`.
   distinction is not academic: **David Aitken was drafted onto Team 4 but every
   appearance he has is `role: "sub"`** for Team 3. Classifying on role would
   file a drafted player under subs.
-- `getFullTimeRoster` unions `team_members` (accounts) with placed
-  `free_agents` (everyone else) — the same pair `recordAbsences` uses. Big
-  Shoots has **one** `team_members` row for 24 drafted players, so reading that
-  table alone reports a roster of one and calls 23 real players subs.
+- **`getFullTimeRoster` reads `competition_player_names` (0078/0120)**, not the
+  tables underneath it. Big Shoots has **one** `team_members` row for 24
+  drafted players, so reading that table alone reports a roster of one and
+  calls 23 real players subs — the union with placed `free_agents` is what
+  prevents that, and 0120 already performs it inside the function.
+- **⚠️ It used to read `free_agents` directly, and that was a live bug on the
+  public page** (fixed 2026-09-25). `free_agents_select` (0076) admits only
+  competition admins and your own row, so a PLAYER rebuilt the roster from
+  `team_members` alone: anyone drafted without an account was full-time to the
+  organizer and a **sub** to everyone else. It looked healthy only because the
+  0131 backfill had just given nearly everyone a roster row. Never read
+  `free_agents` from a code path that runs for a non-admin — it also carries
+  email, phone and notes, so its policy cannot simply be opened.
 - An **undrafted league** has an empty roster, so every row is flagged
   full-time and one sheet shows. Do not invert this: filing a whole competition
   under "subs" is a worse misreading than not splitting.

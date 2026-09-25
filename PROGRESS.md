@@ -5,6 +5,52 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — The stats table says the same thing to everyone
+
+The owner, comparing a player's Stats tab against the org's: _"I need the same
+stats displayed to the org to everyone else as well even in public page."_
+
+**Two separate causes, and only one of them was the column.**
+
+`getPlayerStats` took `{ includeAbsences: true }`, passed by the organizer page
+and nowhere else. That flag looked like it only hid the Missed column. It also
+decided **who appears at all**: somebody who missed every night has no
+`match_appearances` row, so their row is built solely by the absence pass. Big
+Shoots' public table listed **8 players in a league of 20** — Ben Matsumoto,
+Brad Morris, Eric Macdonald, Jack Zhu, Jamie Orth, Noah Olfert and Owen Walsh
+simply did not exist there.
+
+The second cause was quieter and nobody had hit it yet. `getFullTimeRoster` read
+`free_agents` directly, and `free_agents_select` (0076) admits only competition
+admins and your own row — so a **player** rebuilt the roster from `team_members`
+alone, and anyone drafted without an account was full-time to the organizer and
+a **sub** to everyone else. The two views agreed today only because the 0131
+backfill had just given nearly everyone a roster row. It now reads
+`competition_player_names` (0120), which unions the same sources, is granted to
+`anon`, and returns names but never contact details — `free_agents` carries
+email, phone and notes, so opening its policy was never an option. The partner
+grid gets the same fix for free.
+
+**Migration 0135 makes `match_absences` public**, mirroring
+`match_appearances_select` (0089) exactly. This reverses 0121's stance
+deliberately: a signed-out visitor can now see that a named player was rostered
+and did not play. The alternative — letting the public page ask without the
+policy change — was worse than the bug, because RLS would return zero rows and
+every player would read `Missed 0`, a perfect attendance record that isn't one.
+
+**The option is deleted, not flipped.** Its only job was to make the two views
+differ; leaving it in place is how they drift apart again.
+
+**Verified by impersonation, not by reading the policy back.** The question is
+not "does a policy exist" but "does a player now see what the organizer sees",
+so `apply-0135.ts` becomes a non-admin player inside a rolled-back transaction
+and counts rows: organizer 33, player 33. Before this, a player saw 0.
+
+**Tests:** 1646 across 129 files, unchanged — the pure logic did not move, only
+which rows reach it. `tsc --noEmit` and eslint clean.
+
+---
+
 ## 2026-09-25 — The Players tab says who can actually reach the league
 
 The owner, on the Players list: _"Here add which player joined the platform and

@@ -59,9 +59,10 @@ export type PlayerStatRow = {
   /** Games won on playoff nights. Null where the league has no sessions. */
   playoffGameWins: number | null;
   /**
-   * Nights on a roster without playing any of the team's games. Null unless
-   * the caller asked for absences, which only organizers can read - anyone
-   * else would get zero rows and see a perfect record that isn't one.
+   * Nights on a roster without playing any of the team's games. Null only
+   * where the league does not record lineups at all - there is no absence to
+   * record if nobody wrote down who turned up. Since 0135 this reads the same
+   * for a visitor as for the organizer.
    */
   nightsMissed: number | null;
   /**
@@ -186,7 +187,6 @@ async function tracksAppearances(competitionId: string): Promise<boolean> {
  */
 async function playerStatsByAppearance(
   competitionId: string,
-  includeAbsences: boolean,
 ): Promise<PlayerStatRow[]> {
   const supabase = await createClient();
 
@@ -220,14 +220,15 @@ async function playerStatsByAppearance(
       .from("matches")
       .select("id, scheduled_at")
       .eq("competition_id", competitionId),
-    // Organizer-only (migration 0121). Asked for only when the caller may
-    // read it, so the public page hides the column instead of showing zeros.
-    includeAbsences
-      ? supabase
-          .from("match_absences")
-          .select("match_id, team_id, user_id, player_name")
-          .eq("competition_id", competitionId)
-      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    // Public since 0135, like appearances. It used to be asked for only by the
+    // organizer page, which meant a player saw neither the Missed column nor
+    // the people who appear ONLY through it - somebody who missed every night
+    // has no appearance row to be built from, so the public table silently
+    // listed 8 players in a league of 20.
+    supabase
+      .from("match_absences")
+      .select("match_id, team_id, user_id, player_name")
+      .eq("competition_id", competitionId),
   ]);
 
   const appearances: Appearance[] = (
@@ -307,7 +308,7 @@ async function playerStatsByAppearance(
     return {
       daysPlayed: t?.daysPlayed ?? 0,
       playoffGameWins: sessionNights ? (t?.playoffGameWins ?? 0) : null,
-      nightsMissed: includeAbsences ? (t?.nightsMissed ?? 0) : null,
+      nightsMissed: t?.nightsMissed ?? 0,
     };
   };
 
@@ -438,13 +439,9 @@ async function setsByMatchAndTeam(competitionId: string): Promise<MatchSets[]> {
  */
 export async function getPlayerStats(
   competitionId: string,
-  options: { includeAbsences?: boolean } = {},
 ): Promise<PlayerStatRow[]> {
   if (await tracksAppearances(competitionId)) {
-    return playerStatsByAppearance(
-      competitionId,
-      options.includeAbsences === true,
-    );
+    return playerStatsByAppearance(competitionId);
   }
 
   const supabase = await createClient();
