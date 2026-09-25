@@ -17,6 +17,8 @@ import { ReversePairsSettingsCard } from "@/components/reverse-pairs/settings-ca
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
 import { ReversePairsSwapCard } from "@/components/reverse-pairs/swap-card";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 export default async function ReversePairsPage({
   params,
 }: {
@@ -75,101 +77,132 @@ export default async function ReversePairsPage({
         </p>
       </div>
 
-      {isAdmin && (
-        <ReversePairsPublishCard
-          competitionId={detail.competitionId}
-          slug={detail.slug}
-          isPublic={detail.visibility === "public"}
-        />
-      )}
+      {/*
+        Grouped by WHEN each thing is used, not by what it is. The whole page
+        was one column, so running a night meant scrolling past the registration
+        fee and the publish toggle to reach the score boxes — on a phone, at the
+        side of a court, between games.
 
-      {isAdmin && (
-        <ReversePairsSettingsCard
-          competitionId={detail.competitionId}
-          timezone={detail.timezone}
-          pairCount={detail.pairs.length}
-          initial={{
-            name: detail.name,
-            date: detail.startDate ?? "",
-            venue: detail.venue ?? "",
-            courts: detail.settings.courts,
-            minutesPerGame: detail.settings.minutesPerGame,
-            pointsPerGame: detail.pointsPerGame,
-            registrationOpen: detail.settings.registrationOpen,
-            registrationDeadline: detail.settings.registrationDeadline,
-            maxPairs: detail.settings.maxPairs,
-          }}
-        />
-      )}
+        "Tonight" is the default because that is where the night is run. An
+        organizer who has not drawn yet lands on Setup instead, which is where
+        their next action actually is.
+      */}
+      <Tabs
+        defaultValue={
+          detail.games.length === 0 && isAdmin ? "setup" : "tonight"
+        }
+        className="space-y-5"
+      >
+        {/* Wraps rather than overflows: four tabs do not fit 375px in a row. */}
+        <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="tonight">Tonight</TabsTrigger>
+          <TabsTrigger value="standings">Standings</TabsTrigger>
+          {isAdmin && <TabsTrigger value="setup">Setup</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="settings">Settings</TabsTrigger>}
+        </TabsList>
 
-      {isAdmin && feeSettings && feeRates && (
-        <RegistrationFeeCard
-          competitionId={detail.competitionId}
-          competitionType="reverse_pairs"
-          initial={{
-            feeDollars: feeSettings.registrationFeeCents / 100,
-            allowCaptainPays: feeSettings.allowCaptainPays,
-            allowSplitPayment: feeSettings.allowSplitPayment,
-            taxEnabled: feeSettings.taxEnabled,
-            taxPercent: feeSettings.taxPercent,
-            paymentRequired: feeSettings.paymentRequired,
-            etransferEmail: feeSettings.etransferEmail ?? "",
-            etransferNote: feeSettings.etransferNote ?? "",
-            paypalTeamUrl: feeSettings.paypalTeamUrl ?? "",
-            paypalIndividualUrl: feeSettings.paypalIndividualUrl ?? "",
-            paypalNote: feeSettings.paypalNote ?? "",
-          }}
-          rates={feeRates}
-          payoutsReady={paymentAccountStatus(orgAccount).canAcceptPayments}
-          unitLabel="pair"
-        />
-      )}
+        <TabsContent value="tonight" className="space-y-6">
+          {/* Before the whistle, so above the scores it would otherwise lock. */}
+          {isAdmin && detail.games.length > 0 && (
+            <ReversePairsSwapCard
+              competitionId={detail.competitionId}
+              pairs={detail.pairs}
+              sittingOutFirst={detail.byes[0] ?? []}
+              locked={detail.games.some((g) => g.scoreA !== null)}
+            />
+          )}
 
-      {isAdmin && (
-        <ReversePairsPairsCard
-          competitionId={detail.competitionId}
-          pairs={detail.pairs}
-          courts={detail.settings.courts}
-          locked={detail.games.length > 0}
-        />
-      )}
+          <ReversePairsSchedule
+            games={detail.games}
+            byes={detail.byes}
+            canEnterScores={isAdmin}
+          />
+        </TabsContent>
 
-      {isAdmin && detail.pairs.length >= detail.settings.courts * 6 && (
-        <GenerateReversePairsPanel
-          competitionId={detail.competitionId}
-          competitionName={detail.name}
-          pairCount={detail.pairs.length}
-          suggestions={detail.suggestions}
-          initial={detail.settings}
-          hasSchedule={detail.games.length > 0}
-        />
-      )}
+        <TabsContent value="standings" className="space-y-6">
+          {detail.games.length > 0 && (
+            <ReversePairsStandingsCard
+              pairs={detail.pairs}
+              standings={detail.standings}
+            />
+          )}
+          <PartnerMatrixCard pairs={detail.pairs} matrix={detail.matrix} />
+        </TabsContent>
 
-      {/* Above the standings: this is a before-the-whistle tool, and the
-          standings are what you look at afterwards. */}
-      {isAdmin && detail.games.length > 0 && (
-        <ReversePairsSwapCard
-          competitionId={detail.competitionId}
-          pairs={detail.pairs}
-          sittingOutFirst={detail.byes[0] ?? []}
-          locked={detail.games.some((g) => g.scoreA !== null)}
-        />
-      )}
+        {isAdmin && (
+          <TabsContent value="setup" className="space-y-6">
+            <ReversePairsPairsCard
+              competitionId={detail.competitionId}
+              pairs={detail.pairs}
+              courts={detail.settings.courts}
+              locked={detail.games.length > 0}
+            />
 
-      {detail.games.length > 0 && (
-        <ReversePairsStandingsCard
-          pairs={detail.pairs}
-          standings={detail.standings}
-        />
-      )}
+            {detail.pairs.length >= detail.settings.courts * 6 && (
+              <GenerateReversePairsPanel
+                competitionId={detail.competitionId}
+                competitionName={detail.name}
+                pairCount={detail.pairs.length}
+                suggestions={detail.suggestions}
+                initial={detail.settings}
+                hasSchedule={detail.games.length > 0}
+              />
+            )}
+          </TabsContent>
+        )}
 
-      <PartnerMatrixCard pairs={detail.pairs} matrix={detail.matrix} />
+        {isAdmin && (
+          <TabsContent value="settings" className="space-y-6">
+            <ReversePairsPublishCard
+              competitionId={detail.competitionId}
+              slug={detail.slug}
+              isPublic={detail.visibility === "public"}
+            />
 
-      <ReversePairsSchedule
-        games={detail.games}
-        byes={detail.byes}
-        canEnterScores={isAdmin}
-      />
+            <ReversePairsSettingsCard
+              competitionId={detail.competitionId}
+              timezone={detail.timezone}
+              pairCount={detail.pairs.length}
+              initial={{
+                name: detail.name,
+                date: detail.startDate ?? "",
+                venue: detail.venue ?? "",
+                courts: detail.settings.courts,
+                minutesPerGame: detail.settings.minutesPerGame,
+                pointsPerGame: detail.pointsPerGame,
+                registrationOpen: detail.settings.registrationOpen,
+                registrationDeadline: detail.settings.registrationDeadline,
+                maxPairs: detail.settings.maxPairs,
+              }}
+            />
+
+            {feeSettings && feeRates && (
+              <RegistrationFeeCard
+                competitionId={detail.competitionId}
+                competitionType="reverse_pairs"
+                initial={{
+                  feeDollars: feeSettings.registrationFeeCents / 100,
+                  allowCaptainPays: feeSettings.allowCaptainPays,
+                  allowSplitPayment: feeSettings.allowSplitPayment,
+                  taxEnabled: feeSettings.taxEnabled,
+                  taxPercent: feeSettings.taxPercent,
+                  paymentRequired: feeSettings.paymentRequired,
+                  etransferEmail: feeSettings.etransferEmail ?? "",
+                  etransferNote: feeSettings.etransferNote ?? "",
+                  paypalTeamUrl: feeSettings.paypalTeamUrl ?? "",
+                  paypalIndividualUrl: feeSettings.paypalIndividualUrl ?? "",
+                  paypalNote: feeSettings.paypalNote ?? "",
+                }}
+                rates={feeRates}
+                payoutsReady={
+                  paymentAccountStatus(orgAccount).canAcceptPayments
+                }
+                unitLabel="pair"
+              />
+            )}
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

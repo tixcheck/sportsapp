@@ -43,8 +43,8 @@ export function ReversePairsSchedule({
         <CardHeader>
           <CardTitle className="text-base">Schedule</CardTitle>
           <CardDescription>
-            Nothing drawn yet. Set the courts and rounds above, then draw the
-            schedule.
+            Nothing drawn yet. Open the Setup tab to enter the pairs and draw
+            the schedule.
           </CardDescription>
         </CardHeader>
       </Card>
