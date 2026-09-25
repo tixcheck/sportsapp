@@ -46,3 +46,6 @@ next-env.d.ts
 # Screenshot scratch for marketing captures. The ones the app actually serves
 # live in public/shots/ and are committed.
 /shots/
+
+# Generated schedule sheets — output, not source
+*-schedule.html
