@@ -5,6 +5,52 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — "You're in the pool for this league" (0132)
+
+The owner, on the gap I had named an hour earlier rather than closed: _"Can you
+fix the pool visibility for unplaced players too"_.
+
+**The hole.** Somebody signs up on their own, or an organizer adds them, and
+they wait to be drafted. They have no team, so `my_competitions()` — built
+entirely on `team_members` — returns nothing, and the dashboard told them: _"ask
+your organizer to add you to a team — you'll see your competitions here."_ Their
+organizer had already added them. That exact line is what Big Shoots' players
+were staring at.
+
+**It was never a Big Shoots edge case.** Applying it reported **13 linked
+players across 5 leagues** who will now see where they stand — twelve of them
+BVL's, one Big Shoots. BVL's individual registrants have been signing up and
+being shown nothing, and nobody reported it; Liam only noticed because he had
+just added a batch and asked them.
+
+**Why a function and not a query.** The player can read their own `free_agents`
+row (`user_id = auth.uid()`), but they also need the competition's NAME — and
+`can_view_competition` admits a platform admin, a PUBLIC competition, an org
+member, a competition admin, or somebody with a `team_members` row. A pool
+member on no team in a private league is none of those, so a plain join returns
+a nameless row. The same reason `my_pending_invites` is security definer: it
+names competitions for people who are not members yet.
+
+**Deliberately excluded:** `placed`, because since 0131 those people have a
+roster row and appear under "Competitions you play in" — listing them in both
+would read as two different things — and `withdrawn`, because they pulled out.
+
+**Deliberately not a link.** A drafted league is usually private, so the public
+page would 404 for precisely the people this section is for. A card that says
+where you stand beats a link that refuses you.
+
+**And the sentence itself is fixed.** "Ask your organizer to add you to a team"
+now appears only when there is genuinely nothing — no invites, no competitions
+AND no pool sign-up.
+
+**Tests:** 1625 across 127 files, unchanged — no new pure logic; the rule is one
+`where` clause in the RPC and the applier asserts it excludes placed players.
+`tsc --noEmit` and eslint clean. 0132 applied and verified before the code that
+calls it, because a missing RPC on the dashboard would break the page for every
+signed-in user, not just these thirteen.
+
+---
+
 ## 2026-09-25 — Linking an account was half the job (0131)
 
 Big Shoots' organizer, hours after I shipped 0130: _"hey so I added their

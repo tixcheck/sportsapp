@@ -8,6 +8,7 @@ import {
   competitionPath,
   getMyCompetitions,
   getMyPendingInvites,
+  getMyPoolSignups,
   isCompetitionDone,
   type MyCompetition,
 } from "@/lib/queries/dashboard";
@@ -62,16 +63,25 @@ export default async function DashboardPage() {
   // had an account — an eighteen-name draft pool is not eighteen invites.
   await Promise.all([acceptPendingInvites(), claimMySignups()]);
 
-  const [orgs, comps, invites, access, helperComps, home, owedWaivers] =
-    await Promise.all([
-      getUserOrgs(),
-      getMyCompetitions(),
-      getMyPendingInvites(),
-      getAccessState(),
-      getHelperCompetitions(),
-      getPlayerHome(),
-      getMyOutstandingWaivers(),
-    ]);
+  const [
+    orgs,
+    comps,
+    invites,
+    access,
+    helperComps,
+    home,
+    owedWaivers,
+    poolSignups,
+  ] = await Promise.all([
+    getUserOrgs(),
+    getMyCompetitions(),
+    getMyPendingInvites(),
+    getAccessState(),
+    getHelperCompetitions(),
+    getPlayerHome(),
+    getMyOutstandingWaivers(),
+    getMyPoolSignups(),
+  ]);
   // One check for the page: whether address suggestions are configured at all.
   const addressAutocomplete = await addressAutocompleteAvailableAction();
   const canCreateOrg = access.organizerStatus === "approved";
@@ -108,6 +118,42 @@ export default async function DashboardPage() {
                 invite={inv}
                 role={inv.role}
               />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Signed up, not drafted yet. Without this the dashboard told them to
+          ask their organizer to add them to a team — which their organizer had
+          already done. Deliberately NOT linked: a drafted league is usually
+          private, so the public page would 404 for exactly these people. */}
+      {poolSignups.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold">
+            Waiting to be placed
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {poolSignups.map((p) => (
+              <Card key={p.competitionId} className="flex h-full flex-col">
+                <CardHeader>
+                  <CardTitle className="text-balance break-words">
+                    {p.name}
+                  </CardTitle>
+                  <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="truncate">{p.orgName}</span>
+                    <span className="bg-paper-sunken text-ink-2 rounded-[4px] px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+                      {p.signupStatus === "pending_payment"
+                        ? "Fee outstanding"
+                        : "In the pool"}
+                    </span>
+                  </CardDescription>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {p.signupStatus === "pending_payment"
+                      ? "Your place is held until the fee is settled."
+                      : "You're signed up. The organizer will put you on a team."}
+                  </p>
+                </CardHeader>
+              </Card>
             ))}
           </div>
         </section>
@@ -317,12 +363,18 @@ export default async function DashboardPage() {
             Organizer access
           </h2>
           <BecomeOrganizer status={access.organizerStatus} />
-          {invites.length === 0 && comps.length === 0 && (
-            <p className="text-muted-foreground text-sm">
-              Or ask your organizer to add you to a team — you&apos;ll see your
-              competitions here.
-            </p>
-          )}
+          {/* Only when there is genuinely nothing. Telling somebody who is
+              already in a pool to go and ask their organizer is what Big
+              Shoots' players were shown while their organizer had already added
+              them. */}
+          {invites.length === 0 &&
+            comps.length === 0 &&
+            poolSignups.length === 0 && (
+              <p className="text-muted-foreground text-sm">
+                Or ask your organizer to add you to a team — you&apos;ll see
+                your competitions here.
+              </p>
+            )}
         </section>
       )}
 

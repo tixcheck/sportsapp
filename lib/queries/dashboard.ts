@@ -70,6 +70,45 @@ export async function claimMySignups(): Promise<void> {
   await supabase.rpc("claim_free_agent_signups");
 }
 
+/** A competition the viewer signed up for individually, still unplaced. */
+export interface PoolSignup {
+  competitionId: string;
+  slug: string;
+  name: string;
+  type: "league" | "tournament";
+  sport: string;
+  orgName: string;
+  /** `pending_payment` means the fee is what is holding them, not the draft. */
+  signupStatus: "available" | "pending_payment";
+}
+
+/**
+ * Competitions where the viewer is in the individual pool, waiting to be placed.
+ *
+ * Separate from `getMyCompetitions` on purpose: that one is built on
+ * `team_members` and every row carries a team id, a team name and a role, none
+ * of which exist for somebody who has not been drafted yet. Widening it would
+ * make all three nullable for every consumer.
+ *
+ * Placed players are excluded — since 0131 they have a roster row and show up
+ * under "Competitions you play in" instead (migration 0132).
+ */
+export async function getMyPoolSignups(): Promise<PoolSignup[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("my_pool_signups");
+  return ((data ?? []) as Record<string, unknown>[]).map(
+    (r): PoolSignup => ({
+      competitionId: r.competition_id as string,
+      slug: r.slug as string,
+      name: r.name as string,
+      type: r.type as "league" | "tournament",
+      sport: r.sport as string,
+      orgName: r.org_name as string,
+      signupStatus: r.signup_status as "available" | "pending_payment",
+    }),
+  );
+}
+
 /** Competitions the signed-in user plays in (any team_members role). */
 export async function getMyCompetitions(): Promise<MyCompetition[]> {
   const supabase = await createClient();
