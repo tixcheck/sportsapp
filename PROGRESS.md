@@ -5,6 +5,50 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — A season's worth of day tabs, trimmed to the ones anybody wants
+
+The owner, on Big Shoots' public page in week 2 of 32: _"Its showing every
+possible weeks schedule. Only show past and the next weeks schedule. The stats
+and standings are great."_
+
+Thirty-two chips, from Sep 18 to May 7, above the thing people opened the page
+to read. Now: the nights already played, plus the next one still to come.
+Everything beyond that appears as it gets closer, and **"All days" still reaches
+the whole season** — the wall stops being the default, it doesn't stop existing.
+
+**The cutoff IS `defaultScheduleDay`'s answer, deliberately.** That function
+already decides which tab the schedule opens on — "the next night that hasn't
+finished, today included". Writing a second rule that meant roughly the same
+thing would let the two drift, and the failure would be the page opening on a
+day that isn't in its own tab list. `currentSession` leans on it for exactly
+this reason, so `visibleScheduleDays` does too. A test pins the invariant
+directly: the day the schedule opens on is always present, and always last.
+
+**Opt-in, because the component is shared.** `ScheduleView` serves the public
+page, the organizer page, the team page and the embed. Somebody planning
+February needs to reach February, so only the public page passes `visibleDays`;
+everyone else keeps all 32.
+
+**Three things kept deliberately intact.** `dayDates` stays complete, since
+`activeDay` validates against it and `multiDay` derives from it — filtering the
+source would make a link into a hidden night fall back to "All days" without
+saying so. The selected day always renders, so such a link still shows its tab.
+And the numbering comes from the full season, so Day 14 is the fourteenth night
+whether or not the first thirteen are on screen; renumbering the visible ones
+would make the same night change number as the season went on.
+
+**The near miss worth recording.** My first version passed `hidden={...}` to
+`DayTab`. That component destructures exactly `{ active, onClick, children }`
+and spreads nothing, so the prop was silently discarded. `tsc` caught it here —
+but had `DayTab` spread its rest props, this would have compiled, passed every
+test, and trimmed nothing: a change that looks finished and does nothing. Not
+rendering the tab at all is both simpler and immune to that.
+
+**Tests:** 1640 across 128 files, up seven. `tsc --noEmit` and eslint clean. No
+migration — this is pure date logic and a prop.
+
+---
+
 ## 2026-09-25 — A pool card you can actually click (0134)
 
 The owner, looking at his own dashboard: _"I cant click on this big shoot. If a

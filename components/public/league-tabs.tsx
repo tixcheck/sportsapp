@@ -45,6 +45,7 @@ export function LeagueTabs({
   ladderNights = [],
   weighted,
   initialDay = null,
+  visibleDays = null,
   initialTab,
   rosters = {},
   session = null,
@@ -73,6 +74,12 @@ export function LeagueTabs({
   weighted?: WeightedTable;
   /** Day tab the schedule opens on — the next night still to come. */
   initialDay?: string | null;
+  /**
+   * Day tabs to offer — the played nights plus the next one. Null offers the
+   * whole season. Resolved on the server so the league's timezone decides what
+   * "today" means.
+   */
+  visibleDays?: string[] | null;
   brackets?: BracketTrackView[];
   myTeamIds?: string[];
   /** Matches the viewer may score — surfaces "Enter score" on their own games. */
@@ -155,6 +162,7 @@ export function LeagueTabs({
           scorableMatchIds={scorableMatchIds}
           sport={league.sport}
           initialDay={initialDay}
+          visibleDays={visibleDays}
           slotMinutes={estimateMatchMinutes(league.matchFormat)}
         />
       </TabsContent>

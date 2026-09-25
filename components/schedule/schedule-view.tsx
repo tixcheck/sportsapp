@@ -319,6 +319,7 @@ export function ScheduleView({
   slotMinutes,
   sport,
   initialDay = null,
+  visibleDays = null,
   tierLabel = "tier",
 }: {
   matches: ScheduleMatch[];
@@ -349,6 +350,18 @@ export function ScheduleView({
    * differ between the server pass and the client one.
    */
   initialDay?: string | null;
+  /**
+   * Day tabs to offer, as `yyyy-MM-dd`. Null offers every playing day.
+   *
+   * A 32-week season is 32 chips, which buries the schedule under its own
+   * navigation. The public page passes `visibleScheduleDays` — the played
+   * nights plus the next one — while the organizer keeps the full list, since
+   * somebody planning February needs to reach February.
+   *
+   * Only the TABS are trimmed. "All days" still shows everything, and a day
+   * outside this list stays selectable, so a link into a hidden night works.
+   */
+  visibleDays?: string[] | null;
 }) {
   const scorable = new Set(scorableMatchIds);
   const [view, setView] = useState<
@@ -387,6 +400,12 @@ export function ScheduleView({
   // A selected Day tab scopes every view to that day; "All days" (null) shows all.
   const activeDay =
     selectedDay && dayDates.includes(selectedDay) ? selectedDay : null;
+
+  // Which tabs to render. `dayDates` stays complete on purpose — `activeDay`
+  // validates against it and `multiDay` is derived from it — so a link into a
+  // night beyond the cutoff still resolves rather than silently falling back to
+  // "All days".
+  const shownDays = visibleDays === null ? null : new Set(visibleDays);
   const dayScoped = activeDay
     ? matches.filter((m) => dayOf(m) === activeDay)
     : matches;
@@ -495,19 +514,33 @@ export function ScheduleView({
           >
             All days
           </DayTab>
-          {dayDates.map((date, i) => (
-            <DayTab
-              key={date}
-              active={activeDay === date}
-              onClick={() => setSelectedDay(date)}
-            >
-              Day {i + 1}
-              <span className="opacity-70">
-                {" · "}
-                {DateTime.fromISO(date, { zone: timezone }).toFormat("LLL d")}
-              </span>
-            </DayTab>
-          ))}
+          {/* Numbered from the FULL season, so Day 14 is the fourteenth night
+              whether or not the first thirteen are on screen. Renumbering the
+              visible ones would make the same night change number as the
+              season went on — which is why the index comes from `dayDates`
+              before the filter, not after it.
+
+              The selected day always renders, so following a link into a night
+              beyond the cutoff doesn't leave the selection with no tab. */}
+          {dayDates
+            .map((date, i) => ({ date, n: i + 1 }))
+            .filter(
+              ({ date }) =>
+                shownDays === null || shownDays.has(date) || activeDay === date,
+            )
+            .map(({ date, n }) => (
+              <DayTab
+                key={date}
+                active={activeDay === date}
+                onClick={() => setSelectedDay(date)}
+              >
+                Day {n}
+                <span className="opacity-70">
+                  {" · "}
+                  {DateTime.fromISO(date, { zone: timezone }).toFormat("LLL d")}
+                </span>
+              </DayTab>
+            ))}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

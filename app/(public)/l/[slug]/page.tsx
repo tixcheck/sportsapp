@@ -11,6 +11,7 @@ import { getPublicRosterNames } from "@/lib/queries/roster";
 import { getLadderNightStandings } from "@/lib/queries/ladder-standings";
 import { getWeightedStandings } from "@/lib/queries/weighted-standings";
 import { defaultScheduleDay } from "@/lib/schedule/default-day";
+import { visibleScheduleDays } from "@/lib/schedule/visible-days";
 import { currentSession } from "@/lib/schedule/sessions";
 import { getStandings } from "@/lib/standings/compute";
 import { getBrackets } from "@/lib/queries/bracket";
@@ -83,6 +84,11 @@ export default async function PublicLeaguePage({
     )
     .filter((d): d is string => d != null);
   const initialDay = defaultScheduleDay(playingDays, today);
+  // A 32-week season is 32 day chips, which buries the schedule under its own
+  // navigation. Offer the played nights and the next one; "All days" still
+  // reaches the rest. Resolved here, like `today`, so the server and client
+  // agree on the first render.
+  const visibleDays = visibleScheduleDays(playingDays, today);
   // A league that re-drafts in blocks: a team's players are only true for the
   // current session, so its panel shows that session and no other. Null for
   // every league without sessions, which keeps the full season.
@@ -168,6 +174,7 @@ export default async function PublicLeaguePage({
           ladderNights={ladderNights}
           weighted={weighted}
           initialDay={initialDay}
+          visibleDays={visibleDays}
           league={league}
           standings={standings}
           brackets={brackets}
