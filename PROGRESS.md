@@ -5,6 +5,69 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — Captains can read the pool before they pick (0130)
+
+The owner: _"Can we create a draft screen as well that can be shown only to
+Setters or Captains that Org marks? They should be able to see what players are
+available"_.
+
+**Captaincy already existed and was the wrong shape for this.**
+`setCaptainAction` promotes a TEAM member — it needs a team, a roster row and an
+account. At draft time the teams do not exist yet, because the captains are what
+bring them into existence. So the mark goes on the pool as
+`free_agents.is_captain`, and `team_members.role` is left exactly as it is: one
+says who may pick, the other who runs a team that already exists.
+
+**`draft_pool()` is a function, not a widened policy, and that is the point.**
+A `free_agents` row carries an email, a phone number, free-text organizer notes
+and a self-assessed grade — and 0076 said plainly that the grade is "exactly the
+sort of thing nobody wants published next to their name". A captain needs names,
+positions and the grade to pick a balanced side; they get those and nothing
+else. RLS is row-level and cannot withhold a column, so the only way to expose
+part of a row is a `security definer` function. The applier asserts it: it reads
+the live function's return signature and fails if `email`, `phone` or `notes`
+appear in it.
+
+**Adoption, because an organizer's list is not a set of invites.** Roger types
+eighteen names in; those rows have no account. `claim_free_agent_signups()`
+mirrors `accept_pending_invites` (0054/0058/0062) — same shape, run in the same
+place on dashboard load — and adopts rows whose email matches the caller's own
+verified address. Following 0062's reasoning, there is no token and no expiry:
+it only ever matches the caller's own email, so auth has already proved who they
+are.
+
+**The collision is the part worth reading twice.** `free_agents_one_per_user` is
+`unique (competition_id, user_id)`, and NULLs are distinct, so hand-added rows
+coexist happily. But somebody who ALSO signed themselves up has their own row,
+and adopting the organizer's would violate it. The claim skips that competition
+and leaves both rows for the organizer to merge — a duplicate somebody can fix
+beats a claim that errors and links nothing. That case is real, not theoretical:
+`register_individual` upserts on `(competition_id, user_id)` and cannot see a
+null-user row with the same email, so it will happily create the second one.
+
+**Two RLS traps avoided in the page.** Access is checked by reading the caller's
+OWN free-agent row — allowed by `free_agents_select`'s `user_id = auth.uid()`
+arm — rather than inferred from the RPC coming back empty, because a genuinely
+empty pool must not look like a permission failure. And the competition row
+itself may be unreadable: a drafted league is often private, and a captain who
+is no team's member cannot read it. The heading falls back instead of the page
+failing, and team names are not resolved at all for the same reason.
+
+**Read-only, deliberately.** The ask was to see who is available and choose
+wisely. Picking here would need a turn order, a lock, and a rule for two
+captains taking the same player in the same second — a different feature.
+
+**A marked captain with no account is told so at the moment of marking**, since
+they cannot sign in and would see nothing. 25 rows across the org are currently
+waiting on an account.
+
+**Tests:** 1625 across 127 files, unchanged. No new pure logic — the rules live
+in the two RPCs and in existing RLS, and the applier verifies them against the
+live database instead. `tsc --noEmit` and eslint clean. 0130 applied and
+verified: 45 rows, 0 captains, nothing changed for anyone yet.
+
+---
+
 ## 2026-09-25 — Add a player from the Players tab, by searching who you already run
 
 The owner, looking for the thing I had just shipped: _"In the players tab there

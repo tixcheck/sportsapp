@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Pencil, Plus, UserPlus, Users, X } from "lucide-react";
+import { Check, Crown, Pencil, Plus, UserPlus, Users, X } from "lucide-react";
 
 import {
   addPlayerToPoolAction,
@@ -11,6 +11,7 @@ import {
   placeFreeAgentsAction,
   removeFreeAgentAction,
   setFreeAgentStatusAction,
+  setPoolCaptainAction,
 } from "@/server/actions/free-agents";
 import type { FreeAgent } from "@/lib/queries/free-agents";
 import type { Sport } from "@/lib/formats";
@@ -367,6 +368,39 @@ export function FreeAgentsCard({
     });
   }
 
+  /**
+   * Mark somebody as a captain, or unmark them.
+   *
+   * A captain with no account cannot sign in, so the pool screen would show
+   * them nothing. The action reports that back and it is said here rather than
+   * left for the organizer to discover when the captain tells them the link
+   * was empty.
+   */
+  function toggleCaptain(a: FreeAgent) {
+    startTransition(async () => {
+      const result = await setPoolCaptainAction({
+        freeAgentId: a.id,
+        isCaptain: !a.isCaptain,
+      });
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.needsAccount) {
+        toast.warning(
+          `${a.name} is a captain, but has no account yet — they'll see the pool once they sign up with the email you have for them.`,
+        );
+      } else {
+        toast.success(
+          a.isCaptain
+            ? `${a.name} is no longer a captain.`
+            : `${a.name} is a captain.`,
+        );
+      }
+      router.refresh();
+    });
+  }
+
   function setStatus(id: string, status: "available" | "withdrawn") {
     startTransition(async () => {
       const result = await setFreeAgentStatusAction({
@@ -499,6 +533,29 @@ export function FreeAgentsCard({
                           line instead of breaking apart raggedly, and stay
                           right-aligned when they do. */}
                       <div className="ml-auto flex shrink-0 items-center gap-1">
+                        {/* Marks who may read the pool before the draft. Not
+                            the same as a team captain — the teams do not exist
+                            yet. */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-pressed={a.isCaptain}
+                          className={cn(
+                            "shrink-0 px-2",
+                            a.isCaptain
+                              ? "text-claret"
+                              : "text-muted-foreground",
+                          )}
+                          disabled={pending}
+                          onClick={() => toggleCaptain(a)}
+                          aria-label={
+                            a.isCaptain
+                              ? `Remove ${a.name} as captain`
+                              : `Make ${a.name} a captain`
+                          }
+                        >
+                          <Crown className="size-4" />
+                        </Button>
                         {/* Correcting a spelling or a phone number shouldn't
                             mean leaving the pool the organizer is placing
                             from. */}

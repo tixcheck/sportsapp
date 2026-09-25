@@ -348,6 +348,62 @@ export async function addOrgPersonAction(
   return { freeAgentId: data, name: person.name };
 }
 
+const captainSchema = z.object({
+  freeAgentId: idSchema,
+  isCaptain: z.boolean(),
+});
+
+/**
+ * Mark somebody in the pool as a captain, or unmark them.
+ *
+ * Captaincy already existed as `setCaptainAction`, but that promotes a TEAM
+ * member — and at draft time the teams do not exist yet, because the captains
+ * are what bring them into existence. So this mark lives on the pool
+ * (migration 0130) and leaves `team_members.role` alone.
+ *
+ * `free_agents_admin_write` already restricts the update to the competition's
+ * organizers; the check here turns a silent no-op into a sentence.
+ *
+ * Returns whether that person has no account. A marked captain who cannot sign
+ * in will never see the pool, and an organizer should learn that at the moment
+ * they mark them rather than when the captain says nothing showed up.
+ */
+export async function setPoolCaptainAction(
+  input: z.input<typeof captainSchema>,
+): Promise<ActionError | { ok: true; needsAccount: boolean }> {
+  const parsed = captainSchema.safeParse(input);
+  if (!parsed.success) return { error: "Check the selection." };
+  const { freeAgentId, isCaptain } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("free_agents")
+    .select("competition_id, user_id")
+    .eq("id", freeAgentId)
+    .maybeSingle();
+  if (!row) return { error: "Unknown sign-up." };
+  const fa = row as { competition_id: string; user_id: string | null };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: fa.competition_id,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only an organizer can mark a captain." };
+  }
+
+  const { error } = await supabase
+    .from("free_agents")
+    .update({ is_captain: isCaptain, updated_at: new Date().toISOString() })
+    .eq("id", freeAgentId);
+  if (error) {
+    console.error("[free-agents] captain mark failed", error.message);
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  await revalidateForCompetition(supabase, fa.competition_id);
+  return { ok: true, needsAccount: isCaptain && fa.user_id === null };
+}
+
 const placeSchema = z.object({
   teamId: idSchema,
   freeAgentIds: z.array(idSchema).min(1, "Pick at least one player."),

@@ -55,6 +55,21 @@ export async function acceptPendingInvites(): Promise<void> {
   await supabase.rpc("accept_pending_invites");
 }
 
+/**
+ * Adopt sign-ups an organizer created for this person's email before they had
+ * an account — so a drafted league they were added to simply appears.
+ *
+ * The same idea as `acceptPendingInvites` and run in the same place, but a
+ * different table: an organizer who types eighteen names into the pool has not
+ * sent eighteen invites. Idempotent, a no-op when nothing matches, and it skips
+ * any competition where the caller already has their own sign-up rather than
+ * colliding with it (migration 0130).
+ */
+export async function claimMySignups(): Promise<void> {
+  const supabase = await createClient();
+  await supabase.rpc("claim_free_agent_signups");
+}
+
 /** Competitions the signed-in user plays in (any team_members role). */
 export async function getMyCompetitions(): Promise<MyCompetition[]> {
   const supabase = await createClient();

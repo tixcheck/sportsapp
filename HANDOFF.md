@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0129`, and every one of `0060`–`0129` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129` applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0130`, and every one of `0060`–`0130` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129` and `0130` applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -41,6 +41,7 @@
     | `0127` | Sep 21 | `removed_signups` + `remove_free_agent()` — a deleted individual sign-up now leaves a snapshot and an editable note instead of vanishing |
     | `0128` | Sep 24 | `venues.courts` — how many courts a gym has, recorded once on the building instead of per league |
     | `0129` | Sep 25 | `organizer_add_individual` stores NULL, not `''`, for a missing email — it had never been able to add a player without one |
+    | `0130` | Sep 25 | `free_agents.is_captain`, `claim_free_agent_signups()` (adopt a sign-up when its person makes an account), `draft_pool()` (what a captain may read) |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -1010,6 +1011,33 @@ reading them out of `.env.local`.
   - `personKey` in `lib/registration/org-people.ts` is NOT
     `attribution.ts`'s `identityKey` and must not be merged with it: one decides
     whose stats are whose, the other whether two search results are one person.
+- **Pool captains and the captain's draft screen** (migration 0130, 2026-09-25).
+  `free_agents.is_captain` is the organizer's mark, toggled from the Free agents
+  card. It is **not** `team_members.role`: that governs a team that already
+  exists, and at draft time the captains are what create the teams.
+  - **`draft_pool(_competition_id)` is what a captain reads** — name, positions,
+    grade, status. **Never email, phone or notes.** It is a `security definer`
+    function rather than a widened policy because RLS is row-level and cannot
+    withhold a column. `apply-0130.ts` asserts this by reading the live return
+    signature; keep that check if you touch the function.
+  - **A captain must have an ACCOUNT.** `setPoolCaptainAction` returns
+    `needsAccount` and the UI warns, because a marked captain with no account
+    signs in as nobody and sees an empty screen.
+  - **`claim_free_agent_signups()`** adopts pool rows whose email matches the
+    signed-in user, run on dashboard load beside `accept_pending_invites`. It
+    **skips** any competition where the caller already has their own row —
+    `free_agents_one_per_user` is `unique (competition_id, user_id)` and the
+    update would otherwise fail the whole claim. Duplicates are possible today:
+    `register_individual` upserts on `(competition_id, user_id)` and cannot see
+    a null-user row with the same email.
+  - The screen is `/draft/<competitionId>`, **read-only on purpose** — picking
+    needs a turn order, a lock and a conflict rule. `getDraftPool` returns null
+    for anyone who is neither an organizer nor a marked captain and the page
+    404s, so it does not confirm the league exists.
+  - It **tolerates an unreadable competition row** (a drafted league is usually
+    private, and a captain may be no team's member), falling back on the
+    heading, and it does not resolve team names for the same reason. Don't
+    "fix" that by joining `teams`.
 - `updateFreeAgentDetailsAction` never changes status or placement.
 - **An individual must have an account before the form appears** (fixed
   2026-09-16). `register_individual` requires `auth.uid()`, and the form now

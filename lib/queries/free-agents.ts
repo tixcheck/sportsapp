@@ -35,6 +35,12 @@ export type FreeAgent = {
   placedTeamId: string | null;
   /** Strength within their position, 1 = best. Null = unranked (migration 0093). */
   draftRank: number | null;
+  /**
+   * Marked by the organizer as a captain who may read the pool (migration
+   * 0130). Distinct from `team_members.role`, which governs a team that
+   * already exists.
+   */
+  isCaptain: boolean;
   /** Resolved for display; null when unplaced or the team is gone. */
   placedTeamName: string | null;
   createdAt: string;
@@ -52,11 +58,12 @@ type Row = {
   status: FreeAgentStatus;
   placed_team_id: string | null;
   draft_rank: number | null;
+  is_captain: boolean;
   created_at: string;
 };
 
 const COLUMNS =
-  "id, user_id, name, email, phone, positions, skill_level, notes, status, placed_team_id, draft_rank, created_at";
+  "id, user_id, name, email, phone, positions, skill_level, notes, status, placed_team_id, draft_rank, is_captain, created_at";
 
 function toFreeAgent(r: Row, teamNames: Map<string, string>): FreeAgent {
   return {
@@ -71,6 +78,7 @@ function toFreeAgent(r: Row, teamNames: Map<string, string>): FreeAgent {
     status: r.status,
     placedTeamId: r.placed_team_id,
     draftRank: r.draft_rank,
+    isCaptain: r.is_captain ?? false,
     placedTeamName: r.placed_team_id
       ? (teamNames.get(r.placed_team_id) ?? null)
       : null,
