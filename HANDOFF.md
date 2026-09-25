@@ -855,6 +855,24 @@ reading them out of `.env.local`.
   account is a positive statement about which person it was, and a different
   account sharing a display name must still fail the test. There is a test for
   exactly this in `tests/stats/roster-split.test.ts`.
+- **The duplicate pairs need no merge — the second of each is EMPTY** (checked
+  against live data 2026-09-25):
+  - Adam Burgess: `e36a1407` (`…@live.com`) holds the roster row and the
+    `placed` sign-up on Team 3. `d6246d17` (`…@gmail.com`) holds nothing — no
+    roster row, no sign-up, no appearances, no other competition.
+  - Sean Gade: `14b68539` (`…@gmail.com`) holds the `available` sign-up.
+    `5761ca5f` is a DIFFERENT address (`sp…@gmail.com`) and holds nothing; it
+    may not even be the same person.
+  - Neither stray reaches the Players tab, which is built from `team_members` +
+    `free_agents`, so nothing is visibly duplicated and there is nothing to
+    merge. **Do not delete these accounts to tidy up** — irreversible, and it
+    buys nothing.
+  - ⚠️ **The actual risk is a person signing in with the wrong address** and
+    seeing an empty app, the Michael Adam failure again. The fix is telling
+    them which address the league is attached to, not merging accounts.
+  - Beware joining `free_agents` by NAME when investigating this: both Adam
+    Burgess accounts match the same row that way, which reported the empty one
+    as `placed` and sent one session down the wrong path. Join on `user_id`.
 - **Verify roster changes with `npx tsx lib/db/verify-roster-split.ts`**, which
   runs the real `rosterKeys`/`isFullTime` over live rows. An earlier diagnostic
   re-implemented the keying rule in SQL and would have passed a fix that never
