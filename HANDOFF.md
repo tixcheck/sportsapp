@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0130`, and every one of `0060`–`0130` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129` and `0130` applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0131`, and every one of `0060`–`0131` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`, `0130` and `0131` applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -42,6 +42,7 @@
     | `0128` | Sep 24 | `venues.courts` — how many courts a gym has, recorded once on the building instead of per league |
     | `0129` | Sep 25 | `organizer_add_individual` stores NULL, not `''`, for a missing email — it had never been able to add a player without one |
     | `0130` | Sep 25 | `free_agents.is_captain`, `claim_free_agent_signups()` (adopt a sign-up when its person makes an account), `draft_pool()` (what a captain may read) |
+    | `0131` | Sep 25 | adopting a sign-up JOINS THE ROSTER too — `my_competitions` reads only `team_members`, so 0130's linking alone still showed a drafted player nothing |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -1038,6 +1039,28 @@ reading them out of `.env.local`.
     private, and a captain may be no team's member), falling back on the
     heading, and it does not resolve team names for the same reason. Don't
     "fix" that by joining `teams`.
+- **⚠️ A drafted player needs a `team_members` row to see ANYTHING** (migration
+  0131, 2026-09-25). `my_competitions()` — the dashboard's whole list, in
+  0014/0051/0095 — joins `team_members` and never reads `free_agents`. And
+  `place_free_agents` only writes a member row for somebody who already had an
+  account, because `team_members.user_id` is NOT NULL. Big Shoots ran with **4
+  teams and 1 member row** for months.
+  - 0130 linked `free_agents.user_id` and nothing else, so six Big Shoots
+    players with accounts — five of them placed — logged in to "ask your
+    organizer to add you to a team". 0131 makes
+    `claim_free_agent_signups()` insert the roster row as well, `'player'` and
+    never `'captain'`.
+  - **`lib/db/backfill-0131-claim.ts`** repairs people already stranded (the
+    function only runs for whoever is signed in). Report-only by default,
+    `--write` to act, safe to re-run, emails masked. Ran 2026-09-25: 6 linked,
+    5 rosters joined, 0 skipped. Big Shoots now reads 8 linked / 6 member rows /
+    0 stranded, with 18 rows still awaiting an account.
+  - **Known gap, not fixed:** an UNPLACED free agent who links still sees
+    nothing — there is no "you are in the pool for this league" anywhere on the
+    dashboard. Sean Gade at Big Shoots is the live example. This bites every
+    drafted league between sign-up and draft night.
+  - If you add another way for a player to join a competition, ask what
+    `my_competitions` reads before assuming they will see it.
 - `updateFreeAgentDetailsAction` never changes status or placement.
 - **An individual must have an account before the form appears** (fixed
   2026-09-16). `register_individual` requires `auth.uid()`, and the form now

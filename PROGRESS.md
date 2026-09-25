@@ -5,6 +5,58 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — Linking an account was half the job (0131)
+
+Big Shoots' organizer, hours after I shipped 0130: _"hey so I added their
+emails, then some guys have created accounts, but they are all saying they
+don't see anything when they log in"_. He forwarded the screen — "ask your
+organizer to add you to a team" — to players who were already **on** a team.
+
+**0130 was my half-fix and this is the other half.** It adopted a pool row by
+matching email, set `free_agents.user_id`, and stopped. But the dashboard's
+entire list is `my_competitions()`, which in every version since 0014 is:
+
+```sql
+from team_members tm join teams t on t.id = tm.team_id
+where tm.user_id = auth.uid()
+```
+
+It **never reads `free_agents`**. And `place_free_agents` only writes a
+`team_members` row for a player who ALREADY had an account, because
+`team_members.user_id` is NOT NULL and a drafted player usually has none. Big
+Shoots therefore had **4 teams and 1 `team_members` row** — a fact already
+written down in `HANDOFF.md`, which I had read, and did not connect to the
+feature I was building.
+
+So linking changed nothing anyone could see. Six people with accounts, five of
+them placed on teams, logging in to be told to ask their organizer.
+
+**0131:** when the adopted sign-up is placed, join the roster too — always
+`'player'`, never `'captain'`, the same choice `accept_pending_invites` makes
+for anyone arriving without a captain invite. Being drafted onto a team is not
+a claim to run it.
+
+**`backfill-0131-claim.ts` repaired the ones already stranded**, because the
+function only ever runs for whoever is signed in and these people should not
+have to log in again to be found. Report-only by default; `--write` to act. It
+applies exactly the function's rule, including the skip for anyone who has
+their own competing sign-up. Result: **6 linked, 5 rosters joined, 0 skipped**,
+all Big Shoots. Verified after: linked 2 → 8, `team_members` 1 → 6, nobody left
+stranded.
+
+**A gap I am naming rather than hiding.** Sean Gade is linked but not placed on
+a team, so he still sees nothing — the dashboard has no concept of "you are in
+the pool for this league". That is a real hole for any drafted league between
+sign-up and draft night, and it is not fixed here. Eighteen more Big Shoots rows
+have no matching account yet; those link themselves on first dashboard load now.
+
+**What I should have done:** checked what the dashboard actually reads before
+shipping something whose entire purpose was to make a league appear on it. The
+answer was one grep away, and `HANDOFF.md` already said Big Shoots had one
+member row for twenty-four players.
+
+---
+
 ## 2026-09-25 — Captains can read the pool before they pick (0130)
 
 The owner: _"Can we create a draft screen as well that can be shown only to
