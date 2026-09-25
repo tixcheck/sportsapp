@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getReversePairs } from "@/lib/queries/reverse-pairs";
-import { getUserOrgs } from "@/lib/auth/user";
+import { createClient } from "@/lib/supabase/server";
 import {
   getCompetitionPaymentSettings,
   getPlatformFeeRatesFor,
@@ -25,9 +25,19 @@ export default async function ReversePairsPage({
   const detail = await getReversePairs(id);
   if (!detail || detail.orgId !== orgId) notFound();
 
-  const orgs = await getUserOrgs();
-  const role = orgs.find((o) => o.id === orgId)?.role;
-  const isAdmin = role === "owner" || role === "admin";
+  // The SAME test the actions enforce, not a hand-rolled role comparison.
+  //
+  // This used to be `role === "owner" || role === "admin"` from getUserOrgs(),
+  // which is narrower than `is_competition_admin`: that also admits an org
+  // member with role 'organizer' and anyone in `competition_admins`. BVL's two
+  // organizers — the people who actually run the nights — passed every score
+  // action and were shown a read-only page with no score boxes, because the UI
+  // and the server disagreed about who counts.
+  const supabase = await createClient();
+  const { data: canManage } = await supabase.rpc("is_competition_admin", {
+    _competition_id: id,
+  });
+  const isAdmin = canManage === true;
 
   const [feeSettings, feeRates, orgAccount] = isAdmin
     ? await Promise.all([
