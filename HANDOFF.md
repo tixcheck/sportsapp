@@ -1241,8 +1241,11 @@ owner can do it from the UI rather than needing a DB write.
 
 Org **Brampton Volleyball League**, competition
 `c0ffaa7e-5ed4-493a-a6ca-78657b086c54`, slug `bvl-reverse-pairs-2026-09-25`.
-Built by `lib/db/setup-bvl-reverse-pairs.ts`, **draft** and **private** — the
-organizer publishes it. indoor6, Notre Dame Catholic Secondary School, Fri 25
+Built by `lib/db/setup-bvl-reverse-pairs.ts`. **Published 2026-09-25** — status
+`open`, visibility `public`, live at
+`https://www.mysportsapp.ca/rp/bvl-reverse-pairs-2026-09-25`. Public rather than
+unlisted because RLS only lets a signed-out visitor read a PUBLIC competition,
+so an unlisted page 404s for the people the link was shared with. indoor6, Notre Dame Catholic Secondary School, Fri 25
 Sep, first game **19:30**.
 
 **14 pairs, 2 courts, 7 rounds, 16-minute TIMED games, `point_cap = 10`.**
