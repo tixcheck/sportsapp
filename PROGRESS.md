@@ -66,6 +66,37 @@ games and scores; and season standings add up across re-drafts, so from cycle 2
 form, with the rules living in the RPC and the existing sport config rather than
 in new pure logic. `tsc --noEmit` and eslint clean. 0129 applied and verified.
 
+### The league page threw, and it was the setup script
+
+Minutes after creating it, the league page returned a server-side exception.
+Mine, and it took down the page the organizer was meant to use that night.
+
+`setup-mango-friday.ts` bound `${JSON.stringify(MATCH_FORMAT)}::jsonb`.
+**postgres.js already JSON-encodes a parameter bound to a jsonb target**, so the
+value was encoded twice and stored as a jsonb STRING scalar rather than an
+object — `"{\"winBy\":2,…}"` where every other league holds `{"winBy":2,…}`.
+Same for `weekly_slots`.
+
+That is fatal rather than cosmetic: `getLeagueDetail` reads
+`(settings?.weekly_slots as WeeklySlot[])?.[0]`, and indexing a *string* yields
+the character `"["`, so the slot has no `startTime` and the render falls over.
+Only this league was affected; nothing else was touched.
+
+**The script's own read-back printed it and I skimmed past it.** It looked
+right, because `JSON.stringify` of a string renders as an escaped string and the
+escaping is the only tell. The diff against a working league is what made it
+obvious, side by side. The lesson is to verify a created row with
+`jsonb_typeof`, not by eyeballing values that will look plausible either way.
+
+Repaired with `(col #>> '{}')::jsonb`, guarded on `jsonb_typeof(col) = 'string'`
+so a correct row could not be damaged and the fix is re-runnable. The setup
+script now passes `sql.json(...)` and lets the driver encode once.
+
+One useful accident: the repair's first run threw
+`jsonb_typeof(date[]) does not exist` — `blackout_dates` is a `date[]`, not
+jsonb — and because that was in the probe SELECT rather than the UPDATE, it
+aborted before writing anything.
+
 ---
 
 ## 2026-09-24 — Individuals get asked the league's questions too

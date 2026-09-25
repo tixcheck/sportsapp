@@ -1162,6 +1162,26 @@ format one set to 25, win by 2, copied from their other leagues.
 **No schedule was generated, deliberately.** Fixtures follow the draft, and the
 playoff pairings follow week 1's results.
 
+⚠️ **Its page threw a server-side exception for the first hour, and the cause is
+a trap for every setup script.** `setup-mango-friday.ts` bound
+`${JSON.stringify(x)}::jsonb`. **postgres.js already JSON-encodes a parameter
+bound to jsonb**, so the value was encoded twice and stored as a jsonb STRING
+scalar — `"{\"winBy\":2,…}"` rather than `{"winBy":2,…}`. `getLeagueDetail`
+reads `weekly_slots[0]`, and indexing a string yields `"["`, so the slot has no
+`startTime` and the page falls over.
+
+- **Pass the OBJECT** (`sql.json(value)`) for a jsonb column and let the driver
+  encode once. Never pre-stringify. Applies equally to `setup-big-shoots.ts`,
+  `setup-smva*.ts` and anything new.
+- **Verify with `jsonb_typeof`, not by reading the value back.** The script
+  printed its own read-back and it looked fine — `JSON.stringify` of a string
+  renders as an escaped string, and the escaping is the only tell.
+- Repaired on 2026-09-25 with `(col #>> '{}')::jsonb` guarded on
+  `jsonb_typeof(col) = 'string'`. `match_format` and `weekly_slots` now read
+  `object` and `array`.
+- `league_settings.blackout_dates` is a **`date[]`, not jsonb** — `jsonb_typeof`
+  on it errors.
+
 THE FORMAT, in the organizer's words: 18 players, 3 captains; captains pick
 teams every 2 weeks; week 1 is a round robin of 6 games (three teams, each pair
 twice) at 20 minutes; week 2 is playoffs, first place byeing to a 9pm final

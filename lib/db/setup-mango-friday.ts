@@ -77,7 +77,11 @@ async function main() {
       ) values (
         ${org.id}, ${SLUG}, ${NAME}, 'league', 'indoor6', 'draft', 'private',
         ${START_DATE}, ${END_DATE}, 'Mango Sports', 'America/Toronto',
-        ${JSON.stringify(MATCH_FORMAT)}::jsonb,
+        -- sql.json, NOT JSON.stringify: postgres.js encodes a jsonb parameter
+        -- itself, so a pre-stringified value is encoded twice and lands as a
+        -- jsonb STRING scalar instead of an object. That broke the league page
+        -- the first time this ran — see fix-mango-friday-json.ts.
+        ${sql.json(MATCH_FORMAT)},
         true, 18,
         false, false, true,
         false
@@ -91,9 +95,9 @@ async function main() {
         pairing_order, court_list, blackout_dates, promotion_relegation
       ) values (
         ${comp.id},
-        ${JSON.stringify([
+        ${sql.json([
           { dayOfWeek: DAY_OF_WEEK, startTime: START_TIME, courts: COURTS },
-        ])}::jsonb,
+        ])},
         -- Two full round robins between three teams is exactly the six games
         -- the organizer described, with each team playing the other two twice.
         2,
