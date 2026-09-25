@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { PairList } from "@/components/reverse-pairs/pair-list";
 
 /**
  * The night, round by round.
@@ -135,11 +135,7 @@ function GameRow({
         Court {game.court}
       </span>
 
-      <Side
-        pairs={game.sideA}
-        won={margin !== null && margin > 0}
-        align="left"
-      />
+      <PairList pairs={game.sideA} won={margin !== null && margin > 0} />
 
       <div className="flex items-center justify-center gap-1.5 self-center">
         {canEnterScores ? (
@@ -185,38 +181,11 @@ function GameRow({
         )}
       </div>
 
-      <Side
+      <PairList
         pairs={game.sideB}
         won={margin !== null && margin < 0}
         align="right"
       />
-    </div>
-  );
-}
-
-function Side({
-  pairs,
-  won,
-  align,
-}: {
-  pairs: ReversePairsPair[];
-  won: boolean;
-  align: "left" | "right";
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-x-1.5 gap-y-0.5 self-center text-sm",
-        align === "right" && "sm:justify-end",
-        won && "font-semibold",
-      )}
-    >
-      {pairs.map((p, i) => (
-        <span key={p.id} className="truncate">
-          {p.name}
-          {i < pairs.length - 1 && <span className="text-ink-3"> ·</span>}
-        </span>
-      ))}
     </div>
   );
 }

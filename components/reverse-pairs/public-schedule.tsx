@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { PairList } from "@/components/reverse-pairs/pair-list";
 
 /**
  * The schedule as a player reads it.
@@ -77,25 +77,11 @@ export function PublicReversePairsSchedule({
                       <span className="text-ink-3 self-center text-xs font-medium">
                         Court {g.court}
                       </span>
-                      <p
-                        className={cn(
-                          "self-center text-sm",
-                          aWon && "font-semibold",
-                        )}
-                      >
-                        {g.sideA.map((p) => p.name).join(" · ")}
-                      </p>
+                      <PairList pairs={g.sideA} won={aWon} />
                       <p className="self-center text-center text-sm font-semibold tabular-nums">
                         {done ? `${g.scoreA} – ${g.scoreB}` : "vs"}
                       </p>
-                      <p
-                        className={cn(
-                          "self-center text-sm sm:text-right",
-                          bWon && "font-semibold",
-                        )}
-                      >
-                        {g.sideB.map((p) => p.name).join(" · ")}
-                      </p>
+                      <PairList pairs={g.sideB} won={bWon} align="right" />
                     </div>
                   );
                 })}
