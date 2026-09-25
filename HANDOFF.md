@@ -1248,9 +1248,14 @@ unlisted because RLS only lets a signed-out visitor read a PUBLIC competition,
 so an unlisted page 404s for the people the link was shared with. indoor6, Notre Dame Catholic Secondary School, Fri 25
 Sep, first game **19:30**.
 
-**14 pairs, 2 courts, 7 rounds, 16-minute TIMED games, `point_cap = 10`.**
-14 games, 84 lineup rows, **6 games each**, everyone sits out exactly once.
-Runs 7:30–9:22pm.
+**14 pairs, 2 courts, 7 rounds, `point_cap = 10`.** 14 games, 84 lineup rows,
+**6 games each**, everyone sits out exactly once. Rounds at 7:30, 7:50, 8:10,
+8:30, 8:50, 9:10, 9:30 — play ends about 9:47.
+
+`minutes_per_game = 20` is the SLOT, not the whistle-to-whistle time: TIMED
+games of 17 minutes plus a 3-minute changeover. Rounds are spaced by that
+column, so the break has to live inside it — there is no column for one, and
+recording 17 would stack every round 3 minutes early.
 
 - **The arithmetic, so nobody "fixes" the round count.** Three pairs a side = 6
   pairs a court = 12 on court, 2 sitting. Games per pair is `12 × rounds ÷ 14`,

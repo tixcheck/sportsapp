@@ -6,7 +6,8 @@
  *   npx tsx lib/db/setup-bvl-reverse-pairs.ts --redraw --write   # redraw it
  *
  * THE NIGHT (the organizers' own numbers): 14 pairs, 2 courts at Notre Dame,
- * first game 7:30pm, timed games of about 16 minutes. Standings are point
+ * first game 7:30pm, timed games of 17 minutes with a 3-minute break between
+ * them — so rounds are 20 minutes apart. Standings are point
  * differential with a 10-point cap per game — these run to the buzzer, so a
  * score can be 35-20, and uncapped that one result would decide the night.
  *
@@ -53,7 +54,13 @@ const TZ = "America/Toronto";
 
 const COURTS = 2;
 const ROUNDS = 7;
-const MINUTES_PER_GAME = 16;
+/**
+ * The SLOT, not the whistle-to-whistle time: 17 minutes of play plus a 3-minute
+ * changeover. `minutes_per_game` is what rounds are spaced by, so the break has
+ * to live inside it — there is no column for one, and leaving it out would
+ * stack every round 3 minutes earlier than it actually starts.
+ */
+const MINUTES_PER_GAME = 20;
 const POINT_CAP = 10;
 /** Timed games, so this is a nominal target rather than a real finish line. */
 const POINTS_PER_GAME = 25;
