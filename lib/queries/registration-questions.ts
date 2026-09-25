@@ -571,6 +571,14 @@ export type PlayerDirectoryRow = {
    * mean they are waiting in the pool with no team yet.
    */
   freeAgentStatus: string | null;
+  /**
+   * A `team_members` row exists for them in this competition.
+   *
+   * Not cosmetic: `my_competitions` is built entirely on that table, so a
+   * placed player without one cannot see the league they are on. See
+   * `lib/registration/player-access.ts`.
+   */
+  hasRosterRow: boolean;
   /** The name the league asked for — see `lib/registration/player-name.ts`. */
   name: string;
   /** What they chose to be called publicly, when it differs from `name`. */
@@ -699,6 +707,8 @@ export async function getPlayerDirectory(
         email,
         teamId: team.id,
         teamName: team.name,
+        // This loop IS `team_members`, so by construction.
+        hasRosterRow: true,
         answers: byUser.get(m.user_id) ?? {},
         draft: null,
       });
@@ -757,6 +767,9 @@ export async function getPlayerDirectory(
       teamName: fa.placed_team_id
         ? (teamName.get(fa.placed_team_id) ?? null)
         : null,
+      // Anyone with a roster row was merged into an existing row above and
+      // `continue`d, so reaching here means there isn't one.
+      hasRosterRow: false,
       answers: fa.user_id ? (byUser.get(fa.user_id) ?? {}) : {},
       draft,
     });

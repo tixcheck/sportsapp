@@ -11,6 +11,7 @@ import type {
   RegistrationQuestion,
 } from "@/lib/queries/registration-questions";
 import type { OrgPerson } from "@/lib/registration/org-people";
+import { leagueAccess } from "@/lib/registration/player-access";
 import { savePlayerAnswersAction } from "@/server/actions/registration-questions";
 import {
   addOrgPersonAction,
@@ -134,6 +135,12 @@ export function PlayersCard({
                   <tr className="text-muted-foreground border-rule border-b text-left text-xs tracking-wide uppercase">
                     <th className="p-2 font-semibold">Player</th>
                     <th className="p-2 font-semibold">Team</th>
+                    <th
+                      className="p-2 font-semibold"
+                      title="Whether they have an account, and whether this league appears when they sign in"
+                    >
+                      Access
+                    </th>
                     {columns.map((q) => (
                       <th key={q.id} className="p-2 font-semibold">
                         {q.label}
@@ -171,6 +178,14 @@ export function PlayersCard({
                             {p.draft.positions.join(", ")}
                           </span>
                         )}
+                      </td>
+                      {/* Joined the platform is not the same as can reach the
+                          league. A placed player with an account but no roster
+                          row is missed by my_competitions AND my_pool_signups,
+                          so they sign in and it simply isn't there — the one
+                          state an organizer has to act on. */}
+                      <td className="p-2">
+                        <AccessBadge player={p} />
                       </td>
                       {columns.map((q) => (
                         <td key={q.id} className="p-2">
@@ -360,6 +375,31 @@ function EditPlayerDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Has an account, and can the league actually be reached when they sign in. */
+function AccessBadge({ player }: { player: PlayerDirectoryRow }) {
+  const state = leagueAccess(player);
+  if (state === "no-account") {
+    return (
+      <span className="text-muted-foreground text-xs">Not joined yet</span>
+    );
+  }
+  if (state === "can-see") {
+    return (
+      <span className="bg-paper-sunken text-ink-2 inline-block rounded-[4px] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+        Joined
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-block rounded-[4px] bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-amber-800 uppercase"
+      title="They have an account, but nothing links it to this league — it won't appear when they sign in"
+    >
+      Joined · can&rsquo;t see it
+    </span>
   );
 }
 

@@ -5,6 +5,43 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — The Players tab says who can actually reach the league
+
+The owner, on the Players list: _"Here add which player joined the platform and
+is able to access the league"_.
+
+Those are two questions, and merging them would have hidden the one that
+matters. **Joined** is simply whether the row has an account. **Can reach the
+league** is whether it appears when they sign in — which is decided by
+`my_competitions` (built entirely on `team_members`) and `my_pool_signups`
+(migration 0132, for people still waiting to be drafted).
+
+**Somebody can fall between those two.** Placed on a team, with an account, and
+no `team_members` row: `my_competitions` misses them because there is no roster
+row, and `my_pool_signups` misses them because they are not `available`. They
+sign in and the league is simply not there. Big Shoots has exactly one — Michael
+Adam — the residue of the bug 0131 fixed, added to the pool after this morning's
+backfill ran. A badge that only said "joined" would have shown him as fine.
+
+So three states: **Not joined yet**, **Joined**, and **Joined · can't see it**,
+the last in amber because it is the only one an organizer has to act on.
+
+**No extra query.** `getPlayerDirectory` already builds rows from two loops, and
+which loop produced a row IS the answer: the `team_members` loop by construction
+has a roster row, and anything reaching the `free_agents` push does not, because
+players with both were merged and `continue`d above. Recording that as
+`hasRosterRow` costs nothing.
+
+**The rule is pure and tested** rather than inline in the table — six cases,
+including the placed-without-a-roster-row one and the check that a roster row
+beats the sign-up status. It has three branches and one of them is a bug
+indicator; that is not something to leave as a ternary in JSX.
+
+**Tests:** 1646 across 129 files, up six. `tsc --noEmit` and eslint clean. No
+migration — a derived column over data already loaded.
+
+---
+
 ## 2026-09-25 — A season's worth of day tabs, trimmed to the ones anybody wants
 
 The owner, on Big Shoots' public page in week 2 of 32: _"Its showing every
