@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Pencil, UserPlus, Users, X } from "lucide-react";
+import { Check, Pencil, Plus, UserPlus, Users, X } from "lucide-react";
 
 import {
+  addPlayerToPoolAction,
   createTeamFromFreeAgentsAction,
   placeFreeAgentsAction,
   removeFreeAgentAction,
@@ -13,6 +14,7 @@ import {
 } from "@/server/actions/free-agents";
 import type { FreeAgent } from "@/lib/queries/free-agents";
 import type { Sport } from "@/lib/formats";
+import { SKILL_LEVELS, sportConfig } from "@/lib/sports";
 import { EditSignupDialog } from "@/components/registration/edit-signup-dialog";
 import { DEFAULT_GROUP_ORDER } from "@/lib/draft/snake";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,204 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+/**
+ * Putting somebody into the pool by hand.
+ *
+ * A league whose captains draft from a list the organizer already holds has
+ * nobody signing themselves up, so without this the pool stays empty and the
+ * draft board has nothing to show. The RPC behind it has existed since
+ * migration 0090 with nothing calling it.
+ *
+ * Positions lead the form for the same reason they lead each row: the board
+ * groups the pool into position columns, and that grouping is what a captain
+ * reads when picking. Email is optional — a name off a sheet usually arrives
+ * without one, which is the case migration 0129 had to fix.
+ *
+ * Stays open after each save. Eighteen names is eighteen rounds of this form,
+ * and closing it every time would be eighteen extra clicks.
+ */
+function AddPlayerPanel({
+  competitionId,
+  sport,
+  onAdded,
+}: {
+  competitionId: string;
+  sport: Sport;
+  onAdded: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [level, setLevel] = useState("");
+  const positions = sportConfig(sport).positions;
+
+  function submit() {
+    if (!name.trim()) {
+      toast.error("Give them a name.");
+      return;
+    }
+    if (!level) {
+      toast.error("Pick the level that fits them best.");
+      return;
+    }
+    start(async () => {
+      const res = await addPlayerToPoolAction({
+        competitionId,
+        name: name.trim(),
+        email: email.trim() || undefined,
+        phone: phone.trim() || undefined,
+        positions: chosen,
+        skillLevel: level,
+      });
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      const added = name.trim();
+      // Only the person clears. The level usually repeats down a list, and
+      // retyping it eighteen times is the kind of thing that stops it being
+      // filled in at all.
+      setName("");
+      setEmail("");
+      setPhone("");
+      setChosen([]);
+      onAdded(added);
+    });
+  }
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Plus className="size-3.5" />
+        Add a player
+      </Button>
+    );
+  }
+
+  return (
+    <div className="border-border bg-surface grid gap-3 rounded-lg border p-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="ap-name">Name</Label>
+          <Input
+            id="ap-name"
+            value={name}
+            maxLength={120}
+            placeholder="Akshat Shah"
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="ap-email">
+            Email <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="ap-email"
+            type="email"
+            value={email}
+            maxLength={254}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="ap-phone">
+            Phone <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Input
+            id="ap-phone"
+            value={phone}
+            maxLength={40}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {positions.length > 0 && (
+        <fieldset className="grid gap-1.5">
+          <legend className="mb-1.5 text-sm font-medium">
+            Positions
+            <span className="text-muted-foreground font-normal">
+              {" "}
+              — what the captains sort the board by
+            </span>
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {positions.map((p) => {
+              const on = chosen.includes(p);
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={pending}
+                  onClick={() =>
+                    setChosen(
+                      on ? chosen.filter((x) => x !== p) : [...chosen, p],
+                    )
+                  }
+                  className={cn(
+                    "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    on
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-surface hover:bg-paper-sunken",
+                  )}
+                >
+                  {on && <Check className="size-3.5" />}
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
+      <fieldset className="grid gap-1.5">
+        <legend className="mb-1.5 text-sm font-medium">Level</legend>
+        <div className="flex flex-wrap gap-2">
+          {SKILL_LEVELS.map((l) => {
+            const on = level === l.value;
+            return (
+              <button
+                key={l.value}
+                type="button"
+                aria-pressed={on}
+                disabled={pending}
+                onClick={() => setLevel(l.value)}
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                  on
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-surface hover:bg-paper-sunken",
+                )}
+              >
+                {on && <Check className="size-3.5" />}
+                {l.label}
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={submit} disabled={pending || !name.trim()}>
+          {pending ? "Adding…" : "Add to pool"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setOpen(false)}
+          disabled={pending}
+        >
+          Done
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The organizer's view of everyone who signed up without a team.
@@ -102,10 +302,16 @@ export function FreeAgentsCard({
             they play and the level they put themselves at.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <p className="text-muted-foreground text-sm">
-            Nobody has signed up on their own yet.
+            Nobody has signed up on their own yet — add them yourself if you
+            already have the names.
           </p>
+          <AddPlayerPanel
+            competitionId={competitionId}
+            sport={sport}
+            onAdded={(n) => done(`${n} added to the pool.`)}
+          />
         </CardContent>
       </Card>
     );
@@ -213,6 +419,14 @@ export function FreeAgentsCard({
       </CardHeader>
 
       <CardContent className="space-y-5">
+        {/* Above the pool, not below it: an organizer entering a list works
+            top-down, and the eighteenth name should not be a scroll away. */}
+        <AddPlayerPanel
+          competitionId={competitionId}
+          sport={sport}
+          onAdded={(n) => done(`${n} added to the pool.`)}
+        />
+
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {columns.map(({ position, players }) => (
             <div

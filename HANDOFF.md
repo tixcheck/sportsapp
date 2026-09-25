@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0128`, and every one of `0060`–`0128` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0129`, and every one of `0060`–`0129` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129` applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -40,6 +40,7 @@
     | `0126` | Sep 17 | `league_settings.ladder_scoring` — `placement` scores lowest-wins (Mango Fall, the only league on it); every other league stays `points` |
     | `0127` | Sep 21 | `removed_signups` + `remove_free_agent()` — a deleted individual sign-up now leaves a snapshot and an editable note instead of vanishing |
     | `0128` | Sep 24 | `venues.courts` — how many courts a gym has, recorded once on the building instead of per league |
+    | `0129` | Sep 25 | `organizer_add_individual` stores NULL, not `''`, for a missing email — it had never been able to add a player without one |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -968,6 +969,22 @@ reading them out of `.env.local`.
 - `missingRequired` lives in `lib/registration/required-answers.ts`, not beside
   the form — it is the client half of the rule above and has its own tests.
   `question-fields.tsx` re-exports it for the three older consumers.
+- **An organizer can now add a player to the pool** (new 2026-09-25):
+  `addPlayerToPoolAction` → `organizer_add_individual`, surfaced as an "Add a
+  player" panel on the Free agents card. Name, optional email, optional phone,
+  positions and level; `user_id` stays null until that person signs up and
+  claims the row.
+  - Before this **nothing in the app called that RPC** — no action, no button,
+    and `free_agents` has no INSERT policy, so a league whose players don't
+    self-register could not be populated at all. Big Shoots' 27 went in via
+    `setup-big-shoots.ts`.
+  - **0090's insert was also broken**: `coalesce(_email,'')` stored `''`, which
+    `free_agents_email_shape` rejects (it allows NULL or a real address, not an
+    empty string). So it failed for exactly the emailless names it existed for.
+    Fixed by 0129. If you touch that function, keep the `nullif`.
+  - The panel renders in the card's EMPTY state as well as the populated one —
+    the empty state is a separate early-returned `Card`, and a new league starts
+    there. Don't add controls to one and not the other.
 - `updateFreeAgentDetailsAction` never changes status or placement.
 - **An individual must have an account before the form appears** (fixed
   2026-09-16). `register_individual` requires `auth.uid()`, and the form now
@@ -1128,6 +1145,56 @@ the opposite of what "bottom seed" intuitively suggests.
 
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
+
+## Mango Sports Friday Mens League — a drafted 2-week cycle (set up 2026-09-25)
+
+Org **Mango Sports** (`0c1cf5aa-c34c-4425-8a13-a711579dc53e`), competition
+`ed052851-387e-443f-9cb8-1b91f8291b24`, slug `mango-sports-friday-mens-league`.
+Created by `lib/db/setup-mango-friday.ts` in one transaction, not through the
+UI. **draft** and **private** — nothing public until the owner publishes.
+
+indoor6, **Fridays 20:00**, **1 court**, venue "Mango Sports" (the same string
+both their other leagues carry). Sep 25 → Dec 18 2026. `rounds_per_team = 2`,
+`games_per_week = 4`, `minutes_per_game = 20`, `session_nights = 2`,
+`tiebreaker = headToHead`, individual sign-ups ON with a cap of 18. Match
+format one set to 25, win by 2, copied from their other leagues.
+
+**No schedule was generated, deliberately.** Fixtures follow the draft, and the
+playoff pairings follow week 1's results.
+
+THE FORMAT, in the organizer's words: 18 players, 3 captains; captains pick
+teams every 2 weeks; week 1 is a round robin of 6 games (three teams, each pair
+twice) at 20 minutes; week 2 is playoffs, first place byeing to a 9pm final
+while 2nd and 3rd play an 8-9pm semi; then re-draft and repeat.
+
+- **20:00 was INFERRED, not stated.** He said "Friday nights at the same venue
+  Mango Sports Tuesday does" and gave no time; 8pm is the only start that makes
+  his own 8-9 semi / 9-10 final work and lets week 1's six games finish at the
+  same hour. Their Tuesday leagues start 19:00. Worth confirming.
+- `rounds_per_team = 2` IS the six games — two full round robins between three
+  teams. Don't "correct" it to 1.
+- The org's only `venues` row is **Overtime Athletics**, Mississauga, with no
+  court count. The league's `venue` is the free-text "Mango Sports"; they are
+  not linked.
+
+**Known gaps for this format — none of these are built:**
+- **Captains cannot draft themselves.** `saveDraftAction`/`clearDraftAction` are
+  `is_competition_admin`. The organizer enters their picks.
+- **A second playoff draw DELETES the first one's matches and scores.** Both
+  generators clear every row with a non-null `bracket_position` first, so a
+  playoff every 2 weeks cannot accumulate. This is the blocker to fix before
+  cycle 2 plays.
+- **Standings are cumulative across re-drafts**, keyed on team id, so from cycle
+  2 "first place" spans rosters that no longer exist. `lib/queries/ladder-standings.ts`
+  is the working template for a night-scoped table.
+- **Use the GENERIC bracket path** (`generateBracketAction`) for 3 teams — it
+  handles the 1-seed bye correctly. `server/actions/league-playoff.ts` hard-
+  rejects anything under 8 teams.
+- **Never tick 3rd place on a 3-team bracket**: `nextPowerOfTwo(3)` is 4, so the
+  `champSize >= 4` guard passes and an empty extra match is inserted.
+- No test covers a bracket of exactly 3 (nearest are 2 and 5).
+- 18 players over 3 teams is **6 a side with no subs**; one absence and a team
+  plays short.
 
 ## Mango Sports Coed Fall Season 7 2026 — a 6-tier ladder (set up 2026-09-16)
 

@@ -142,6 +142,92 @@ export async function registerIndividualAction(
   };
 }
 
+const addPlayerSchema = z.object({
+  competitionId: idSchema,
+  name: z.string().trim().min(1, "Give them a name.").max(120),
+  /** Optional since 0091: a name off a list often comes without one. */
+  email: z.string().trim().toLowerCase().max(254).optional(),
+  phone: z.string().trim().max(40).optional(),
+  positions: z.array(z.string().trim().min(1)).max(8).default([]),
+  skillLevel: z.enum(
+    SKILL_LEVELS.map((l) => l.value) as [string, ...string[]],
+    { message: "Pick the level that fits them best." },
+  ),
+  notes: z.string().trim().max(1000).optional(),
+});
+
+export type AddPlayerInput = z.input<typeof addPlayerSchema>;
+
+/**
+ * An organizer putting somebody into the individual pool by hand.
+ *
+ * `organizer_add_individual` has existed since migration 0090 and nothing has
+ * ever called it — there was no way into the pool from the app except a player
+ * signing themselves up. Mango's Friday league is drafted by its captains from
+ * a list the organizer already holds, so the names have to go in before anyone
+ * has registered.
+ *
+ * Positions are checked against the sport exactly as sign-up checks them. They
+ * are not a nicety here: the draft board groups the pool into position columns,
+ * and free text would put a player in a column of one that nobody is reading.
+ *
+ * The RPC carries the admin check itself (and `free_agents` has no INSERT
+ * policy at all), so this adds none — it turns the refusal into a sentence.
+ */
+export async function addPlayerToPoolAction(
+  input: AddPlayerInput,
+): Promise<ActionError | { freeAgentId: string }> {
+  const parsed = addPlayerSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the details." };
+  }
+  const v = parsed.data;
+  if (v.email && !z.string().email().safeParse(v.email).success) {
+    return { error: "That email doesn't look right." };
+  }
+
+  const supabase = await createClient();
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("sport")
+    .eq("id", v.competitionId)
+    .maybeSingle();
+  if (!comp) return { error: "Unknown event." };
+
+  const sport = (comp as { sport: Sport }).sport;
+  const allowed = sportConfig(sport).positions;
+  if (v.positions.some((position) => !allowed.includes(position))) {
+    return { error: "That isn't a position for this sport." };
+  }
+
+  const { data, error } = await supabase.rpc("organizer_add_individual", {
+    _competition_id: v.competitionId,
+    _name: v.name,
+    // Empty means no email. Passing "" would fail `free_agents_email_shape`;
+    // migration 0129 makes the function itself null it out as well.
+    _email: v.email ? v.email : null,
+    _phone: v.phone ?? null,
+    _positions: v.positions,
+    _skill_level: v.skillLevel,
+    _notes: v.notes ?? null,
+  });
+
+  if (error || typeof data !== "string") {
+    const message = error?.message ?? "";
+    if (message.includes("Only an organizer")) {
+      return { error: "Only an organizer can add players." };
+    }
+    if (message.includes("needs a name")) {
+      return { error: "A player needs a name." };
+    }
+    console.error("[free-agents] organizer_add_individual failed", message);
+    return { error: "That player couldn't be added. Please try again." };
+  }
+
+  await revalidateForCompetition(supabase, v.competitionId);
+  return { freeAgentId: data };
+}
+
 const placeSchema = z.object({
   teamId: idSchema,
   freeAgentIds: z.array(idSchema).min(1, "Pick at least one player."),

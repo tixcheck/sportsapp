@@ -5,6 +5,69 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — An organizer can put a player in the pool (0129)
+
+Mango's new Friday league is drafted by three captains from eighteen names the
+organizer already holds. The owner's ask was narrow and correct: _"I want the
+org to be able go in and add players first and make sure he is able to add
+positions to these players so the setters or captains can see who they are and
+can choose their team wisely."_
+
+**There was no way in.** `free_agents` has no INSERT policy — every insert goes
+through a `SECURITY DEFINER` function — and the one built for this,
+`organizer_add_individual` (migration 0090), **was called by nothing.** No
+server action, no button, no direct insert anywhere in the app. Big Shoots' 27
+players went in through a setup script, which is why the gap never showed.
+
+**And the function itself was broken.** 0090 inserts
+`lower(btrim(coalesce(_email, '')))` — an empty string when given no email.
+0091 later made the column nullable and added:
+
+```
+free_agents_email_shape:
+  CHECK (email IS NULL OR email ~ '^[^@[:space:]]+@[^@[:space:]]+$')
+```
+
+`''` is present, so it is checked, and it matches nothing. The organizer-add
+path raised a check violation for exactly the players it exists to serve — a
+name on a list with no address. 0090's own header says it is for "a roster of
+twenty-seven names already agreed"; it could not have added one of them.
+Confirmed against production before writing the fix: 45 `free_agents` rows, 2
+null emails, **zero** empty strings — nothing had ever used it. 0129 is one
+`nullif`.
+
+**The panel goes in the EMPTY state too**, and that is not a detail. The card
+early-returns an entirely different `Card` when nobody has signed up — which is
+precisely where an organizer with a brand-new league starts. Wiring the button
+only into the populated view would have left Roger looking at "Nobody has signed
+up on their own yet" with no way to act on it. It also stays open after each
+save: eighteen names is eighteen rounds of that form, and the level usually
+repeats down a list, so only the person clears.
+
+**Positions lead the form** because they lead the board: the pool is grouped
+into position columns, and that grouping is the thing a captain actually reads
+when picking. They are validated against the sport exactly as sign-up validates
+them — free text would file someone in a column of one that nobody looks at.
+
+**The league is created** — draft and private, as the wizard would, with no
+schedule. Fixtures follow the draft and the playoff pairings follow week 1, so
+generating either now would be guessing. `rounds_per_team = 2` is precisely the
+organizer's six games (three teams, each pair twice), `games_per_week = 4` is
+what each team plays on the night, one court because only one game can be on at
+a time, and `session_nights = 2` marks every second played night a playoff.
+
+**What this does NOT give him, and he should hear it from us rather than find
+out:** captains cannot draft themselves — that is organizer-only, so Roger
+enters their picks; drawing cycle 2's playoff would delete cycle 1's playoff
+games and scores; and season standings add up across re-drafts, so from cycle 2
+"first place" means little. Those are the builds, in that order.
+
+**Tests:** 1608 across 126 files, unchanged — this adds a server action and a
+form, with the rules living in the RPC and the existing sport config rather than
+in new pure logic. `tsc --noEmit` and eslint clean. 0129 applied and verified.
+
+---
+
 ## 2026-09-24 — Individuals get asked the league's questions too
 
 BVL's organizer, forming teams from the individual pool: _"is there any way to
