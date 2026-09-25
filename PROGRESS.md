@@ -5,6 +5,67 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — Drafted players were sitting in the Subs table
+
+The owner, on Big Shoots' stats tab: _"Can you check why full timers are showing
+up in the subs list?"_ — and the rule, plainly: _"players that were added into
+drafts are full timers. Rest are subs."_
+
+That is exactly what the code intended, so this was a lookup failure, not a
+disagreement about the rule. **Ten of the twenty Subs rows were drafted
+players.** Four of them had absences recorded, which only a ROSTERED player can
+have — the data was contradicting itself in a single table.
+
+**The cause is that a person has two identities and the two halves disagreed
+about which one to use.** `identityKey` is `u:<account>` when there is an
+account and `n:<name>` otherwise. The lineup UI fills in `user_id` only when it
+happens to know the account: Big Shoots has **3 appearance rows keyed to an
+account and 69 keyed by name**. The roster, meanwhile, keyed everyone with an
+account by id. So Stefan Salo was `n:stefan salo` in the stats and
+`u:c078588b…` on the roster, and the membership test said no.
+
+**Two fixes, because there were two layers to it.**
+
+`rosterKeys` (pure, in `lib/stats/roster-split.ts`) now keys a roster member
+BOTH ways — by account and by name. That moved six of the ten. It is not a
+licence to match on name alone: an appearance that names an account is a
+positive statement about which person it was, and Big Shoots has two accounts
+called "Adam Burgess" and two called "Sean Gade", so a test pins that a
+different account sharing a name still fails.
+
+Three survived it — Jack Sullivan, Jake Schuller, Mike Fleming — because the
+name the roster held was never a name anyone types on a scoresheet:
+
+    drafted as        account display_name     roster returned
+    Jack Sullivan     CeliacJack               CeliacJack
+    Jake Schuller     Schulaher                Schulaher
+    Mike Fleming      Mike                     Mike
+
+`competition_player_names` returns one row per person **on purpose** — it feeds
+the public team sheet, where listing somebody twice is a bug — and its
+`NOT EXISTS` drops the `free_agents` row once a `team_members` row exists,
+discarding the name they were DRAFTED under. That cannot be widened without
+breaking the team sheet, so **migration 0136 adds
+`competition_roster_aliases`**: every (account, name) pair a person may be
+recorded under, deliberately more than one per person. Display and identity are
+different questions and now have different functions.
+
+**Verified against live data through the real functions.** An earlier diagnostic
+re-implemented the keying rule in SQL, which would have confirmed a fix that
+never reached the page; `verify-roster-split.ts` feeds the live rows through the
+actual `rosterKeys` and `isFullTime`. Big Shoots went **full-time 15 → 24, subs
+20 → 11** — 24 being exactly its drafted roster, and the 11 being eight players
+never drafted plus three sitting at `status = 'available'`.
+
+**Left alone, deliberately:** the upstream writer still records names rather
+than accounts (69 of 72 rows), which is what keeps producing this; and Big
+Shoots has duplicate accounts. Both are noted in `HANDOFF.md` rather than fixed
+here.
+
+**Tests:** 1653 across 129 files, up seven. `tsc --noEmit` and eslint clean.
+
+---
+
 ## 2026-09-25 — The stats table says the same thing to everyone
 
 The owner, comparing a player's Stats tab against the org's: _"I need the same

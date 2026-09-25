@@ -47,6 +47,7 @@
     | `0133` | Sep 25 | `reverse_pairs_settings.point_cap` — most one game may swing the standings. Null = uncapped, so every night already played scores as before |
     | `0134` | Sep 25 | `my_pool_signups()` also returns `visibility`, so a dashboard pool card links only to a page its holder can actually read |
     | `0135` | Sep 25 | `match_absences` is publicly readable, like `match_appearances` — the stats table reads the same for a visitor as for the organizer. Reverses 0121's organizer-only stance, on the owner's instruction |
+    | `0136` | Sep 25 | `competition_roster_aliases()` — every (account, name) pair a roster member may be recorded under. For matching lineups to the roster, NOT for display: it returns a person more than once by design |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -826,11 +827,38 @@ reading them out of `.env.local`.
   distinction is not academic: **David Aitken was drafted onto Team 4 but every
   appearance he has is `role: "sub"`** for Team 3. Classifying on role would
   file a drafted player under subs.
-- **`getFullTimeRoster` reads `competition_player_names` (0078/0120)**, not the
-  tables underneath it. Big Shoots has **one** `team_members` row for 24
-  drafted players, so reading that table alone reports a roster of one and
-  calls 23 real players subs — the union with placed `free_agents` is what
-  prevents that, and 0120 already performs it inside the function.
+- **`getFullTimeRoster` reads `competition_roster_aliases` (0136), NOT
+  `competition_player_names`.** The two answer different questions:
+  `..._player_names` is for DISPLAY and returns one row per person, because a
+  team sheet listing somebody twice is a bug; `..._roster_aliases` is for
+  IDENTITY and returns a person once per name they may be recorded under. Do
+  not "simplify" one into the other.
+- **⚠️ A person has two identities and the halves disagree about which to use.**
+  `identityKey` is `u:<account>` with an account and `n:<name>` without, but the
+  lineup UI sets `match_appearances.user_id` only when it happens to know the
+  account — **Big Shoots: 3 rows keyed to an account, 69 by name.** So the stats
+  arrive name-keyed while the roster is id-keyed, and the membership test fails.
+  Ten drafted players sat under Subs because of this (fixed 2026-09-25), four of
+  them carrying absences, which only a rostered player can have.
+  **`rosterKeys` keys the roster both ways**, which is a display-layer repair —
+  **the real fix is upstream: record the account on the lineup.** Until that
+  happens this keeps recurring.
+- **`competition_player_names` discards the DRAFTED name.** Its `NOT EXISTS`
+  drops the `free_agents` row once a `team_members` row exists, so a player
+  drafted as "Jake Schuller" whose account reads "Schulaher" comes back only as
+  "Schulaher". Three Big Shoots players were stranded this way and are why 0136
+  exists. Widening `..._player_names` instead would double up the team sheet.
+- **Big Shoots has duplicate accounts and mismatched display names** — two
+  "Adam Burgess", two "Sean Gade", and `CeliacJack` / `Schulaher` / `Mike` as
+  the accounts behind Jack Sullivan, Jake Schuller and Mike Fleming. Name-based
+  matching is therefore never safe on its own: an appearance that NAMES an
+  account is a positive statement about which person it was, and a different
+  account sharing a display name must still fail the test. There is a test for
+  exactly this in `tests/stats/roster-split.test.ts`.
+- **Verify roster changes with `npx tsx lib/db/verify-roster-split.ts`**, which
+  runs the real `rosterKeys`/`isFullTime` over live rows. An earlier diagnostic
+  re-implemented the keying rule in SQL and would have passed a fix that never
+  reached the page. Big Shoots should read **full-time 24, subs 11**.
 - **⚠️ It used to read `free_agents` directly, and that was a live bug on the
   public page** (fixed 2026-09-25). `free_agents_select` (0076) admits only
   competition admins and your own row, so a PLAYER rebuilt the roster from

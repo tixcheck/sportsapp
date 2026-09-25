@@ -1,46 +1,40 @@
 /**
  * Who was drafted onto a team — the league's full-time players.
  *
- * Reads `competition_player_names` (0078, extended by 0120), which is the
- * database's own answer to "who plays for each team": claimed accounts,
- * unclaimed invites, and drafted free agents, unioned. Three reasons that is
- * the right source rather than the tables underneath it:
+ * Reads `competition_roster_aliases` (0136), NOT `competition_player_names`.
+ * The two answer different questions and the difference is not cosmetic:
  *
- *   * It is readable by everyone who can see the competition, including
- *     signed-out visitors. Reading `free_agents` directly was not —
- *     `free_agents_select` (0076) admits only competition admins and your own
- *     row, so on the public page the roster came back nearly empty and drafted
- *     players were filed as SUBS. The organizer and a player saw two different
- *     tables, which is the bug this fixes.
- *   * It returns names and never contact details. `free_agents` carries email,
- *     phone and notes, so opening its policy was never an option.
- *   * 0120 exists to make it the single answer to this question. Two queries
- *     that both mean "the roster" will eventually disagree.
+ *   * `competition_player_names` is for DISPLAY — one row per person, because
+ *     a team sheet that lists somebody twice is a bug. To achieve that it drops
+ *     the `free_agents` row once a `team_members` row exists, discarding the
+ *     name the organizer DRAFTED them under. Big Shoots drafted "Jake
+ *     Schuller", whose account reads "Schulaher"; the roster returned only
+ *     "Schulaher" and his lineup rows never matched.
+ *   * `competition_roster_aliases` is for IDENTITY — every (account, name) pair
+ *     a person may be recorded under, deliberately more than one per person.
  *
- * Returned as `identityKey` strings so callers can test a player without
- * caring whether they are account-backed or name-keyed.
+ * Both are security definer, names-only, and granted to signed-out visitors,
+ * because the public stats tab splits the same two tables the organizer's does.
+ * Reading `free_agents` directly is not an option: `free_agents_select` (0076)
+ * admits only competition admins, so the public page saw a nearly empty roster
+ * and filed drafted players as subs — and the table carries email, phone and
+ * notes, so its policy cannot simply be opened.
  */
 import { createClient } from "@/lib/supabase/server";
-import { identityKey } from "@/lib/stats/attribution";
+import { rosterKeys, type RosterPerson } from "@/lib/stats/roster-split";
 
 export async function getFullTimeRoster(
   competitionId: string,
-): Promise<Set<string>> {
+): Promise<ReadonlySet<string>> {
   const supabase = await createClient();
 
-  const { data } = await supabase.rpc("competition_player_names", {
+  const { data } = await supabase.rpc("competition_roster_aliases", {
     _competition_id: competitionId,
   });
 
-  const keys = new Set<string>();
-  for (const r of (data ?? []) as {
-    user_id: string | null;
-    name: string | null;
-  }[]) {
-    // An account-backed player keys on the id, so their display name is
-    // irrelevant there; a name-keyed one needs a name to key on at all.
-    if (!r.user_id && !r.name?.trim()) continue;
-    keys.add(identityKey({ userId: r.user_id, playerName: r.name ?? "" }));
-  }
-  return keys;
+  return rosterKeys(
+    ((data ?? []) as { user_id: string | null; name: string | null }[]).map(
+      (r): RosterPerson => ({ userId: r.user_id, name: r.name }),
+    ),
+  );
 }
