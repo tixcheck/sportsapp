@@ -3,23 +3,39 @@
  *
  *   npx tsx lib/db/sheet-bvl-reverse-pairs.ts [outfile.html]
  *
- * Emits print-ready HTML. Open it and use Ctrl+P → Save as PDF.
- *
- * WHY NOT A REAL PDF: nothing in this project can make one. Playwright is named
- * in CLAUDE.md but is not in package.json, and there is no PDF library —
- * adding a browser engine to print one sheet is not a dependency to take on
- * quietly. The HTML is styled for paper, so the browser's own export does the
- * job with no new package.
+ * Writes the HTML and then a real PDF beside it, rendered by Playwright's
+ * Chromium with print media — so the paper layout below is exactly what lands.
+ * `preferCSSPageSize` keeps the `@page` rule the single source of truth for
+ * size and margins rather than duplicating them in the render call.
  *
  * Read-only. Everything comes from the database rather than being recomputed,
  * so this sheet shows what is actually stored — which is the point of asking
  * somebody to validate it.
+ *
+ * WHAT IS ON IT, and why each part earns its paper:
+ *   - Round by round, both courts, three pairs a side, who is sitting out, and
+ *     blank score boxes, so it doubles as the sheet the night is run from.
+ *   - Every pair's game count and rounds, so "has everybody got six?" is one
+ *     column to read rather than fourteen schedules to cross-check.
+ *   - WHO HAS PLAYED WITH WHOM, the grid the organizer used to keep by hand.
+ *     It is what shows the draw is doing its job.
+ *   - WHO HAS PLAYED AGAINST WHOM. The app does not compute this anywhere —
+ *     `partnerMatrix` deliberately counts partners only — but "matchups" is
+ *     half of what an organizer is checking, so it is derived here.
+ *
+ * The grids are indexed by NUMBER against a legend. Fourteen full names across
+ * fourteen columns is unreadable on paper.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import postgres from "postgres";
 import { DateTime } from "luxon";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { chromium } from "playwright";
+
+import { partnerMatrix } from "@/lib/stats/reverse-pairs";
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
 
@@ -34,6 +50,9 @@ const esc = (s: string) =>
         c
       ]!,
   );
+
+/** Unordered key, so {a,b} and {b,a} collide. */
+const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 async function main() {
   const [comp] = await sql`
@@ -82,11 +101,12 @@ async function main() {
     (x, y) => x - y,
   );
 
+  const names = [...nameById.values()].sort((a, b) => a.localeCompare(b));
+  const numberOf = new Map(names.map((n, i) => [n, i + 1]));
+
   // Per-pair index: which rounds each pair plays. The quickest way for an
   // organizer to check nobody has been left short.
-  const playsIn = new Map<string, number[]>(
-    [...nameById.values()].map((n) => [n, []]),
-  );
+  const playsIn = new Map<string, number[]>(names.map((n) => [n, []]));
   for (const g of games) {
     const e = sides.get(g.id as string)!;
     for (const n of [...e.a, ...e.b]) playsIn.get(n)!.push(g.game as number);
@@ -108,6 +128,27 @@ async function main() {
     return dt.isValid ? dt.toFormat("h:mm a") : "—";
   };
 
+  // The same shape `partnerMatrix` and the standings take. Names stand in for
+  // ids here — they are unique within the field and they are what gets printed.
+  const results = games.map((g) => {
+    const e = sides.get(g.id as string)!;
+    return { sideA: e.a, sideB: e.b, scoreA: null, scoreB: null };
+  });
+
+  const matrix = partnerMatrix(names, results);
+
+  // Opponents. Nothing in the app computes this — `partnerMatrix` counts
+  // partners only, on purpose — so it is derived here for the sheet.
+  const faced = new Map<string, number>();
+  for (const r of results) {
+    for (const x of r.sideA) {
+      for (const y of r.sideB) {
+        const k = pairKey(x, y);
+        faced.set(k, (faced.get(k) ?? 0) + 1);
+      }
+    }
+  }
+
   const roundBlocks = rounds
     .map((r) => {
       const inRound = games.filter((g) => g.game === r);
@@ -117,18 +158,22 @@ async function main() {
           return [...e.a, ...e.b];
         }),
       );
-      const byes = [...nameById.values()].filter((n) => !playing.has(n)).sort();
+      const byes = names.filter((n) => !playing.has(n));
       const when = time(inRound[0]?.scheduled_at);
 
       const courts = inRound
         .map((g) => {
           const e = sides.get(g.id as string)!;
+          const cell = (side: string[]) =>
+            side
+              .map((n) => `<div>${numberOf.get(n)}. ${esc(n)}</div>`)
+              .join("");
           return `
         <table class="game">
           <tr><th colspan="2">Court ${g.court}</th></tr>
           <tr>
-            <td class="side">${e.a.map((n) => `<div>${esc(n)}</div>`).join("")}</td>
-            <td class="side">${e.b.map((n) => `<div>${esc(n)}</div>`).join("")}</td>
+            <td class="side">${cell(e.a)}</td>
+            <td class="side">${cell(e.b)}</td>
           </tr>
           <tr class="score"><td>Score</td><td>Score</td></tr>
         </table>`;
@@ -139,18 +184,56 @@ async function main() {
     <section class="round">
       <h2>Round ${r} <span class="when">${when}</span></h2>
       <div class="courts">${courts}</div>
-      <p class="byes"><strong>Sitting out:</strong> ${byes.map(esc).join(" · ") || "nobody"}</p>
+      <p class="byes"><strong>Sitting out:</strong> ${byes.map((n) => `${numberOf.get(n)}. ${esc(n)}`).join(" &middot; ") || "nobody"}</p>
     </section>`;
     })
     .join("");
 
-  const indexRows = [...playsIn.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
+  const indexRows = names
     .map(
-      ([n, rs]) =>
-        `<tr><td>${esc(n)}</td><td class="num">${rs.length}</td><td>${rs.join(", ")}</td></tr>`,
+      (n) =>
+        `<tr><td class="num">${numberOf.get(n)}</td><td>${esc(n)}</td><td class="num">${playsIn.get(n)!.length}</td><td>${playsIn.get(n)!.join(", ")}</td></tr>`,
     )
     .join("");
+
+  /** A square grid of counts between every pair, indexed by number. */
+  const grid = (count: (a: string, b: string) => number) => {
+    const head = names.map((n) => `<th>${numberOf.get(n)}</th>`).join("");
+    const body = names
+      .map((row) => {
+        const cells = names
+          .map((col) => {
+            if (row === col) return `<td class="self"></td>`;
+            const n = count(row, col);
+            if (n === 0) return `<td class="zero">·</td>`;
+            return `<td${n > 1 ? ' class="rep"' : ""}>${n}</td>`;
+          })
+          .join("");
+        return `<tr><th class="name">${numberOf.get(row)}. ${esc(row)}</th>${cells}</tr>`;
+      })
+      .join("");
+    return `<table class="grid"><tr><th class="name"></th>${head}</tr>${body}</table>`;
+  };
+
+  const partnersGrid = grid((a, b) => {
+    const i = names.indexOf(a);
+    const j = names.indexOf(b);
+    return matrix.counts[i][j];
+  });
+  const opponentsGrid = grid((a, b) => faced.get(pairKey(a, b)) ?? 0);
+
+  const repeatsList = matrix.repeats.length
+    ? matrix.repeats
+        .map(
+          (r) =>
+            `<li>${esc(r.a)} &amp; ${esc(r.b)} — teamed ${r.times} times</li>`,
+        )
+        .join("")
+    : "<li>None — every partnership is unique.</li>";
+
+  const neverList = matrix.neverTogether.length
+    ? `<p class="note">${matrix.neverTogether.length} of the ${(names.length * (names.length - 1)) / 2} possible partnerships don&rsquo;t occur — unavoidable, since ${games.length} games only create ${games.length * 6} partnership slots.</p>`
+    : '<p class="note">Every possible partnership occurs at least once.</p>';
 
   const date = comp.start_date
     ? DateTime.fromISO(String(comp.start_date).slice(0, 10)).toFormat(
@@ -162,7 +245,7 @@ async function main() {
 <meta charset="utf-8">
 <title>${esc(comp.name as string)}</title>
 <style>
-  @page { size: letter portrait; margin: 14mm; }
+  @page { size: letter portrait; margin: 12mm; }
   body { font: 11pt/1.4 -apple-system, Segoe UI, system-ui, sans-serif; color: #111; margin: 0; }
   h1 { font-size: 17pt; margin: 0 0 2mm; }
   .meta { color: #444; font-size: 10pt; margin: 0 0 5mm; }
@@ -177,12 +260,22 @@ async function main() {
   td.side div { padding: 0.4mm 0; }
   tr.score td { height: 9mm; border: 1px solid #ccc; color: #999; font-size: 8pt; padding: 1mm 2mm; vertical-align: top; }
   .byes { font-size: 10pt; color: #444; margin: 2mm 0 0; }
-  h2.index { font-size: 12pt; margin: 6mm 0 2mm; break-before: page; }
-  table.index { border-collapse: collapse; width: 100%; font-size: 10pt; }
+  h2.page { font-size: 12pt; margin: 0 0 2mm; break-before: page; }
+  h2.page:first-of-type { break-before: auto; }
+  table.index { border-collapse: collapse; width: 100%; font-size: 10pt; margin-bottom: 4mm; }
   table.index th, table.index td { border: 1px solid #ccc; padding: 1.5mm 2mm; text-align: left; }
   table.index th { background: #f2f2f2; }
-  td.num { text-align: center; }
-  .note { font-size: 9.5pt; color: #444; margin-top: 4mm; }
+  td.num, th.num { text-align: center; }
+  table.grid { border-collapse: collapse; font-size: 8pt; margin: 0 0 3mm; }
+  table.grid th, table.grid td { border: 1px solid #ccc; padding: 0.7mm 1.4mm; text-align: center; }
+  table.grid th { background: #f2f2f2; font-weight: 600; }
+  table.grid th.name { text-align: left; white-space: nowrap; font-weight: normal; background: #fff; }
+  table.grid td.zero { color: #bbb; }
+  table.grid td.rep { background: #f7e0e0; font-weight: 700; }
+  table.grid td.self { background: #eee; }
+  ul.repeats { font-size: 10pt; margin: 1mm 0 3mm; padding-left: 5mm; }
+  .note { font-size: 9.5pt; color: #444; margin: 1mm 0 4mm; }
+  .legend { font-size: 9pt; color: #555; margin: 0 0 3mm; }
 </style>
 
 <h1>${esc(comp.name as string)}</h1>
@@ -197,18 +290,36 @@ async function main() {
 
 ${roundBlocks}
 
-<h2 class="index">Every pair&rsquo;s games</h2>
+<h2 class="page">Every pair&rsquo;s games</h2>
 <table class="index">
-  <tr><th>Pair</th><th>Games</th><th>Rounds they play</th></tr>
+  <tr><th class="num">#</th><th>Pair</th><th class="num">Games</th><th>Rounds they play</th></tr>
   ${indexRows}
 </table>
 <p class="note">
-  Each game lists the three pairs on one side against the three on the other.
-  Check that every pair shows 6 games and appears once in each of their rounds.
+  Every pair should show <strong>6</strong>, and appear once in each round listed.
 </p>
+
+<h2 class="page">Who has played WITH whom</h2>
+<p class="legend">
+  How many times each pair is teamed with each other pair. Blank cells (·) are
+  pairs who never share a team; shaded cells are teamed more than once.
+</p>
+${partnersGrid}
+<p class="note"><strong>Repeated partnerships</strong></p>
+<ul class="repeats">${repeatsList}</ul>
+${neverList}
+
+<h2 class="page">Who has played AGAINST whom</h2>
+<p class="legend">
+  How many times each pair faces each other pair. With three pairs a side you
+  meet nine opponents a game, so these numbers are naturally larger than the
+  partnership grid.
+</p>
+${opponentsGrid}
 `;
 
   writeFileSync(OUT, html, "utf8");
+
   console.log(`${comp.name}`);
   console.log(
     `  ${pairs.length} pairs, ${rounds.length} rounds, ${games.length} games`,
@@ -216,10 +327,30 @@ ${roundBlocks}
   console.log(
     `  games each: ${[...new Set([...playsIn.values()].map((r) => r.length))].sort().join("/")}`,
   );
-  console.log(`\nwrote ${OUT}`);
-  console.log("  open it and use Ctrl+P → Save as PDF");
-
+  console.log(
+    `  partnerships: ${matrix.counts.flat().filter((n) => n > 0).length / 2} used, ${matrix.repeats.length} repeated, ${matrix.neverTogether.length} never`,
+  );
   await sql.end();
+
+  // The thing that actually gets sent. Rendering the file we just wrote — not
+  // a second copy of the markup — so the PDF cannot drift from the HTML.
+  const pdfPath = OUT.replace(/\.html$/i, "") + ".pdf";
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(resolve(OUT)).href, { waitUntil: "load" });
+    await page.pdf({
+      path: pdfPath,
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+  } finally {
+    await browser.close();
+  }
+
+  const kb = Math.round(statSync(pdfPath).size / 1024);
+  console.log(`\nwrote ${OUT}`);
+  console.log(`wrote ${pdfPath}  (${kb} KB)`);
 }
 
 main().catch((e) => {
