@@ -171,6 +171,119 @@ describe("reversePairsStandings", () => {
   });
 });
 
+describe("reversePairsStandings with a point cap", () => {
+  /**
+   * Timed games, so a score can be 35-20. Theresa's rule: "10 points max per
+   * game" — the margin that counts, not the score itself.
+   */
+  it("caps the margin a single game contributes", () => {
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [game(["a", "b", "c"], 35, 20, ["d", "e", "f"])],
+      { pointCap: 10 },
+    );
+    const by = new Map(rows.map((r) => [r.teamId, r]));
+    expect(by.get("a")!.differential).toBe(10); // +15 raw
+    expect(by.get("d")!.differential).toBe(-10);
+  });
+
+  it("leaves a margin inside the cap alone", () => {
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [game(["a", "b", "c"], 25, 22, ["d", "e", "f"])],
+      { pointCap: 10 },
+    );
+    expect(rows.find((r) => r.teamId === "a")!.differential).toBe(3);
+  });
+
+  it("keeps points for and against RAW — they are what was scored", () => {
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [game(["a", "b", "c"], 35, 20, ["d", "e", "f"])],
+      { pointCap: 10 },
+    );
+    const a = rows.find((r) => r.teamId === "a")!;
+    expect(a.pointsFor).toBe(35);
+    expect(a.pointsAgainst).toBe(20);
+    // A win is a win at any margin.
+    expect(a.won).toBe(1);
+  });
+
+  it("caps each game separately, not the total", () => {
+    // Two +15 wins are +20 capped, not capped at 10 overall.
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [
+        game(["a", "b", "c"], 35, 20, ["d", "e", "f"]),
+        game(["a", "b", "c"], 35, 20, ["d", "e", "f"]),
+      ],
+      { pointCap: 10 },
+    );
+    expect(rows.find((r) => r.teamId === "a")!.differential).toBe(20);
+  });
+
+  it("shows the capped margin in the per-game columns too", () => {
+    // The sheet has to add up: the columns must sum to the total.
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [
+        game(["a", "b", "c"], 35, 20, ["d", "e", "f"]),
+        game(["a", "b", "c"], 22, 25, ["d", "e", "f"]),
+      ],
+      { pointCap: 10 },
+    );
+    const a = rows.find((r) => r.teamId === "a")!;
+    expect(a.perGame).toEqual([10, -3]);
+    expect(a.differential).toBe(7);
+  });
+
+  it("is uncapped when no cap is given — every existing night is unchanged", () => {
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [game(["a", "b", "c"], 35, 20, ["d", "e", "f"])],
+    );
+    expect(rows.find((r) => r.teamId === "a")!.differential).toBe(15);
+  });
+
+  it("treats an explicit null as uncapped", () => {
+    const rows = reversePairsStandings(
+      ["a", "b", "c", "d", "e", "f"],
+      [game(["a", "b", "c"], 35, 20, ["d", "e", "f"])],
+      { pointCap: null },
+    );
+    expect(rows.find((r) => r.teamId === "a")!.differential).toBe(15);
+  });
+
+  it("reorders the field when a blowout stops dominating", () => {
+    // The whole point of the cap, as a table. The same six pairs all night:
+    // a/b/c win one massacre, then lose three close ones to d/e/f.
+    //
+    //   raw     a,b,c: +30 -8 -7 -7 = +8   d,e,f: -30 +8 +7 +7 = -8
+    //   capped  a,b,c: +10 -8 -7 -7 = -12  d,e,f: -10 +8 +7 +7 = +12
+    //
+    // Uncapped, one blowout outweighs three defeats and a/b/c top the night.
+    // Capped, the pairs who actually won three games do.
+    const ids = ["a", "b", "c", "d", "e", "f"];
+    const games = [
+      game(["a", "b", "c"], 40, 10, ["d", "e", "f"]),
+      game(["d", "e", "f"], 25, 17, ["a", "b", "c"]),
+      game(["d", "e", "f"], 25, 18, ["a", "b", "c"]),
+      game(["d", "e", "f"], 25, 18, ["a", "b", "c"]),
+    ];
+
+    const raw = reversePairsStandings(ids, games);
+    expect(raw[0].teamId).toBe("a");
+    expect(raw[0].differential).toBe(8);
+
+    const capped = reversePairsStandings(ids, games, { pointCap: 10 });
+    expect(capped[0].teamId).toBe("d");
+    expect(capped[0].differential).toBe(12);
+    expect(capped.find((r) => r.teamId === "a")!.differential).toBe(-12);
+    // Three wins stay three wins — the cap never touches the W/L column.
+    expect(capped.find((r) => r.teamId === "d")!.won).toBe(3);
+  });
+});
+
 describe("partnerMatrix", () => {
   it("counts partnerships and leaves the diagonal at zero", () => {
     const ids = ["a", "b", "c", "d", "e", "f"];

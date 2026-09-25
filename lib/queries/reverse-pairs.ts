@@ -50,6 +50,8 @@ export interface ReversePairsDetail {
     /** ISO instant, or null for no deadline. */
     registrationDeadline: string | null;
     maxPairs: number | null;
+    /** Most one game may swing the standings. Null = uncapped (0133). */
+    pointCap: number | null;
   };
   /** Points a game is played to — the target, not a best-of. */
   pointsPerGame: number;
@@ -108,7 +110,7 @@ export async function getReversePairs(
       supabase
         .from("reverse_pairs_settings")
         .select(
-          "courts, rounds, seed, minutes_per_game, registration_open, registration_deadline, max_pairs",
+          "courts, rounds, seed, minutes_per_game, registration_open, registration_deadline, max_pairs, point_cap",
         )
         .eq("competition_id", competitionId)
         .maybeSingle(),
@@ -227,6 +229,7 @@ export async function getReversePairs(
       registrationDeadline:
         (settings?.registration_deadline as string | null) ?? null,
       maxPairs: (settings?.max_pairs as number | null) ?? null,
+      pointCap: (settings?.point_cap as number | null) ?? null,
     },
     pointsPerGame:
       (comp.match_format as { setsToPoints?: number[] } | null)
@@ -238,6 +241,7 @@ export async function getReversePairs(
     standings: reversePairsStandings(
       pairs.map((p) => p.id),
       results,
+      { pointCap: (settings?.point_cap as number | null) ?? null },
     ),
     matrix: partnerMatrix(
       pairs.map((p) => p.id),

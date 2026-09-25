@@ -65,7 +65,7 @@ export async function generateReversePairsScheduleAction(
 
   const { data: comp } = await supabase
     .from("competitions")
-    .select("name, start_date, timezone")
+    .select("name, start_date, timezone, start_time")
     .eq("id", competitionId)
     .single();
   if (!comp) return { error: "Competition not found." };
@@ -132,8 +132,12 @@ export async function generateReversePairsScheduleAction(
   // Round N starts N game-lengths after the first. Courts inside a round run at
   // once, which is the whole reason there is more than one.
   const tz = (comp.timezone as string | null) ?? "America/Toronto";
+  // The event's own start time, not a hardcoded 7pm. BVL's night starts at
+  // 7:30, and a redraw that silently moved every game half an hour earlier
+  // would be discovered by players arriving to an empty gym.
+  const startTime = String(comp.start_time ?? "19:00").slice(0, 5);
   const start = comp.start_date
-    ? DateTime.fromISO(`${String(comp.start_date).slice(0, 10)}T19:00`, {
+    ? DateTime.fromISO(`${String(comp.start_date).slice(0, 10)}T${startTime}`, {
         zone: tz,
       })
     : null;

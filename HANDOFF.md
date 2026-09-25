@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0132`, and every one of `0060`–`0132` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`, `0130`, `0131` and `0132` applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0133`, and every one of `0060`–`0133` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0133` all applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -44,6 +44,7 @@
     | `0130` | Sep 25 | `free_agents.is_captain`, `claim_free_agent_signups()` (adopt a sign-up when its person makes an account), `draft_pool()` (what a captain may read) |
     | `0131` | Sep 25 | adopting a sign-up JOINS THE ROSTER too — `my_competitions` reads only `team_members`, so 0130's linking alone still showed a drafted player nothing |
     | `0132` | Sep 25 | `my_pool_signups()` — "you're in the pool for this league" on the dashboard, for somebody signed up but not yet drafted |
+    | `0133` | Sep 25 | `reverse_pairs_settings.point_cap` — most one game may swing the standings. Null = uncapped, so every night already played scores as before |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -1235,6 +1236,45 @@ the opposite of what "bottom seed" intuitively suggests.
 
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
+
+## BVL Reverse Pairs — 25 Sep 2026 (set up 2026-09-25)
+
+Org **Brampton Volleyball League**, competition
+`c0ffaa7e-5ed4-493a-a6ca-78657b086c54`, slug `bvl-reverse-pairs-2026-09-25`.
+Built by `lib/db/setup-bvl-reverse-pairs.ts`, **draft** and **private** — the
+organizer publishes it. indoor6, Notre Dame Catholic Secondary School, Fri 25
+Sep, first game **19:30**.
+
+**14 pairs, 2 courts, 7 rounds, 16-minute TIMED games, `point_cap = 10`.**
+14 games, 84 lineup rows, **6 games each**, everyone sits out exactly once.
+Runs 7:30–9:22pm.
+
+- **The arithmetic, so nobody "fixes" the round count.** Three pairs a side = 6
+  pairs a court = 12 on court, 2 sitting. Games per pair is `12 × rounds ÷ 14`,
+  whole only when rounds is a multiple of 7. **Exactly 7 games each is
+  impossible for any arrangement**: every game consumes exactly 6 pairs, so
+  total appearances is always a multiple of 6, and 14 × 7 = 98 is not. 7 rounds
+  (6 each) is the format-correct night; 9 rounds would give 8/7 and was
+  rejected because everyone must play the same number.
+- **⚠️ `point_cap` has NO UI.** `updateReversePairsSettingsAction` does not
+  carry `pointCap`, so it is settable only by SQL. Saving the settings form does
+  NOT wipe it — that update lists its columns and omits this one — but don't
+  assume an organizer can change it.
+- **The cap applies to the DIFFERENTIAL only.** `pointsFor`/`pointsAgainst`
+  stay raw (they are points actually scored) and `won`/`lost` are untouched.
+  `reversePairsStandings(ids, games, { pointCap })`; omitting the option is
+  uncapped, which is how every pre-0133 night still scores.
+- **The draw action honours `competitions.start_time`** since 2026-09-25,
+  falling back to `19:00`. Before that it hardcoded 7:00pm, so a redraw would
+  have moved this night half an hour earlier. Keep that fallback.
+- `setup-bvl-reverse-pairs.ts --redraw --write` redraws in place: it deletes the
+  games (lineups cascade), rewrites `rounds`/`courts`/`minutes_per_game`/
+  `point_cap`, and **refuses if any score has been entered**. It also aborts on
+  an uneven draw rather than writing one.
+- Draw quality on the night as drawn: 2 repeat partnerships, 82 distinct of 91,
+  11–12 partners each against a ceiling of 12. Seed 1 — the same seed always
+  yields the same draw, so a redraw with nothing changed reshuffles nobody.
+- Samuel cancelled and is not in the field; Chris & Erika joined late.
 
 ## Mango Sports Friday Mens League — a drafted 2-week cycle (set up 2026-09-25)
 

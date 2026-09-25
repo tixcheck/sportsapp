@@ -22,6 +22,18 @@ export interface ReversePairsGameResult {
   scoreB: number | null;
 }
 
+export interface ReversePairsStandingOptions {
+  /**
+   * The most one game may contribute to the standings. Null = uncapped.
+   *
+   * These are TIMED games — you play to the buzzer, so a score can be 35-20.
+   * Uncapped, a single blowout outweighs five close wins and says more about
+   * who you were drawn with than how you played; BVL has a +37 on record.
+   * Capped at 10, that 35-20 is worth +10 and a 25-15 is worth the same.
+   */
+  pointCap?: number | null;
+}
+
 export interface ReversePairsStanding {
   teamId: string;
   /** Sum of point differentials across completed games. */
@@ -57,7 +69,19 @@ export interface ReversePairsStanding {
 export function reversePairsStandings(
   teamIds: string[],
   games: ReversePairsGameResult[],
+  options: ReversePairsStandingOptions = {},
 ): ReversePairsStanding[] {
+  const cap = options.pointCap ?? null;
+  /**
+   * Only the margin that FEEDS THE RANKING is clamped.
+   *
+   * `pointsFor` and `pointsAgainst` stay raw: those are points actually scored,
+   * and capping them would misreport the game to the people who played it.
+   * `won`/`lost` are untouched too — a win is a win at any margin.
+   */
+  const clamp = (margin: number) =>
+    cap === null ? margin : Math.max(-cap, Math.min(cap, margin));
+
   const blank = (id: string): ReversePairsStanding => ({
     teamId: id,
     differential: 0,
@@ -92,11 +116,12 @@ export function reversePairsStandings(
           row.perGame.push(null);
           continue;
         }
-        row.perGame.push(mine - theirs);
+        const margin = clamp(mine - theirs);
+        row.perGame.push(margin);
         row.played += 1;
         row.pointsFor += mine;
         row.pointsAgainst += theirs;
-        row.differential += mine - theirs;
+        row.differential += margin;
         if (mine > theirs) row.won += 1;
         else if (mine < theirs) row.lost += 1;
       }

@@ -5,6 +5,68 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — BVL's Reverse Pairs night, and a cap on what one game can swing (0133)
+
+Set up tonight's event at Notre Dame: 14 pairs, 2 courts, first game 7:30pm,
+timed games of about 16 minutes.
+
+**I got the scoring wrong twice before getting it right, and both corrections
+came from the owner.** First I read "10 points max per game" as games played to
+10. It isn't: these are TIMED games, so a score can be 35-20, and the 10 is a
+cap on the MARGIN each game contributes to the standings. Then I offered a
+9-round night because it got closer to the seven games Theresa asked for — and
+was told flatly that everyone plays the same number of games, which is what the
+scheduler's own header already says: _"Sitting out one more game than the pair
+next to you is the complaint that ends a night."_ I had read that comment and
+offered the uneven option anyway.
+
+**The cap did not exist.** `reversePairsStandings` summed raw differentials with
+no clamp. Uncapped, one blowout decides the night — BVL has a +37 on record,
+worth more than five close wins and mostly a statement about who you were drawn
+with. 0133 adds `reverse_pairs_settings.point_cap`, nullable so every night
+already played scores exactly as before.
+
+**Only the ranking is capped.** `pointsFor` / `pointsAgainst` stay raw, because
+those are points actually scored and capping them would misreport the game to
+the people who played it; `won`/`lost` are untouched, because a win is a win at
+any margin. Eight tests, including one that proves the cap reorders a field: the
+same six pairs, one 40-10 massacre and three close defeats, tops the table raw
+(+8) and bottoms it capped (-12).
+
+**A fixture of mine failed and deserved to.** I asserted a table ordering
+without computing it — the pairs who won the blowout and then never played again
+sat on +30 while the pair I named had dropped to +15. Same mistake as the Tier 5
+margins earlier in this session. Rebuilt so the six pairs stay together all
+night and the arithmetic is written into the comment.
+
+**The draw action hardcoded a 7:00pm start.** It now reads
+`competitions.start_time`, falling back to 19:00. Without that, anyone pressing
+Redraw tonight would have silently moved all 14 games half an hour earlier —
+discovered by players arriving at an empty gym.
+
+**Seven rounds, and the arithmetic is the whole argument.** Three pairs a side
+means six pairs a court, so two courts hold twelve and two sit out each round.
+Games per pair is `12 × rounds ÷ 14`, whole only when rounds is a multiple of 7.
+Seven rounds = 14 games = 84 appearances = **six each exactly**, with 14
+bye-slots over 14 pairs so everybody sits out precisely once. Exactly seven each
+is impossible for anyone to arrange: every game consumes exactly 6 pairs, so
+total appearances is always a multiple of 6, and 14 × 7 = 98 is not.
+
+**The draw:** 2 repeat partnerships across the night, 82 distinct partnerships
+of 91 possible, every pair with 11 or 12 distinct partners against a hard
+ceiling of 12 (six games × two partners). Not the theoretical floor of 0
+repeats — the annealer landed near it, not on it — and reseeding to chase two
+partnerships would reshuffle everyone for nothing.
+
+**Not done:** the cap has no UI. `updateReversePairsSettingsAction` doesn't
+carry `pointCap`, so it is currently only settable by SQL. Saving the settings
+form will not wipe it — that update names its columns and omits this one.
+
+**Tests:** 1633 across 127 files, up eight. `tsc --noEmit` and eslint clean.
+0133 applied and verified before the query that reads it.
+
+---
+
 ## 2026-09-25 — "You're in the pool for this league" (0132)
 
 The owner, on the gap I had named an hour earlier rather than closed: _"Can you
