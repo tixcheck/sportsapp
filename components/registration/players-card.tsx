@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Search, Users } from "lucide-react";
+import { Pencil, Plus, Search, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import type {
@@ -10,8 +10,14 @@ import type {
   PlayerDirectoryRow,
   RegistrationQuestion,
 } from "@/lib/queries/registration-questions";
+import type { OrgPerson } from "@/lib/registration/org-people";
 import { savePlayerAnswersAction } from "@/server/actions/registration-questions";
-import { updateFreeAgentDetailsAction } from "@/server/actions/free-agents";
+import {
+  addOrgPersonAction,
+  addPlayerToPoolAction,
+  searchOrgPeopleAction,
+  updateFreeAgentDetailsAction,
+} from "@/server/actions/free-agents";
 import type { Sport } from "@/lib/formats";
 import {
   SignupDetailsFields,
@@ -66,6 +72,7 @@ export function PlayersCard({
 }) {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<PlayerDirectoryRow | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -82,21 +89,31 @@ export function PlayersCard({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="size-4" />
-          Players
-        </CardTitle>
-        <CardDescription>
-          Everyone on a roster, plus individuals still waiting to be placed.
-          Edit anything that needs correcting — a phone number, a spelling.
-        </CardDescription>
+      {/* The button belongs up here, not in the content: the content
+          short-circuits when nobody is registered yet, which is precisely when
+          an organizer needs to add the first person. */}
+      <CardHeader className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <CardTitle className="flex items-center gap-2">
+            <Users className="size-4" />
+            Players
+          </CardTitle>
+          <CardDescription>
+            Everyone on a roster, plus individuals still waiting to be placed.
+            Edit anything that needs correcting — a phone number, a spelling.
+          </CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+          <Plus className="size-3.5" />
+          Add a player
+        </Button>
       </CardHeader>
 
       <CardContent className="space-y-4">
         {players.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            Nobody is on a roster yet. Players appear here as teams fill up.
+            Nobody is registered yet. Players appear here as teams fill up — or
+            add them yourself if you already have the names.
           </p>
         ) : (
           <>
@@ -193,6 +210,14 @@ export function PlayersCard({
           </>
         )}
       </CardContent>
+
+      {adding && (
+        <AddPlayerDialog
+          competitionId={competitionId}
+          sport={sport}
+          onClose={() => setAdding(false)}
+        />
+      )}
 
       {editing && (
         <EditPlayerDialog
@@ -331,6 +356,220 @@ function EditPlayerDialog({
           </Button>
           <Button onClick={save} disabled={pending}>
             {pending ? "Saving…" : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const BLANK: SignupDetails = {
+  name: "",
+  email: "",
+  phone: "",
+  positions: [],
+  skillLevel: "",
+  notes: "",
+};
+
+/**
+ * Adding a player, searching the organization's own people first.
+ *
+ * An organizer starting a drafted league is rarely starting from strangers —
+ * Mango's Friday eighteen mostly play in their Tuesday league already. Typing
+ * a name and email the org is demonstrably already holding is slow, and it is
+ * how two spellings of one person come to exist.
+ *
+ * The search covers past individuals AND rostered players: a team-entry org has
+ * no free agents at all, so searching sign-ups alone would find nobody for
+ * exactly the organizer this is for. It never reaches beyond this org — being
+ * able to type an email and learn whether it has an account is not something an
+ * organizer should be able to do.
+ *
+ * Stays open after each add, and drops the person from the results, so a list
+ * of eighteen is eighteen clicks rather than eighteen round trips.
+ */
+function AddPlayerDialog({
+  competitionId,
+  sport,
+  onClose,
+}: {
+  competitionId: string;
+  sport: Sport;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [term, setTerm] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<OrgPerson[] | null>(null);
+  const [manual, setManual] = useState<SignupDetails | null>(null);
+
+  function search() {
+    const q = term.trim();
+    if (!q) return;
+    setSearching(true);
+    void searchOrgPeopleAction({ competitionId, query: q }).then((res) => {
+      setSearching(false);
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      setResults(res.people);
+    });
+  }
+
+  function addFound(person: OrgPerson) {
+    start(async () => {
+      const res = await addOrgPersonAction({
+        competitionId,
+        userId: person.userId,
+        sourceFreeAgentId: person.freeAgentId,
+      });
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`${res.name} added to the pool.`);
+      setResults((cur) => (cur ?? []).filter((p) => p !== person));
+      router.refresh();
+    });
+  }
+
+  function addManual() {
+    if (!manual) return;
+    if (!manual.name.trim()) {
+      toast.error("Give them a name.");
+      return;
+    }
+    if (!manual.skillLevel) {
+      toast.error("Pick the level that fits them best.");
+      return;
+    }
+    start(async () => {
+      const res = await addPlayerToPoolAction({
+        competitionId,
+        name: manual.name.trim(),
+        email: manual.email.trim() || undefined,
+        phone: manual.phone.trim() || undefined,
+        positions: manual.positions,
+        skillLevel: manual.skillLevel,
+        notes: manual.notes.trim() || undefined,
+      });
+      if ("error" in res) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`${manual.name.trim()} added to the pool.`);
+      setManual({ ...BLANK });
+      router.refresh();
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add a player</DialogTitle>
+          <DialogDescription>
+            Search the people you already run — they keep the same name and
+            email — or enter somebody new.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          <div className="flex gap-2">
+            <Input
+              value={term}
+              placeholder="Email or name"
+              aria-label="Search your players"
+              onChange={(e) => setTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  search();
+                }
+              }}
+            />
+            <Button
+              variant="outline"
+              onClick={search}
+              disabled={searching || !term.trim()}
+            >
+              <Search className="size-4" />
+              {searching ? "…" : "Search"}
+            </Button>
+          </div>
+
+          {results !== null && results.length === 0 && (
+            <p className="text-muted-foreground text-sm">
+              Nobody in your leagues matches that. Add them below.
+            </p>
+          )}
+
+          {results !== null && results.length > 0 && (
+            <ul className="divide-rule border-rule divide-y rounded-lg border">
+              {results.map((p) => (
+                <li
+                  key={p.userId ?? p.freeAgentId ?? p.name}
+                  className="flex flex-wrap items-center justify-between gap-2 p-3"
+                >
+                  <div className="min-w-[8rem] flex-1">
+                    <p className="text-sm font-medium">{p.name}</p>
+                    {p.email && (
+                      <p className="text-muted-foreground text-xs">{p.email}</p>
+                    )}
+                    {p.seenIn.length > 0 && (
+                      <p className="text-ink-3 text-xs">
+                        {p.seenIn.join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => addFound(p)}
+                  >
+                    <UserPlus className="size-3.5" />
+                    Add
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {manual === null ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="justify-self-start"
+              onClick={() => setManual({ ...BLANK })}
+            >
+              Can&rsquo;t find them? Add someone new
+            </Button>
+          ) : (
+            <section className="border-rule grid gap-3 border-t pt-3">
+              <h3 className="text-sm font-semibold">Someone new</h3>
+              <SignupDetailsFields
+                sport={sport}
+                value={manual}
+                onChange={setManual}
+                disabled={pending}
+              />
+              <Button
+                onClick={addManual}
+                disabled={pending || !manual.name.trim()}
+                className="justify-self-start"
+              >
+                {pending ? "Adding…" : "Add to pool"}
+              </Button>
+            </section>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={pending}>
+            Done
           </Button>
         </DialogFooter>
       </DialogContent>

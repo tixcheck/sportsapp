@@ -5,6 +5,63 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — Add a player from the Players tab, by searching who you already run
+
+The owner, looking for the thing I had just shipped: _"In the players tab there
+isnt any space to add the players by the organiser. They could already be part
+of the other league. So let the org find the players by email and add them
+directly. If it doesnt exist then let him add name and email."_
+
+Two separate failures, and the first was mine. **The panel went on the Teams
+tab.** `FreeAgentsCard` renders when `allowIndividualSignups || freeAgents.length
+> 0`, so it was there and reachable — just not where an organizer looks for
+players. And **the Players tab's empty state was a dead end**: "Players appear
+here as teams fill up", with nothing to act on.
+
+**The button is in `CardHeader`, not `CardContent`.** The content
+short-circuits when nobody is registered, which is exactly the moment somebody
+needs to add the first person. Putting it in the content would have rebuilt the
+dead end one level down.
+
+**Searching sign-ups alone would have found nobody.** Both Mango leagues are
+team-entry with zero free agents; the eighteen people Roger wants are rostered
+accounts in the Coed Fall league. So the search unions `free_agents` with
+`team_members` across every competition the org runs. Building it over the
+individual pool — the obvious table — would have shipped a search box that
+returned nothing for the one organizer it was built for.
+
+**No migration.** `free_agents_select` admits `is_competition_admin`, which
+resolves org-level organizers (0029/0043), and `users_select` admits
+`administers_team_member` (0059) — an organizer may read the account of anyone
+rostered in a competition they run. RLS scopes the whole thing to the caller's
+own orgs without a line of checking here.
+
+**The client sends an identifier, never a person.** Name, email, positions and
+grade are re-read server-side from the org's own records, so a crafted request
+cannot invent somebody or attach an arbitrary email to them, and cannot reach an
+account the caller doesn't administer. There is deliberately **no platform-wide
+lookup**: being able to type an email and learn whether it has an account is not
+a power an organizer should have.
+
+**The account is linked after the insert.** `organizer_add_individual` always
+writes `user_id = null`, which is right for a name off a list and wrong for
+somebody we just matched to an account — their appearances would key on a
+spelling of their name instead of on them. Best-effort: the sign-up exists
+either way.
+
+**Merging fills gaps rather than overwriting**, because neither source is
+complete. A roster sighting knows the email and not the positions; a free-agent
+row from last season knows the positions and the grade. `personKey` is
+deliberately NOT `attribution.ts`'s `identityKey` — that one decides whose stats
+are whose and must not move; this one decides whether two rows in a search box
+are the same human, where being slightly generous is right.
+
+**Tests:** 1625 across 127 files, up seventeen — the merge, the key precedence,
+the exclusion of people already in the league, and the email-before-name
+ranking. `tsc --noEmit` and eslint clean.
+
+---
+
 ## 2026-09-25 — An organizer can put a player in the pool (0129)
 
 Mango's new Friday league is drafted by three captains from eighteen names the

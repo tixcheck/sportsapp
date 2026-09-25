@@ -985,6 +985,31 @@ reading them out of `.env.local`.
   - The panel renders in the card's EMPTY state as well as the populated one —
     the empty state is a separate early-returned `Card`, and a new league starts
     there. Don't add controls to one and not the other.
+- **The Players tab has its own "Add a player"** (2026-09-25), which is where
+  organizers actually look — the Free agents card lives on the **Teams** tab,
+  and being reachable there was not the same as being findable.
+  - It searches the people the ORG already holds: `loadOrgPeople`
+    (`lib/queries/org-people.ts`) unions `free_agents` with `team_members`
+    across every competition of the org, merges them, and drops anyone already
+    in this league. **Searching `free_agents` alone finds nobody for a
+    team-entry org** — Mango has zero free agents and 18 teams, which is the
+    case it was built for.
+  - **No migration needed**: `free_agents_select` admits `is_competition_admin`
+    (org-level, per 0029/0043) and `users_select` admits
+    `administers_team_member` (0059). RLS is what scopes it to the caller's own
+    orgs — there is no org filter in the action, by design.
+  - **The client sends only an identifier**; `addOrgPersonAction` re-reads the
+    name and email server-side. Do not "simplify" it to accept them from the
+    form — that would let an organizer attach any email to any name.
+  - **No platform-wide people search, deliberately.** Typing an email to learn
+    whether it has an account is not something an organizer should be able to
+    do.
+  - The account is linked with an UPDATE after the RPC, since
+    `organizer_add_individual` always writes `user_id = null`. Without it a
+    matched account-holder's appearances key on their name.
+  - `personKey` in `lib/registration/org-people.ts` is NOT
+    `attribution.ts`'s `identityKey` and must not be merged with it: one decides
+    whose stats are whose, the other whether two search results are one person.
 - `updateFreeAgentDetailsAction` never changes status or placement.
 - **An individual must have an account before the form appears** (fixed
   2026-09-16). `register_individual` requires `auth.uid()`, and the form now

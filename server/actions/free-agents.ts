@@ -12,6 +12,8 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { SKILL_LEVELS, sportConfig } from "@/lib/sports";
 import { canDeleteSignup } from "@/lib/registration/signup-removal";
+import { loadOrgPeople } from "@/lib/queries/org-people";
+import { matchPeople, type OrgPerson } from "@/lib/registration/org-people";
 import type { Sport } from "@/lib/formats";
 
 type ActionError = { error: string };
@@ -226,6 +228,124 @@ export async function addPlayerToPoolAction(
 
   await revalidateForCompetition(supabase, v.competitionId);
   return { freeAgentId: data };
+}
+
+const searchPeopleSchema = z.object({
+  competitionId: idSchema,
+  query: z.string().trim().max(120),
+});
+
+/**
+ * Find someone the organization already holds, to add to this league.
+ *
+ * Searched on the SERVER and returned a handful at a time rather than shipping
+ * the org's whole address book to the browser — these rows carry real people's
+ * email addresses.
+ *
+ * Scoped to this organization by RLS, not by a filter here: an organizer can
+ * only read free agents and rostered accounts for competitions they administer.
+ * There is deliberately no platform-wide lookup — being able to type an email
+ * and learn whether it has an account is not something an organizer should be
+ * able to do.
+ */
+export async function searchOrgPeopleAction(
+  input: z.input<typeof searchPeopleSchema>,
+): Promise<ActionError | { people: OrgPerson[] }> {
+  const parsed = searchPeopleSchema.safeParse(input);
+  if (!parsed.success) return { error: "Check the search." };
+  const { competitionId, query } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only an organizer can do that." };
+
+  if (query.trim() === "") return { people: [] };
+  const people = await loadOrgPeople(competitionId);
+  return { people: matchPeople(people, query) };
+}
+
+const addOrgPersonSchema = z.object({
+  competitionId: idSchema,
+  /** Which of the search results — an account, or a past sign-up row. */
+  userId: idSchema.nullable().optional(),
+  sourceFreeAgentId: idSchema.nullable().optional(),
+});
+
+/**
+ * Add somebody the organization already knows to this league's pool.
+ *
+ * The client sends only an IDENTIFIER. Name, email, positions and grade are
+ * re-read here from the org's own records, so a crafted request cannot invent a
+ * person or attach an arbitrary email to one — and cannot reach an account the
+ * caller does not administer, because `loadOrgPeople` is bounded by RLS.
+ *
+ * `organizer_add_individual` always writes `user_id = null`, which is right for
+ * a name off a list. Here we know better: the account is set straight after, so
+ * their appearances key to the account rather than to a spelling of their name.
+ */
+export async function addOrgPersonAction(
+  input: z.input<typeof addOrgPersonSchema>,
+): Promise<ActionError | { freeAgentId: string; name: string }> {
+  const parsed = addOrgPersonSchema.safeParse(input);
+  if (!parsed.success) return { error: "Check the selection." };
+  const { competitionId, userId, sourceFreeAgentId } = parsed.data;
+  if (!userId && !sourceFreeAgentId) return { error: "Pick somebody first." };
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) return { error: "Only an organizer can add players." };
+
+  const people = await loadOrgPeople(competitionId);
+  const person = people.find((p) =>
+    userId ? p.userId === userId : p.freeAgentId === sourceFreeAgentId,
+  );
+  if (!person) {
+    return { error: "That player is already in this league, or wasn't found." };
+  }
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("sport")
+    .eq("id", competitionId)
+    .maybeSingle();
+  const allowed = sportConfig(
+    ((comp as { sport: Sport } | null)?.sport ?? "indoor6") as Sport,
+  ).positions;
+
+  const { data, error } = await supabase.rpc("organizer_add_individual", {
+    _competition_id: competitionId,
+    _name: person.name,
+    _email: person.email,
+    _phone: null,
+    // Carried from wherever the org last recorded them; anything this sport
+    // doesn't recognise is dropped rather than put into the board's columns.
+    _positions: person.positions.filter((p) => allowed.includes(p)),
+    _skill_level: person.skillLevel ?? "intermediate",
+    _notes: null,
+  });
+  if (error || typeof data !== "string") {
+    console.error("[free-agents] add org person failed", error?.message ?? "");
+    return { error: "That player couldn't be added. Please try again." };
+  }
+
+  // Link the account when there is one. Best-effort: the sign-up exists either
+  // way, and an unlinked row is what every organizer-added player already is.
+  if (person.userId) {
+    const { error: linkErr } = await supabase
+      .from("free_agents")
+      .update({ user_id: person.userId })
+      .eq("id", data);
+    if (linkErr) {
+      console.error("[free-agents] account link failed", linkErr.message);
+    }
+  }
+
+  await revalidateForCompetition(supabase, competitionId);
+  return { freeAgentId: data, name: person.name };
 }
 
 const placeSchema = z.object({
