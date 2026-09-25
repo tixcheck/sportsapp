@@ -5,6 +5,54 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — Swap two pairs, so a late arrival doesn't hold up the night
+
+Veetun's problem, relayed: a pair is late and the whole draw stalls. What he
+asked for, after I talked past it twice: _"if Raj and Lyndsay are showing up
+late, instead of holding up the entire schedule, we would want to swap with the
+team that is sitting out the first game, so that team can take over Raj and
+Lyndsay's schedule completely."_
+
+**Migration 0137, `swap_reverse_pairs`.** Two pairs exchange their entire
+schedules, both directions, in one transaction.
+
+**This is balance-preserving, and not by luck.** A Reverse Pairs draw is
+balanced BY SLOT: whoever occupies position 5 plays six games, sits out once,
+and meets a fixed spread of partners and opponents. Those are properties of the
+position, not of the people in it — so exchanging two pairs is a permutation of
+the draw and every guarantee survives. Verified rather than asserted: the apply
+script rehearses a real swap on the live BVL night inside a rolled-back
+transaction, and reports **6 games each before, 6 games each after**, schedules
+exactly exchanged, nobody twice in one game.
+
+**Where I got it wrong.** I invented a variant nobody asked for — swapping only
+the games not yet scored, so a swap could happen mid-night — then warned the
+owner that swapping was "not balance-preserving". That risk existed only in my
+own addition. He pushed back twice before I heard it. The shipped feature is the
+whole night or nothing, which is both what he asked for and the case that is
+exactly fair.
+
+**Refused once any score exists**, because a swap would then hand one pair
+another pair's results. The check lives in the function, not the action: "no
+scores yet" is a race like every other registration gate, and reading it in the
+app then acting on a stale answer is the bug that guard exists to prevent.
+
+**Delete-then-reinsert, not UPDATE.** `reverse_pairs_lineups` is keyed
+`(game_id, team_id)`, and over a full night the two pairs eventually meet in the
+same game — an UPDATE swapping both rows there collides on the primary key
+mid-statement even though the end state is legal.
+
+**No new dependency for the UI.** There is no shadcn `Select` installed, and
+adding Radix for two dropdowns would be exactly the casual dependency the rules
+warn against. Native `<select>` with the classes the rest of the app already
+uses, which also gives a real picker on a phone.
+
+**Tests:** 1653 across 129 files, unchanged — the swap has no branching worth a
+unit test, and its correctness is a database property tested where it lives.
+`tsc --noEmit` and eslint clean.
+
+---
+
 ## 2026-09-25 — Drafted players were sitting in the Subs table
 
 The owner, on Big Shoots' stats tab: _"Can you check why full timers are showing

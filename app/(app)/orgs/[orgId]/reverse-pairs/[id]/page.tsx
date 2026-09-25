@@ -15,6 +15,7 @@ import { ReversePairsPairsCard } from "@/components/reverse-pairs/pairs-card";
 import { ReversePairsPublishCard } from "@/components/reverse-pairs/publish-card";
 import { ReversePairsSettingsCard } from "@/components/reverse-pairs/settings-card";
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
+import { ReversePairsSwapCard } from "@/components/reverse-pairs/swap-card";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 export default async function ReversePairsPage({
   params,
@@ -141,6 +142,17 @@ export default async function ReversePairsPage({
           suggestions={detail.suggestions}
           initial={detail.settings}
           hasSchedule={detail.games.length > 0}
+        />
+      )}
+
+      {/* Above the standings: this is a before-the-whistle tool, and the
+          standings are what you look at afterwards. */}
+      {isAdmin && detail.games.length > 0 && (
+        <ReversePairsSwapCard
+          competitionId={detail.competitionId}
+          pairs={detail.pairs}
+          sittingOutFirst={detail.byes[0] ?? []}
+          locked={detail.games.some((g) => g.scoreA !== null)}
         />
       )}
 

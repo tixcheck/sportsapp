@@ -252,6 +252,59 @@ const createSchema = z.object({
 
 export type CreateReversePairsInput = z.input<typeof createSchema>;
 
+const swapSchema = z.object({
+  competitionId: idSchema,
+  teamA: idSchema,
+  teamB: idSchema,
+});
+
+export type SwapReversePairsInput = z.input<typeof swapSchema>;
+
+/**
+ * Exchange two pairs' places in the draw.
+ *
+ * For the late arrival: put a pair who is sitting out into the missing pair's
+ * place so the night can start on time.
+ *
+ * This does NOT disturb the draw's fairness, which is worth stating because it
+ * sounds like it should. The schedule is balanced BY SLOT — whoever holds
+ * position 5 plays 6 games, sits once, and meets a fixed spread of partners and
+ * opponents — so exchanging two pairs' whole schedules is a permutation, and
+ * every guarantee survives. Nobody's game count moves.
+ *
+ * The whole night or nothing, and nothing once a score is in: the checks live
+ * in `swap_reverse_pairs` (0137) rather than here, because "no scores yet" is a
+ * race like every other registration gate, and the app must not be able to read
+ * it and then act on a stale answer.
+ */
+export async function swapReversePairsAction(
+  input: SwapReversePairsInput,
+): Promise<ActionError | { games: number }> {
+  const parsed = swapSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Pick two pairs." };
+  }
+  const { competitionId, teamA, teamB } = parsed.data;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("swap_reverse_pairs", {
+    _competition_id: competitionId,
+    _team_a: teamA,
+    _team_b: teamB,
+  });
+
+  if (error) {
+    // The function raises sentences meant for an organizer to read — "Scores
+    // are already entered…" — so passing them through beats replacing them
+    // with something vaguer.
+    console.error("[reverse-pairs] swap failed", error.message);
+    return { error: error.message || "Those pairs couldn't be swapped." };
+  }
+
+  revalidatePath("/orgs");
+  return { games: (data as number | null) ?? 0 };
+}
+
 /**
  * Create a Reverse Pairs event.
  *

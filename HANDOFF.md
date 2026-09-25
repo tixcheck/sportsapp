@@ -48,6 +48,7 @@
     | `0134` | Sep 25 | `my_pool_signups()` also returns `visibility`, so a dashboard pool card links only to a page its holder can actually read |
     | `0135` | Sep 25 | `match_absences` is publicly readable, like `match_appearances` — the stats table reads the same for a visitor as for the organizer. Reverses 0121's organizer-only stance, on the owner's instruction |
     | `0136` | Sep 25 | `competition_roster_aliases()` — every (account, name) pair a roster member may be recorded under. For matching lineups to the roster, NOT for display: it returns a person more than once by design |
+    | `0137` | Sep 25 | `swap_reverse_pairs()` — two pairs exchange their whole Reverse Pairs schedules, for a late arrival. Balance-preserving; refuses once any score exists |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -1340,6 +1341,25 @@ recording 17 would stack every round 3 minutes early.
   stay raw (they are points actually scored) and `won`/`lost` are untouched.
   `reversePairsStandings(ids, games, { pointCap })`; omitting the option is
   uncapped, which is how every pre-0133 night still scores.
+- **A Reverse Pairs draw is balanced BY SLOT, not by pair.** Whoever occupies a
+  given position plays six games, sits out once, and meets a fixed spread of
+  partners and opponents — properties of the POSITION. This is the fact that
+  makes `swap_reverse_pairs` (0137) safe: exchanging two pairs' whole schedules
+  is a permutation, so every fairness guarantee survives and neither pair's game
+  count moves. Do not "improve" the swap into a partial one — swapping only part
+  of a night gives a pair a partner spread computed for a night that no longer
+  happens, which IS unbalancing. Whole night or nothing.
+- **`swap_reverse_pairs` refuses once any score exists**, since a swap would
+  then hand one pair another pair's results. The check is inside the function,
+  not the action, for the same reason every registration gate is: reading it in
+  the app and then acting is a race.
+- **It deletes and reinserts rather than UPDATEs.** `reverse_pairs_lineups` is
+  keyed `(game_id, team_id)`; across a full night the two pairs meet in the same
+  game, and updating both rows there trips the primary key mid-statement even
+  though the final state is valid.
+- `npx tsx lib/db/apply-0137.ts` rehearses a real swap on the live night in a
+  rolled-back transaction and asserts the game counts are unchanged. Re-run it
+  after touching the draw code.
 - **The draw action honours `competitions.start_time`** since 2026-09-25,
   falling back to `19:00`. Before that it hardcoded 7:00pm, so a redraw would
   have moved this night half an hour earlier. Keep that fallback.
