@@ -5,6 +5,56 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-25 — A pool card you can actually click (0134)
+
+The owner, looking at his own dashboard: _"I cant click on this big shoot. If a
+player is added to the list of players in that league, irrespective they play or
+not or if they are a sub, they should be able to see the league. Click on it and
+see the schedule, stats and such."_
+
+**I made those cards non-links this afternoon, and my stated reason was wrong.**
+The comment read: _"a drafted league is usually private, so the public page
+would 404 for exactly these people."_ That is true of Mango's Friday league,
+which I had just created as private, and I generalised from it without checking
+the league actually in front of me. Big Shoots is **public**, and
+`can_view_competition` admits a public competition outright — so all twelve of
+its pool members could always have read that page, roster row or not. Verified
+by assuming each of their identities in a rolled-back transaction: twelve
+`can_view = true`, including Sean Gade, who is unplaced with no roster row.
+
+Across every event, **all 14 pool sign-ups are on public competitions**, so
+every card becomes clickable.
+
+**The private case is still real, so the link is conditional.** A pool member of
+a private drafted league is none of platform admin, org member, competition
+admin or rostered, so that page would 404. Rather than trade a dead card for a
+dead link, the title links only when the event is public and stays plain text
+otherwise. Nothing hits that branch today; it exists for Mango's Friday league
+once people are in its pool.
+
+**`visibility` comes from the FUNCTION, not from client-side inference.** The
+database already knows, and deriving the same permission twice is precisely how
+a page and a server end up disagreeing — the bug that showed BVL's organizers a
+read-only schedule while the action behind it would have accepted their scores.
+0134 drops and recreates `my_pool_signups()` to return it; a function's RETURNS
+TABLE signature cannot be changed in place.
+
+**What this did NOT need:** a policy change. My first instinct was a migration
+extending `can_view_competition` to admit `free_agents` rows, which would have
+widened read access on every private competition on the platform. Checking the
+actual league first turned a policy change into a link.
+
+**Noticed in passing:** Michael Adam is placed on a Big Shoots team with no
+`team_members` row — one straggler from this morning's 0131 backfill, presumably
+added to the pool after it ran. Worth a re-run of
+`backfill-0131-claim.ts --write`.
+
+**Tests:** 1633 across 127 files, unchanged — this is a query column and a
+conditional link. `tsc --noEmit` and eslint clean. 0134 applied and verified
+before the code that reads it.
+
+---
+
 ## 2026-09-25 — BVL's Reverse Pairs night, and a cap on what one game can swing (0133)
 
 Set up tonight's event at Notre Dame: 14 pairs, 2 courts, first game 7:30pm,

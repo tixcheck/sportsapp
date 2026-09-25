@@ -125,8 +125,18 @@ export default async function DashboardPage() {
 
       {/* Signed up, not drafted yet. Without this the dashboard told them to
           ask their organizer to add them to a team — which their organizer had
-          already done. Deliberately NOT linked: a drafted league is usually
-          private, so the public page would 404 for exactly these people. */}
+          already done.
+
+          LINKED, because being in the pool is being in the league: somebody
+          waiting to be drafted should be able to read the schedule and the
+          stats like anyone else. `can_view_competition` admits a PUBLIC
+          competition outright, so a pool member reaches it with no roster row
+          at all — verified against Big Shoots, where all twelve pass.
+
+          A private drafted league is the exception: its pool members are none
+          of platform admin, org member, competition admin or rostered, so the
+          page would 404. Rather than trade a dead card for a dead link, the
+          title only becomes a link when the event is public. */}
       {poolSignups.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold">
@@ -137,7 +147,16 @@ export default async function DashboardPage() {
               <Card key={p.competitionId} className="flex h-full flex-col">
                 <CardHeader>
                   <CardTitle className="text-balance break-words">
-                    {p.name}
+                    {p.isPublic ? (
+                      <Link
+                        href={competitionPath(p.type, p.slug)}
+                        className="hover:underline"
+                      >
+                        {p.name}
+                      </Link>
+                    ) : (
+                      p.name
+                    )}
                   </CardTitle>
                   <CardDescription className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="truncate">{p.orgName}</span>

@@ -80,6 +80,15 @@ export interface PoolSignup {
   orgName: string;
   /** `pending_payment` means the fee is what is holding them, not the draft. */
   signupStatus: "available" | "pending_payment";
+  /**
+   * Whether the event's own page is readable by somebody with no roster row.
+   *
+   * `can_view_competition` admits a PUBLIC competition outright, so a pool
+   * member reaches it; for a private drafted league they are none of platform
+   * admin, org member, competition admin or rostered, and would get a 404. The
+   * card links only when this is true (migration 0134).
+   */
+  isPublic: boolean;
 }
 
 /**
@@ -105,6 +114,7 @@ export async function getMyPoolSignups(): Promise<PoolSignup[]> {
       sport: r.sport as string,
       orgName: r.org_name as string,
       signupStatus: r.signup_status as "available" | "pending_payment",
+      isPublic: r.visibility === "public",
     }),
   );
 }
