@@ -428,19 +428,33 @@ so nothing forces the two into agreement.
 above 2B and 5A above 5B, so `applyLadderMovement` models it directly with no
 engine change:
 
-| # | Tier | Gym | Teams |
-|---|---|---|---|
-| 0 | 1 | Bethune | 6 |
-| 1 | 2A | Leacock A | 4 |
-| 2 | 2B | Leacock B | 4 |
-| 3 | 3 | Agincourt | 6 |
-| 4 | 4 | PPL | 6 |
-| 5 | 5A | Porter | 4 |
-| 6 | 5B | Wexford | 4 |
-| 7 | 6 | King | 6 |
+**⚠️ REBUILT 2026-09-26 from the org's own 2026/2027 sheet** (`SMVA_2026-2027_Sept_28.pdf`,
+first week 28 Sep). The split tiers are gone: Leacock is no longer 2A/2B, and
+Porter/Wexford are no longer 5A/5B but tiers in their own right. Eight tiers
+became seven and everything below Leacock renumbered.
 
-`swaps: [2, 2, 2, 2, 2, 2, 2]` — two exchanged at every boundary, which
-reproduces every sheet's printed line.
+| # | Tier | Gym | Teams | Courts |
+|---|---|---|---|---|
+| 1 | 1 | Bethune | 6 | 3 |
+| 2 | 2 | Leacock | 7 | 3 |
+| 3 | 3 | Agincourt | 6 | 3 |
+| 4 | 4 | PPL | 4 | 2 |
+| 5 | 5 | Porter | 6 | 3 |
+| 6 | 6 | Wexford | 4 | 2 |
+| 7 | 7 | King | 6 | 3 |
+
+`swaps: [2, 2, 2, 2, 2, 2]` — **six entries, not seven.** A swap is the exchange
+at a BOUNDARY, so seven tiers have six. Tier 1 is `0 UP` and Tier 7 is `0 DOWN`
+because there is nothing beyond them, and because every exchange is balanced the
+6/7/6/4/6/4/6 spread is permanent, not a first-week shape.
+
+`tier_order` is now **1-indexed** (1–7) where it used to be 0-indexed, so the
+number matches the tier's own name.
+
+**Every tier runs courts = teams ÷ 2.** That is the arithmetic that settles a
+court count when the data and a sheet disagree: four teams cannot occupy three
+courts. It resolved PPL, which still held 3 courts from when it was a six-team
+tier.
 
 **Their pod grids are DATA, not generated** (`lib/scheduler/pod-templates.ts`).
 Same matchups, same courts, same order every week; the organizer was explicit it
@@ -512,18 +526,35 @@ broken (tied teams share a seed and the next seed skips).
 
 **Open with the organizer:** Bethune and King printed the same fifteen 6-team
 fixtures on the same night with slots 3 and 5 exchanged — one is presumably a
-typo. Bethune is followed, being the sheet given as canonical. Also unconfirmed:
-whether OUTTAHAND belongs at PPL.
+typo. Bethune is followed, being the sheet given as canonical. (That question is
+about printed fixtures and is untouched by the 2026-09-26 rebuild.)
+
+~~Also unconfirmed: whether OUTTAHAND belongs at PPL.~~ **Answered** by the
+2026/2027 sheet: OUTTAHAND is in Tier 4 — PPL, and sets up court 1.
 
 **The org is owned by their organizer, not by us.** It was created here once and
 then deliberately deleted and recreated under his ownership — an org belongs to
 whoever runs it, and starting it on our account makes every later handover a
-migration. 7 venues are geocoded, the 8 tiers exist, the 40 returning teams are
-in, and the season's dates and blackouts are set.
+migration. The venues are geocoded and the season's dates and blackouts are set.
+**7 tiers and 39 teams** as of 2026-09-26 (was 8 and 40).
 
-**Leacock is TWO venues, not one.** Two double gyms, two courts each. Court
-identity is `(venue, label)`, so one venue with four courts would happily put a
-game on a court in the other building.
+**Leacock is ONE venue as of 2026-09-26** — `Stephen Leacock CI`, three courts.
+It was two: `— Gym A` and `— Gym B`, two courts each, and the warning here used
+to be that they must never be merged. The org combined them for 2026/2027, so
+the merge is now correct — but the REASON it was flagged still stands and is why
+this must be a genuine three-court building, not two two-court gyms wearing one
+name: **court identity is `(venue, label)`**, so a venue carrying courts that are
+physically elsewhere will happily schedule a game into the wrong building.
+`Stephen Leacock CI — Gym B` still exists as a venue row, used by no tier and
+with `courts` left null. Do not delete it to tidy up; it costs nothing and it is
+history.
+
+**Three places hold courts, and they are not rivals:** `venues.courts` counts
+what the BUILDING has (a default, 0128); `divisions.courts` is the court LIST a
+tier plays (`LeagueCourt[]` — label, prime, venueId); `league_settings.court_list`
+is the same list for the whole league. The last is now rebuilt FROM the tiers, so
+it cannot drift — it had been carrying Gym B's two courts long after nothing
+played there.
 
 ## Auditing the system — `npm run check:all`
 

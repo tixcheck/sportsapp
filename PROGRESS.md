@@ -5,6 +5,62 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-26 — SMVA rebuilt from the org's own sheet, in three steps
+
+Scarborough sent their 2026/2027 tier sheet for the 28 Sep opener, and the
+league in the database no longer matched it. Owner: _"remove any teams that SMVA
+has and add all the teams from this sheet… I want to make sure that the org are
+happy with the app."_
+
+**Read the sheet first.** poppler's page renderer is not installed here, so the
+Read tool could not open the PDF at all. `pdftotext -layout` IS on PATH, which
+recovered it with its columns intact — worth knowing before anyone reaches for
+an OCR dependency.
+
+**Three steps, each confirmed before the next**, at the owner's request. Every
+one was a dry run first, then applied, then verified.
+
+**1 — Tiers.** Eight became seven. Leacock stopped being 2A/2B; Porter and
+Wexford stopped being halves of one tier and became Tiers 5 and 6; King moved to
+7. `ladder_swaps` went from 7 entries to 6 — a swap is the exchange at a
+BOUNDARY, so seven tiers have six, and leaving the extra would have described a
+ladder that no longer exists. Every `tier_order` was bumped +100 before being
+reassigned, in case a unique index made a direct renumber collide mid-transaction.
+
+**2 — Teams.** All 40 deleted, the 39 from the sheet inserted into their tiers,
+one transaction. Safe only because **nothing had been played**: no matches, no
+sets, no roster rows, no payments — re-checked immediately before the delete
+rather than trusted from the survey minutes earlier, because deleting a team
+cascades its payments and takes the league's matches and pools with it. Two
+pairs looked like renames (RONIN/BRONIN, OGE/OG); the owner's call was to
+replace wholesale rather than guess.
+
+**3 — Courts.** The sheet is the source of truth, read off its setup duties:
+each tier assigns one team per court to put up nets and poles, so the highest
+court number IS that gym's court count. Three tiers disagreed and all three were
+leftovers from the old structure — Leacock 2→3, PPL 3→2, Porter 2→3. Leacock A
+and B merged into one three-court `Stephen Leacock CI`.
+
+**The check that settled PPL without asking:** every tier runs courts = teams ÷
+2. Four teams cannot occupy three courts, so the stored 3 was stale and the
+sheet's 2 was right.
+
+**`league_settings.court_list` was carrying a gym nobody plays in** — 20 entries
+across 8 venues, including Gym B. It is now rebuilt FROM the tiers so it cannot
+drift from them again.
+
+**Two things I got wrong and corrected in flight.** I predicted ZEUS would be a
+new team; it already existed and was merely moving tiers, so the arrivals list
+was 4 and not 5. And I called `divisions.courts` a rival source of truth for
+`venues.courts` after assuming from its name that it was an integer — it is a
+court LIST, and the two complement rather than compete. Both were caught by
+reading the data instead of trusting the earlier claim.
+
+No migration: this is data, not schema. Scripts committed as `smva-01/02/03`
+so what was done to a live league is on the record.
+
+---
+
 ## 2026-09-25 — Swap two pairs, so a late arrival doesn't hold up the night
 
 Veetun's problem, relayed: a pair is late and the whole draw stalls. What he
