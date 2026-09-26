@@ -56,6 +56,23 @@ continuous 1–39 list sliced by tier. What it does *not* yet do is write that
 order back to `teams.seed`, which is the remaining piece before week 2 prints
 itself.
 
+**6 — Officials, and the week number.** The published schedule names referees
+per gym, so they are loaded into `ladder_night_officials` (0118) for week 1 —
+the first thing to read that table since it shipped ahead of its UI. Names
+rather than accounts, stored exactly as printed: the two-court gyms name two,
+and **King leaves #3 blank on its own sheet** despite three courts, so it is
+stored with two rather than padded out. An empty slot on their sheet is
+information. From here the organizer enters each week's referees; the loader is
+idempotent on `(division_id, week)` so it never fights them.
+
+**The week fix was not where I expected.** The app was going to print "Week 2"
+because 20 September's draft night counted as week 1. I had assumed the fix was
+the league's `start_date` — but the number is **hardcoded** in
+`scripts/smva-sample-sheet.ts`, so moving that date would have changed nothing
+and left the header wrong. Worth the lookup: a confident fix aimed at the
+database would have been silently useless. Monday now prints **Week 1**, and
+the cover's "eight gyms" and the swaps comment are corrected with it.
+
 **Tests:** 1663 across 129 files, up ten. `tsc --noEmit` and eslint clean. No
 migration — data and pinned grids, not schema.
 

@@ -32,12 +32,18 @@ import { movementLabel } from "@/lib/scheduler/pod-templates";
 // The night being printed.
 // ---------------------------------------------------------------------------
 
-/** Week 1 is draft night, so the first sheet a gym sees is week 2. */
-const WEEK = 2;
+/**
+ * Week 1 is the first night anyone PLAYS.
+ *
+ * This used to be 2, counting 20 September's draft night as week 1. The league
+ * numbers from the first night of volleyball, so Monday 28 September is week 1
+ * and the draft is not a week at all.
+ */
+const WEEK = 1;
 const NIGHT = "Monday, 28 September 2026";
 const LEAGUE = "SMVA Monday Night Ladder 2026/2027";
 
-/** Two exchanged at every boundary — seven boundaries for eight tiers. */
+/** Two exchanged at every boundary — six boundaries for seven tiers. */
 const SWAPS = [2, 2, 2, 2, 2, 2, 2];
 
 interface Tier {
@@ -265,7 +271,7 @@ function coverPage(): string {
     '<article class="sheet cover">',
     `<p class="league">${esc(LEAGUE)}</p>`,
     '<h1 class="cover-title">Gym package</h1>',
-    `<p class="cover-sub">Week ${WEEK} · ${esc(NIGHT)} · eight gyms</p>`,
+    `<p class="cover-sub">Week ${WEEK} · ${esc(NIGHT)} · seven gyms</p>`,
     '<div class="cover-body">',
 
     "<p>Every page after this one is printed by the app from the league's own",

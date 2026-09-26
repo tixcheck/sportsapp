@@ -488,6 +488,24 @@ and also exposes `setupDuties` for a renderer that wants a table. Template text
 no longer passes through `resolveDuty` at all, which retires that footgun for
 grids (the warning below still stands for any other authored text).
 
+**⚠️ The week number is HARDCODED in `scripts/smva-sample-sheet.ts`, not derived
+from `start_date`.** It was `2`, counting 20 September's draft night as week 1;
+the league numbers from the first night anyone PLAYS, so it is now `1` and 28
+September is week 1. Changing `competitions.start_date` would NOT have fixed the
+header — a fix aimed there would have been silently useless. The draft night is
+real but is not a week.
+
+**Week 1's officials are loaded** (`lib/db/smva-06-officials.ts`), taken from
+the published schedule into `ladder_night_officials` (0118). Names, not
+accounts — league volunteers mostly have none, and demanding one would mean the
+night goes unrecorded. Stored EXACTLY as printed: the two-court gyms name two
+officials, and **King leaves #3 blank on its own sheet** despite having three
+courts, so it is stored with two rather than padded. The count otherwise tracks
+courts, which is worth noticing but is not a rule anyone has stated. The table
+is unique on `(division_id, week)`, so the loader is idempotent and safe to
+re-run after an organizer edits a name — which is the intended flow: **the
+organizer adds each week's referees themselves from here on.**
+
 **The 28 September night is LIVE: 93 matches** (15 + 21 + 15 + 6 + 15 + 6 + 15),
 written by `lib/db/smva-05-schedule.ts` on 2026-09-26. Times come from each
 grid's own slot strings, NOT from `weekly_slots` — that row says 19:20 for the
