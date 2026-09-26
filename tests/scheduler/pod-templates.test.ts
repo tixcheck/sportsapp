@@ -25,14 +25,14 @@ describe("podTemplate", () => {
     expect(podSizesAvailable()).toEqual([4, 5, 6, 7]);
   });
 
-  // Every normal week is 4 or 6 and nobody sits. 5 and 7 exist only for the
-  // weeks a gym falls through and its teams are spread across the rest.
+  // 4, 6 and 7 all run every week as of 2026/2027 — Leacock holds seven teams
+  // permanently. 5 is still only the week a gym falls through.
   it("separates the regular sizes from the adjustment ones", () => {
-    expect(regularSizes()).toEqual([4, 6]);
+    expect(regularSizes()).toEqual([4, 6, 7]);
     expect(podTemplate(4)!.kind).toBe("regular");
     expect(podTemplate(6)!.kind).toBe("regular");
+    expect(podTemplate(7)!.kind).toBe("regular");
     expect(podTemplate(5)!.kind).toBe("adjustment");
-    expect(podTemplate(7)!.kind).toBe("adjustment");
   });
 
   it("returns null for a size nobody has pinned", () => {
@@ -52,7 +52,13 @@ describe("teamsForCourts", () => {
   });
 });
 
-describe("the adjustment grids", () => {
+/**
+ * 5 and 7 both sit one team every slot. They are no longer the same KIND — 7
+ * is a normal week at Leacock since 2026/2027, 5 is still the gym-fell-through
+ * case — but the arithmetic that makes a bye grid valid is identical, so it is
+ * checked the same way for both.
+ */
+describe("the grids with a bye", () => {
   for (const size of [5, 7]) {
     const t = podTemplate(size)!;
 
@@ -84,16 +90,19 @@ describe("the adjustment grids", () => {
       const fixtures = (size * (size - 1)) / 2;
       expect(t.totalPoints).toBe(fixtures * 2 * 2);
     });
-
-    // Their sheet showed no setup duty for these, and inventing who puts the
-    // nets up is not something a gym should discover at 7:20.
-    it(`the ${size}-team grid claims no setup duty`, () => {
-      expect(t.setup).toBe("");
-    });
   }
+
+  // The league has never printed a setup duty for a five-team gym, and
+  // inventing who puts the nets up is not something to discover at 7:20.
+  // Seven HAS one, from the tier sheet — see its own block below.
+  it("the 5-team grid claims no setup duty", () => {
+    expect(podTemplate(5)!.setup).toEqual([]);
+  });
 });
 
-describe("the regular grids never sit anybody", () => {
+// 7 is a regular size too, but it sits one team a slot by arithmetic: 21
+// fixtures on 3 courts cannot seat seven at once. 4 and 6 fill every court.
+describe("the full-house grids never sit anybody", () => {
   for (const size of [4, 6]) {
     it(`holds for ${size} teams`, () => {
       const t = podTemplate(size)!;
@@ -141,8 +150,16 @@ describe("the 4-team grid, as printed at Leacock A", () => {
   it("carries the printed rules verbatim", () => {
     expect(t.clock).toBe("Set clock at 45 minutes +4 minutes");
     expect(t.scoring).toBe("Games 1&2 start at 4 points, Game 3 at 0");
-    expect(t.setup).toBe("A and B setup courts");
     expect(t.totalPoints).toBe(36);
+  });
+
+  // The schedule prints "A and B setup courts"; the tier sheet says which
+  // court each of them takes.
+  it("assigns the two setup courts by seed", () => {
+    expect(t.setup).toEqual([
+      { letter: "A", court: "Court 1" },
+      { letter: "B", court: "Court 2" },
+    ]);
   });
 });
 
@@ -182,8 +199,63 @@ describe("the 6-team grid, as printed at Bethune", () => {
   it("carries the printed rules verbatim", () => {
     expect(t.clock).toBe("Set clock at 26 minutes +4 minutes");
     expect(t.scoring).toBe("First games start at 4 points");
-    expect(t.setup).toBe("A and B and E setup courts");
     expect(t.totalPoints).toBe(60);
+  });
+
+  // 1st sets up court 3, 2nd court 1, 5th court 2 — the tier sheet's mapping,
+  // which is the same A/B/E the schedule prints, with the courts restored.
+  it("assigns the three setup courts by seed", () => {
+    expect(t.setup).toEqual([
+      { letter: "A", court: "Court 3" },
+      { letter: "B", court: "Court 1" },
+      { letter: "E", court: "Court 2" },
+    ]);
+  });
+});
+
+describe("the 7-team grid, as published at Leacock", () => {
+  const t = podTemplate(7)!;
+
+  it("is seven slots on three courts", () => {
+    expect(t.slots).toHaveLength(7);
+    expect(t.courtLabels).toEqual(["Court 1", "Court 2", "Court 3"]);
+  });
+
+  it("matches the published schedule exactly, slot by slot", () => {
+    expect(
+      t.slots.map((s) => [
+        s.time,
+        ...s.courts.map((c) => `${c!.home} vs ${c!.away}`),
+        `sit ${s.sitting}`,
+      ]),
+    ).toEqual([
+      ["7:20 - 7:41", "B vs D", "E vs G", "A vs C", "sit F"],
+      ["7:42 - 8:03", "B vs E", "A vs F", "D vs G", "sit C"],
+      ["8:04 - 8:25", "E vs F", "C vs D", "A vs B", "sit G"],
+      ["8:26 - 8:47", "A vs E", "C vs G", "B vs F", "sit D"],
+      ["8:48 - 9:09", "A vs D", "B vs C", "F vs G", "sit E"],
+      ["9:10 - 9:31", "C vs F", "A vs G", "D vs E", "sit B"],
+      ["9:32 - 9:53", "B vs G", "D vs F", "C vs E", "sit A"],
+    ]);
+  });
+
+  // Six, not five: seven teams playing everyone once is one game more than a
+  // six-team tier, which is why the clock drops to 17 minutes.
+  it("gives every team six games", () => {
+    for (const l of podLetters(7)) expect(fixturesFor(t, l)).toHaveLength(6);
+  });
+
+  it("carries the printed rules verbatim", () => {
+    expect(t.clock).toBe("Set clock at 17 minutes + 4 minutes");
+    expect(t.totalPoints).toBe(84);
+  });
+
+  it("takes the same three-court setup duty as a six-team gym", () => {
+    expect(t.setup).toEqual([
+      { letter: "A", court: "Court 3" },
+      { letter: "B", court: "Court 1" },
+      { letter: "E", court: "Court 2" },
+    ]);
   });
 });
 
@@ -251,11 +323,11 @@ describe("assignLetters", () => {
 });
 
 /**
- * Scarborough's ladder, top to bottom. Eight tiers in ONE chain — 2A sits
- * above 2B and 5A above 5B, so the split levels are not parallel and the
- * existing linear movement engine models them directly.
+ * Scarborough's ladder, top to bottom. SEVEN tiers in one chain as of
+ * 2026/2027 — the 2A/2B and 5A/5B splits are gone — so SIX boundaries, not
+ * seven. A swap is the exchange AT a boundary.
  */
-const SMVA_SWAPS = [2, 2, 2, 2, 2, 2, 2];
+const SMVA_SWAPS = [2, 2, 2, 2, 2, 2];
 
 describe("movementLabel", () => {
   // The bug this function exists to prevent: reading the line off the pod size
@@ -264,8 +336,7 @@ describe("movementLabel", () => {
   it("says what each Scarborough gym's sheet says", () => {
     const gyms = [
       "Bethune",
-      "Leacock A",
-      "Leacock B",
+      "Leacock",
       "Agincourt",
       "PPL",
       "Porter",
@@ -275,7 +346,6 @@ describe("movementLabel", () => {
     const labels = gyms.map((_, i) => movementLabel(i, SMVA_SWAPS));
     expect(labels).toEqual([
       "2 down", // top: drops only
-      "2 up, 2 down",
       "2 up, 2 down",
       "2 up, 2 down",
       "2 up, 2 down",

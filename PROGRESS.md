@@ -5,6 +5,62 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-26 — SMVA's opening night is live: 93 matches
+
+The league then sent their **published** schedule for 28 September, which
+supersedes the tier sheet steps 1–3 were built from: _"they readjusted all the
+teams and tiers."_ Two more steps, each confirmed before the next.
+
+**4 — Seeds.** Five of seven tiers already matched. Two swaps: INVICTUS ↔ BIG D
+BOYS across Tiers 2/3, CHEFS ↔ OG across 4/5. Every team then took its seed
+A–G from the published sheet. **The seeds earn their keep**: the grids are
+written in letters (`B VS D`) and so is every duty line, so storing the seed
+makes the duties fall out of the data instead of needing a table. They are not
+roster order — Bethune seeds A = DAZED AND CONFUSED and C = VOID, because they
+carry last week's finishing rank.
+
+**5 — The schedule.** 93 matches: 15 + 21 + 15 + 6 + 15 + 6 + 15.
+
+**The grids were wrong first, and had to be fixed before any of it was written.**
+`POD_4` and `POD_6` were correct. `POD_7` was not: same 21 fixtures, but reverse
+slot order on 20-minute slots ending 9:46, against the published 21-minute slots
+ending 9:53. It was also marked `adjustment` — the gym-fell-through case — when
+Leacock now runs seven every week. Transcribed verbatim and promoted.
+
+**A test premise broke with it, which is the useful part.** "The regular grids
+never sit anybody" stops being true the moment a seven-team tier is regular, so
+it was rescoped to `the full-house grids` (4 and 6) beside `the grids with a
+bye` (5 and 7). A rule that quietly becomes false is worse than one that fails.
+
+**Setup duty became structured.** The published schedule prints "A and B and E
+setup courts"; the tier sheet says *which court* each takes. Both agree once the
+tier sheet's positions are read as letters — 1, 2, 5 are A, B, E, and 4 (D)
+prints the package. So `A→Court 3, B→Court 1, E→Court 2`, rendered as "VOID sets
+up Court 3, ONE PUNCH Court 1…". It also retires a footgun: template duty text
+no longer passes through `resolveDuty`, the function that once rendered an
+organizer's "A 4-minute warning" as "VOID 4-minute warning" while 29 tests
+passed.
+
+**Times come from the grids, not `weekly_slots`.** That row says 19:20 for the
+whole league; the sheets run 7:20–9:50 at a six-team gym and 7:20–9:53 at
+Leacock on a 17-minute clock. One league time cannot express seven gyms, and
+the sheet is what the gym runs off.
+
+**Checked on the rows, not the template**: no team on two courts at the same
+moment, verified against the 93 rows about to be written.
+
+**The re-seeding rule for next week already existed.** `applyLadderMovement`
+builds each tier as relegated-from-above, then stayers in tonight's finishing
+order, then promoted-from-below — exactly the owner's rule, and exactly a single
+continuous 1–39 list sliced by tier. What it does *not* yet do is write that
+order back to `teams.seed`, which is the remaining piece before week 2 prints
+itself.
+
+**Tests:** 1663 across 129 files, up ten. `tsc --noEmit` and eslint clean. No
+migration — data and pinned grids, not schema.
+
+---
+
 ## 2026-09-26 — SMVA rebuilt from the org's own sheet, in three steps
 
 Scarborough sent their 2026/2027 tier sheet for the 28 Sep opener, and the

@@ -460,11 +460,41 @@ tier.
 Same matchups, same courts, same order every week; the organizer was explicit it
 "has to be this".
 
-**4 and 6 are the REGULAR sizes; 5 and 7 are the cancellation case.** All four
-are pinned, separated by `kind` — 3 courts means 6 teams, 2 courts means 4, and
-in a regular week nobody ever sits. The 5- and 7-team grids on the April 13
-sheet are from a week where a gym fell through and the tiers were rebalanced, so
-they exist for that and are not what a normal week looks like.
+**4, 6 and 7 are the REGULAR sizes as of 2026/2027; only 5 is the cancellation
+case.** Leacock runs seven teams every week now, so `POD_7` was promoted from
+`adjustment` to `regular`. 3 courts means 6 teams *or* 7; 2 courts means 4.
+
+**A regular week no longer means nobody sits.** A seven-team tier has a bye by
+arithmetic — 21 fixtures on 3 courts cannot seat seven at once — so the old
+"regular ⇒ full house" shorthand is wrong. The tests are scoped accordingly:
+`the full-house grids never sit anybody` covers 4 and 6, and `the grids with a
+bye` covers 5 and 7.
+
+**⚠️ `POD_7` was REPLACED on 2026-09-26, not merely reclassified.** The old grid
+had the same 21 fixtures in *reverse slot order* on 20-minute slots ending 9:46.
+The league's published 28 Sep schedule runs 21-minute slots ending 9:53 in a
+different order entirely. It is now transcribed verbatim from that page and
+pinned slot-by-slot in the tests. Its scoring line is still inferred — their
+Leacock page prints a clock but no scoring note — like `POD_5`'s.
+
+**Setup duty is STRUCTURED, not a sentence** (`PodSetupDuty[]`). The schedule
+prints only "A and B and E setup courts", but the tier sheet assigns each of
+them a court, and that is the part a team acts on. Both documents agree once
+the tier sheet's positions are read as letters — positions 1, 2, 5 are A, B, E,
+and position 4 (D) prints the package. The mapping is **A→Court 3, B→Court 1,
+E→Court 2** at a three-court gym and **A→Court 1, B→Court 2** at a two-court
+one. `buildGymSheet` renders it as "VOID sets up Court 3, ONE PUNCH Court 1, …"
+and also exposes `setupDuties` for a renderer that wants a table. Template text
+no longer passes through `resolveDuty` at all, which retires that footgun for
+grids (the warning below still stands for any other authored text).
+
+**The 28 September night is LIVE: 93 matches** (15 + 21 + 15 + 6 + 15 + 6 + 15),
+written by `lib/db/smva-05-schedule.ts` on 2026-09-26. Times come from each
+grid's own slot strings, NOT from `weekly_slots` — that row says 19:20 for the
+whole league while the sheets run 7:20–9:50 at a six-team gym and 7:20–9:53 at
+Leacock. `court` is stored as the bare label ("1", not "Court 1") to match
+`court_list`. `ref_team_id` is null throughout: SMVA uses official referees, and
+the OFFICIALS box on their sheet is named people, not a team duty.
 
 **Matches per team is not games per team**, and confusing the two misreads every
 sheet. A 4-team night is **3 matches × 3 games** (45-minute clock, 36 total

@@ -55,11 +55,19 @@ describe("buildGymSheet — 6 teams", () => {
     ]);
   });
 
-  it("resolves the duty line to real teams", () => {
-    // "A and B and E setup courts"
+  it("names the setup teams and the court each one takes", () => {
+    // A → Court 3, B → Court 1, E → Court 2, from the tier sheet's mapping.
     expect(sheet.setup).toBe(
-      "VOID and ONE PUNCH and DAZED AND CONFUSED setup courts",
+      "VOID sets up Court 3, ONE PUNCH Court 1, DAZED AND CONFUSED Court 2",
     );
+  });
+
+  it("offers the same duty structured, for a table rather than a sentence", () => {
+    expect(sheet.setupDuties.map((d) => [d.team.name, d.court])).toEqual([
+      ["VOID", "Court 3"],
+      ["ONE PUNCH", "Court 1"],
+      ["DAZED AND CONFUSED", "Court 2"],
+    ]);
   });
 
   it("carries the printed rules through", () => {
@@ -104,8 +112,52 @@ describe("buildGymSheet — 4 teams", () => {
     ]);
   });
 
-  it("resolves the two-team setup duty", () => {
-    expect(sheet.setup).toBe("THE FACTORY and SUNDAY KNIGHTS setup courts");
+  it("gives a two-court gym two setup duties", () => {
+    expect(sheet.setup).toBe(
+      "THE FACTORY sets up Court 1, SUNDAY KNIGHTS Court 2",
+    );
+  });
+});
+
+describe("buildGymSheet — 7 teams", () => {
+  /** Leacock's seven, in the seed order the published schedule gives them. */
+  const LEACOCK_7 = [
+    "INVICTUS",
+    "SVEIKS",
+    "CONNEX",
+    "MISFITS",
+    "THE FACTORY",
+    "HYDRATION NATION",
+    "SUNDAY KNIGHTS",
+  ].map(team);
+  const sheet = buildGymSheet(LEACOCK_7, "2 up, 2 down")!;
+
+  it("matches the published Leacock page, names in", () => {
+    // Slot 1 is B v D, E v G, A v C, sitting F.
+    expect(
+      sheet.slots[0].fixtures.map((f) => `${f.home.name} vs ${f.away.name}`),
+    ).toEqual([
+      "SVEIKS vs MISFITS",
+      "THE FACTORY vs SUNDAY KNIGHTS",
+      "INVICTUS vs CONNEX",
+    ]);
+    expect(sheet.slots[0].sitting!.name).toBe("HYDRATION NATION");
+  });
+
+  it("gives everyone six games and one slot off", () => {
+    for (const t of LEACOCK_7) {
+      const played = sheet.slots.flatMap((s) =>
+        s.fixtures.filter((f) => f.home.id === t.id || f.away.id === t.id),
+      );
+      expect(played).toHaveLength(6);
+    }
+    expect(new Set(sheet.slots.map((s) => s.sitting!.id)).size).toBe(7);
+  });
+
+  it("sets up three courts, like any three-court gym", () => {
+    expect(sheet.setup).toBe(
+      "INVICTUS sets up Court 3, SVEIKS Court 1, THE FACTORY Court 2",
+    );
   });
 });
 

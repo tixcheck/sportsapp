@@ -38,6 +38,27 @@ export interface SheetSlot {
   sitting?: SheetTeam;
 }
 
+/** A team and the court it puts the nets and poles up on. */
+export interface SheetSetupDuty {
+  team: SheetTeam;
+  court: string;
+}
+
+/**
+ * "VOID sets up Court 3, ONE PUNCH Court 1, MESLA CONSTRUCTION Court 2".
+ *
+ * The verb appears once. Repeating "sets up" for every team reads like a list
+ * of separate instructions rather than one duty shared three ways.
+ */
+function setupSentence(duties: SheetSetupDuty[]): string {
+  if (duties.length === 0) return "";
+  const [first, ...rest] = duties;
+  return [
+    `${first.team.name} sets up ${first.court}`,
+    ...rest.map((d) => `${d.team.name} ${d.court}`),
+  ].join(", ");
+}
+
 export interface GymSheet {
   /** "6-Team Schedule: 2-games per match" */
   title: string;
@@ -47,8 +68,10 @@ export interface GymSheet {
   scoring: string;
   /** "2 up, 2 down" — supplied, since it depends on the tier's position. */
   movement: string;
-  /** "VOID and ONE PUNCH set up courts" — letters resolved to names. */
+  /** "VOID sets up Court 3, ONE PUNCH Court 1, …" — ready to print. */
   setup: string;
+  /** The same, structured, for a renderer that wants a table not a sentence. */
+  setupDuties: SheetSetupDuty[];
   totalPoints: number;
   /** Every team on the sheet, in seeded order — the score grid's rows. */
   teams: SheetTeam[];
@@ -93,6 +116,15 @@ export function buildGymSheet(
     ...(slot.sitting ? { sitting: team(slot.sitting) } : {}),
   }));
 
+  // A duty whose letter has no team behind it is dropped rather than printed
+  // half-resolved — a four-team gym has no E to put up a third court.
+  const setupDuties: SheetSetupDuty[] = template.setup
+    .map((d) => {
+      const t = byLetter.get(d.letter);
+      return t ? { team: t, court: d.court } : null;
+    })
+    .filter((d): d is SheetSetupDuty => d !== null);
+
   return {
     title: template.title,
     courtLabels: template.courtLabels,
@@ -100,7 +132,8 @@ export function buildGymSheet(
     clock: template.clock,
     scoring: template.scoring,
     movement,
-    setup: resolveDuty(template.setup, byLetter),
+    setup: setupSentence(setupDuties),
+    setupDuties,
     totalPoints: template.totalPoints,
     teams,
   };

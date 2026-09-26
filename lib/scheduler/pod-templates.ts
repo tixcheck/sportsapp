@@ -34,6 +34,27 @@ export type PodKind =
   /** Only when a gym falls through and teams are rebalanced across the rest. */
   | "adjustment";
 
+/**
+ * Who puts up the nets and poles, and on WHICH court.
+ *
+ * The gym schedule prints only "A and B and E setup courts", but the league's
+ * tier sheet assigns a court number to each of them, and that is the part a
+ * team actually acts on. Both documents agree on the rule once the tier
+ * sheet's positions are read as letters: positions 1, 2 and 5 are A, B and E,
+ * and position 4 (D) prints the package.
+ *
+ * Structured rather than a sentence because the court is data. It also retires
+ * a footgun: the old form was text with bare letters in it, substituted by
+ * `resolveDuty`, which is right for text we author and catastrophic for
+ * anything else — 29 tests once passed while it rendered an organizer's "A
+ * 4-minute warning" as "VOID 4-minute warning".
+ */
+export interface PodSetupDuty {
+  letter: PodLetter;
+  /** The court they set up, matching a `courtLabels` entry. */
+  court: string;
+}
+
 export interface PodTemplate {
   teams: number;
   kind: PodKind;
@@ -46,11 +67,24 @@ export interface PodTemplate {
   clock: string;
   /** "First games start at 4 points" */
   scoring: string;
-  /** "A and B and E setup courts". Empty where the source sheet printed none. */
-  setup: string;
+  /** Empty where the league has never said who sets up. */
+  setup: PodSetupDuty[];
   /** The number printed under the grid — total points available on the night. */
   totalPoints: number;
 }
+
+/** The tier sheet's mapping for a three-court gym: 1st→3, 2nd→1, 5th→2. */
+const SETUP_3_COURT: PodSetupDuty[] = [
+  { letter: "A", court: "Court 3" },
+  { letter: "B", court: "Court 1" },
+  { letter: "E", court: "Court 2" },
+];
+
+/** And for a two-court gym: 1st→1, 2nd→2. */
+const SETUP_2_COURT: PodSetupDuty[] = [
+  { letter: "A", court: "Court 1" },
+  { letter: "B", court: "Court 2" },
+];
 
 const m = (home: PodLetter, away: PodLetter) => ({ home, away });
 
@@ -73,7 +107,7 @@ const POD_4: PodTemplate = {
   ],
   clock: "Set clock at 45 minutes +4 minutes",
   scoring: "Games 1&2 start at 4 points, Game 3 at 0",
-  setup: "A and B setup courts",
+  setup: SETUP_2_COURT,
   totalPoints: 36,
 };
 
@@ -99,7 +133,7 @@ const POD_6: PodTemplate = {
   ],
   clock: "Set clock at 26 minutes +4 minutes",
   scoring: "First games start at 4 points",
-  setup: "A and B and E setup courts",
+  setup: SETUP_3_COURT,
   totalPoints: 60,
 };
 
@@ -131,61 +165,72 @@ const POD_5: PodTemplate = {
   ],
   clock: "Set clock at 26 minutes +4 minutes",
   scoring: "First games start at 4 points",
-  setup: "",
+  setup: [],
   totalPoints: 40,
 };
 
 /**
- * 7 teams, 3 courts, one sitting each slot. ADJUSTMENT ONLY — see POD_5.
+ * 7 teams, 3 courts, one sitting each slot. REGULAR as of 2026/2027.
+ *
+ * Transcribed verbatim from the league's published 28 September schedule, the
+ * Leacock page. It was previously an adjustment grid — the gym-fell-through
+ * case — in a different slot order entirely; Leacock now runs seven teams every
+ * week, so this is a normal night.
  *
  * Seven slots rather than five, on a 17-minute clock, because twenty-one
- * fixtures do not fit a normal night any other way.
+ * fixtures do not fit a normal night any other way. That is also why the slots
+ * are 21 minutes rather than the 30 a six-team gym runs.
+ *
+ * Their page prints no setup line and no scoring line. The setup is taken from
+ * the tier sheet, which assigns one by position at every gym including this
+ * one; the scoring follows the six-team grid on the grounds that both play two
+ * games per match — inferred, like POD_5's, and worth confirming.
  */
 const POD_7: PodTemplate = {
   teams: 7,
-  kind: "adjustment",
+  kind: "regular",
   title: "7-Team Schedule: 2-games per match",
   courtLabels: ["Court 1", "Court 2", "Court 3"],
   slots: [
     {
-      time: "7:20 - 7:40",
-      courts: [m("C", "E"), m("D", "F"), m("B", "G")],
-      sitting: "A",
-    },
-    {
-      time: "7:41 - 8:01",
-      courts: [m("D", "E"), m("A", "G"), m("C", "F")],
-      sitting: "B",
-    },
-    {
-      time: "8:02 - 8:22",
-      courts: [m("D", "G"), m("A", "F"), m("B", "E")],
-      sitting: "C",
-    },
-    {
-      time: "8:23 - 8:43",
-      courts: [m("B", "F"), m("C", "G"), m("A", "E")],
-      sitting: "D",
-    },
-    {
-      time: "8:44 - 9:04",
-      courts: [m("F", "G"), m("B", "C"), m("A", "D")],
-      sitting: "E",
-    },
-    {
-      time: "9:05 - 9:25",
-      courts: [m("A", "C"), m("E", "G"), m("B", "D")],
+      time: "7:20 - 7:41",
+      courts: [m("B", "D"), m("E", "G"), m("A", "C")],
       sitting: "F",
     },
     {
-      time: "9:26 - 9:46",
-      courts: [m("A", "B"), m("C", "D"), m("E", "F")],
+      time: "7:42 - 8:03",
+      courts: [m("B", "E"), m("A", "F"), m("D", "G")],
+      sitting: "C",
+    },
+    {
+      time: "8:04 - 8:25",
+      courts: [m("E", "F"), m("C", "D"), m("A", "B")],
       sitting: "G",
+    },
+    {
+      time: "8:26 - 8:47",
+      courts: [m("A", "E"), m("C", "G"), m("B", "F")],
+      sitting: "D",
+    },
+    {
+      time: "8:48 - 9:09",
+      courts: [m("A", "D"), m("B", "C"), m("F", "G")],
+      sitting: "E",
+    },
+    {
+      time: "9:10 - 9:31",
+      courts: [m("C", "F"), m("A", "G"), m("D", "E")],
+      sitting: "B",
+    },
+    {
+      time: "9:32 - 9:53",
+      courts: [m("B", "G"), m("D", "F"), m("C", "E")],
+      sitting: "A",
     },
   ],
   clock: "Set clock at 17 minutes + 4 minutes",
   scoring: "First games start at 4 points",
-  setup: "",
+  setup: SETUP_3_COURT,
   totalPoints: 84,
 };
 
