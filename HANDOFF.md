@@ -488,6 +488,31 @@ and also exposes `setupDuties` for a renderer that wants a table. Template text
 no longer passes through `resolveDuty` at all, which retires that footgun for
 grids (the warning below still stands for any other authored text).
 
+**Print the gym package with `lib/db/sheet-smva-package.ts`** — cover plus one
+sheet per gym, as a real PDF via Playwright, read from the live database. It
+takes `--week` and `--out`.
+
+**The GRID comes from `matches`, the format from the pod template.** Title,
+clock, scoring, points total and setup duty are properties of the format and
+come from `pod-templates`; the fixtures, courts and times are read back out of
+`matches`. So an edited match shows up on the sheet instead of the sheet
+silently reprinting the template it was generated from. Slot times still come
+from the template by round index, because a match row stores one instant and
+the sheet prints a range.
+
+**⚠️ A seven-team gym needs `dense` mode or it spills onto a second page.**
+21 fixtures plus a "sits" line each slot is 28 rows against a six-team page's
+15, and the whole premise is one sheet per gym. The class tightens row padding
+and box height; the type stays legible because names and score boxes are what
+the gym writes in. Leacock hit this on the first render — **check the page count
+after any layout change**, since nothing else catches it.
+
+**`scripts/smva-sample-sheet.ts` is SUPERSEDED and frozen.** It renders the same
+layout from hardcoded literals still at the pre-rebuild structure — eight tiers,
+2A/2B, 5A/5B, teams that no longer exist. Left that way on purpose: it is the
+sample their executive was sent, and half-correcting it makes it neither
+historical nor current.
+
 **⚠️ The week number is HARDCODED in `scripts/smva-sample-sheet.ts`, not derived
 from `start_date`.** It was `2`, counting 20 September's draft night as week 1;
 the league numbers from the first night anyone PLAYS, so it is now `1` and 28

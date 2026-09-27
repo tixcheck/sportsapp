@@ -1,4 +1,16 @@
 /**
+ * ⚠️ SUPERSEDED by `lib/db/sheet-smva-package.ts`, which prints the same
+ * package from the LIVE database. Use that one.
+ *
+ * This is a FROZEN SNAPSHOT of the sample sent to their executive before any
+ * of it was in the database, and its literals are deliberately left at the
+ * pre-2026-09-26 structure: eight tiers with 2A/2B and 5A/5B, and teams that
+ * no longer exist. Internally consistent, historically accurate, and wrong
+ * about today — do not "correct" the data here, because then it is neither.
+ *
+ * Kept because it is the artefact that proved the app could print their sheet,
+ * and because rendering is what caught a bug 29 tests walked past.
+ *
  * Render Scarborough's gym package — the sample we send them.
  *
  * Not a test fixture and not the shippable print route: this is the artefact
@@ -43,7 +55,7 @@ const WEEK = 1;
 const NIGHT = "Monday, 28 September 2026";
 const LEAGUE = "SMVA Monday Night Ladder 2026/2027";
 
-/** Two exchanged at every boundary — six boundaries for seven tiers. */
+/** Two exchanged at every boundary — seven boundaries for this file's eight. */
 const SWAPS = [2, 2, 2, 2, 2, 2, 2];
 
 interface Tier {
@@ -271,7 +283,7 @@ function coverPage(): string {
     '<article class="sheet cover">',
     `<p class="league">${esc(LEAGUE)}</p>`,
     '<h1 class="cover-title">Gym package</h1>',
-    `<p class="cover-sub">Week ${WEEK} · ${esc(NIGHT)} · seven gyms</p>`,
+    `<p class="cover-sub">Week ${WEEK} · ${esc(NIGHT)} · eight gyms</p>`,
     '<div class="cover-body">',
 
     "<p>Every page after this one is printed by the app from the league's own",

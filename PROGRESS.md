@@ -73,6 +73,33 @@ and left the header wrong. Worth the lookup: a confident fix aimed at the
 database would have been silently useless. Monday now prints **Week 1**, and
 the cover's "eight gyms" and the swaps comment are corrected with it.
 
+**7 — The gym package, printed from the database.** `sheet-smva-package.ts`:
+cover plus one sheet per gym, as a real PDF through Playwright. The sample
+script that produced the version their executive already has is hardcoded; this
+reads the seven tiers, their gyms, the seeded rosters, the 93 matches and the
+officials.
+
+**The grid comes from `matches`, not the template.** The format's properties —
+title, clock, scoring, total, setup duty — still come from `pod-templates`,
+because that is what they are. But the fixtures, courts and times are read back
+out of the database, so an edited match appears on the sheet rather than the
+sheet reprinting the template it was generated from.
+
+**Rendering caught what the run could not.** The script reported success and the
+counts were right, but reading the PDF showed **Leacock spilling onto a second
+page** — 21 fixtures plus seven "sits" lines is 28 rows against a six-team
+page's 15, and the whole premise is one sheet per gym. A `dense` class fixed it
+by squeezing row height rather than type. This is the second time today that
+printing a document found a defect a green run did not; the BVL sheet's "Invalid
+DateTime" was the first.
+
+**And I corrected an error of my own.** Earlier I edited the sample script's
+comments to say "seven tiers" and "seven gyms" while leaving its eight hardcoded
+tiers and seven-entry swaps array untouched — fixing the prose and not the data,
+which left the file internally inconsistent. Reverted, and the file is now
+marked SUPERSEDED and frozen at the pre-rebuild structure, which is what it
+honestly is.
+
 **Tests:** 1663 across 129 files, up ten. `tsc --noEmit` and eslint clean. No
 migration — data and pinned grids, not schema.
 
