@@ -7,6 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 import { planTierNight } from "@/lib/scheduler/ladder-night";
 import { planLadderWeek, rankLadderNight } from "@/lib/scheduler/ladder-week";
 import { applyLadderMovement } from "@/lib/scheduler/ladder-movement";
+import {
+  firstPlayingNight,
+  nextPlayingNight,
+  planPodNight,
+} from "@/lib/scheduler/pod-night";
+import { typedTierOrder } from "@/lib/scheduler/ladder-results";
 import { estimateMatchMinutes } from "@/lib/formats";
 import {
   drawLadderWeekSchema,
@@ -96,14 +102,14 @@ async function loadLadderContext(competitionId: string) {
       supabase
         .from("league_settings")
         .select(
-          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker",
+          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker",
         )
         .eq("competition_id", competitionId)
         .single(),
       supabase
         .from("divisions")
         .select(
-          "id, name, tier_order, courts, ladder_target, minutes_per_set, start_time, late_start_slots",
+          "id, name, tier_order, venue_id, courts, ladder_target, minutes_per_set, start_time, late_start_slots",
         )
         .eq("competition_id", competitionId)
         .order("tier_order", { ascending: true }),
@@ -140,10 +146,14 @@ export async function drawLadderWeekAction(
   const slot = (settings.weekly_slots as WeeklySlot[])[0];
   if (!slot) return { error: "No weekly slot configured." };
 
+  // Seed order, so week 1 seats each tier the way the organizer seeded it — a
+  // pinned grid binds A to whoever sits first, and the duty lines follow A.
   const { data: teams } = await supabase
     .from("teams")
     .select("id, division_id")
-    .eq("competition_id", competitionId);
+    .eq("competition_id", competitionId)
+    .order("seed", { ascending: true, nullsFirst: false })
+    .order("name", { ascending: true });
   if (!teams || teams.length < 2) {
     return { error: "Add at least two teams first." };
   }
@@ -200,7 +210,7 @@ export async function drawLadderWeekAction(
   // Refuse to draw over games that already exist for this week.
   const { data: existing } = await supabase
     .from("matches")
-    .select("id, status")
+    .select("id, status, scheduled_at")
     .eq("competition_id", competitionId)
     .eq("round", week);
   if ((existing ?? []).some((m) => SETTLED.has(m.status as string))) {
@@ -213,6 +223,22 @@ export async function drawLadderWeekAction(
       .eq("competition_id", competitionId)
       .eq("round", week);
     if (delErr) return { error: delErr.message };
+  }
+
+  if (settings.ladder_draw === "pod_grid") {
+    return drawPodWeek({
+      supabase,
+      competitionId,
+      slug: (comp.slug as string | null) ?? null,
+      week,
+      rosters,
+      divisions,
+      timezone: (comp.timezone as string) ?? DEFAULT_TIMEZONE,
+      startDate: comp.start_date as string,
+      dayOfWeek: slot.dayOfWeek,
+      blackouts: (settings.blackout_dates as string[] | null) ?? [],
+      redrawnAt: (existing ?? []).map((m) => m.scheduled_at as string),
+    });
   }
 
   const courtList = (settings.court_list as LeagueCourt[] | null) ?? null;
@@ -369,6 +395,103 @@ export async function drawLadderWeekAction(
   return { week, matchCount: rows.length, shorted: shorted.length };
 }
 
+/** Local calendar date of an instant, in the league's zone. */
+function localDate(instant: string, zone: string): string {
+  return DateTime.fromISO(instant, { zone: "utc" }).setZone(zone).toISODate()!;
+}
+
+/**
+ * Draw a week on pinned grids (`ladder_draw = 'pod_grid'`).
+ *
+ * The night's DATE is the only thing worked out, and it is taken from the
+ * matches rather than the calendar wherever they exist: a redraw keeps the
+ * night it replaces, and a new week is a week after the night the last one
+ * actually ran. Only the very first week reads the season's start date.
+ */
+async function drawPodWeek(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  competitionId: string;
+  slug: string | null;
+  week: number;
+  rosters: { divisionId: string; teamIds: string[] }[];
+  divisions: { id: unknown; name: unknown; venue_id?: unknown }[];
+  timezone: string;
+  startDate: string;
+  dayOfWeek: number;
+  blackouts: string[];
+  /** Start times of the games this draw replaced, if it is a redraw. */
+  redrawnAt: string[];
+}): Promise<
+  ActionError | { week: number; matchCount: number; shorted: number }
+> {
+  const { supabase, competitionId, week, timezone: zone } = input;
+
+  let night: string;
+  if (input.redrawnAt.length > 0) {
+    night = localDate([...input.redrawnAt].sort()[0], zone);
+  } else {
+    const { data: previous } = await supabase
+      .from("matches")
+      .select("scheduled_at")
+      .eq("competition_id", competitionId)
+      .eq("round", week - 1)
+      .not("scheduled_at", "is", null)
+      .order("scheduled_at", { ascending: false })
+      .limit(1);
+    const last = previous?.[0]?.scheduled_at as string | undefined;
+    night = last
+      ? nextPlayingNight(localDate(last, zone), input.blackouts)
+      : firstPlayingNight(input.startDate, input.dayOfWeek, input.blackouts);
+  }
+
+  const venueOf = new Map(
+    input.divisions.map((d) => [
+      d.id as string,
+      (d.venue_id as string | null) ?? null,
+    ]),
+  );
+  const plan = planPodNight(
+    input.rosters
+      .filter((r) => r.teamIds.length > 0)
+      .map((r) => ({
+        divisionId: r.divisionId,
+        venueId: venueOf.get(r.divisionId) ?? null,
+        teamIds: r.teamIds,
+      })),
+  );
+  if (plan.problems.length > 0) {
+    const nameOf = new Map(
+      input.divisions.map((d) => [d.id as string, d.name as string]),
+    );
+    const p = plan.problems[0];
+    return {
+      error: `${nameOf.get(p.divisionId) ?? "A tier"} has ${p.reason.replace(/^no pinned grid for /, "")}, and there is no grid for that size. Nothing was drawn.`,
+    };
+  }
+  if (plan.fixtures.length === 0) return { error: "No games to draw." };
+
+  const rows = plan.fixtures.map((f) => ({
+    competition_id: competitionId,
+    round: week,
+    division_id: f.divisionId,
+    venue_id: f.venueId,
+    home_team_id: f.homeTeamId,
+    away_team_id: f.awayTeamId,
+    court: f.court,
+    status: "scheduled" as const,
+    scheduled_at: DateTime.fromISO(night, { zone })
+      .set({ hour: f.hour, minute: f.minute })
+      .toISO()!,
+  }));
+
+  const { error } = await supabase.from("matches").insert(rows);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  if (input.slug) revalidatePath(`/l/${input.slug}`);
+  return { week, matchCount: rows.length, shorted: 0 };
+}
+
 /**
  * Lock a week: rank each tier on that night alone, swap teams across the
  * boundaries, and write next week's placements.
@@ -394,7 +517,7 @@ export async function lockLadderWeekAction(
 
   const { data: placements } = await supabase
     .from("ladder_placements")
-    .select("team_id, division_id, week, position")
+    .select("team_id, division_id, week, position, result_rank, result_points")
     .eq("competition_id", competitionId)
     .eq("week", week);
   if (!placements || placements.length === 0) {
@@ -411,59 +534,108 @@ export async function lockLadderWeekAction(
     return { error: `Week ${week} is already locked.` };
   }
 
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("id, status, home_team_id, away_team_id")
-    .eq("competition_id", competitionId)
-    .eq("round", week);
-  if (!matches || matches.length === 0) {
-    return { error: `Week ${week} has no games.` };
-  }
-  const unplayed = matches.filter((m) => !SETTLED.has(m.status as string));
-  if (unplayed.length > 0) {
-    return {
-      error: `${unplayed.length} game${unplayed.length === 1 ? "" : "s"} still need a score before this week can be locked.`,
-    };
-  }
-
-  const { data: sets } = await supabase
-    .from("sets")
-    .select("match_id, home_score, away_score, set_number")
-    .in(
-      "match_id",
-      matches.map((m) => m.id as string),
-    );
-  const setsByMatch = new Map<string, { home: number; away: number }[]>();
-  for (const s of (sets ?? []).sort(
-    (a, b) => (a.set_number as number) - (b.set_number as number),
-  )) {
-    const list = setsByMatch.get(s.match_id as string) ?? [];
-    list.push({
-      home: s.home_score as number,
-      away: s.away_score as number,
-    });
-    setsByMatch.set(s.match_id as string, list);
-  }
-
-  const results: MatchResult[] = matches
-    .filter((m) => m.home_team_id && m.away_team_id)
-    .map((m) => ({
-      matchId: m.id as string,
-      homeTeamId: m.home_team_id as string,
-      awayTeamId: m.away_team_id as string,
-      sets: setsByMatch.get(m.id as string) ?? [],
-    }));
-
   const rosters = divisions.map((d) => ({
     divisionId: d.id as string,
+    name: d.name as string,
     teamIds: placements
       .filter((p) => p.division_id === d.id)
       .sort((a, b) => (a.position as number) - (b.position as number))
       .map((p) => p.team_id as string),
   }));
 
+  // A tier whose final standings were typed in is ranked by them and needs no
+  // scores; a tier with none typed is ranked from its games, as every ladder
+  // was before. A tier with SOME typed is refused — see typedTierOrder.
+  const typed = new Map<string, string[]>();
+  for (const r of rosters) {
+    const order = typedTierOrder(
+      r.teamIds,
+      placements
+        .filter((p) => p.division_id === r.divisionId)
+        .map((p) => ({
+          teamId: p.team_id as string,
+          rank: (p.result_rank as number | null) ?? null,
+          points: (p.result_points as number | null) ?? null,
+        })),
+    );
+    if (order.status === "complete")
+      typed.set(r.divisionId, order.rankedTeamIds);
+    else if (order.status === "partial") {
+      return {
+        error: `${r.name} has standings for ${order.entered} of ${order.of} teams. Finish them, or clear them to rank from scores.`,
+      };
+    } else if (order.status === "invalid") {
+      return { error: `${r.name}'s standings don't add up: ${order.reason}.` };
+    }
+  }
+
+  const scored = rosters.filter((r) => !typed.has(r.divisionId));
+  let results: MatchResult[] = [];
+
+  if (scored.length > 0) {
+    const { data: allMatches } = await supabase
+      .from("matches")
+      .select("id, status, division_id, home_team_id, away_team_id")
+      .eq("competition_id", competitionId)
+      .eq("round", week);
+    // Games recorded against a typed tier don't need a score. An older game
+    // with no tier recorded can't be placed, so it still has to be settled.
+    const matches = (allMatches ?? []).filter(
+      (m) => m.division_id == null || !typed.has(m.division_id as string),
+    );
+    if (matches.length === 0) {
+      const missing = scored.map((r) => r.name).join(", ");
+      return {
+        error: `Week ${week} has no scores or standings for ${missing}.`,
+      };
+    }
+    const unplayed = matches.filter((m) => !SETTLED.has(m.status as string));
+    if (unplayed.length > 0) {
+      return {
+        error: `${unplayed.length} game${unplayed.length === 1 ? "" : "s"} still need a score before this week can be locked.`,
+      };
+    }
+
+    const { data: sets } = await supabase
+      .from("sets")
+      .select("match_id, home_score, away_score, set_number")
+      .in(
+        "match_id",
+        matches.map((m) => m.id as string),
+      );
+    const setsByMatch = new Map<string, { home: number; away: number }[]>();
+    for (const s of (sets ?? []).sort(
+      (a, b) => (a.set_number as number) - (b.set_number as number),
+    )) {
+      const list = setsByMatch.get(s.match_id as string) ?? [];
+      list.push({
+        home: s.home_score as number,
+        away: s.away_score as number,
+      });
+      setsByMatch.set(s.match_id as string, list);
+    }
+
+    results = matches
+      .filter((m) => m.home_team_id && m.away_team_id)
+      .map((m) => ({
+        matchId: m.id as string,
+        homeTeamId: m.home_team_id as string,
+        awayTeamId: m.away_team_id as string,
+        sets: setsByMatch.get(m.id as string) ?? [],
+      }));
+  }
+
   const mode = ((settings.tiebreaker as string) ?? "ova") as RankMode;
-  const ranked = rankLadderNight(rosters, results, mode);
+  const fromScores = new Map(
+    rankLadderNight(scored, results, mode).map((t) => [
+      t.divisionId,
+      t.rankedTeamIds,
+    ]),
+  );
+  const ranked = rosters.map((r) => ({
+    divisionId: r.divisionId,
+    rankedTeamIds: typed.get(r.divisionId) ?? fromScores.get(r.divisionId)!,
+  }));
   const swaps = (settings.ladder_swaps as number[] | null) ?? [];
   const moved = applyLadderMovement(ranked, { swaps });
 

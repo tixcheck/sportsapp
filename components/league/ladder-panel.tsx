@@ -11,6 +11,7 @@ import {
   unlockLadderWeekAction,
 } from "@/server/actions/ladder";
 import type { LadderState } from "@/lib/queries/ladder";
+import { TierResultsForm } from "@/components/league/ladder-results-entry";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -40,6 +41,11 @@ export function LadderPanel({
   const { currentWeek, currentWeekGames, currentWeekComplete } = state;
   const notStarted = currentWeek === 0;
   const drawn = currentWeekGames > 0;
+  // Pinned-grid leagues enter each gym's final standings, not every score.
+  const byStandings = state.draw === "pod_grid";
+  const tiersEntered = state.standingsThisWeek.filter(
+    (t) => t.standingsEntered,
+  ).length;
 
   function run<T extends { error: string } | object>(
     fn: () => Promise<T>,
@@ -64,10 +70,12 @@ export function LadderPanel({
           {notStarted
             ? "Draw week 1 to start the ladder. Teams begin in the tier they're in now."
             : drawn && !currentWeekComplete
-              ? `Week ${currentWeek} is drawn — ${currentWeekGames} games. Lock it once every score is in.`
+              ? byStandings
+                ? `Week ${currentWeek} is drawn — ${currentWeekGames} games. Enter each gym's final standings below (${tiersEntered} of ${state.standingsThisWeek.length} done), then lock the week.`
+                : `Week ${currentWeek} is drawn — ${currentWeekGames} games. Lock it once every score is in.`
               : drawn && currentWeekComplete
                 ? `Week ${currentWeek} is complete. Lock it to move teams and draw week ${currentWeek + 1}.`
-                : `Week ${currentWeek} has no games yet.`}
+                : `Teams are placed for week ${currentWeek}. Draw it to make the schedule.`}
         </CardDescription>
       </CardHeader>
 
@@ -95,7 +103,11 @@ export function LadderPanel({
             className="w-full sm:w-auto"
           >
             <Shuffle className="size-4" />
-            {notStarted ? "Draw week 1" : `Redraw week ${currentWeek}`}
+            {notStarted
+              ? "Draw week 1"
+              : drawn
+                ? `Redraw week ${currentWeek}`
+                : `Draw week ${currentWeek}`}
           </Button>
 
           {!notStarted && (
@@ -136,7 +148,25 @@ export function LadderPanel({
           )}
         </div>
 
-        {state.standingsThisWeek.length > 0 && (
+        {byStandings && drawn && state.standingsThisWeek.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {state.standingsThisWeek
+              .filter((t) => t.teams.length > 0)
+              .map((tier) => (
+                <TierResultsForm
+                  // Remount on a saved change so the form reads the new order.
+                  key={`${tier.divisionId}:${currentWeek}:${tier.teams
+                    .map((t) => `${t.teamId}${t.resultRank ?? ""}`)
+                    .join()}`}
+                  competitionId={competitionId}
+                  week={currentWeek}
+                  tier={tier}
+                />
+              ))}
+          </div>
+        )}
+
+        {!(byStandings && drawn) && state.standingsThisWeek.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {state.standingsThisWeek.map((tier, i) => {
               const upCount = i > 0 ? (state.swaps[i - 1] ?? 0) : 0;
@@ -190,10 +220,17 @@ export function LadderPanel({
           </div>
         )}
 
-        <p className="text-muted-foreground text-xs">
-          Arrows show who&apos;s in the swap places on last week&apos;s order —
-          this week&apos;s results decide who actually moves.
-        </p>
+        {byStandings && drawn ? (
+          <p className="text-muted-foreground text-xs">
+            The order is what counts: it decides who moves up and down when you
+            lock the week. Points are kept as the sheet recorded them.
+          </p>
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            Arrows show who&apos;s in the swap places on last week&apos;s order
+            — this week&apos;s results decide who actually moves.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -6,8 +6,10 @@
  *
  * `scripts/smva-sample-sheet.ts` renders the same layout from hardcoded
  * literals — it was the sample sent to their executive before any of this was
- * in the database. This reads the real thing: the tiers, their gyms, the
- * seeded rosters, the 93 scheduled matches and the officials.
+ * in the database. This reads the real thing: the tiers, their gyms, each
+ * tier's seated order for the week (its `ladder_placements`), that week's
+ * matches and the officials. Any week prints: `--week 2` after week 1 is locked
+ * and week 2 drawn.
  *
  * THE GRID COMES FROM THE MATCHES, not from the pod template. The template is
  * still where the title, clock, scoring, points total and setup duty live —
@@ -16,8 +18,9 @@
  * somebody edits a match, the sheet says so rather than quietly reprinting the
  * template it was generated from.
  *
- * Slot times come from the template by round index, because a match row stores
- * only its start and the sheet prints a range ("7:20 - 7:50").
+ * `matches.round` is the WEEK. The slot within the night is read from start
+ * times in order, and indexes the template's printed range ("7:20 - 7:50"),
+ * because a match row stores only its start.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
@@ -108,9 +111,20 @@ async function load(): Promise<{
   let night = "";
 
   for (const [index, d] of divs.entries()) {
-    const teamRows = await sql`
-      select id, name, seed from teams
-       where division_id = ${d.id} order by seed`;
+    // The week's seated order: A is whoever sits first in the tier THAT week,
+    // which after a lock is last week's result, not the season's seeding.
+    // Seeds are the fallback only for a week with no placements yet.
+    const placed = await sql`
+      select t.id, t.name from ladder_placements p
+        join teams t on t.id = p.team_id
+       where p.division_id = ${d.id} and p.week = ${WEEK}
+       order by p.position`;
+    const teamRows =
+      placed.length > 0
+        ? placed
+        : await sql`
+            select id, name from teams
+             where division_id = ${d.id} order by seed`;
     const teams: SheetTeam[] = teamRows.map((t) => ({
       id: t.id as string,
       name: t.name as string,
@@ -127,10 +141,12 @@ async function load(): Promise<{
         from matches m
         join teams h on h.id = m.home_team_id
         join teams a on a.id = m.away_team_id
-       where m.division_id = ${d.id}
-       order by m.round, m.court`;
+       where m.division_id = ${d.id} and m.round = ${WEEK}
+       order by m.scheduled_at, m.court`;
     if (matchRows.length === 0) {
-      throw new Error(`${d.name}: no matches — run smva-05-schedule first`);
+      throw new Error(
+        `${d.name}: no week ${WEEK} matches — draw the week first`,
+      );
     }
 
     // The night's date, taken from the fixtures rather than assumed.
@@ -145,9 +161,16 @@ async function load(): Promise<{
       });
     }
 
+    // `round` is the WEEK; the slot within the night is the start time, and
+    // its place in the night's order indexes the template's printed range.
+    const slotOf = new Map<number, number>();
+    for (const m of matchRows) {
+      const t = (m.scheduled_at as Date).getTime();
+      if (!slotOf.has(t)) slotOf.set(t, slotOf.size + 1);
+    }
     const byRound = new Map<number, Fixture[]>();
     for (const m of matchRows) {
-      const round = m.round as number;
+      const round = slotOf.get((m.scheduled_at as Date).getTime())!;
       const list = byRound.get(round) ?? [];
       list.push({
         court: `Court ${m.court}`,

@@ -1,15 +1,29 @@
 import { createClient } from "@/lib/supabase/server";
 import type { LadderUnit } from "@/lib/validations/ladder";
+import { typedTierOrder } from "@/lib/scheduler/ladder-results";
+
+export type LadderDraw = "generated" | "pod_grid";
 
 export interface LadderTierView {
   divisionId: string;
   name: string;
   tierOrder: number;
-  teams: { teamId: string; name: string; position: number }[];
+  teams: {
+    teamId: string;
+    name: string;
+    position: number;
+    /** Typed finishing place this week, 1 = won the gym. */
+    resultRank: number | null;
+    resultPoints: number | null;
+  }[];
+  /** Every team in the tier has a typed finishing place this week. */
+  standingsEntered: boolean;
 }
 
 export interface LadderState {
   enabled: boolean;
+  /** Computed nights, or Scarborough's pinned grids (migration 0138). */
+  draw: LadderDraw;
   unit: LadderUnit;
   target: number;
   /** One count per boundary, top-down. Length is (tiers - 1). */
@@ -19,7 +33,10 @@ export interface LadderState {
   currentWeek: number;
   /** Tiers with their rosters for `currentWeek`. Empty before the start. */
   standingsThisWeek: LadderTierView[];
-  /** Whether every game in the current week has a result. */
+  /**
+   * Whether the week can be locked: every tier has typed standings or, for the
+   * tiers that don't, every one of their games has a result.
+   */
   currentWeekComplete: boolean;
   /** Games drawn for the current week (0 = drawn but not yet generated). */
   currentWeekGames: number;
@@ -43,7 +60,9 @@ export async function getLadderState(
   const [{ data: settings }, { data: divisions }] = await Promise.all([
     supabase
       .from("league_settings")
-      .select("ladder_enabled, ladder_unit, ladder_target, ladder_swaps")
+      .select(
+        "ladder_enabled, ladder_draw, ladder_unit, ladder_target, ladder_swaps",
+      )
       .eq("competition_id", competitionId)
       .maybeSingle(),
     supabase
@@ -62,7 +81,7 @@ export async function getLadderState(
 
   const { data: placements } = await supabase
     .from("ladder_placements")
-    .select("team_id, division_id, week, position")
+    .select("team_id, division_id, week, position, result_rank, result_points")
     .eq("competition_id", competitionId)
     .order("week", { ascending: false })
     .order("position", { ascending: true });
@@ -86,31 +105,60 @@ export async function getLadderState(
       (teams ?? []).map((t) => [t.id as string, t.name as string]),
     );
 
-    standingsThisWeek = tiers.map((t) => ({
-      ...t,
-      teams: thisWeek
+    standingsThisWeek = tiers.map((t) => {
+      const rows = thisWeek
         .filter((p) => p.division_id === t.divisionId)
         .sort((a, b) => (a.position as number) - (b.position as number))
         .map((p) => ({
           teamId: p.team_id as string,
           name: teamName.get(p.team_id as string) ?? "—",
           position: p.position as number,
+          resultRank: (p.result_rank as number | null) ?? null,
+          resultPoints: (p.result_points as number | null) ?? null,
+        }));
+      const order = typedTierOrder(
+        rows.map((r) => r.teamId),
+        rows.map((r) => ({
+          teamId: r.teamId,
+          rank: r.resultRank,
+          points: r.resultPoints,
         })),
-    }));
+      );
+      return {
+        ...t,
+        teams: rows,
+        standingsEntered: rows.length > 0 && order.status === "complete",
+      };
+    });
 
     const { data: weekMatches } = await supabase
       .from("matches")
-      .select("id, status")
+      .select("id, status, division_id")
       .eq("competition_id", competitionId)
       .eq("round", currentWeek);
     currentWeekGames = (weekMatches ?? []).length;
+
+    // Mirrors the lock: a typed tier needs no scores; every other game does.
+    const typedTiers = new Set(
+      standingsThisWeek
+        .filter((t) => t.standingsEntered)
+        .map((t) => t.divisionId),
+    );
+    const allTyped = standingsThisWeek
+      .filter((t) => t.teams.length > 0)
+      .every((t) => t.standingsEntered);
+    const needScores = (weekMatches ?? []).filter(
+      (m) => m.division_id == null || !typedTiers.has(m.division_id as string),
+    );
     currentWeekComplete =
-      currentWeekGames > 0 &&
-      (weekMatches ?? []).every((m) => SETTLED.has(m.status as string));
+      allTyped ||
+      (needScores.length > 0 &&
+        needScores.every((m) => SETTLED.has(m.status as string)));
   }
 
   return {
     enabled: settings.ladder_enabled === true,
+    draw: settings.ladder_draw === "pod_grid" ? "pod_grid" : "generated",
     unit: (settings.ladder_unit as LadderUnit) ?? "sets",
     target: (settings.ladder_target as number) ?? 6,
     swaps: (settings.ladder_swaps as number[] | null) ?? [],

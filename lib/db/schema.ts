@@ -551,6 +551,16 @@ export const leagueSettings = pgTable("league_settings", {
    * winning more sets raises a total that "placement" needs to fall.
    */
   ladderScoring: text("ladder_scoring").notNull().default("points"),
+  /**
+   * How a ladder night is drawn (migration 0138).
+   *
+   * "generated" (the default, every ladder before this): computed from the
+   * target by ladder-night.ts / ladder-week.ts.
+   *
+   * "pod_grid": each tier plays the pinned grid for its size from
+   * pod-templates.ts — Scarborough, whose grids "have to be this".
+   */
+  ladderDraw: text("ladder_draw").notNull().default("generated"),
   // Titled instruction blocks printed on every score sheet (migration 0118).
   // Scarborough's gym package is mostly standing instructions — who sets the
   // clock, what the winning team does with the nets — and their executive's

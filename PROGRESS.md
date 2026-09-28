@@ -5,6 +5,60 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — SMVA's weekly loop: enter standings, lock, draw next week (0138)
+
+The org can now run a week without us. From the Ladder tab: type each gym's
+final standings, lock the week, draw the next one on their pinned grids. Built
+on SMVA's opening night, so that night's results can go straight in.
+
+**Standings, not scores.** Their organizer: *"we don't need to input each
+score, just the final standings at the end of the night."* The entry takes the
+Total Points column off the sheet, and once every team in a gym has a total the
+list sorts itself. **The order is what's saved and what moves teams**, not the
+points: a tie on points is the gym's call, so arrows settle it, and the sort is
+stable so it never undoes that call. `0117` had already put `result_rank` and
+`result_points` on `ladder_placements` for exactly this; nothing had written
+them.
+
+**The lock ranks each tier its own way.** Typed standings where a tier has them,
+match results where it doesn't — so Mango, which enters scores, is unchanged. A
+tier with some ranks typed and some not is refused rather than guessed: moving
+teams on half an entry would relegate whoever hadn't been typed yet.
+
+**`ladder_draw` (0138) decides the grid.** `pod_grid` binds each tier's order to
+A, B, C… and reads the grid off `pod-templates.ts`. A column, not "a template
+exists for this size", because Mango runs 4- and 6-team tiers too and silently
+moving them onto Scarborough's grids would be a change nobody asked for.
+
+**The night's date comes from the last night actually played**, a week on,
+skipping blackouts — not from `start_date`, which for SMVA is the draft night
+and would have put every week a week early. Week 2 is Mon 5 Oct; Thanksgiving is
+jumped.
+
+**What would have broken without the data fix.** Opening night was written with
+`matches.round` = the slot within the night (1–7), but every ladder reads
+`round` as the WEEK. Locking "week 1" would have taken the 19 first-slot games
+from all seven gyms as the whole week. `smva-07-weekly-loop.ts` renumbered the
+93 to round 1 and wrote week 1's placements from the seeds; the gym package now
+takes the slot from `scheduled_at`. Its Leacock page re-rendered identically,
+slot for slot.
+
+**Rehearsed on the live league**, as the org owner under RLS, in a transaction
+rolled back afterwards: seven gyms typed, locked (24 moves: 6 boundaries × 2 up
+and 2 down), tier sizes held at 6/7/6/4/6/4/6, 93 week-2 matches on 5 Oct. I had
+expected 12 moves and was wrong; stating the expected count is what exposed it.
+
+Checked at 375px on a throwaway preview page (no e2e sign-in exists): seven rows
+fit, no horizontal scroll, ties flagged.
+
+Not built: referees entry (later weeks' OFFICIALS box prints blank), an in-app
+print button, season golf standings from typed ranks.
+
+1693 tests across 131 files (+30: `pod-night`, `ladder-results`). tsc, eslint,
+build clean.
+
+---
+
 ## 2026-09-26 — SMVA's opening night is live: 93 matches
 
 The league then sent their **published** schedule for 28 September, which

@@ -47,3 +47,31 @@ export const lockLadderWeekSchema = z.object({
   competitionId: z.string().uuid(),
   week: z.number().int().min(1),
 });
+
+/**
+ * One tier's final standings for one week, typed rather than scored.
+ *
+ * `results` is IN FINISHING ORDER — index 0 won the gym. The order is the
+ * data; points ride along as what the sheet said. An empty list clears the
+ * tier, so it falls back to being ranked from its games.
+ */
+export const ladderNightResultsSchema = z.object({
+  competitionId: z.string().uuid(),
+  divisionId: z.string().uuid(),
+  week: z.number().int().min(1),
+  results: z
+    .array(
+      z.object({
+        teamId: z.string().uuid(),
+        points: z
+          .number()
+          .int("Whole points only.")
+          .min(0, "Points can't be negative.")
+          .max(999, "That's more points than a night holds.")
+          .nullable(),
+      }),
+    )
+    .max(20, "That's more teams than a tier holds."),
+});
+
+export type LadderNightResultsInput = z.infer<typeof ladderNightResultsSchema>;

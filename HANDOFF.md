@@ -7,12 +7,12 @@
 
 ---
 
-## Current state (last session — 2026-09-13)
+## Current state (last session — 2026-09-28)
 
-- **Branch:** `main`. **Latest commit:** `b199408` — regular weeks are 4 or 6; 5 and 7 are the gym-cancellation case. Pushed, working tree clean, no unmerged feature branches, deployed to Production.
+- **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0134`, and every one of `0060`–`0134` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0134` all applied and verified 2026-09-25). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0138`, and every one of `0060`–`0138` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -49,6 +49,7 @@
     | `0135` | Sep 25 | `match_absences` is publicly readable, like `match_appearances` — the stats table reads the same for a visitor as for the organizer. Reverses 0121's organizer-only stance, on the owner's instruction |
     | `0136` | Sep 25 | `competition_roster_aliases()` — every (account, name) pair a roster member may be recorded under. For matching lineups to the roster, NOT for display: it returns a person more than once by design |
     | `0137` | Sep 25 | `swap_reverse_pairs()` — two pairs exchange their whole Reverse Pairs schedules, for a late arrival. Balance-preserving; refuses once any score exists |
+    | `0138` | Sep 28 | `league_settings.ladder_draw` — `generated` (default, every ladder before) or `pod_grid` (the pinned grids in `pod-templates.ts`). SMVA is the only `pod_grid` league |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -413,6 +414,38 @@ owner's explicit go.**
 
 ## Scarborough Men's (SMVA) — format in, entry UI still to build
 
+**⚠️ THE WEEKLY LOOP IS BUILT (2026-09-28).** The organizer runs it from the
+league's Ladder tab, no scripts:
+
+1. **Enter each gym's final standings** — the Total Points off the sheet; once
+   every team has a total the list sorts itself, and the arrows settle ties.
+   The ORDER is saved (`result_rank`) and is what moves teams; points are kept
+   as `result_points`. Editable until the week is locked.
+2. **Lock week N** — tiers with typed standings need no scores. A tier with
+   SOME typed and some not is refused (it would relegate whoever wasn't typed).
+3. **Draw week N+1** — `ladder_draw = 'pod_grid'` (0138) binds each tier's new
+   order to A, B, C… and reads the pinned grid. The date is a week after the
+   night week N actually ran, skipping blackouts — NOT counted from
+   `start_date`, which is their draft night (so Thanksgiving, 12 Oct, is jumped).
+4. **Print:** `npx tsx lib/db/sheet-smva-package.ts --week N --out ./out` —
+   still a script (Playwright can't run on Vercel). It reads that week's
+   placements for the letter order, so A is last week's result.
+
+**`matches.round` is the WEEK for SMVA now, as for every ladder.** Step 5 had
+written it as the slot within the night (1–7), which the lock would have read as
+seven weeks. `lib/db/smva-07-weekly-loop.ts` renumbered all 93 to round 1 and
+wrote week 1's placements from the seeds (2026-09-28). The slot is carried by
+`scheduled_at`; the gym package now reads it from there. Rehearsed on the live
+data in a rolled-back transaction as the org owner: all seven gyms typed, 24
+moves, tier sizes held, 93 week-2 matches on Mon 5 Oct.
+
+**Not built yet:** a referees entry screen (week 1 was loaded by script;
+`ladder_night_officials` for later weeks is empty, so the sheet's OFFICIALS box
+prints blank), a print button in the app, and season standings on SMVA's golf
+scoring (`ladder-overall.ts` exists; nothing feeds typed ranks into it). Typed
+tiers' matches stay `scheduled` — no score is ever entered for them — so the
+public schedule shows them without results.
+
 **`0117` and `0118` are APPLIED** (2026-09-13, verified object by object).
 `0117` adds `result_rank` + `result_points` to `ladder_placements`; `0118` adds
 `league_settings.sheet_notes` and the `ladder_night_officials` table. All
@@ -575,10 +608,9 @@ Their organizer: *"for the app we don't need to input each score, just the final
 standings at the end of the night."* Rank in, sheets out. Per-match score entry
 is explicitly NOT wanted for v1.
 
-**Still to build:** rank + total-points entry per tier per week (storage is
-there now), `lockLadderWeek` preferring a typed rank over a match-derived one,
-the officials entry UI, and the gym-sheet **print route** — the sheet builder is
-done but only a one-off generator has ever called it.
+**Still to build:** ~~rank + total-points entry~~ and ~~the lock preferring a
+typed rank~~ shipped 2026-09-28 (see the top of this section). Left: the
+officials entry UI, and a gym-sheet **print route** in the app.
 
 **Season standings are GOLF SCORING, lowest wins.** A team's score for a night
 is its position among all 40 teams — first in Tier 1 is 1, last in Tier 6 is
