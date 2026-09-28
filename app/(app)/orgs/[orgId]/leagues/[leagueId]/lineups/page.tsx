@@ -95,7 +95,12 @@ export default async function LineupsPage({
             <div className="grid gap-4">
               {teams.map((team) => (
                 <NightLineupCard
-                  key={team.teamId}
+                  // Keyed by NIGHT as well as team. The card seeds its ticks
+                  // from props once, so a team-only key kept the same card —
+                  // and last night's ticks — when switching dates: Big Shoots
+                  // saw Sep 25's lineup under Sep 18, one Save away from
+                  // overwriting the real one.
+                  key={`${night}:${team.teamId}`}
                   competitionId={leagueId}
                   night={night!}
                   team={team}

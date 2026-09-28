@@ -86,11 +86,11 @@ export async function getNightLineups(
 
   if (!night) return { timezone, nights, night: null, teams: [] };
 
-  const teamIds = teamsPlayingOnNight(matches, night, timezone);
-  if (teamIds.length === 0) return { timezone, nights, night, teams: [] };
+  const playing = teamsPlayingOnNight(matches, night, timezone);
+  if (playing.length === 0) return { timezone, nights, night, teams: [] };
 
   const nightMatchIds = new Set(
-    teamIds.flatMap((id) =>
+    playing.flatMap((id) =>
       matchesForTeamOnNight(matches, id, night, timezone),
     ),
   );
@@ -178,6 +178,16 @@ export async function getNightLineups(
     }
     playedThisNight.set(a.team_id, forTeam);
   }
+
+  // By name, numbers read as numbers: "Team 1, Team 2 … Team 10", the order an
+  // organizer looks for them in. The order teams first appear in the night's
+  // games is an artefact of the schedule, and read as random.
+  const teamIds = [...playing].sort((a, b) =>
+    (teamName.get(a) ?? "").localeCompare(teamName.get(b) ?? "", undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
 
   const teams: TeamLineup[] = teamIds.map((teamId) => {
     const roster = teamRoster(
