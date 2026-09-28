@@ -128,9 +128,13 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
 
       <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
         <span className="truncate">
-          {match.round
-            ? `Round ${match.round}`
-            : COMPETITION_LABEL[match.competitionType]}
+          {/* The gym, when the game records one, in place of the generic
+              "League game" — BVL's players read that as the facility and it
+              isn't one. The round still shows where there's no gym. */}
+          {match.venueName ??
+            (match.round
+              ? `Round ${match.round}`
+              : COMPETITION_LABEL[match.competitionType])}
           {formatCourtLabel(match.court, match.sport)
             ? ` · ${formatCourtLabel(match.court, match.sport)}`
             : ""}

@@ -17,6 +17,12 @@ export interface MyMatch {
   timezone: string;
   round: number | null;
   court: string | null;
+  /**
+   * The gym this game is in, when the match records one. A league spread over
+   * several buildings is unreadable without it: "Court a" means nothing to a
+   * player who doesn't know which school tonight is.
+   */
+  venueName: string | null;
   scheduledAt: string | null;
   homeTeamId: string | null;
   awayTeamId: string | null;
@@ -82,7 +88,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, round, court, scheduled_at, status, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position, match_format",
+      "id, competition_id, round, court, scheduled_at, status, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position, match_format, venues(name)",
     )
     .or(ors.join(","));
   if (!matches || matches.length === 0) return [];
@@ -212,6 +218,9 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       timezone: c.timezone,
       round: m.round,
       court: m.court,
+      venueName:
+        (m as unknown as { venues?: { name: string } | null }).venues?.name ??
+        null,
       scheduledAt: m.scheduled_at,
       homeTeamId: m.home_team_id,
       awayTeamId: m.away_team_id,

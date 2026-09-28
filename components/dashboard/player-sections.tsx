@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DateTime } from "luxon";
 
 import type { PlayerMatch, PlayerStandingRow } from "@/lib/queries/player-home";
-import { formatCourtLabel } from "@/lib/scheduler/court-label";
+import { formatPlacement } from "@/lib/venues/resolve";
 import { cn } from "@/lib/utils";
 
 /** "Tue 1 Sep, 6:30pm" — or the round, when a fixture carries no time. */
@@ -78,7 +78,10 @@ export function UpcomingGames({ matches }: { matches: PlayerMatch[] }) {
       <h2 className="font-display text-lg font-semibold">Also coming up</h2>
       <ul className="divide-rule border-rule bg-surface divide-y rounded-lg border">
         {matches.map((m) => {
-          const court = formatCourtLabel(m.court, m.sport);
+          const where = formatPlacement(m.court, m.venueName, {
+            multiVenue: true,
+            sport: m.sport,
+          });
           return (
             <li key={m.id} className="flex items-center gap-3 p-3">
               <span className="min-w-0 flex-1">
@@ -87,9 +90,11 @@ export function UpcomingGames({ matches }: { matches: PlayerMatch[] }) {
                     ? `Reffing ${m.opponentName}`
                     : `vs ${m.opponentName}`}
                 </span>
+                {/* Where before which league: the line truncates on a
+                    phone, and the gym is the part a player needs. */}
                 <span className="text-ink-3 block truncate text-xs">
+                  {where && `${where} · `}
                   {m.competitionName}
-                  {court && ` · ${court}`}
                 </span>
               </span>
               <span className="text-ink-2 shrink-0 text-xs whitespace-nowrap">

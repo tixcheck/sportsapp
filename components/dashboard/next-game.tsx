@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { CalendarDays, MapPin } from "lucide-react";
 
 import type { PlayerMatch } from "@/lib/queries/player-home";
-import { formatCourtLabel } from "@/lib/scheduler/court-label";
+import { formatPlacement } from "@/lib/venues/resolve";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,12 @@ export function NextGame({ match }: { match: PlayerMatch }) {
 
   const soon = at && now ? at.diff(now, "hours").hours <= 48 : false;
   const opponent = match.opponentName;
-  const court = formatCourtLabel(match.court, match.sport);
+  // Gym first: in a league across several schools, "Court a" alone doesn't say
+  // where to drive.
+  const court = formatPlacement(match.court, match.venueName, {
+    multiVenue: true,
+    sport: match.sport,
+  });
 
   return (
     <section
