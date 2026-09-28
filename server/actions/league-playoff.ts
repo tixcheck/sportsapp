@@ -158,12 +158,14 @@ export async function generateLeaguePlayoffAction(
   const seedTeam = (s: TeamSource) =>
     s.kind === "seed" ? (seeds[s.seed - 1] ?? null) : null;
 
-  // Everything with a bracket position goes; the season stays.
+  // Everything with a bracket position goes; the season stays — and so do the
+  // session playoffs (0141), which are separate brackets on their own nights.
   const { error: delErr } = await supabase
     .from("matches")
     .delete()
     .eq("competition_id", competitionId)
-    .not("bracket_position", "is", null);
+    .not("bracket_position", "is", null)
+    .is("playoff_session", null);
   if (delErr) return { error: delErr.message };
 
   // Prime courts first within each wave, so the games that matter most land on

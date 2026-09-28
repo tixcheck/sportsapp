@@ -119,13 +119,26 @@ export async function getBrackets(
   const { data: matchData } = await supabase
     .from("matches")
     .select(
-      "id, round, bracket_position, bracket_track, division_id, home_team_id, away_team_id, status, court, scheduled_at",
+      "id, round, bracket_position, bracket_track, division_id, home_team_id, away_team_id, status, court, scheduled_at, playoff_session",
     )
     .eq("competition_id", competitionId)
     .not("bracket_position", "is", null)
     .order("round", { ascending: true })
     .order("bracket_position", { ascending: true });
-  const matches = (matchData ?? []) as BracketMatchRow[];
+  // A league with a playoff every session (0141) has several brackets sharing
+  // the same slots; drawn together they would overlay into one nonsense tree.
+  // The tree shows the latest session — earlier ones stay on the schedule.
+  const rawMatches = (matchData ?? []) as (BracketMatchRow & {
+    playoff_session: string | null;
+  })[];
+  const latestSession = rawMatches
+    .map((m) => m.playoff_session)
+    .filter((s): s is string => s != null)
+    .sort()
+    .at(-1);
+  const matches: BracketMatchRow[] = latestSession
+    ? rawMatches.filter((m) => m.playoff_session === latestSession)
+    : rawMatches;
   if (matches.length === 0) return [];
 
   const matchIds = matches.map((m) => m.id);

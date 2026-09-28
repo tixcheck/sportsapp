@@ -168,11 +168,13 @@ export async function generateBracketAction(
   // Replace only this division's bracket. Before migration 0123 this deleted
   // every bracket match in the competition, so generating the Womens bracket
   // wiped the Mens one — finished scores and all.
+  // Never a session playoff (0141): those are other brackets on other nights.
   const delQuery = supabase
     .from("matches")
     .delete()
     .eq("competition_id", competitionId)
-    .not("bracket_position", "is", null);
+    .not("bracket_position", "is", null)
+    .is("playoff_session", null);
   const { error: del } = await (divisionId
     ? delQuery.eq("division_id", divisionId)
     : delQuery.is("division_id", null));

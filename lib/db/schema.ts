@@ -836,6 +836,12 @@ export const matches = pgTable(
     divisionId: uuid("division_id").references(() => divisions.id, {
       onDelete: "set null",
     }),
+    /**
+     * Session playoffs only (migration 0141): the playoff night this bracket
+     * belongs to, so a league with a playoff every few weeks keeps each one
+     * separate — advancement never crosses sessions. Null everywhere else.
+     */
+    playoffSession: date("playoff_session"),
     // Nullable so a bracket match can exist before its teams are decided
     // ("winner of match X"). set null keeps the slot if a team is removed.
     homeTeamId: uuid("home_team_id").references(() => teams.id, {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DateTime } from "luxon";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
 
@@ -69,6 +70,8 @@ import { ApplyCourtsDialog } from "@/components/league/apply-courts-dialog";
 import { LeaguePlayoffPanel } from "@/components/league/league-playoff-panel";
 import { GenerateLeaguePlayoffPanel } from "@/components/league/generate-playoff-panel";
 import { PlayoffSchedule } from "@/components/league/playoff-schedule";
+import { SessionPlayoffPanel } from "@/components/league/session-playoff-panel";
+import { getSessionPlayoffs } from "@/lib/queries/session-playoff";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
 import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
@@ -163,6 +166,10 @@ export default async function LeaguePage({
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
   const waitlist = await getWaitlist(leagueId);
+  // A league that re-drafts in sessions ends each one with a playoff night.
+  const sessionPlayoffs = league.sessionNights
+    ? await getSessionPlayoffs(leagueId)
+    : [];
   const [pendingEtransfers, etransferFeesOwed, registrationQuestions] =
     await Promise.all([
       getPendingOfflinePayments(league.id),
@@ -448,6 +455,25 @@ export default async function LeaguePage({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {sessionPlayoffs.length > 0 && (
+          <SessionPlayoffPanel
+            competitionId={league.id}
+            nights={sessionPlayoffs}
+            timezone={league.timezone ?? "America/Toronto"}
+            defaultStartTime={league.slotStartTime}
+            courts={
+              league.courtList?.length
+                ? league.courtList.map((c) => c.label)
+                : Array.from(
+                    { length: league.courts },
+                    (_, i) => `Court ${i + 1}`,
+                  )
+            }
+            today={DateTime.now()
+              .setZone(league.timezone ?? "America/Toronto")
+              .toFormat("yyyy-MM-dd")}
+          />
+        )}
         {/* The two-night format, where everyone plays twice on the first
             night. Offered first because it is what a league with a full
             midweek slot usually wants; the plain bracket below still suits a
