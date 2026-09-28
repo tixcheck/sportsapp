@@ -192,6 +192,15 @@ export async function getStandings(
 export async function loadStandings(
   supabase: SupabaseServer,
   competitionId: string,
+  options: {
+    /**
+     * League only: count just the regular games on these nights
+     * (`yyyy-MM-dd`, competition zone) — one mini series of a league that
+     * re-drafts in sessions. Playoff games never count here. Omitted = the
+     * whole season, as before.
+     */
+    nights?: string[];
+  } = {},
 ): Promise<StandingsGroup[]> {
   const { data: comp } = await supabase
     .from("competitions")
@@ -242,15 +251,32 @@ export async function loadStandings(
   // count toward the round-robin games-scheduled figure.
   const { data: allMatchesData } = await supabase
     .from("matches")
-    .select("pool_id, bracket_position, home_team_id, away_team_id")
+    .select(
+      "pool_id, bracket_position, home_team_id, away_team_id, scheduled_at",
+    )
     .eq("competition_id", competitionId);
-  const allMatches = (allMatchesData ?? []) as ScheduledRow[];
+  const allMatches = (allMatchesData ?? []) as (ScheduledRow & {
+    scheduled_at: string | null;
+  })[];
+  // A mini series: its regular games only, by the night they fall on.
+  const window = options.nights ? new Set(options.nights) : null;
+  const inWindow = (m: {
+    scheduled_at: string | null;
+    bracket_position: number | null;
+  }) =>
+    !window ||
+    (m.bracket_position === null &&
+      !!m.scheduled_at &&
+      window.has(
+        DateTime.fromISO(m.scheduled_at, { zone: comp.timezone }).toISODate() ??
+          "",
+      ));
   const countScheduled = (
     keep: (m: ScheduledRow) => boolean,
   ): Map<string, number> => {
     const counts = new Map<string, number>();
     for (const m of allMatches) {
-      if (!keep(m)) continue;
+      if (!keep(m) || !inWindow(m)) continue;
       for (const id of [m.home_team_id, m.away_team_id]) {
         if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
       }
@@ -348,6 +374,7 @@ export async function loadStandings(
   if (comp.type === "league") {
     const teamIds = teams.map((t) => t.id);
     const results = matches
+      .filter(inWindow)
       .map(toResult)
       .filter((r): r is MatchResult => r !== null);
     // Season games only (exclude the playoff bracket).
@@ -377,6 +404,7 @@ export async function loadStandings(
     >();
     for (const m of matches) {
       if (m.bracket_position !== null) continue; // season only
+      if (!inWindow(m)) continue;
       if (!m.scheduled_at || !m.home_team_id || !m.away_team_id) continue;
       const date = DateTime.fromISO(m.scheduled_at, {
         zone: comp.timezone,

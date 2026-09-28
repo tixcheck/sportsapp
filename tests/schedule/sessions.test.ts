@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { currentSession, splitSessions } from "@/lib/schedule/sessions";
+import {
+  currentSession,
+  miniSeries,
+  splitSessions,
+} from "@/lib/schedule/sessions";
 
 /** Big Shoots' first three sessions, with the Christmas gap in the middle. */
 const NIGHTS = [
@@ -82,5 +86,29 @@ describe("currentSession", () => {
   it("is null without sessions or without a schedule", () => {
     expect(currentSession(NIGHTS, null, "2026-10-01")).toBeNull();
     expect(currentSession([], 3, "2026-10-01")).toBeNull();
+  });
+});
+
+describe("miniSeries", () => {
+  it("counts a series' regular nights and holds its playoff night apart", () => {
+    const [first, second] = miniSeries(NIGHTS, 3);
+    expect(first).toEqual({
+      number: 1,
+      regularNights: ["2026-09-18", "2026-09-25"],
+      playoffNight: "2026-10-02",
+    });
+    expect(second.regularNights).toEqual(["2026-10-09", "2026-10-16"]);
+    expect(second.playoffNight).toBe("2026-10-23");
+  });
+
+  // The season's last block may be short; it has no playoff to hold out.
+  it("keeps every night of a short final block", () => {
+    const last = miniSeries(NIGHTS.slice(0, 5), 3).at(-1)!;
+    expect(last.regularNights).toEqual(["2026-10-09", "2026-10-16"]);
+    expect(last.playoffNight).toBeNull();
+  });
+
+  it("is empty for a league without sessions", () => {
+    expect(miniSeries(NIGHTS, null)).toEqual([]);
   });
 });

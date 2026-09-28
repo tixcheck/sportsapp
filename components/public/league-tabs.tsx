@@ -5,6 +5,8 @@ import { Star } from "lucide-react";
 
 import type { PublicLeague } from "@/lib/queries/leagues";
 import type { StandingsGroup } from "@/lib/standings/compute";
+import type { SeriesStandings as SeriesStandingsData } from "@/lib/queries/series-standings";
+import { SeriesStandings } from "@/components/standings/series-standings";
 import type { BracketTrackView } from "@/lib/queries/bracket";
 import { estimateMatchMinutes } from "@/lib/formats";
 import { useBookmarkedTeams } from "@/lib/hooks/use-bookmarked-teams";
@@ -49,6 +51,7 @@ export function LeagueTabs({
   initialTab,
   rosters = {},
   session = null,
+  series = null,
 }: {
   league: PublicLeague;
   /** Player names per team id, for the Teams tab. Empty lists nobody. */
@@ -59,6 +62,11 @@ export function LeagueTabs({
    */
   session?: LeagueSession | null;
   standings: StandingsGroup[];
+  /**
+   * Standings a mini series at a time, for a league that re-drafts in
+   * sessions. Replaces the single season table, which stays one tap away.
+   */
+  series?: { series: SeriesStandingsData[]; current: number } | null;
   /** Per-player figures for the Stats tab. Empty hides the tab entirely. */
   playerStats?: PlayerStatRow[];
   /**
@@ -296,6 +304,16 @@ export function LeagueTabs({
           <LadderNightStandings
             nights={ladderNights}
             timezone={league.timezone}
+            format={league.matchFormat}
+            sport={league.sport}
+            differential={league.tiebreaker === "differential"}
+          />
+        ) : series ? (
+          <SeriesStandings
+            series={series.series}
+            current={series.current}
+            season={standings}
+            myTeamIds={myTeamIds}
             format={league.matchFormat}
             sport={league.sport}
             differential={league.tiebreaker === "differential"}

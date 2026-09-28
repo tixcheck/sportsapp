@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   matchOutcome,
   playoffNightsFor,
+  seriesFinalWinners,
   tallyAttendance,
   type Absence,
 } from "@/lib/stats/attendance";
@@ -83,8 +84,92 @@ const absent = (
   userId: string | null = null,
 ): Absence => ({ matchId, teamId, userId, playerName });
 
+describe("seriesFinalWinners", () => {
+  // Playoff Format 1 on Oct 2: semis round 1, final (2,1), 3rd place (2,2).
+  const game = (
+    id: string,
+    round: number,
+    pos: number,
+    home: string,
+    away: string,
+    session: string | null = "2026-10-02",
+  ) => ({
+    id,
+    round,
+    bracketPosition: pos,
+    playoffSession: session,
+    night: "2026-10-02",
+    homeTeamId: home,
+    awayTeamId: away,
+  });
+  const won: Record<string, string> = {
+    sf1: "t1",
+    sf2: "t3",
+    final: "t3",
+    bronze: "t4",
+    later: "t2",
+  };
+  const outcomeOf = (m: string, t: string) =>
+    won[m] ? (won[m] === t ? "win" : "loss") : null;
+
+  it("finds each series' final and who won it", () => {
+    const finals = seriesFinalWinners(
+      [
+        game("sf1", 1, 1, "t1", "t2"),
+        game("sf2", 1, 2, "t3", "t4"),
+        game("final", 2, 1, "t1", "t3"),
+        game("bronze", 2, 2, "t2", "t4"),
+      ],
+      new Set(),
+      outcomeOf,
+    );
+    // Only the final — not a semi, not the 3rd-place game.
+    expect([...finals]).toEqual([["final", "t3"]]);
+  });
+
+  it("keeps two sessions' finals apart", () => {
+    const finals = seriesFinalWinners(
+      [
+        game("final", 2, 1, "t1", "t3"),
+        game("later", 2, 1, "t2", "t4", "2026-10-23"),
+      ],
+      new Set(),
+      outcomeOf,
+    );
+    expect(finals.get("final")).toBe("t3");
+    expect(finals.get("later")).toBe("t2");
+  });
+
+  it("leaves out a final nobody has won yet", () => {
+    const finals = seriesFinalWinners(
+      [game("unplayed", 2, 1, "t1", "t3")],
+      new Set(),
+      outcomeOf,
+    );
+    expect(finals.size).toBe(0);
+  });
+
+  it("reads a session-less bracket on a playoff night as that night's series", () => {
+    const finals = seriesFinalWinners(
+      [game("final", 2, 1, "t1", "t3", null)],
+      new Set(["2026-10-02"]),
+      outcomeOf,
+    );
+    expect(finals.get("final")).toBe("t3");
+  });
+
+  it("ignores regular games", () => {
+    const finals = seriesFinalWinners(
+      [{ ...game("final", 2, 1, "t1", "t3"), bracketPosition: null }],
+      new Set(["2026-10-02"]),
+      outcomeOf,
+    );
+    expect(finals.size).toBe(0);
+  });
+});
+
 describe("tallyAttendance", () => {
-  // Three games a night per team, two nights; night 2 is the playoff.
+  // Three games a night per team; night 2 is the playoff, n2g3 its final.
   const nightOfMatch = new Map([
     ["n1g1", "2026-09-18"],
     ["n1g2", "2026-09-18"],
@@ -93,22 +178,14 @@ describe("tallyAttendance", () => {
     ["n2g2", "2026-09-25"],
     ["n2g3", "2026-09-25"],
   ]);
-  const playoffNights = new Set(["2026-09-25"]);
-  const results: Record<string, "win" | "loss" | "tie"> = {
-    "n2g1:t1": "win",
-    "n2g2:t1": "tie",
-    "n2g3:t1": "win",
-    "n1g1:t1": "win",
-  };
-  const outcomeOf = (m: string, t: string) => results[`${m}:${t}`] ?? null;
+  const seriesFinals = new Map([["n2g3", "t1"]]);
 
   const tally = (appearances: Appearance[], absences: Absence[] = []) =>
     tallyAttendance({
       appearances,
       absences,
       nightOfMatch,
-      outcomeOf,
-      playoffNights,
+      seriesFinals,
     });
 
   it("counts a night once, however many games were played in it", () => {
@@ -129,20 +206,25 @@ describe("tallyAttendance", () => {
     expect(t.get("n:jamie orth")?.daysPlayed).toBe(2);
   });
 
-  it("counts playoff game wins only on playoff nights, and only outright wins", () => {
+  // Liam, 2026-09-28: "they should only get a PO W if they win a mini
+  // series … one entry per mini series won."
+  it("credits one series won for playing in the winning side of the final", () => {
     const t = tally([
-      appear("n1g1", "t1", "Liam Johnson"), // a win, but not a playoff night
-      appear("n2g1", "t1", "Liam Johnson"), // playoff win
-      appear("n2g2", "t1", "Liam Johnson"), // playoff tie — not a win
-      appear("n2g3", "t1", "Liam Johnson"), // playoff win
+      appear("n2g1", "t1", "Liam Johnson"), // the semi — earns nothing itself
+      appear("n2g3", "t1", "Liam Johnson"), // the final, won
     ]);
-    expect(t.get("n:liam johnson")?.playoffGameWins).toBe(2);
+    expect(t.get("n:liam johnson")?.seriesWon).toBe(1);
   });
 
-  // Their team won a game they weren't on court for: not their win.
-  it("does not credit a playoff win for a game the player sat out", () => {
-    const t = tally([appear("n2g2", "t1", "Stefan Salo")]);
-    expect(t.get("n:stefan salo")?.playoffGameWins).toBe(0);
+  it("credits nothing to the losing side of the final", () => {
+    const t = tally([appear("n2g3", "t2", "Rowan Adam")]);
+    expect(t.get("n:rowan adam")?.seriesWon).toBe(0);
+  });
+
+  // Their team won the final while they sat it out: not their series.
+  it("credits nothing for a final the player sat out", () => {
+    const t = tally([appear("n2g1", "t1", "Stefan Salo")]);
+    expect(t.get("n:stefan salo")?.seriesWon).toBe(0);
   });
 
   it("counts a night missed when the player played none of the team's games", () => {
@@ -156,7 +238,7 @@ describe("tallyAttendance", () => {
     );
     expect(t.get("n:rowan adam")).toEqual({
       daysPlayed: 0,
-      playoffGameWins: 0,
+      seriesWon: 0,
       nightsMissed: 1,
     });
   });

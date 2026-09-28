@@ -72,6 +72,8 @@ import { GenerateLeaguePlayoffPanel } from "@/components/league/generate-playoff
 import { PlayoffSchedule } from "@/components/league/playoff-schedule";
 import { SessionPlayoffPanel } from "@/components/league/session-playoff-panel";
 import { getSessionPlayoffs } from "@/lib/queries/session-playoff";
+import { getSeriesStandings } from "@/lib/queries/series-standings";
+import { SeriesStandings } from "@/components/standings/series-standings";
 import { PublishToggle } from "@/components/league/publish-toggle";
 import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
 import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
@@ -170,6 +172,14 @@ export default async function LeaguePage({
   const sessionPlayoffs = league.sessionNights
     ? await getSessionPlayoffs(leagueId)
     : [];
+  const series = league.sessionNights
+    ? await getSeriesStandings(
+        leagueId,
+        DateTime.now()
+          .setZone(league.timezone ?? "America/Toronto")
+          .toFormat("yyyy-MM-dd"),
+      )
+    : null;
   const [pendingEtransfers, etransferFeesOwed, registrationQuestions] =
     await Promise.all([
       getPendingOfflinePayments(league.id),
@@ -392,6 +402,16 @@ export default async function LeaguePage({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+            />
+          ) : series ? (
+            <SeriesStandings
+              series={series.series}
+              current={series.current}
+              season={standings}
+              format={league.matchFormat}
+              sport={league.sport}
+              differential={league.tiebreaker === "differential"}
+              showPoints
             />
           ) : standings.length > 1 ? (
             <StandingsGroups

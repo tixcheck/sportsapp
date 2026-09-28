@@ -23,6 +23,7 @@ import { isFullTime } from "@/lib/stats/roster-split";
 import {
   matchOutcome,
   playoffNightsFor,
+  seriesFinalWinners,
   tallyAttendance,
   type Absence,
   type MatchOutcome,
@@ -57,7 +58,8 @@ export type PlayerStatRow = {
    */
   daysPlayed: number | null;
   /** Games won on playoff nights. Null where the league has no sessions. */
-  playoffGameWins: number | null;
+  /** Mini series won (session playoff finals). Null without sessions. */
+  seriesWon: number | null;
   /**
    * Nights on a roster without playing any of the team's games. Null only
    * where the league does not record lineups at all - there is no absence to
@@ -218,7 +220,9 @@ async function playerStatsByAppearance(
       .maybeSingle(),
     supabase
       .from("matches")
-      .select("id, scheduled_at")
+      .select(
+        "id, scheduled_at, round, bracket_position, playoff_session, home_team_id, away_team_id",
+      )
       .eq("competition_id", competitionId),
     // Public since 0135, like appearances. It used to be asked for only by the
     // organizer page, which meant a player saw neither the Missed column nor
@@ -273,11 +277,17 @@ async function playerStatsByAppearance(
     (settings as { session_nights: number | null } | null)?.session_nights ??
     null;
 
-  const nightOfMatch = new Map<string, string>();
-  for (const m of (matchRows ?? []) as {
+  const matchList = (matchRows ?? []) as {
     id: string;
     scheduled_at: string | null;
-  }[]) {
+    round: number | null;
+    bracket_position: number | null;
+    playoff_session: string | null;
+    home_team_id: string | null;
+    away_team_id: string | null;
+  }[];
+  const nightOfMatch = new Map<string, string>();
+  for (const m of matchList) {
     const night = nightOf(m.scheduled_at, timezone);
     if (night) nightOfMatch.set(m.id, night);
   }
@@ -297,17 +307,29 @@ async function playerStatsByAppearance(
     appearances,
     absences,
     nightOfMatch,
-    outcomeOf: (matchId, teamId) =>
-      outcomes.get(`${matchId}:${teamId}`) ?? null,
-    // Scheduled nights, not scored ones: a playoff is a playoff before anyone
-    // has entered its results.
-    playoffNights: playoffNightsFor([...nightOfMatch.values()], sessionNights),
+    // PO W is mini series won — the final of each session's playoff, not every
+    // game won on a playoff night (Big Shoots, 2026-09-28).
+    seriesFinals: seriesFinalWinners(
+      matchList.map((m) => ({
+        id: m.id,
+        round: m.round,
+        bracketPosition: m.bracket_position,
+        playoffSession: m.playoff_session,
+        night: nightOfMatch.get(m.id) ?? null,
+        homeTeamId: m.home_team_id,
+        awayTeamId: m.away_team_id,
+      })),
+      // Scheduled nights, not scored ones: a playoff is a playoff before
+      // anyone has entered its results.
+      playoffNightsFor([...nightOfMatch.values()], sessionNights),
+      (matchId, teamId) => outcomes.get(`${matchId}:${teamId}`) ?? null,
+    ),
   });
   const extras = (userId: string | null, name: string) => {
     const t = attendance.get(identityKey({ userId, playerName: name }));
     return {
       daysPlayed: t?.daysPlayed ?? 0,
-      playoffGameWins: sessionNights ? (t?.playoffGameWins ?? 0) : null,
+      seriesWon: sessionNights ? (t?.seriesWon ?? 0) : null,
       nightsMissed: t?.nightsMissed ?? 0,
     };
   };
@@ -477,7 +499,7 @@ export async function getPlayerStats(
       pending: n.pending,
       stats: computePlayerStats(sets.get(n.team_id) ?? []),
       daysPlayed: null,
-      playoffGameWins: null,
+      seriesWon: null,
       nightsMissed: null,
       // Every name here came from a roster — team members, unclaimed invites,
       // or drafted players. A league with no lineups has no subs to separate.

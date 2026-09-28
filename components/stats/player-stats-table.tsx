@@ -28,7 +28,7 @@ type Key =
   | "clutchRate"
   | AttendanceKey;
 
-type AttendanceKey = "daysPlayed" | "nightsMissed" | "playoffGameWins";
+type AttendanceKey = "daysPlayed" | "nightsMissed" | "seriesWon";
 
 /**
  * Night counts rather than set arithmetic, so they read off the row, not off
@@ -48,16 +48,14 @@ const ATTENDANCE: { key: AttendanceKey; label: string; hint: string }[] = [
     hint: "Nights a team had them rostered and they didn't play at all — turning out for another team that night doesn't count as missed",
   },
   {
-    key: "playoffGameWins",
+    key: "seriesWon",
     label: "PO W",
-    hint: "Games won on playoff nights, counting only games they were on court for",
+    hint: "Mini series won: playoff finals won, counting only finals they were on court for",
   },
 ];
 
 function isAttendanceKey(key: Key): key is AttendanceKey {
-  return (
-    key === "daysPlayed" || key === "nightsMissed" || key === "playoffGameWins"
-  );
+  return key === "daysPlayed" || key === "nightsMissed" || key === "seriesWon";
 }
 
 function sortValue(r: PlayerStatRow, key: Exclude<Key, "name">): number {

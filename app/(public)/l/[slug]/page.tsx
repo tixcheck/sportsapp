@@ -14,6 +14,7 @@ import { defaultScheduleDay } from "@/lib/schedule/default-day";
 import { visibleScheduleDays } from "@/lib/schedule/visible-days";
 import { currentSession } from "@/lib/schedule/sessions";
 import { getStandings } from "@/lib/standings/compute";
+import { getSeriesStandings } from "@/lib/queries/series-standings";
 import { getBrackets } from "@/lib/queries/bracket";
 import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
 import { SPORTS } from "@/lib/formats";
@@ -93,6 +94,10 @@ export default async function PublicLeaguePage({
   // current session, so its panel shows that session and no other. Null for
   // every league without sessions, which keeps the full season.
   const session = currentSession(playingDays, league.sessionNights, today);
+  // …and its standings a mini series at a time, for the same reason.
+  const series = league.sessionNights
+    ? await getSeriesStandings(league.id, today)
+    : null;
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
   const deadlineText = league.registrationDeadline
@@ -177,6 +182,7 @@ export default async function PublicLeaguePage({
           visibleDays={visibleDays}
           league={league}
           standings={standings}
+          series={series}
           brackets={brackets}
           myTeamIds={myTeamIds}
           scorableMatchIds={scorableMatchIds}

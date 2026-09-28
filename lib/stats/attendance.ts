@@ -1,5 +1,5 @@
 /**
- * Attendance: who turned up, who didn't, and what they won on playoff nights.
+ * Attendance: who turned up, who didn't, and which mini series they won.
  *
  * Two questions a drafted league's organizer asks every few weeks. "How many
  * nights has this person actually played?" and "how many nights did they not
@@ -33,8 +33,13 @@ export interface Absence {
 export interface AttendanceTally {
   /** Distinct nights on court, for any team, as rostered or as a sub. */
   daysPlayed: number;
-  /** Games won on playoff nights, counting only games they were on court for. */
-  playoffGameWins: number;
+  /**
+   * Mini series won: session playoff FINALS won, counting only finals they were
+   * on court for, for the winning side. Big Shoots draws its end-of-year prize
+   * on this — "one entry per mini series won" — so a semi won, or a final
+   * their team won while they sat it out, earns nothing.
+   */
+  seriesWon: number;
   /**
    * Nights a team had them rostered and they did not play AT ALL — for that
    * team or any other. Two people are therefore NOT counted: one who arrived
@@ -85,28 +90,79 @@ export function matchOutcome(sets: SetResult[]): MatchOutcome | null {
   return "tie";
 }
 
+/** A playoff game, as much as it takes to find a series' final. */
+export interface PlayoffGame {
+  id: string;
+  round: number | null;
+  bracketPosition: number | null;
+  /** The session this bracket belongs to (0141), when it has one. */
+  playoffSession: string | null;
+  /** `yyyy-MM-dd` in the competition's zone. */
+  night: string | null;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+}
+
+/**
+ * Each mini series' final and the team that won it: final match id → winner.
+ *
+ * A series is a session's playoff — `playoff_session` where the bracket
+ * records one, else the playoff night it was played on. Its final is the top
+ * of its tree: the highest round, position 1 (position 2 of that round is the
+ * 3rd-place game). A final with no decided winner yet is left out.
+ */
+export function seriesFinalWinners(
+  games: PlayoffGame[],
+  playoffNights: Set<string>,
+  outcomeOf: (matchId: string, teamId: string) => MatchOutcome | null,
+): Map<string, string> {
+  const bySeries = new Map<string, PlayoffGame[]>();
+  for (const g of games) {
+    if (g.bracketPosition == null || g.round == null) continue;
+    const series =
+      g.playoffSession ??
+      (g.night && playoffNights.has(g.night) ? g.night : null);
+    if (!series) continue;
+    const list = bySeries.get(series) ?? [];
+    list.push(g);
+    bySeries.set(series, list);
+  }
+
+  const out = new Map<string, string>();
+  for (const list of bySeries.values()) {
+    const top = Math.max(...list.map((g) => g.round!));
+    const final = list.find((g) => g.round === top && g.bracketPosition === 1);
+    if (!final?.homeTeamId || !final.awayTeamId) continue;
+    if (outcomeOf(final.id, final.homeTeamId) === "win") {
+      out.set(final.id, final.homeTeamId);
+    } else if (outcomeOf(final.id, final.awayTeamId) === "win") {
+      out.set(final.id, final.awayTeamId);
+    }
+  }
+  return out;
+}
+
 export function tallyAttendance(input: {
   appearances: Appearance[];
   absences: Absence[];
   /** matchId -> its night, `yyyy-MM-dd` in the competition's timezone. */
   nightOfMatch: Map<string, string>;
-  outcomeOf: (matchId: string, teamId: string) => MatchOutcome | null;
-  playoffNights: Set<string>;
+  /** Each series final → the team that won it (`seriesFinalWinners`). */
+  seriesFinals: Map<string, string>;
 }): Map<string, AttendanceTally> {
-  const { appearances, absences, nightOfMatch, outcomeOf, playoffNights } =
-    input;
+  const { appearances, absences, nightOfMatch, seriesFinals } = input;
 
   const nightsPlayed = new Map<string, Set<string>>();
-  const playoffWins = new Map<string, Set<string>>();
+  const seriesWon = new Map<string, Set<string>>();
 
   for (const a of appearances) {
     const night = nightOfMatch.get(a.matchId);
     if (!night) continue;
     const key = identityKey(a);
     addTo(nightsPlayed, key, night);
-    if (playoffNights.has(night) && outcomeOf(a.matchId, a.teamId) === "win") {
-      // A set keyed by match: listed twice for one game is still one game won.
-      addTo(playoffWins, key, a.matchId);
+    if (seriesFinals.get(a.matchId) === a.teamId) {
+      // Keyed by the final: listed twice in one final is still one series.
+      addTo(seriesWon, key, a.matchId);
     }
   }
 
@@ -134,7 +190,7 @@ export function tallyAttendance(input: {
   for (const key of keys) {
     out.set(key, {
       daysPlayed: nightsPlayed.get(key)?.size ?? 0,
-      playoffGameWins: playoffWins.get(key)?.size ?? 0,
+      seriesWon: seriesWon.get(key)?.size ?? 0,
       nightsMissed: missed.get(key)?.size ?? 0,
     });
   }

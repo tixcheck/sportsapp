@@ -71,3 +71,36 @@ export function currentSession(
   if (index < 0) return null;
   return { number: index + 1, total: sessions.length, nights: sessions[index] };
 }
+
+export interface MiniSeries {
+  /** 1-based. */
+  number: number;
+  /** The nights that count toward this series' standings — all but its playoff. */
+  regularNights: string[];
+  /** Its last night, when it is a playoff night (a short final block has none). */
+  playoffNight: string | null;
+}
+
+/**
+ * The season as mini series: each session's regular nights, and its playoff.
+ *
+ * Big Shoots' players asked "going into the night, how is Team 2 doing, and
+ * what record would we need to be the top seed?" — a question about THIS
+ * block of nights, because Team 2 is different people after every re-draft.
+ * The playoff night is the answer to that question, not part of it, so it is
+ * kept out of the standings the same way it is kept out of the seeding
+ * (`seedingNights` in lib/scheduler/playoff-formats.ts).
+ */
+export function miniSeries(
+  nights: string[],
+  sessionNights: number | null,
+): MiniSeries[] {
+  return splitSessions(nights, sessionNights).map((block, i) => {
+    const hasPlayoff = sessionNights != null && block.length === sessionNights;
+    return {
+      number: i + 1,
+      regularNights: hasPlayoff ? block.slice(0, -1) : block,
+      playoffNight: hasPlayoff ? block[block.length - 1] : null,
+    };
+  });
+}
