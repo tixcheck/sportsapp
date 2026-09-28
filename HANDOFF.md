@@ -1540,13 +1540,21 @@ the semi at ~10pm on Sep 25. Rows match its shape exactly (3 seeds → semi at
 home and away null), so `place_bracket_winner` advances the semi winner as
 normal. Seeds from night 1: **Team 2 (3–1) byes to the 9:00 final; Team 1 (2–2)
 v Team 3 (1–3) in the 8:00 semi.** One-hour slots, per the organizer ("each
-game is an hour"). The match FORMAT was not changed — still one set to 25; if an
-hour means best-of-3 or a timed game, set `match_format` on those two rows.
+game is an hour"). **Both playoff games are best of 3 to 25** (`match_format`
+on the two rows, the `indoor6-bo3` preset), set 2026-09-28 on the organizer's
+word; the round-robin games stay one set. Whether a deciding third set is to 25
+or to 15 was not stated — 25 matches their regular game.
 
 **Every later cycle needs the same hand-placement** until the gaps below are
 built — the generic generator neither schedules a round robin around playoff
-nights nor times a bracket on the next night. The teams have no rosters yet
-(`team_members` empty for all three).
+nights nor times a bracket on the next night.
+
+**The draft IS entered** — 6 players on each of the three teams, in
+`free_agents.placed_team_id`, not `team_members` (none have accounts; see
+"Membership lives in TWO tables"). Two more sign-ups, Matthew A and Tim, are in
+the pool undrafted. About half have no email, and **no team has a captain
+flagged** (`is_captain`), so nobody can be reached as "the captain" through the
+app. One entry is named "Kenol/Sub" on Team 3 — probably two people in one row.
 
 ⚠️ **Its page threw a server-side exception for the first hour, and the cause is
 a trap for every setup script.** `setup-mango-friday.ts` bound
