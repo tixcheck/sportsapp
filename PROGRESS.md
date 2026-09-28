@@ -5,6 +5,32 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — Big Shoots: the right night on Who played, and one Nick not two (0139)
+
+Liam reported that updating this week's lineups "changed the week 1 rosters".
+The database said otherwise: Sep 18 was last written Sep 21. The PAGE was
+wrong — each team's card seeds its ticks from props once and was keyed by team
+alone, so switching dates reused the cards and showed Sep 25's ticks under Sep
+18. One Save there would have made the report true. Keyed by night and team
+now; teams also list Team 1, 2, 3, 4 instead of by first game.
+
+His second report was real: Nick Szendrey played every Team 1 game (9 set wins)
+and the stats showed less. Sep 18's lineup was saved before Nick linked an
+account, so those rows carry his name; Sep 25's carry his user_id; stats key a
+person by account when present and name otherwise, so there were two Nicks.
+Six players were split this way. Backfilled by hand (21 appearance rows, 12
+absence rows, no collisions), then **0139** made it permanent: a trigger on
+`free_agents` carries a sign-up's name-only rows onto its account the moment it
+gains one. A trigger rather than a line in the claim function, because the
+organizer's link sets `user_id` by another road. Rehearsed on Big Shoots in a
+rolled-back transaction, including the game recorded both ways, which keeps one
+row rather than failing the link.
+
+Not done: the names players typed themselves (CeliacJack, Schulaher) — the
+owner has it on their list.
+
+---
+
 ## 2026-09-28 — A player's games say which gym
 
 BVL, looking at the AGM demo: the team page's game card read "League game ·
