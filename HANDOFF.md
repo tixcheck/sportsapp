@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0139`, and every one of `0060`–`0139` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138` and `0139` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0140`, and every one of `0060`–`0140` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0140` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -51,6 +51,7 @@
     | `0137` | Sep 25 | `swap_reverse_pairs()` — two pairs exchange their whole Reverse Pairs schedules, for a late arrival. Balance-preserving; refuses once any score exists |
     | `0138` | Sep 28 | `league_settings.ladder_draw` — `generated` (default, every ladder before) or `pod_grid` (the pinned grids in `pod-templates.ts`). SMVA is the only `pod_grid` league |
     | `0139` | Sep 28 | trigger `free_agents_carry_appearances` — a sign-up gaining an account carries its name-only appearances and absences onto it, so stats count one person |
+    | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
 
     **Two things will look like gaps in a future audit and are not:**
     - `0079`'s `registration_payments_one_open_etransfer` index is **gone on
@@ -1353,6 +1354,17 @@ organizer's link in `free-agents.ts` sets `user_id` too.
 **Still NOT covered:** a player who was never a `free_agents` row — someone in a
 team-registration league recorded by name as a sub who later gets an account.
 Nothing links those two, and nothing can without a name-to-account guess.
+
+**A drafted player is called by their DRAFTED name (0140, 2026-09-28).** An
+account's display name is whatever the player typed at sign-up — Big Shoots had
+"CeliacJack", "Schulaher", "Mike" for Jack Sullivan, Jake Schuller and Mike
+Fleming. `getTeamRosters`, absence recording and `competition_player_names` now
+prefer `free_agents.name` for a player drafted onto that team; everyone never
+drafted keeps their display name. 9 saved appearance rows were renamed.
+**The flip side:** an organizer's typo now wins over the player's own spelling.
+It moved three BVL Women's names, one of them "Keyah Sinclair" (her account) →
+"Keiiah Sinclair" (as entered). Left as entered — the organizer should confirm
+and correct the sign-up's name if it's wrong.
 
 ## Summer Forever — two 12-team brackets in one competition (Sat Sep 19 2026)
 

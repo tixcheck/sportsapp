@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — Drafted players keep their drafted names (0140)
+
+Liam, after the Nick fix: "still see celiac jack". Jack Sullivan was drafted
+under that name and later linked an account he'd called "CeliacJack"; the
+lineup screen lists team members by account name, so that is what his Sep 25
+lineup saved, and the stats take a player's name from their first game. Same
+for Schulaher (Jake Schuller) and Mike (Mike Fleming).
+
+The organizer's name for a player in their own league is the one to show. The
+roster helper, absence recording and the public name list now prefer the
+drafted name when a member was drafted onto that team; the 9 lineup rows saved
+under account names were renamed. Checked by diffing every public league's
+player list before and after 0140: six names moved, all drafted players with a
+differently-named account, none unexpected. Three were in BVL Women's, and one
+of those — Keyah → "Keiiah" — looks like a typo in the entry now winning over
+the player's own spelling; left for the organizer to confirm.
+
 ## 2026-09-28 — Big Shoots: the right night on Who played, and one Nick not two (0139)
 
 Liam reported that updating this week's lineups "changed the week 1 rosters".

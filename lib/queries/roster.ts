@@ -93,10 +93,38 @@ export async function getTeamRosters(
     (users ?? []).map((u) => [u.id as string, u.email as string]),
   );
 
+  // A drafted player keeps the name the organizer drafted them under, even once
+  // they have an account. The account name is whatever they typed at sign-up —
+  // Big Shoots' "Jack Sullivan" showed as "CeliacJack" on the lineup screen, and
+  // from there in the saved lineups and the stats. If RLS hides the pool from
+  // this viewer the map is empty and the account name stands, as before.
+  const { data: drafted } = userIds.length
+    ? await supabase
+        .from("free_agents")
+        .select("placed_team_id, user_id, name")
+        .eq("competition_id", competitionId)
+        .in("user_id", userIds)
+        .not("placed_team_id", "is", null)
+    : { data: [] };
+  const draftedName = new Map(
+    (
+      (drafted ?? []) as {
+        placed_team_id: string;
+        user_id: string;
+        name: string;
+      }[]
+    )
+      .filter((d) => d.name?.trim())
+      .map((d) => [`${d.placed_team_id}:${d.user_id}`, d.name.trim()]),
+  );
+
   const out: Record<string, RosterMember[]> = {};
   for (const m of members ?? []) {
     (out[m.team_id] ??= []).push({
-      name: nameById.get(m.user_id) ?? "Member",
+      name:
+        draftedName.get(`${m.team_id}:${m.user_id}`) ??
+        nameById.get(m.user_id) ??
+        "Member",
       role: m.role as "captain" | "player",
       email: emailById.get(m.user_id) ?? "",
       userId: m.user_id,

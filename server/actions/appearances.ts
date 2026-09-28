@@ -332,8 +332,10 @@ async function recordAbsences(
   }[]) {
     const person = { userId: d.user_id, name: d.name.trim() };
     const key = identityKey({ userId: person.userId, playerName: person.name });
-    // A drafted player with an account is already here from team_members.
-    if (!roster.has(key)) roster.set(key, person);
+    // A drafted player with an account is already here from team_members —
+    // under their account name. The drafted name wins: it is what the
+    // organizer calls them, and what the lineups record (see getTeamRosters).
+    roster.set(key, person);
   }
 
   const present = new Set(
