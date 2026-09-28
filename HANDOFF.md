@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0140`, and every one of `0060`–`0140` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0140` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0141`, and every one of `0060`–`0141` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0141` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -51,6 +51,7 @@
     | `0137` | Sep 25 | `swap_reverse_pairs()` — two pairs exchange their whole Reverse Pairs schedules, for a late arrival. Balance-preserving; refuses once any score exists |
     | `0138` | Sep 28 | `league_settings.ladder_draw` — `generated` (default, every ladder before) or `pod_grid` (the pinned grids in `pod-templates.ts`). SMVA is the only `pod_grid` league |
     | `0139` | Sep 28 | trigger `free_agents_carry_appearances` — a sign-up gaining an account carries its name-only appearances and absences onto it, so stats count one person |
+    | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
 
     **Two things will look like gaps in a future audit and are not:**
@@ -880,6 +881,29 @@ reading them out of `.env.local`.
 
 ## Big Shoots — now in its organizer's own org (set up 2026-09-15)
 
+**⚠️ SESSION PLAYOFFS ARE BUILT (2026-09-28, migration 0141).** Every third
+Friday is a playoff night (`session_nights = 3`: Oct 2, Oct 23, Nov 13, …). The
+organizer draws it from the Playoffs tab → **Session playoffs**: pick a named
+format (**Playoff Format 1** = semis 1v4 and 2v3, then final + 3rd place, all
+best of 3 at the league's own set length — 25 capped at 27), the night, the
+first game and minutes per game. Seeds come from that session's earlier nights
+only (`seedingNights`), never the season, because Team 1 is re-drafted.
+- The draw REPLACES that night's regular round-robin games, and refuses once
+  anything on the night has a score. Inserts before deleting.
+- `matches.playoff_session` = the night's date on the bracket rows;
+  `place_bracket_winner` only advances within one session, so eleven playoffs
+  don't write into each other's finals. Null for every other bracket.
+- The two older generators no longer delete session playoffs; the bracket tree
+  shows only the latest session.
+- **Oct 2 is drawn** (2026-09-28): 6:45 SF1 Team 1 v Team 2 (Court 1), SF2
+  Team 3 v Team 4 (Court 2); 7:45 Final (Court 1) and 3rd place (Court 2).
+  Seeds from Sep 18 + 25: Team 1, Team 3, Team 4, Team 2. **60-minute slots and
+  a third set to 25 were NOT stated by Liam** — both editable by redrawing
+  before any score is in.
+- **Still true:** league standings count playoff games (nothing filters
+  `bracket_position` out of `loadStandings`), so after Friday the season table
+  includes them. The session seeding does not.
+
 - **Org:** Big Shoots Men's Volleyball (`7ba804ce-a223-475a-80dd-48f7492f6078`),
   owned by Liam Johnson (liamjohnson934@gmail.com).
 - **League:** Big Shoots Volleyball 2026-2027 (`be28ffa8-7994-486b-8d75-99e0d54cdcf1`),
@@ -1641,10 +1665,8 @@ while 2nd and 3rd play an 8-9pm semi; then re-draft and repeat.
 **Known gaps for this format — none of these are built:**
 - **Captains cannot draft themselves.** `saveDraftAction`/`clearDraftAction` are
   `is_competition_admin`. The organizer enters their picks.
-- **A second playoff draw DELETES the first one's matches and scores.** Both
-  generators clear every row with a non-null `bracket_position` first, so a
-  playoff every 2 weeks cannot accumulate. This is the blocker to fix before
-  cycle 2 plays.
+- ~~**A second playoff draw DELETES the first one's matches and scores.**~~
+  Fixed 2026-09-28 by session playoffs (0141) — see the Big Shoots section.
 - **Standings are cumulative across re-drafts**, keyed on team id, so from cycle
   2 "first place" spans rosters that no longer exist. `lib/queries/ladder-standings.ts`
   is the working template for a night-scoped table.

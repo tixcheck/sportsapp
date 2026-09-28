@@ -5,6 +5,30 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — Session playoffs, and Playoff Format 1 (0141)
+
+Big Shoots' first playoff night is Fri Oct 2, and Liam described it: seed 1 v
+4 and 2 v 3, best of 3; winners play the final, losers play for 3rd, both best
+of 3. He wants it saved as a format the organizer picks next time.
+
+Neither existing generator could do it. The bracket panel supports the shape
+but times it straight after the last regular game — the end of the season,
+not this Friday — and both generators delete every bracket in the league, so
+Oct 23's playoff would have wiped Oct 2's. Worse, advancement finds "round 2,
+position 1" league-wide: a second session's semi would have written its winner
+into the first session's final. And nothing cleared the round robin already
+scheduled on the playoff night.
+
+So: named formats as data (`lib/scheduler/playoff-formats.ts`, 13 tests), a
+Session playoffs card on the Playoffs tab that previews the exact games, and
+0141's `matches.playoff_session`, which scopes advancement to one session.
+Rehearsed in a rolled-back transaction: session A's semis filled A's final and
+3rd place, session B's stayed empty, and a session-less bracket still advanced.
+Oct 2 drawn with the same code the button runs; the public page shows two
+semis at 6:45 and Final + Bronze at 7:45. The card checked at 375px.
+
+Guessed, and said so: 60-minute slots and a third set to 25 at their cap of 27.
+
 ## 2026-09-28 — Drafted players keep their drafted names (0140)
 
 Liam, after the Nick fix: "still see celiac jack". Jack Sullivan was drafted
