@@ -1460,10 +1460,12 @@ issues new ones to `DEMO_CREDENTIALS_OUT`. The organizer account can edit
 EVERYTHING in Test Org, so don't hand its login to BVL. Delete both users and
 the competition once the AGM is done.
 
-Two things the walkthrough surfaced, not fixed: the player dashboard and team
-page show **"Court a" without the gym** (a multi-gym league needs the venue
-there), and "your teams" ranks a team **7th of 22 league-wide** rather than
-within its tier.
+The walkthrough surfaced two gaps. **Fixed 2026-09-28:** a player's own game
+cards (dashboard next game, "also coming up", team page) now show the gym —
+`MyMatch.venueName` from the match's venue — instead of a bare "Court a" behind
+a "League game" label BVL read as the facility. **Not fixed:** "your teams" on
+the dashboard ranks a team **7th of 22 league-wide** rather than within its
+tier.
 
 ## BVL Reverse Pairs — 25 Sep 2026 (set up 2026-09-25)
 

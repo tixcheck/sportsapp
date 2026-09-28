@@ -5,6 +5,24 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — A player's games say which gym
+
+BVL, looking at the AGM demo: the team page's game card read "League game ·
+Court a", and they took "League game" to be the facility. In a league spread
+over three schools a bare court is no answer to "where do I go". `getMyMatches`
+now carries the match's venue name, and the dashboard's next game, its "also
+coming up" list and the team page cards all show "Turner Fenton North · Court
+a". Gym before league name on the dashboard list, because that line truncates
+on a phone and the gym is the part to keep; the team card's row now wraps for
+the same reason, after the first version squeezed the court to "Co…" beside
+"Scores open on game day". A game with no venue recorded reads as before.
+
+Also built the AGM demo itself (`setup-bvl-demo-2026.ts`, see HANDOFF) — a copy
+in Test Org on the live teams' names, so a mock schedule never reached the real
+league's 85 players.
+
+---
+
 ## 2026-09-28 — Mango Friday Mens: night 1 put back together, Oct 2 playoff set
 
 Night 1 had been generated with `games_per_week = 4`, so two of the six
