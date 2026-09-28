@@ -126,8 +126,10 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
         </div>
       </div>
 
-      <div className="text-muted-foreground mt-2 flex items-center justify-between gap-2 text-xs">
-        <span className="truncate">
+      {/* Wraps rather than truncates: on a phone the gym and court are the
+          part to keep, and the note or button beside them can drop a line. */}
+      <div className="text-muted-foreground mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs">
+        <span className="min-w-0 break-words">
           {/* The gym, when the game records one, in place of the generic
               "League game" — BVL's players read that as the facility and it
               isn't one. The round still shows where there's no gym. */}
@@ -142,7 +144,7 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
             ? ` · you ${sportConfig(match.sport).official.one.toLowerCase()}`
             : ""}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {match.canConfirm ? (
             <>
               <Button
@@ -172,7 +174,7 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
               </Link>
             </Button>
           ) : match.lockedFuture ? (
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-xs whitespace-nowrap">
               Scores open on game day
             </span>
           ) : match.state === "pending" ? (
