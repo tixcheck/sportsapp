@@ -5,6 +5,24 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — Mini-series standings; PO W means a series won
+
+Liam: players want to know "going into the night, how is Team 2 doing, and
+what record would we need to be the top seed?" — so standings per mini series.
+And "they should only get a PO W if they win a mini series", because the
+end-of-year prize draw gives one entry per series won.
+
+The Standings tab now opens on the current series, counting its regular nights
+only; the playoff is what the table decides, so it isn't in it. `loadStandings`
+takes an optional night window, and `miniSeries()` splits the season (tested,
+including a short last block with no playoff). Series 1 reads 6/6 games where
+the season table said 6/96.
+
+PO W changed meaning: from games won on a playoff night to session finals won,
+credited only to players on court for the winner (`seriesFinalWinners`, 5 new
+tests). Mango Friday's Oct 2 bracket was tagged with its session so its final
+counts too.
+
 ## 2026-09-28 — A Pts column for the organizer
 
 Liam: "it says the rankings are calculated by MW and T — can we have a column

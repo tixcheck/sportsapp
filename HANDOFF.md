@@ -903,9 +903,19 @@ only (`seedingNights`), never the season, because Team 1 is re-drafted.
   set is win-by-2 with no practical cap; if they cap it at 17, a 17–16 finish
   would be rejected and the format needs a per-set cap. **60-minute slots are
   still a guess** — editable by redrawing before any score is in.
-- **Still true:** league standings count playoff games (nothing filters
-  `bracket_position` out of `loadStandings`), so after Friday the season table
-  includes them. The session seeding does not.
+- **Standings are per mini series** (2026-09-28): the Standings tab, public and
+  organizer, opens on the current series (its regular nights only, via
+  `loadStandings(…, { nights })`), with earlier series and "Whole season" a tap
+  away. The WHOLE-SEASON table still counts playoff games; the series tables
+  and the seeding do not.
+- **PO W = mini series won** (2026-09-28, Liam: "one entry per mini series
+  won" — it decides their end-of-year prize draw). One per session playoff
+  FINAL won, credited to players on court for the winning side per Who played
+  (`seriesFinalWinners`, `AttendanceTally.seriesWon`). A semi or 3rd-place win
+  earns nothing; so does a final the player sat out. Playoff games otherwise
+  count in player stats like any game.
+- Mango Friday's Oct 2 semi + final were tagged `playoff_session = 2026-10-02`
+  the same day, so its final counts as a series too.
 
 - **Org:** Big Shoots Men's Volleyball (`7ba804ce-a223-475a-80dd-48f7492f6078`),
   owned by Liam Johnson (liamjohnson934@gmail.com).
