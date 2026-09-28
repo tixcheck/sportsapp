@@ -1442,6 +1442,29 @@ the opposite of what "bottom seed" intuitively suggests.
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
 
+## BVL AGM demo league (built 2026-09-28)
+
+`bvl-women-wednesdays-2026-demo` in **Test Org** (hidden from discovery) —
+public, so `https://www.mysportsapp.ca/l/bvl-women-wednesdays-2026-demo` opens
+signed-out and can be shared with BVL. Built by `lib/db/setup-bvl-demo-2026.ts`
+(`--reset` rebuilds): the 22 team NAMES from the live 2026/27 Women's league in
+placeholder tiers A–D, BVL's own grids on Oct 14 (scored, made-up) and Oct 21
+(upcoming). It is a COPY — BVL's real league was not touched, because it is
+public with 85 rostered players who would see a mock schedule and get its
+emails.
+
+Two demo accounts, **bvl-demo-organizer@example.com** (organizer of Test Org)
+and **bvl-demo-player@example.com** (player on the demo Setsy Ladies), all
+notifications off. Passwords are not stored anywhere in the repo; `--reset`
+issues new ones to `DEMO_CREDENTIALS_OUT`. The organizer account can edit
+EVERYTHING in Test Org, so don't hand its login to BVL. Delete both users and
+the competition once the AGM is done.
+
+Two things the walkthrough surfaced, not fixed: the player dashboard and team
+page show **"Court a" without the gym** (a multi-gym league needs the venue
+there), and "your teams" ranks a team **7th of 22 league-wide** rather than
+within its tier.
+
 ## BVL Reverse Pairs — 25 Sep 2026 (set up 2026-09-25)
 
 Org **Brampton Volleyball League**, competition
