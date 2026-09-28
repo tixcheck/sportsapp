@@ -59,6 +59,13 @@ export function ReversePairsRegisterForm({
         toast.error(res.error);
         return;
       }
+      // A paid event holds the spot but only draws a pair that has paid — so
+      // straight to the team page, where either partner can pay.
+      if (res.payNow) {
+        toast.success("Pair registered — pay to lock in your spot.");
+        router.push(`/teams/${res.teamId}`);
+        return;
+      }
       toast.success("You're in. See you on the day.");
       setPairName("");
       setPartnerName("");
@@ -130,7 +137,8 @@ export function ReversePairsRegisterForm({
               </div>
             </div>
             <p className="text-ink-3 -mt-2 text-xs">
-              We&rsquo;ll invite them so they can see the schedule too.
+              We&rsquo;ll email them an invite so they can join your pair
+              {feeLabel ? " — and pay their half, if you're splitting it" : ""}.
             </p>
 
             <Button

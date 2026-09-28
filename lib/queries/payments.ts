@@ -29,14 +29,15 @@ type PaymentAccountRecord = {
   onboarded_at: string | null;
 };
 
-const COLUMNS =
-  "id, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, disabled_reason, requirements_due_count, country, default_currency, onboarded_at";
-
 /**
  * An org's connected account for the mode this deployment is running in, or
  * null. Scoped to the current Stripe mode on purpose: showing a test account's
- * "ready to take payments" badge on a live deployment would be a lie, and RLS
- * already limits the read to the org's own admins.
+ * "ready to take payments" badge on a live deployment would be a lie.
+ *
+ * Read through `org_payment_account` (0142), not the table. The table is the
+ * organizer's settings row and RLS keeps it to the org's admins — which is also
+ * who this used to be readable by, so every PLAYER got null here and no card
+ * payment could ever start. The function answers for payers too.
  */
 export async function getPaymentAccount(
   orgId: string,
@@ -45,15 +46,14 @@ export async function getPaymentAccount(
   if (!mode.configured) return null;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("payment_accounts")
-    .select(COLUMNS)
-    .eq("org_id", orgId)
-    .eq("livemode", mode.livemode)
-    .maybeSingle();
-  if (!data) return null;
+  const { data } = await supabase.rpc("org_payment_account", {
+    _org_id: orgId,
+    _livemode: mode.livemode,
+  });
+  const row = (data as PaymentAccountRecord[] | null)?.[0];
+  if (!row) return null;
 
-  const r = data as PaymentAccountRecord;
+  const r = row;
   return {
     id: r.id,
     stripeAccountId: r.stripe_account_id,

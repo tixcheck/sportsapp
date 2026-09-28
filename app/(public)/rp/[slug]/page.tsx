@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { DateTime } from "luxon";
 
@@ -38,6 +39,37 @@ export default async function PublicReversePairsPage({
   } = await supabase.auth.getUser();
   const fee = await getCompetitionPaymentSettings(event.competitionId);
 
+  // Every pair holding a spot, paid or not — the cap counts both, so "spots
+  // left" must too, or the form offers a place the database then refuses.
+  const { data: holding } = await supabase
+    .from("teams")
+    .select("id, name, status, captain_user_id")
+    .eq("competition_id", event.competitionId)
+    .neq("status", "withdrawn");
+  const held = (holding ?? []) as {
+    id: string;
+    name: string;
+    status: string;
+    captain_user_id: string | null;
+  }[];
+  const awaitingPayment = held.filter((t) => t.status === "pending_payment");
+  // The viewer's own pair: registering again would only say "already
+  // registered", so show them where their pair is instead.
+  let mine = user ? held.find((t) => t.captain_user_id === user.id) : undefined;
+  if (user && !mine) {
+    const { data: member } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", user.id)
+      .in(
+        "team_id",
+        held.map((t) => t.id),
+      )
+      .limit(1)
+      .maybeSingle();
+    mine = held.find((t) => t.id === member?.team_id);
+  }
+
   const played = event.games.filter((g) => g.scoreA !== null).length;
   const first = event.games.find((g) => g.scheduledAt)?.scheduledAt ?? null;
   const day = first
@@ -68,7 +100,26 @@ export default async function PublicReversePairsPage({
         )}
       </header>
 
-      {event.registrationLive && (
+      {mine && (
+        <div className="border-rule bg-surface flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+          <p className="text-sm">
+            Your pair: <span className="font-semibold">{mine.name}</span>
+            {mine.status === "pending_payment"
+              ? " — not paid yet, so not in the draw."
+              : " — you're in."}
+          </p>
+          <Link
+            href={`/teams/${mine.id}`}
+            className="text-claret text-sm font-medium hover:underline"
+          >
+            {mine.status === "pending_payment"
+              ? "Finish paying →"
+              : "Your pair →"}
+          </Link>
+        </div>
+      )}
+
+      {event.registrationLive && !mine && (
         <ReversePairsRegisterForm
           competitionId={event.competitionId}
           signedIn={!!user}
@@ -80,7 +131,7 @@ export default async function PublicReversePairsPage({
           spotsLeft={
             event.settings.maxPairs === null
               ? null
-              : Math.max(0, event.settings.maxPairs - event.pairs.length)
+              : Math.max(0, event.settings.maxPairs - held.length)
           }
         />
       )}
@@ -92,11 +143,17 @@ export default async function PublicReversePairsPage({
             field is known, so everyone gets as many different teammates as the
             day allows.
           </p>
-          {event.pairs.length > 0 && (
+          {held.length > 0 && (
             <div>
               <p className="mb-2 text-center text-sm font-medium">
                 {event.pairs.length} pair
                 {event.pairs.length === 1 ? "" : "s"} in so far
+                {awaitingPayment.length > 0 && (
+                  <span className="text-muted-foreground font-normal">
+                    {" "}
+                    · {awaitingPayment.length} more waiting to pay
+                  </span>
+                )}
               </p>
               <ul className="flex flex-wrap justify-center gap-1.5">
                 {event.pairs.map((p) => (

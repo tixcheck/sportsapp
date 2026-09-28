@@ -18,14 +18,14 @@ export function ClaimButton({ token }: { token: string }) {
         toast.error(result.error);
         return;
       }
-      toast.success("You're now the captain. Welcome aboard!");
+      toast.success("You're on the team. Welcome aboard!");
       router.push("/dashboard");
     });
   }
 
   return (
     <Button onClick={claim} disabled={pending} className="w-full">
-      {pending ? "Claiming…" : "Claim your team"}
+      {pending ? "Joining…" : "Accept the invite"}
     </Button>
   );
 }

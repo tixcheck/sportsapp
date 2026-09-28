@@ -131,67 +131,97 @@ export default async function TeamPage({
         isAdmin={view.isAdmin}
       />
 
-      {/* Schedule */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Schedule</CardTitle>
-          <CardDescription>
-            Match order is set; times are estimates.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {entryGate ? (
-            <EntryGate
-              gate={entryGate}
-              isMember={isMember || view.isAdmin}
-              viewerId={view.viewerId}
-            />
-          ) : isMember ? (
-            myMatches.length === 0 && projections.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No matches yet.</p>
-            ) : (
-              <MatchSections matches={myMatches} projections={projections} />
-            )
-          ) : (
-            <ScheduleView
-              matches={teamSchedule}
-              timezone={competition.timezone}
-              myTeamIds={[team.id]}
-              sport={competition.sport}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {/* A Reverse Pairs pair has no matches of its own — its games live on
+          the event page, drawn once sign-ups close. Showing the league cards
+          here would say "No matches yet" forever. */}
+      {(competition.type as string) === "reverse_pairs" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule &amp; standings</CardTitle>
+            <CardDescription>
+              Partners change every game, so the schedule is drawn for the whole
+              field once sign-ups close.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href={competitionPath(competition.type, competition.slug)}
+              className="text-claret text-sm font-medium hover:underline"
+            >
+              See the event page →
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Schedule */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Schedule</CardTitle>
+              <CardDescription>
+                Match order is set; times are estimates.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {entryGate ? (
+                <EntryGate
+                  gate={entryGate}
+                  isMember={isMember || view.isAdmin}
+                  viewerId={view.viewerId}
+                />
+              ) : isMember ? (
+                myMatches.length === 0 && projections.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    No matches yet.
+                  </p>
+                ) : (
+                  <MatchSections
+                    matches={myMatches}
+                    projections={projections}
+                  />
+                )
+              ) : (
+                <ScheduleView
+                  matches={teamSchedule}
+                  timezone={competition.timezone}
+                  myTeamIds={[team.id]}
+                  sport={competition.sport}
+                />
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Standing */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Standing</CardTitle>
-          {standingsGroup?.poolName && (
-            <CardDescription>{standingsGroup.poolName}</CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          {standingsGroup ? (
-            <div className="space-y-3">
-              <StandingsTable
-                rows={standingsGroup.rows}
-                myTeamIds={[team.id]}
-                sport={competition.sport}
-                differential={differential}
-              />
-              <StandingsLegend
-                sport={competition.sport}
-                differential={differential}
-              />
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              Standings appear once scores come in.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+          {/* Standing */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Standing</CardTitle>
+              {standingsGroup?.poolName && (
+                <CardDescription>{standingsGroup.poolName}</CardDescription>
+              )}
+            </CardHeader>
+            <CardContent>
+              {standingsGroup ? (
+                <div className="space-y-3">
+                  <StandingsTable
+                    rows={standingsGroup.rows}
+                    myTeamIds={[team.id]}
+                    sport={competition.sport}
+                    differential={differential}
+                  />
+                  <StandingsLegend
+                    sport={competition.sport}
+                    differential={differential}
+                  />
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Standings appear once scores come in.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* Roster */}
       <Card>

@@ -5,6 +5,9 @@ import { DateTime } from "luxon";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
+import { sendTeammateInvite } from "@/lib/email/send";
+import { getOrigin } from "@/lib/utils/url";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import {
   generateReversePairs,
@@ -670,7 +673,7 @@ export type RegisterReversePairInput = z.input<typeof registerSchema>;
  */
 export async function registerReversePairAction(
   input: RegisterReversePairInput,
-): Promise<ActionError | { teamId: string }> {
+): Promise<ActionError | { teamId: string; payNow: boolean }> {
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form." };
@@ -694,7 +697,62 @@ export async function registerReversePairAction(
     // organizer's own wording reaches the player rather than a Postgres code.
     return { error: error.message.replace(/^.*?:\s*/, "") };
   }
+  const teamId = data as string;
+
+  // The RPC records the partner as an invite and stops there — nobody ever
+  // told them. Email it, so they can join the pair and, where the fee is
+  // split, pay their half. Best-effort: the pair is registered either way.
+  if (v.partnerEmail) await invitePartner(supabase, teamId, v.partnerEmail);
+
+  // A paid event: the pair holds its spot but isn't in the draw until it has
+  // paid, so the next stop is the team page, where it can pay.
+  const fee = await getCompetitionPaymentSettings(v.competitionId);
+  const payNow = fee.paymentRequired && fee.registrationFeeCents > 0;
 
   revalidatePath("/orgs");
-  return { teamId: data as string };
+  return { teamId, payNow };
+}
+
+async function invitePartner(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teamId: string,
+  email: string,
+): Promise<void> {
+  const [{ data: invite }, { data: team }, { data: me }] = await Promise.all([
+    supabase
+      .from("team_invites")
+      .select("token")
+      .eq("team_id", teamId)
+      .ilike("email", email.trim())
+      .eq("status", "pending")
+      .maybeSingle(),
+    supabase
+      .from("teams")
+      .select("name, competitions(name)")
+      .eq("id", teamId)
+      .maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
+  if (!invite?.token || !team) {
+    console.error("[reverse-pairs] partner invite not found to email");
+    return;
+  }
+  const comp = (team as unknown as { competitions?: { name: string } | null })
+    .competitions;
+  const { data: profile } = await supabase
+    .from("users")
+    .select("display_name, email")
+    .eq("id", me.user?.id ?? "")
+    .maybeSingle();
+  const result = await sendTeammateInvite(
+    email.trim(),
+    {
+      teamName: team.name as string,
+      competitionName: comp?.name ?? "Reverse Pairs",
+      inviterName: profile?.display_name ?? "Your partner",
+      claimUrl: `${await getOrigin()}/claim/${invite.token as string}`,
+    },
+    profile?.email ?? undefined,
+  );
+  if (!result.sent) console.error("[reverse-pairs] partner invite not sent");
 }
