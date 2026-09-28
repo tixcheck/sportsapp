@@ -180,8 +180,9 @@
     **Not verified against real Stripe money yet** — the refund path has unit
     tests and rolled-back DB checks but no live test-mode refund has been run
     end to end. That is the one thing to do before trusting it.
-  - **Not yet done for go-live:** live Stripe keys, real (non-test) onboarding,
-    and TOS / refund / surcharge disclosure copy.
+  - **Stripe keys are LIVE** in `.env.local` (`sk_live` / `pk_live`, checked
+    2026-09-28), and MIH Volleyball has a live connected account taking real
+    cards. Still not done: TOS / refund / surcharge disclosure copy.
   - **Gotcha, cost an hour:** the canonical domain is `www.mysportsapp.ca`.
     The apex `mysportsapp.ca` 308-redirects, and **Stripe treats a 3xx on a
     webhook as a failed delivery** — it does not follow redirects. Any Stripe
@@ -371,9 +372,9 @@ host that wants auto-sizing can listen; one that doesn't is unaffected.
 
 - **Registration payments (Stripe Connect) — the active thread.** Slices A and
   B and C are all shipped. See `docs/plans/registration-payments.md` → "Build
-  order". Test keys are in `.env.local` and Vercel. **Remaining before go-live:**
-  a real test-mode refund run end to end, live Stripe keys, real (non-test)
-  Connect onboarding, and TOS / refund / surcharge disclosure copy.
+  order". **Live keys** are in `.env.local` (checked 2026-09-28; this line said
+  "test keys" until then). Remaining: a real refund run end to end, and TOS /
+  refund / surcharge disclosure copy.
 - **KotC full elimination engine** — plan only, not built
   (`docs/plans/kotc-elimination.md`).
 - **AI spreadsheet import** — approved design, parked 2026-06-30
@@ -1500,6 +1501,31 @@ the opposite of what "bottom seed" intuitively suggests.
 
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
+
+## Helix Reverse Pairs Tournament — Sat 24 Oct 2026 (set up 2026-09-28)
+
+Org **Helix Volleyball** (`helix-volleyball`, owned by the platform owner;
+organizers helix.volley@gmail.com and emilydrew55@hotmail.com). Competition
+`helix-reverse-pairs-2026-10-24`, created by
+`lib/db/setup-helix-reverse-pairs.ts` as a **private draft, registration
+CLOSED**. From the flyer: 2–7pm, St Mary's Catholic Academy (no address on
+file), $80 a pair or $40 each, cash prizes for 1st and 2nd. From the owner: 2
+courts, up to 15 pairs, pay by card, "$40/player" = each partner pays half
+(`allow_split_payment`). The flyer is the event banner; the org logo was cropped
+from it (soft — ~210px source).
+
+**Two blockers before registration opens, neither done:**
+1. **Helix has no connected Stripe account** (`payment_accounts` has no row).
+   Card payment is refused until the org finishes Stripe onboarding.
+2. **A Reverse Pairs sign-up never reaches payment.** `register-form.tsx` says
+   "You're in" and stops; with `payment_required` the pair sits at
+   `pending_payment` forever and is never drawn. The team page's
+   `TeamPaymentCard` (full or half share) and `startRegistrationCheckoutAction`
+   are type-agnostic and already price Reverse Pairs like a tournament — the
+   gap is sending the pair there, and proving it with real money.
+
+Rounds (10) and minutes (25) are placeholders; set them at draw time from the
+real field — 15 pairs on 2 courts balances at 5, 10 or 15 rounds.
 
 ## BVL AGM demo league (built 2026-09-28)
 
