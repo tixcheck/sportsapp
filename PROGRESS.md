@@ -5,6 +5,25 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — Mango Friday Mens: night 1 put back together, Oct 2 playoff set
+
+Night 1 had been generated with `games_per_week = 4`, so two of the six
+round-robin games landed on Oct 2 — the playoff night. That setting counts waves
+per night, and with three teams a wave is one game: the night needs 6. Fixed in
+place with every score kept: the two games moved to 9:20 and 9:40 on Sep 25,
+the setting to 6.
+
+The playoff was written directly rather than generated, because the bracket
+generator times itself off the last regular-season game and would have scheduled
+the semi at 10pm on Sep 25. Same row shape as the generator's, so advancing the
+semi winner works as normal: Team 1 v Team 3 at 8:00, Team 2 (3–1, first) waits
+in the 9:00 final. Hour-long slots as the organizer asked; the one-set format
+was left alone pending what "an hour" means for scoring.
+
+Data only; no code changed.
+
+---
+
 ## 2026-09-28 — SMVA's weekly loop: enter standings, lock, draw next week (0138)
 
 The org can now run a week without us. From the Ladder tab: type each gym's

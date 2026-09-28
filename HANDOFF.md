@@ -1524,6 +1524,30 @@ format one set to 25, win by 2, copied from their other leagues.
 **No schedule was generated, deliberately.** Fixtures follow the draft, and the
 playoff pairings follow week 1's results.
 
+**⚠️ CORRECTED 2026-09-28 — cycle 1 as it actually runs.** The organizer
+generated the season with `games_per_week = 4`, which put only four of the six
+round-robin games on Sep 25 and spilled two (Team 1 v Team 3, Team 2 v Team 1)
+onto **Oct 2 at 9:20/9:40 — the playoff night**. `games_per_week` counts WAVES
+per night, and with three teams a wave is one game, so the night needs **6**,
+not the 4 games each team plays. Fixed in place, scores kept: `games_per_week =
+6`, the two games moved to Sep 25 9:20 and 9:40 (night 1 now runs 8:00–10:00,
+six 20-minute one-set games, four each).
+
+**Oct 2 playoff written by hand**, not through `generateBracketAction`, because
+that chains bracket times off the last regular-season game — it would have put
+the semi at ~10pm on Sep 25. Rows match its shape exactly (3 seeds → semi at
+`round 1, bracket_position 2`, final at `round 2, position 1` with the 1-seed
+home and away null), so `place_bracket_winner` advances the semi winner as
+normal. Seeds from night 1: **Team 2 (3–1) byes to the 9:00 final; Team 1 (2–2)
+v Team 3 (1–3) in the 8:00 semi.** One-hour slots, per the organizer ("each
+game is an hour"). The match FORMAT was not changed — still one set to 25; if an
+hour means best-of-3 or a timed game, set `match_format` on those two rows.
+
+**Every later cycle needs the same hand-placement** until the gaps below are
+built — the generic generator neither schedules a round robin around playoff
+nights nor times a bracket on the next night. The teams have no rosters yet
+(`team_members` empty for all three).
+
 ⚠️ **Its page threw a server-side exception for the first hour, and the cause is
 a trap for every setup script.** `setup-mango-friday.ts` bound
 `${JSON.stringify(x)}::jsonb`. **postgres.js already JSON-encodes a parameter
