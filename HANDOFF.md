@@ -897,9 +897,12 @@ only (`seedingNights`), never the season, because Team 1 is re-drafted.
   shows only the latest session.
 - **Oct 2 is drawn** (2026-09-28): 6:45 SF1 Team 1 v Team 2 (Court 1), SF2
   Team 3 v Team 4 (Court 2); 7:45 Final (Court 1) and 3rd place (Court 2).
-  Seeds from Sep 18 + 25: Team 1, Team 3, Team 4, Team 2. **60-minute slots and
-  a third set to 25 were NOT stated by Liam** — both editable by redrawing
-  before any score is in.
+  Seeds from Sep 18 + 25: Team 1, Team 3, Team 4, Team 2. **Third set is to 15**
+  (Liam, 2026-09-28) — part of Playoff Format 1 now (`decidingSetTo`), and Oct
+  2's games were updated. The league cap of 27 applies to every set, so a third
+  set is win-by-2 with no practical cap; if they cap it at 17, a 17–16 finish
+  would be rejected and the format needs a per-set cap. **60-minute slots are
+  still a guess** — editable by redrawing before any score is in.
 - **Still true:** league standings count playoff games (nothing filters
   `bracket_position` out of `loadStandings`), so after Friday the season table
   includes them. The session seeding does not.

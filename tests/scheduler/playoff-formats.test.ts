@@ -95,7 +95,8 @@ describe("Playoff Format 1", () => {
 });
 
 describe("playoffMatchFormat", () => {
-  it("keeps the league's set length and rules, three sets of them", () => {
+  // Liam, 2026-09-28: "3rd set is to 15".
+  it("keeps the league's set length and rules, with a third set to 15", () => {
     const bigShoots: MatchFormat = {
       bestOf: 2,
       setsToPoints: [25, 25],
@@ -104,7 +105,7 @@ describe("playoffMatchFormat", () => {
     };
     expect(playoffMatchFormat(F1, bigShoots)).toEqual({
       bestOf: 3,
-      setsToPoints: [25, 25, 25],
+      setsToPoints: [25, 25, 15],
       winBy: 2,
       capPoints: 27,
     });

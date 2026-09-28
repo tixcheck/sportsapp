@@ -47,6 +47,11 @@ export interface PlayoffFormat {
   courts: number;
   /** Sets per game. The set length comes from the league's own format. */
   bestOf: MatchFormat["bestOf"];
+  /**
+   * The deciding set's target, when it is shorter than the rest — Big Shoots
+   * plays its third set to 15. Absent = the league's own set length throughout.
+   */
+  decidingSetTo?: number;
   /** A sensible slot for one game, which the organizer can change. */
   defaultSlotMinutes: number;
   games: PlayoffGameSpec[];
@@ -59,10 +64,11 @@ export const PLAYOFF_FORMATS: PlayoffFormat[] = [
     id: "format-1",
     label: "Playoff Format 1",
     description:
-      "Four teams, one night, best of 3 throughout. Semi-finals: seed 1 v seed 4 and seed 2 v seed 3. Then the two winners play the final and the two losers play for 3rd place, side by side.",
+      "Four teams, one night, best of 3 throughout (a third set, if needed, to 15). Semi-finals: seed 1 v seed 4 and seed 2 v seed 3. Then the two winners play the final and the two losers play for 3rd place, side by side.",
     teams: 4,
     courts: 2,
     bestOf: 3,
+    decidingSetTo: 15,
     defaultSlotMinutes: 60,
     games: [
       {
@@ -110,9 +116,9 @@ export function playoffFormat(id: string): PlayoffFormat | null {
 }
 
 /**
- * The format's match format: its number of sets, at the league's own set
- * length and rules. "Best of 3" from an organizer who plays sets to 25 capped
- * at 27 means three of those sets, not somebody else's idea of a third set.
+ * The format's match format: its number of sets at the league's own set length
+ * and rules, with the format's shorter deciding set where it names one. Big
+ * Shoots plays sets to 25 capped at 27, and a third set to 15.
  */
 export function playoffMatchFormat(
   format: PlayoffFormat,
@@ -122,7 +128,11 @@ export function playoffMatchFormat(
   return {
     ...league,
     bestOf: format.bestOf,
-    setsToPoints: Array.from({ length: format.bestOf }, () => setTo),
+    setsToPoints: Array.from({ length: format.bestOf }, (_, i) =>
+      i === format.bestOf - 1 && format.decidingSetTo
+        ? format.decidingSetTo
+        : setTo,
+    ),
   };
 }
 
