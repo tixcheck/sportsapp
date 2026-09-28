@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — A Pts column for the organizer
+
+Liam: "it says the rankings are calculated by MW and T — can we have a column
+that is the cumulation of the points, 1 for a W and .5 for a tie?" Organizer
+only; players are fine with wins. That number already existed — it is the OVA
+ranking's first step — so it is shown rather than invented: `Pts = MW + ½ T`,
+after ML, on the organizer's league Standings tab (`showPoints`), and only
+where ties are possible, since otherwise it repeats MW. Big Shoots reads 4.5 /
+3 / 2.5 / 2, matching his own table. Public and team pages unchanged.
+
 ## 2026-09-28 — Session playoffs, and Playoff Format 1 (0141)
 
 Big Shoots' first playoff night is Fri Oct 2, and Liam described it: seed 1 v

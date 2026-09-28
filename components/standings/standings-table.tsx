@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { DateTime } from "luxon";
 
 import type { MatchFormat } from "@/lib/db/schema";
 import type { StandingsGroup, StandingsRowView } from "@/lib/standings/compute";
 import { overallRows } from "@/lib/standings/overall";
+import { formatStandingsPoints, standingsPoints } from "@/lib/standings/points";
 import type { Sport } from "@/lib/formats";
 import { standingsLegendFlags } from "@/lib/formats";
 import { sportConfig } from "@/lib/sports";
@@ -69,6 +70,7 @@ export function StandingsTable({
   format,
   sport,
   differential = false,
+  showPoints = false,
 }: {
   rows: StandingsRowView[];
   myTeamIds?: string[];
@@ -79,6 +81,8 @@ export function StandingsTable({
   /** Point-differential tiebreaker: rank by PF − PA, not the OVA set/point
    * ratios — so the columns/legend match the organizer's chosen setting. */
   differential?: boolean;
+  /** A Pts column (1 per win, ½ per tie) — the organizer's view only. */
+  showPoints?: boolean;
 }) {
   if (rows.length === 0) {
     return (
@@ -112,6 +116,10 @@ export function StandingsTable({
     sport,
   );
   const pts = sportConfig(sport ?? "indoor6").points;
+  // Only where a tie is possible: without one, Pts would repeat MW.
+  const pointsCol = showPoints && cols.some((c) => c.key === "mt");
+  // Straight after the win/tie/loss columns it sums.
+  const afterResults = cols.findIndex((c) => c.key === "ml");
 
   // Week-over-week: the ordered league nights any team played (leagues attach
   // per-night W/L; tournaments don't, so these columns simply don't appear).
@@ -145,14 +153,20 @@ export function StandingsTable({
                 Total
               </th>
             )}
-            {cols.map((c) => (
-              <th
-                key={c.key as string}
-                title={c.hint}
-                className="px-2 pb-2 text-center font-bold"
-              >
-                {c.label}
-              </th>
+            {cols.map((c, i) => (
+              <Fragment key={c.key as string}>
+                <th title={c.hint} className="px-2 pb-2 text-center font-bold">
+                  {c.label}
+                </th>
+                {pointsCol && i === afterResults && (
+                  <th
+                    title="Standings points: 1 per match won, ½ per tie"
+                    className="px-2 pb-2 text-center font-bold"
+                  >
+                    Pts
+                  </th>
+                )}
+              </Fragment>
             ))}
             <th
               title={
@@ -236,13 +250,17 @@ export function StandingsTable({
                     {r.seasonGamesPlayed ?? "—"}
                   </td>
                 )}
-                {cols.map((c) => (
-                  <td
-                    key={c.key as string}
-                    className={cn("px-2 text-center", c.cell)}
-                  >
-                    {r[c.key] as number}
-                  </td>
+                {cols.map((c, i) => (
+                  <Fragment key={c.key as string}>
+                    <td className={cn("px-2 text-center", c.cell)}>
+                      {r[c.key] as number}
+                    </td>
+                    {pointsCol && i === afterResults && (
+                      <td className="text-ink px-2 text-center font-bold">
+                        {formatStandingsPoints(standingsPoints(r))}
+                      </td>
+                    )}
+                  </Fragment>
                 ))}
                 <td className="text-ink px-3 text-right font-semibold">
                   {differential ? fmtDiff(r.pf - r.pa) : fmt(r.pointRatio)}
@@ -293,6 +311,7 @@ export function StandingsLegend({
   canTie = true,
   format,
   differential = false,
+  showPoints = false,
 }: {
   className?: string;
   /** Names the PF/PA columns. Defaults to volleyball. */
@@ -305,6 +324,8 @@ export function StandingsLegend({
   format?: MatchFormat;
   /** Point-differential tiebreaker: final step is PF − PA, no set-ratio step. */
   differential?: boolean;
+  /** Explain the organizer's Pts column. */
+  showPoints?: boolean;
 }) {
   const flags = format ? standingsLegendFlags(format) : { singleSet, canTie };
   const single = flags.singleSet;
@@ -328,6 +349,7 @@ export function StandingsLegend({
       <p className="text-ink-3">
         GP games played / scheduled · MW/ML {unit} won/lost ·
         {ties ? " T tied ·" : ""}
+        {ties && showPoints ? " Pts = MW + ½ T ·" : ""}
         {showSets ? " SW/SL sets ·" : ""} {pts.short[0]}/{pts.short[1]}{" "}
         {pts.unit.toLowerCase()}s ·{" "}
         {differential
@@ -351,6 +373,7 @@ export function StandingsGroups({
   format,
   sport,
   differential = false,
+  showPoints = false,
 }: {
   groups: StandingsGroup[];
   showDivision: boolean;
@@ -361,6 +384,8 @@ export function StandingsGroups({
   format?: MatchFormat;
   /** Point-differential tiebreaker (leagues) — passed to each group's table. */
   differential?: boolean;
+  /** The organizer's Pts column — passed to each group's table. */
+  showPoints?: boolean;
 }) {
   // Division names in the order the groups arrive — i.e. seeded order.
   const divisions = [
@@ -454,6 +479,7 @@ export function StandingsGroups({
             format={format}
             sport={sport}
             differential={differential}
+            showPoints={showPoints}
           />
         </section>
       ) : (
@@ -476,6 +502,7 @@ export function StandingsGroups({
               format={format}
               sport={sport}
               differential={differential}
+              showPoints={showPoints}
             />
           </section>
         ))
@@ -485,6 +512,7 @@ export function StandingsGroups({
         format={format}
         sport={sport}
         differential={differential}
+        showPoints={showPoints}
       />
     </div>
   );

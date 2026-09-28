@@ -400,6 +400,7 @@ export default async function LeaguePage({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+              showPoints
             />
           ) : (
             <>
@@ -408,12 +409,14 @@ export default async function LeaguePage({
                 format={league.matchFormat}
                 sport={league.sport}
                 differential={league.tiebreaker === "differential"}
+                showPoints
               />
               {(standings[0]?.rows.length ?? 0) > 0 && (
                 <StandingsLegend
                   format={league.matchFormat}
                   sport={league.sport}
                   differential={league.tiebreaker === "differential"}
+                  showPoints
                 />
               )}
             </>
