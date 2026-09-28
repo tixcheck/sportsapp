@@ -5,6 +5,30 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-28 — Players can pay by card; Reverse Pairs pairs can pay (0142)
+
+Setting up Helix's Reverse Pairs (Oct 24, $80 a pair, each partner may pay
+half) turned up a bigger problem: no player had ever been able to pay by card.
+`payment_accounts` is admin-only under RLS, and every check that decides
+whether to offer the card button — and the checkout actions themselves — read
+it as the player. The live data agreed: zero paid card registrations, although
+MIH has had a fully enabled live account since August. 0142 adds
+`org_payment_account()`, which answers "can this org take cards, and where to"
+for anyone; the table stays admin-only. Verified as an ordinary player and a
+signed-out visitor.
+
+Then the Reverse Pairs half. A sign-up said "You're in" and stopped, leaving a
+paid pair at pending_payment forever and out of the draw. Now it goes to the
+team page to pay the full fee or a half; the partner is emailed the invite the
+RPC had been recording and never sending; the event page shows your own pair
+and counts pending pairs against the cap as the database does; a pair's team
+page points to the event page instead of "No matches yet"; and the claim page
+stopped telling every invitee they were the captain. Walked on production with
+a throwaway event: sign-up → team page ($80) → partner accepts → $40 each.
+
+Not yet: a real charge (needs Helix's Stripe onboarding), and a decision on the
+fees added on top — $83.53 for an $80 flyer price.
+
 ## 2026-09-28 — Mini-series standings; PO W means a series won
 
 Liam: players want to know "going into the night, how is Team 2 doing, and

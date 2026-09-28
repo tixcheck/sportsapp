@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0141`, and every one of `0060`–`0141` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0141` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0142`, and every one of `0060`–`0142` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -51,6 +51,7 @@
     | `0137` | Sep 25 | `swap_reverse_pairs()` — two pairs exchange their whole Reverse Pairs schedules, for a late arrival. Balance-preserving; refuses once any score exists |
     | `0138` | Sep 28 | `league_settings.ladder_draw` — `generated` (default, every ladder before) or `pod_grid` (the pinned grids in `pod-templates.ts`). SMVA is the only `pod_grid` league |
     | `0139` | Sep 28 | trigger `free_agents_carry_appearances` — a sign-up gaining an account carries its name-only appearances and absences onto it, so stats count one person |
+    | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
 
@@ -1514,15 +1515,30 @@ courts, up to 15 pairs, pay by card, "$40/player" = each partner pays half
 (`allow_split_payment`). The flyer is the event banner; the org logo was cropped
 from it (soft — ~210px source).
 
-**Two blockers before registration opens, neither done:**
+Venue address on the event and saved as a Helix venue: 66 Dufferin Park Ave,
+Toronto, ON M6H 1J6.
+
+**Before registration opens:**
 1. **Helix has no connected Stripe account** (`payment_accounts` has no row).
    Card payment is refused until the org finishes Stripe onboarding.
-2. **A Reverse Pairs sign-up never reaches payment.** `register-form.tsx` says
-   "You're in" and stops; with `payment_required` the pair sits at
-   `pending_payment` forever and is never drawn. The team page's
-   `TeamPaymentCard` (full or half share) and `startRegistrationCheckoutAction`
-   are type-agnostic and already price Reverse Pairs like a tournament — the
-   gap is sending the pair there, and proving it with real money.
+2. ~~A Reverse Pairs sign-up never reaches payment~~ — **built 2026-09-28**: a
+   paid event sends the pair to its team page (full fee or each partner's
+   half), the partner is emailed the invite, the event page shows your own pair
+   ("Finish paying") and counts pending pairs in spots left, and the team page
+   points to the event page. Walked end to end on production with a throwaway
+   Test Org event (deleted): sign-up → team page → partner accepts → $40/$40.
+   **Not yet proven with a real charge** — do one small live payment + refund
+   on Helix once onboarded.
+3. **Players pay $83.53 for the $80** ($41.92 each half): card + platform fees
+   are added on top, by design. The flyer says $80 — the owner should decide
+   whether that's fine or the fee should absorb it.
+
+**⚠️ Card payment was broken for every player until 0142 (2026-09-28).**
+`payment_accounts` is admin-only under RLS and every payer-facing check read it
+as the player, so the card button never showed and checkout refused. Zero card
+registrations had ever been paid. `getPaymentAccount` now reads through
+`org_payment_account()` (security definer, returns one org's row for one mode).
+The table's policy is unchanged.
 
 Rounds (10) and minutes (25) are placeholders; set them at draw time from the
 real field — 15 pairs on 2 courts balances at 5, 10 or 15 rounds.
