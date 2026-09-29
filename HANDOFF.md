@@ -419,6 +419,18 @@ owner's explicit go.**
 
 ## Scarborough Men's (SMVA) — format in, entry UI still to build
 
+**⚠️ WEEK 1 (Sep 28) IS HALF-ENTERED — the night did not match the app
+(2026-09-29).** The org's sheets show four gyms played different line-ups from
+the published schedule the app was loaded from: Sunday Knights played Agincourt
+(not Leacock, which ran as SIX teams on the 6-team grid), Traffic played PPL,
+Chefs played Porter, Big Dig Energy played King; LOGAN (not in the app) played
+Porter; OG, TGS and Team 39 aren't on any sheet; Insiders is crossed out at
+Porter (5 played). No Wexford sheet yet. **Only Bethune is loaded** (it matched
+exactly). The rest wait on the organizer: correct the week-1 placements to what
+was played, then load ranks. Also: King, Porter, Leacock and Agincourt all
+printed the 6-team grid with slots 3 and 5 the other way from `POD_6`
+(Bethune's order) — Bethune is the odd one out, so `POD_6` may be wrong.
+
 **⚠️ THE WEEKLY LOOP IS BUILT (2026-09-28).** The organizer runs it from the
 league's Ladder tab, no scripts:
 
