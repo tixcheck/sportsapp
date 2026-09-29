@@ -5,6 +5,14 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-29 — Four more team spots on BVL Spiking Thursday
+
+Vee: "add 4 more spots to the Thursdays Spiking 6s division". The league was at
+50 of 50 (22 active, 26 awaiting waivers, 2 awaiting payment — the cap counts
+every team that isn't withdrawn), with no divisions and nobody waitlisted.
+`league_settings.max_teams` 50 → 54; registration was already open, so the
+spots are live.
+
 ## 2026-09-28 — Players can pay by card; Reverse Pairs pairs can pay (0142)
 
 Setting up Helix's Reverse Pairs (Oct 24, $80 a pair, each partner may pay
