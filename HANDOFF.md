@@ -1521,9 +1521,20 @@ from it (soft — ~210px source).
 Venue address on the event and saved as a Helix venue: 66 Dufferin Park Ave,
 Toronto, ON M6H 1J6.
 
+**Cap raised to 18 pairs** (2026-09-29). On 2 courts, 18 pairs balance at
+even game counts: 12 rounds of 20 min = 8 games each (2:00–6:00, 5 repeat
+partnerships), or 9 rounds = 6 each with no repeats. Rounds/minutes are still
+placeholders (10 × 25) until the draw.
+
+**State on 2026-09-29:** someone has switched `registration_open` ON, but the
+event is still a **private draft**, and `register_reverse_pair` only accepts a
+public event — so nobody can sign up until it's published.
+
 **Before registration opens:**
-1. **Helix has no connected Stripe account** (`payment_accounts` has no row).
-   Card payment is refused until the org finishes Stripe onboarding.
+1. ~~Helix has no connected Stripe account~~ — **Dani connected it 2026-09-29**
+   (live). `charges_enabled` is true, so players can pay; `payouts_enabled` is
+   false with 1 requirement past due, so Stripe holds the money until she
+   answers it (her Payments card shows what's needed).
 2. ~~A Reverse Pairs sign-up never reaches payment~~ — **built 2026-09-28**: a
    paid event sends the pair to its team page (full fee or each partner's
    half), the partner is emailed the invite, the event page shows your own pair
