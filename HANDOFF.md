@@ -1505,8 +1505,11 @@ owner can do it from the UI rather than needing a DB write.
 
 ## Helix Reverse Pairs Tournament — Sat 24 Oct 2026 (set up 2026-09-28)
 
-Org **Helix Volleyball** (`helix-volleyball`, owned by the platform owner;
-organizers helix.volley@gmail.com and emilydrew55@hotmail.com). Competition
+Org **Helix Volleyball** (`helix-volleyball`). **Owned by Dani Farrugia
+(helix.volley@gmail.com) since 2026-09-28** — transferred from the platform
+owner, who set it up before the UI existed and stays on as `admin`; Emily
+(emilydrew55@hotmail.com) is an organizer. Dani should do the Stripe onboarding:
+payouts go to the owner's bank. Competition
 `helix-reverse-pairs-2026-10-24`, created by
 `lib/db/setup-helix-reverse-pairs.ts` as a **private draft, registration
 CLOSED**. From the flyer: 2–7pm, St Mary's Catholic Academy (no address on
