@@ -116,3 +116,30 @@ organizers net their target), payout timing, refunds, and **split payments**
 shares complete). A **v1** feature (PRD §14). Still needed from the owner before
 money can move: **Stripe test keys**, then the refund policy + tax stance copy
 for go-live.
+
+## Player app — "the league in your pocket"
+
+**Status:** planned for **roughly Nov–Dec 2026**, once leagues are paying and it
+is affordable (owner, 2026-09-29). Not started. Organizers stay on the web.
+
+**Why:** push notifications are the whole point — "you play 6:15, Court a,
+Turner Fenton", "confirm your score", "schedule changed", "playoffs drawn".
+Email is ignored. Also: one tap from the home screen to tonight, the night's
+schedule readable in a gym with no signal, and app-store presence.
+
+**Path, cheapest first:**
+1. **Installable web app + web push** (~1–2 weeks). `app/manifest.ts` and the
+   192/512 icons already exist; missing is a service worker, web push
+   subscriptions and a notification preference beside the email ones. iPhone
+   push needs the app added to the home screen (iOS 16.4+), so it needs a clear
+   "Add to Home Screen" prompt. Not a stack change.
+2. **App-store shell with Capacitor** (+1–2 weeks) around the same Next.js
+   pages, adding native push. Apple $99/yr, Google $25 once. Apple rejects thin
+   website wrappers — push + offline is what makes it more than one. This IS a
+   stack addition: write the ADR in `docs/adr/` first.
+3. **Fully native (React Native/Expo)** — not recommended: every screen built
+   twice, for little over option 2.
+
+**First notifications to build:** next game (with gym + court — now carried on
+`MyMatch.venueName`), and a score waiting for confirmation. Pilot on one
+league (Big Shoots or SMVA).
