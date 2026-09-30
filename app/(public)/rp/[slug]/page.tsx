@@ -13,6 +13,7 @@ import { ReversePairsRegisterForm } from "@/components/reverse-pairs/register-fo
 import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
 import { formatCents } from "@/lib/payments/format";
 import { createClient } from "@/lib/supabase/server";
+import { OrgTheme } from "@/components/branding/org-theme";
 
 export async function generateMetadata({
   params,
@@ -38,6 +39,29 @@ export default async function PublicReversePairsPage({
     data: { user },
   } = await supabase.auth.getUser();
   const fee = await getCompetitionPaymentSettings(event.competitionId);
+
+  // Whose event this is, and how it should look: the organizer's banner, logo
+  // and brand colours, the way their league registration page already shows
+  // the first two.
+  const { data: branding } = await supabase
+    .from("competitions")
+    .select(
+      "banner_url, organizations(name, logo_url, brand_accent, brand_background)",
+    )
+    .eq("id", event.competitionId)
+    .maybeSingle();
+  const org = (
+    branding as unknown as {
+      organizations: {
+        name: string;
+        logo_url: string | null;
+        brand_accent: string | null;
+        brand_background: string | null;
+      } | null;
+    } | null
+  )?.organizations;
+  const bannerUrl =
+    (branding as { banner_url: string | null } | null)?.banner_url ?? null;
 
   // Every pair holding a spot, paid or not — the cap counts both, so "spots
   // left" must too, or the form offers a place the database then refuses.
@@ -80,6 +104,19 @@ export default async function PublicReversePairsPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+      <OrgTheme accent={org?.brand_accent} background={org?.brand_background} />
+      {bannerUrl && (
+        // `contain`, as on the registration page: organizers upload a crest as
+        // often as a wide banner, and cropping one to fill shows its middle.
+        <div className="bg-paper-sunken -mx-4 -mt-8 flex justify-center sm:mx-0 sm:mt-0 sm:rounded-lg">
+          {/* eslint-disable-next-line @next/next/no-img-element -- external URL, no loader configured */}
+          <img
+            src={bannerUrl}
+            alt=""
+            className="h-56 w-auto max-w-full object-contain sm:h-72"
+          />
+        </div>
+      )}
       {/* Scores land while people are standing on the sideline looking at this. */}
       <AutoRefresh intervalMs={60_000} />
 
@@ -92,6 +129,22 @@ export default async function PublicReversePairsPage({
           court{event.settings.courts === 1 ? "" : "s"}
           {day && <> · {day}</>}
         </p>
+        {org && (
+          <div className="flex items-center gap-2">
+            {org.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element -- external URL, no loader configured
+              <img
+                src={org.logo_url}
+                alt=""
+                className="size-7 rounded-full object-cover"
+              />
+            )}
+            <p className="text-muted-foreground text-sm">
+              Hosted by{" "}
+              <span className="text-foreground font-medium">{org.name}</span>
+            </p>
+          </div>
+        )}
         {event.venue && (
           <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
             <MapPin className="size-3.5" />

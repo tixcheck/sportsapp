@@ -28,6 +28,7 @@ import { OrgPublicLink } from "@/components/org/org-public-link";
 import { getOrgVenues } from "@/lib/queries/venues";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { PayoutsCard } from "@/components/payments/payouts-card";
+import { OrgBrandCard } from "@/components/org/org-brand-card";
 import { ComposeMessageDialog } from "@/components/communications/compose-message-dialog";
 import {
   Card,
@@ -173,6 +174,13 @@ export default async function OrgPage({
 
       {isOrgAdmin && (
         <OrgLogoCard orgId={orgId} initialLogoUrl={org.logo_url} />
+      )}
+      {isOrgAdmin && (
+        <OrgBrandCard
+          orgId={orgId}
+          initialAccent={org.brand_accent}
+          initialBackground={org.brand_background}
+        />
       )}
 
       {isOrgAdmin && <VenuesCard orgId={orgId} venues={venues} />}

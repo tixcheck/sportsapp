@@ -308,6 +308,12 @@ export const organizations = pgTable("organizations", {
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
   logoUrl: text("logo_url"),
+  /**
+   * Brand colours for the org's public event pages (migration 0144), `#rrggbb`.
+   * The rest of the palette is derived by `embedTheme`. Null = app colours.
+   */
+  brandAccent: text("brand_accent"),
+  brandBackground: text("brand_background"),
   contactEmail: text("contact_email"),
   // Owner must exist; don't let a user be deleted out from under their org.
   ownerUserId: uuid("owner_user_id")

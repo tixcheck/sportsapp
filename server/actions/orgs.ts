@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { isSafeImageUrl } from "@/lib/uploads/image";
+import { parseHexColor } from "@/lib/embed/theme";
 import { CURRENT_ORG_COOKIE } from "@/lib/org/cookies";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
 import { createOrgSchema, type CreateOrgInput } from "@/lib/validations/org";
@@ -132,5 +133,77 @@ export async function updateOrgLogoAction(
 
   revalidatePath(`/orgs/${parsed.data.orgId}`);
   revalidatePath("/register", "layout");
+  return { ok: true };
+}
+
+const brandSchema = z
+  .object({
+    orgId: z.string().uuid(),
+    accent: z.string().trim(),
+    background: z.string().trim(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.accent && !parseHexColor(v.accent)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["accent"],
+        message: "Use a colour like #c04890.",
+      });
+    }
+    if (v.background && !parseHexColor(v.background)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["background"],
+        message: "Use a colour like #0f1a2b.",
+      });
+    }
+    if (v.background && !v.accent) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["accent"],
+        message: "Pick an accent to go with the background.",
+      });
+    }
+  });
+
+/**
+ * Save the org's brand colours for its public event pages (0144).
+ *
+ * Blank clears a colour; both blank puts the pages back on the app's own
+ * colours. Stored lowercase `#rrggbb` — the database checks the same shape,
+ * because the value is written into a style tag on a public page.
+ */
+export async function updateOrgBrandAction(
+  input: z.input<typeof brandSchema>,
+): Promise<ActionError | { ok: true }> {
+  const parsed = brandSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the colours." };
+  }
+  const { orgId, accent, background } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: allowed } = await supabase.rpc("can_manage_org", {
+    _org_id: orgId,
+  });
+  if (allowed !== true) {
+    return { error: "Only an organization admin can change its colours." };
+  }
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({
+      brand_accent: parseHexColor(accent),
+      brand_background: parseHexColor(background),
+    })
+    .eq("id", orgId);
+  if (error) {
+    console.error("[orgs] brand update failed");
+    return { error: "That couldn't be saved. Please try again." };
+  }
+
+  revalidatePath(`/orgs/${orgId}`);
+  revalidatePath("/register", "layout");
+  revalidatePath("/rp", "layout");
   return { ok: true };
 }

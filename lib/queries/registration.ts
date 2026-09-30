@@ -35,6 +35,9 @@ export interface RegistrationEvent {
     name: string;
     logoUrl: string | null;
     contactEmail: string | null;
+    /** Brand colours for this page (0144). Null = the app's own. */
+    brandAccent: string | null;
+    brandBackground: string | null;
   };
   /**
    * For a league, the recurring night ("Thursdays, 7:00 PM"). Null for a
@@ -88,7 +91,7 @@ export async function getRegistrationEvent(
   const { data: comp } = await supabase
     .from("competitions")
     .select(
-      "id, org_id, type, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status, description, banner_url, match_format, allow_individual_signups, waitlist_claim_hours, organizations(name, logo_url, contact_email)",
+      "id, org_id, type, name, slug, sport, venue, start_date, end_date, start_time, end_time, timezone, status, description, banner_url, match_format, allow_individual_signups, waitlist_claim_hours, organizations(name, slug, logo_url, contact_email, brand_accent, brand_background)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -169,6 +172,8 @@ export async function getRegistrationEvent(
         slug: string | null;
         logo_url: string | null;
         contact_email: string | null;
+        brand_accent: string | null;
+        brand_background: string | null;
       } | null;
     }
   ).organizations;
@@ -194,6 +199,8 @@ export async function getRegistrationEvent(
       name: orgRow?.name ?? "the organizer",
       logoUrl: orgRow?.logo_url ?? null,
       contactEmail: orgRow?.contact_email ?? null,
+      brandAccent: orgRow?.brand_accent ?? null,
+      brandBackground: orgRow?.brand_background ?? null,
     },
     weekly: firstSlot
       ? { dayOfWeek: firstSlot.dayOfWeek, startTime: firstSlot.startTime }

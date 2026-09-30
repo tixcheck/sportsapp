@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+
+import { OrgTheme } from "@/components/branding/org-theme";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
 import { ArrowRight } from "lucide-react";
@@ -316,6 +318,10 @@ export default async function RegisterPage({
 
   return (
     <div className="bg-background min-h-svh">
+      <OrgTheme
+        accent={event.org.brandAccent}
+        background={event.org.brandBackground}
+      />
       <header className="border-border bg-surface border-b">
         {event.bannerUrl && (
           // `contain`, not `cover`. The strip is nearly 9:1 on a desktop, and

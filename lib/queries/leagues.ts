@@ -11,6 +11,9 @@ export interface OrgSummary {
   logo_url: string | null;
   /** Default town its competitions count players against. Null = none. */
   home_locality: string | null;
+  /** Brand colours for public event pages (0144). Null = the app's own. */
+  brand_accent: string | null;
+  brand_background: string | null;
 }
 
 export interface LeagueSummary {
@@ -192,7 +195,9 @@ export async function getOrg(orgId: string): Promise<OrgSummary | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("organizations")
-    .select("id, name, slug, logo_url, home_locality")
+    .select(
+      "id, name, slug, logo_url, home_locality, brand_accent, brand_background",
+    )
     .eq("id", orgId)
     .single();
   return data;
