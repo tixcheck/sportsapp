@@ -1562,6 +1562,13 @@ public event — so nobody can sign up until it's published.
    Test Org event (deleted): sign-up → team page → partner accepts → $40/$40.
    **Not yet proven with a real charge** — do one small live payment + refund
    on Helix once onboarded.
+**⚠️ LIVE $1 TEST EVENT — DELETE AFTER THE TEST.** `helix-payment-test`
+("Payment test — do not register", Helix org, public, $1 per pair, max 2
+pairs, created 2026-09-30) exists only to prove a real card charge + refund on
+Helix's live Stripe. Charge is $1.35 with fees. Once paid, verified and
+refunded (the Reverse Pairs organizer page now has the Payments dashboard with
+refunds), delete the competition.
+
 3. **Players pay $83.53 for the $80** ($41.92 each half): card + platform fees
    are added on top, by design. The flyer says $80 — the owner should decide
    whether that's fine or the fee should absorb it.
