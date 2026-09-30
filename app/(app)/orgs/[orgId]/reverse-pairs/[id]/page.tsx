@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { getReversePairs } from "@/lib/queries/reverse-pairs";
 import { createClient } from "@/lib/supabase/server";
 import {
+  getCompetitionLedger,
   getCompetitionPaymentSettings,
   getPlatformFeeRatesFor,
   getPaymentAccount,
 } from "@/lib/queries/payments";
+import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { GenerateReversePairsPanel } from "@/components/reverse-pairs/generate-panel";
@@ -49,6 +51,15 @@ export default async function ReversePairsPage({
         getPaymentAccount(orgId),
       ])
     : [null, null, null];
+  // Who has paid, and refunds. Leagues and tournaments always had this; a
+  // Reverse Pairs event took fees with nowhere to see them. Null without a
+  // Stripe key, like everywhere else it is used.
+  const ledger =
+    isAdmin && feeSettings
+      ? await getCompetitionLedger(detail.competitionId, {
+          feeCents: feeSettings.registrationFeeCents,
+        })
+      : null;
 
   const played = detail.games.filter((g) => g.scoreA !== null).length;
   const counts = [...detail.gamesPerPair.values()];
@@ -198,6 +209,17 @@ export default async function ReversePairsPage({
                   paymentAccountStatus(orgAccount).canAcceptPayments
                 }
                 unitLabel="pair"
+              />
+            )}
+
+            {ledger && feeSettings && orgAccount !== undefined && (
+              <PaymentsDashboard
+                competitionId={detail.competitionId}
+                ledger={ledger}
+                payoutsReady={
+                  paymentAccountStatus(orgAccount).canAcceptPayments
+                }
+                splitAllowed={feeSettings.allowSplitPayment}
               />
             )}
           </TabsContent>
