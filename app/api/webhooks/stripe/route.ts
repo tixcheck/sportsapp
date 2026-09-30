@@ -19,8 +19,16 @@ import { sendPaymentReceipt, sendPaymentRefund } from "@/lib/email/send";
  * job like the digest cron — is allowed the Supabase secret key.
  *
  * Trust comes from the signature, never from the payload. We verify against
- * STRIPE_WEBHOOK_SECRET before reading a single field, then re-derive the flags
+ * the endpoint secrets before reading a single field, then re-derive the flags
  * from the event's own account object.
+ *
+ * Two Stripe endpoints point here, each with its own signing secret. A Connect
+ * endpoint only hears events that happen ON connected accounts (account.updated).
+ * Our Checkout sessions are destination charges created on the PLATFORM, so
+ * checkout.session.* and charge.refunded only reach a platform endpoint — with
+ * the Connect one alone, no card payment was ever marked paid (2026-09-30).
+ *   STRIPE_WEBHOOK_SECRET           the Connect endpoint
+ *   STRIPE_PLATFORM_WEBHOOK_SECRET  the platform endpoint
  */
 
 // The signature is computed over the exact bytes Stripe sent, so the body must
@@ -37,10 +45,39 @@ function createAdminClient(url: string, key: string) {
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
+/** Every configured endpoint secret; an event must verify against one. */
+function webhookSecrets(): string[] {
+  return [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_PLATFORM_WEBHOOK_SECRET,
+  ]
+    .map((s) => s?.trim())
+    .filter((s): s is string => !!s);
+}
+
+async function verifiedEvent(
+  body: string,
+  signature: string,
+  secrets: string[],
+): Promise<Stripe.Event | null> {
+  for (const secret of secrets) {
+    try {
+      return await getStripe().webhooks.constructEventAsync(
+        body,
+        signature,
+        secret,
+      );
+    } catch {
+      // Signed for the other endpoint, or not by Stripe — try the next.
+    }
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  const secrets = webhookSecrets();
   const mode = currentStripeMode();
-  if (!secret || !mode.configured) {
+  if (secrets.length === 0 || !mode.configured) {
     // Not configured is not the caller's fault, but it is ours to notice.
     console.error("[stripe-webhook] not configured");
     return NextResponse.json({ error: "not configured" }, { status: 500 });
@@ -52,14 +89,8 @@ export async function POST(request: Request) {
   }
 
   const body = await request.text();
-  let event: Stripe.Event;
-  try {
-    event = await getStripe().webhooks.constructEventAsync(
-      body,
-      signature,
-      secret,
-    );
-  } catch {
+  const event = await verifiedEvent(body, signature, secrets);
+  if (!event) {
     // A bad signature is either a misconfigured endpoint or someone probing.
     // Either way we tell Stripe nothing about why.
     return NextResponse.json({ error: "invalid signature" }, { status: 400 });

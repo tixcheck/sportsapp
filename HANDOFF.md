@@ -1564,6 +1564,19 @@ public event — so nobody can sign up until it's published.
    Test Org event (deleted): sign-up → team page → partner accepts → $40/$40.
    **Not yet proven with a real charge** — do one small live payment + refund
    on Helix once onboarded.
+**⚠️ CARD PAYMENTS NEVER SETTLE — webhook endpoint is Connect-only (found 2026-09-30).**
+Dani paid the $3.40 test at 21:27 UTC: Stripe says `paid`, our row
+(`cs_live_a1C3…`) stayed `pending` and her team `pending_payment`. The only
+Stripe endpoint (`we_1U6dyzFSGB6pS0FYe3OSGp0s`) is a **Connect** endpoint, so it
+hears events on connected accounts only; our Checkout sessions are destination
+charges on the **platform**, so `checkout.session.*` and `charge.refunded` are
+never sent (the event shows `pending_webhooks: 0`). Every paid live row so far
+is PayPal. Fix: the route now accepts `STRIPE_PLATFORM_WEBHOOK_SECRET` as well;
+**still to do** — create a platform (non-Connect) endpoint for those three
+events at the same URL, and put its `whsec_` into Vercel as
+`STRIPE_PLATFORM_WEBHOOK_SECRET`. Until then, don't refund through the app
+(the refund wouldn't be recorded), and Dani's row needs settling by hand.
+
 **⚠️ LIVE $1 TEST EVENT — DELETE AFTER THE TEST.** `helix-payment-test`
 ("Payment test — do not register", Helix org, public, $1 per pair, max 2
 pairs, created 2026-09-30) exists only to prove a real card charge + refund on
