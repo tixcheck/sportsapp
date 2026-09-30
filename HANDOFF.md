@@ -1571,11 +1571,14 @@ Stripe endpoint (`we_1U6dyzFSGB6pS0FYe3OSGp0s`) is a **Connect** endpoint, so it
 hears events on connected accounts only; our Checkout sessions are destination
 charges on the **platform**, so `checkout.session.*` and `charge.refunded` are
 never sent (the event shows `pending_webhooks: 0`). Every paid live row so far
-is PayPal. Fix: the route now accepts `STRIPE_PLATFORM_WEBHOOK_SECRET` as well;
-**still to do** — create a platform (non-Connect) endpoint for those three
-events at the same URL, and put its `whsec_` into Vercel as
-`STRIPE_PLATFORM_WEBHOOK_SECRET`. Until then, don't refund through the app
-(the refund wouldn't be recorded), and Dani's row needs settling by hand.
+is PayPal. Fix: the route now accepts `STRIPE_PLATFORM_WEBHOOK_SECRET` as well,
+and a platform endpoint `we_1ULVEVFSGB6pS0FYf8P56xse` (live; checkout.session.
+completed/expired, charge.refunded; same URL) was created 2026-09-30. Dani's
+row was settled by hand the same day after checking Stripe (paid, $3.40, $2.40
+application fee, destination Helix) and her pair set `active`. **Still to do:**
+`STRIPE_PLATFORM_WEBHOOK_SECRET` in Vercel (Production) + redeploy — until then
+that endpoint's deliveries fail signature (400) and Stripe retries them for up
+to 3 days, and a refund through the app isn't recorded.
 
 **⚠️ LIVE $1 TEST EVENT — DELETE AFTER THE TEST.** `helix-payment-test`
 ("Payment test — do not register", Helix org, public, $1 per pair, max 2
