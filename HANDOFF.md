@@ -1551,9 +1551,9 @@ public event — so nobody can sign up until it's published.
 
 **Before registration opens:**
 1. ~~Helix has no connected Stripe account~~ — **Dani connected it 2026-09-29**
-   (live). `charges_enabled` is true, so players can pay; `payouts_enabled` is
-   false with 1 requirement past due, so Stripe holds the money until she
-   answers it (her Payments card shows what's needed).
+   (live). **Fully clear as of 2026-09-30**, checked against Stripe directly,
+   not just our record: charges and payouts enabled, card_payments and
+   transfers active, nothing due, CAD bank on file.
 2. ~~A Reverse Pairs sign-up never reaches payment~~ — **built 2026-09-28**: a
    paid event sends the pair to its team page (full fee or each partner's
    half), the partner is emailed the invite, the event page shows your own pair
