@@ -1666,6 +1666,10 @@ export const platformFeeSettings = pgTable("platform_fee_settings", {
     .default(300),
   /** Leagues, captain paying for the team: flat cents per team. */
   leaguePerTeamCents: integer("league_per_team_cents").notNull().default(2000),
+  /** Reverse Pairs: flat cents per pair registration (migration 0143). */
+  reversePairsPerPairCents: integer("reverse_pairs_per_pair_cents")
+    .notNull()
+    .default(200),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

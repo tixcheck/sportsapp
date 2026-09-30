@@ -103,7 +103,41 @@ describe("platformFeeCentsFor", () => {
       tournamentPercent: 1,
       leaguePerPlayerCents: 300,
       leaguePerTeamCents: 2000,
+      reversePairsPerPairCents: 200,
     });
+  });
+
+  // The owner, 2026-09-30: "set the platform fee as $2/pair registration".
+  it("charges a Reverse Pairs pair a flat $2, whatever the entry costs", () => {
+    for (const price of [100, 8000, 20_000]) {
+      expect(
+        platformFeeCentsFor({
+          chargeBaseCents: price,
+          competitionType: "reverse_pairs",
+          payerMode: "captain_pays_team",
+        }),
+      ).toBe(200);
+    }
+  });
+
+  it("splits the pair's $2 across partners paying their own half", () => {
+    const half = platformFeeCentsFor({
+      chargeBaseCents: 4000,
+      competitionType: "reverse_pairs",
+      payerMode: "player_share",
+    });
+    expect(half).toBe(100);
+    expect(half * 2).toBe(200);
+  });
+
+  it("leaves KotC on the tournament percentage", () => {
+    expect(
+      platformFeeCentsFor({
+        chargeBaseCents: 8000,
+        competitionType: "kotc",
+        payerMode: "captain_pays_team",
+      }),
+    ).toBe(80);
   });
 });
 

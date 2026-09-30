@@ -5,6 +5,18 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-30 — Reverse Pairs: $2 a pair, and a payments dashboard
+
+The owner set the platform fee for Reverse Pairs at "$2/pair registration". It
+had been priced like a tournament, 1% of the entry. 0143 adds a flat per-pair
+rate beside the others (one settings row, defaulted, so waived events still
+zero it); partners splitting the fee carry $1 each so the halves add back to
+the pair's fee. KotC stays on the percentage. An $80 pair now pays $84.76.
+
+Setting up Helix's $1 live-payment test also showed the Reverse Pairs
+organizer page had no payments dashboard — fees could be taken with nowhere to
+see who paid or refund. It now has the same one as leagues and tournaments.
+
 ## 2026-09-29 — SMVA week 1 as it was played; one 6-team order
 
 The organizer sent the seven signed gym sheets for Sep 28, and the night hadn't

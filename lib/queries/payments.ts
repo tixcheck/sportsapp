@@ -184,7 +184,7 @@ export async function getPlatformFeeRates(): Promise<PlatformFeeRates> {
   const { data } = await supabase
     .from("platform_fee_settings")
     .select(
-      "tournament_percent, league_per_player_cents, league_per_team_cents",
+      "tournament_percent, league_per_player_cents, league_per_team_cents, reverse_pairs_per_pair_cents",
     )
     .maybeSingle();
   if (!data) return DEFAULT_PLATFORM_FEE_RATES;
@@ -193,11 +193,15 @@ export async function getPlatformFeeRates(): Promise<PlatformFeeRates> {
     tournament_percent: string | number;
     league_per_player_cents: number;
     league_per_team_cents: number;
+    reverse_pairs_per_pair_cents: number | null;
   };
   return {
     tournamentPercent: Number(r.tournament_percent),
     leaguePerPlayerCents: r.league_per_player_cents,
     leaguePerTeamCents: r.league_per_team_cents,
+    reversePairsPerPairCents:
+      r.reverse_pairs_per_pair_cents ??
+      DEFAULT_PLATFORM_FEE_RATES.reversePairsPerPairCents,
   };
 }
 

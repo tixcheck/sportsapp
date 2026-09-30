@@ -27,12 +27,15 @@ export type PlatformFeeRates = {
   tournamentPercent: number;
   leaguePerPlayerCents: number;
   leaguePerTeamCents: number;
+  /** Reverse Pairs: flat per pair registration (0143). */
+  reversePairsPerPairCents: number;
 };
 
 export const DEFAULT_PLATFORM_FEE_RATES: PlatformFeeRates = {
   tournamentPercent: 1,
   leaguePerPlayerCents: 300,
   leaguePerTeamCents: 2000,
+  reversePairsPerPairCents: 200,
 };
 
 /**
@@ -50,6 +53,7 @@ export const WAIVED_PLATFORM_FEE_RATES: PlatformFeeRates = {
   tournamentPercent: 0,
   leaguePerPlayerCents: 0,
   leaguePerTeamCents: 0,
+  reversePairsPerPairCents: 0,
 };
 
 /**
@@ -59,9 +63,10 @@ export const WAIVED_PLATFORM_FEE_RATES: PlatformFeeRates = {
  * for `captain_pays_team`, one player's share for `player_share`. The
  * percentage types care about it; the flat league rates don't.
  *
- * KotC and Reverse Pairs are priced like a tournament: they're one-off events
- * with an entry fee, which is what the tournament percentage was chosen for.
- * Leagues are the odd one out because they're the recurring, per-player product.
+ * KotC is priced like a tournament: a one-off event with an entry fee, which is
+ * what the tournament percentage was chosen for. Leagues are flat because
+ * they're the recurring, per-player product. Reverse Pairs is flat per pair
+ * (0143, the owner's rate): a pair is the unit people sign up and pay as.
  */
 export function platformFeeCentsFor({
   competitionType,
@@ -86,6 +91,15 @@ export function platformFeeCentsFor({
     return payerMode === "player_share"
       ? rates.leaguePerPlayerCents
       : rates.leaguePerTeamCents;
+  }
+
+  // Reverse Pairs: flat per pair. A partner paying their own share pays half
+  // of it — a pair is two people, and the two halves must add back to the
+  // pair's fee, not charge it twice.
+  if (competitionType === "reverse_pairs") {
+    return payerMode === "player_share"
+      ? Math.round(rates.reversePairsPerPairCents / 2)
+      : rates.reversePairsPerPairCents;
   }
 
   // Tournament and KotC: a percentage of what's being charged. Rounded to the
