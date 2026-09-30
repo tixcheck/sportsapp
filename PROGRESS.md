@@ -5,6 +5,27 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-30 — Organizer brand colours on public event pages (0144)
+
+Helix asked for its Reverse Pairs page to carry its logo and match its colours.
+The logo already existed; colours never reached any organizer's page. 0144 adds
+two columns to `organizations` — an accent and an optional background — and
+`OrgTheme` writes them over the page's colour tokens on `/rp/[slug]` and
+`/register/[slug]`. Two colours, not a palette, on purpose: text, card edges
+and a readable accent variant are derived by the existing `embedTheme` (the
+embed code), which keeps contrast safe; an organizer picking six colours would
+ship an unreadable page. Both columns are checked `#rrggbb` in the DB as well as
+in the action, since the value lands in a `<style>` tag. The org page gets a
+Brand colours card with a live preview. The RP page also gained its banner and
+a "Hosted by" line with the org logo. Fixed on the way: the registration query
+never selected the org's slug.
+
+Helix mocked three ways (flyer navy/coral, logo magenta on white, plain) on
+production with the test event temporarily dressed as the real one, then put
+back. No colours applied yet.
+
+---
+
 ## 2026-09-30 — Reverse Pairs: $2 a pair, and a payments dashboard
 
 The owner set the platform fee for Reverse Pairs at "$2/pair registration". It

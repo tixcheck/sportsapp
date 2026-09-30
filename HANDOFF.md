@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0143`, and every one of `0060`–`0143` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143` on 2026-09-30). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0144`, and every one of `0060`–`0144` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143` and `0144` on 2026-09-30). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -52,6 +52,7 @@
     | `0138` | Sep 28 | `league_settings.ladder_draw` — `generated` (default, every ladder before) or `pod_grid` (the pinned grids in `pod-templates.ts`). SMVA is the only `pod_grid` league |
     | `0139` | Sep 28 | trigger `free_agents_carry_appearances` — a sign-up gaining an account carries its name-only appearances and absences onto it, so stats count one person |
     | `0143` | Sep 30 | `platform_fee_settings.reverse_pairs_per_pair_cents` = 200 — Reverse Pairs pays a flat $2 per pair (half each when split), not 1% |
+    | `0144` | Sep 30 | `organizations.brand_accent` / `brand_background` (`#rrggbb`, checked) — the org's colours on its public Reverse Pairs and registration pages via `OrgTheme`; set on the org page's Brand colours card |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -1569,6 +1570,13 @@ pairs, created 2026-09-30) exists only to prove a real card charge + refund on
 Helix's live Stripe. Charge is $3.40 with fees since the $2 platform fee. Once paid, verified and
 refunded (the Reverse Pairs organizer page now has the Payments dashboard with
 refunds), delete the competition.
+
+**Brand colours (0144, 2026-09-30):** the owner asked for the event page in
+Helix's logo and colours. The RP page now shows the flyer banner and "Hosted by"
+the Helix logo; colours come from the Brand colours card on the org page (Dani
+can set them). Mocked on the real event copy with flyer colours (accent
+`#f07848`, background `#0f1a2b`) and logo colours (accent `#c04890`, white);
+**none applied yet** — Helix's brand columns are null, awaiting the owner's pick.
 
 3. **Players pay $84.76 for the $80** ($42.54 each half): card fees plus the
    platform's $2 are added on top, by design. The flyer says $80 — the owner
