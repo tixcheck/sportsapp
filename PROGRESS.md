@@ -5,6 +5,21 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-29 — SMVA week 1 as it was played; one 6-team order
+
+The organizer sent the seven signed gym sheets for Sep 28, and the night hadn't
+followed the published schedule the app was loaded from: six teams played in a
+different gym, Leacock ran as six, one team (Logan) isn't in the app, and three
+(OG, Zeus, Team 39) played nowhere. Week 1 was re-seated from the sheets
+(`smva-08-week1-actual.ts`, which refuses unless every gym's points balance
+against its printed total) and six of seven gyms' standings loaded, using his
+rules: points, then the higher seat going in. Porter and the three absentees
+wait on him.
+
+The sheets also showed four of five 6-team gyms playing a different slot order
+from Bethune's, which the app had followed as canonical. His answer — "pick one
+and go with it" — so `POD_6` is now the order four gyms already play.
+
 ## 2026-09-29 — Four more team spots on BVL Spiking Thursday
 
 Vee: "add 4 more spots to the Thursdays Spiking 6s division". The league was at

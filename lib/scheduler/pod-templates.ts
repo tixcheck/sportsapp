@@ -114,10 +114,13 @@ const POD_4: PodTemplate = {
 /**
  * 6 teams, 3 courts, 2 games per match.
  *
- * Transcribed from Bethune, which the organizer gave as the canonical grid.
- * The King sheet on the same night carries the same fifteen fixtures with
- * slots 3 and 5 exchanged — worth resolving with them, but Bethune is the one
- * to follow until they say otherwise.
+ * KING'S order, since 2026-09-29. This was first transcribed from Bethune, the
+ * sheet the organizer gave as canonical, whose slots 3 and 5 are the other way
+ * round. Week 1's signed sheets settled it: King, Porter, Leacock and Agincourt
+ * all played this order and only Bethune played its own. Asked which is right,
+ * the organizer said "should all be the same order — pick one and go with it",
+ * so it is the one four of five gyms already play. Same fifteen fixtures either
+ * way; only the 8:22 and 9:22 slots trade places.
  */
 const POD_6: PodTemplate = {
   teams: 6,
@@ -127,9 +130,9 @@ const POD_6: PodTemplate = {
   slots: [
     { time: "7:20 - 7:50", courts: [m("B", "D"), m("E", "F"), m("A", "C")] },
     { time: "7:52 - 8:20", courts: [m("A", "F"), m("E", "B"), m("D", "C")] },
-    { time: "8:22 - 8:50", courts: [m("D", "E"), m("C", "F"), m("A", "B")] },
+    { time: "8:22 - 8:50", courts: [m("B", "C"), m("A", "E"), m("D", "F")] },
     { time: "8:52 - 9:20", courts: [m("E", "C"), m("A", "D"), m("B", "F")] },
-    { time: "9:22 - 9:50", courts: [m("B", "C"), m("A", "E"), m("D", "F")] },
+    { time: "9:22 - 9:50", courts: [m("D", "E"), m("C", "F"), m("A", "B")] },
   ],
   clock: "Set clock at 26 minutes +4 minutes",
   scoring: "First games start at 4 points",

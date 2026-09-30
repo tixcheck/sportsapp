@@ -163,7 +163,8 @@ describe("the 4-team grid, as printed at Leacock A", () => {
   });
 });
 
-describe("the 6-team grid, as printed at Bethune", () => {
+// King's order since 2026-09-29: four of week 1's five 6-team gyms played it.
+describe("the 6-team grid, as printed at King", () => {
   const t = podTemplate(6)!;
 
   it("is five slots on three courts", () => {
@@ -180,9 +181,9 @@ describe("the 6-team grid, as printed at Bethune", () => {
     ).toEqual([
       ["7:20 - 7:50", "B vs D", "E vs F", "A vs C"],
       ["7:52 - 8:20", "A vs F", "E vs B", "D vs C"],
-      ["8:22 - 8:50", "D vs E", "C vs F", "A vs B"],
+      ["8:22 - 8:50", "B vs C", "A vs E", "D vs F"],
       ["8:52 - 9:20", "E vs C", "A vs D", "B vs F"],
-      ["9:22 - 9:50", "B vs C", "A vs E", "D vs F"],
+      ["9:22 - 9:50", "D vs E", "C vs F", "A vs B"],
     ]);
   });
 

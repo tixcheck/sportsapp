@@ -419,17 +419,24 @@ owner's explicit go.**
 
 ## Scarborough Men's (SMVA) — format in, entry UI still to build
 
-**⚠️ WEEK 1 (Sep 28) IS HALF-ENTERED — the night did not match the app
-(2026-09-29).** The org's sheets show four gyms played different line-ups from
-the published schedule the app was loaded from: Sunday Knights played Agincourt
-(not Leacock, which ran as SIX teams on the 6-team grid), Traffic played PPL,
-Chefs played Porter, Big Dig Energy played King; LOGAN (not in the app) played
-Porter; OG, TGS and Team 39 aren't on any sheet; Insiders is crossed out at
-Porter (5 played). No Wexford sheet yet. **Only Bethune is loaded** (it matched
-exactly). The rest wait on the organizer: correct the week-1 placements to what
-was played, then load ranks. Also: King, Porter, Leacock and Agincourt all
-printed the 6-team grid with slots 3 and 5 the other way from `POD_6`
-(Bethune's order) — Bethune is the odd one out, so `POD_6` may be wrong.
+**⚠️ WEEK 1 (Sep 28) — set to what was PLAYED, all but Porter loaded
+(2026-09-29).** The night didn't follow the published schedule: teams moved
+between gyms. `lib/db/smva-08-week1-actual.ts` re-seated week 1 from the seven
+signed sheets (Sunday Knights → Agincourt, Traffic → PPL, Chefs → Porter,
+Insiders + TGS → Wexford, Big Dig Energy → King; Leacock ran as SIX) and loaded
+every gym's standings except Porter's. Ranks by Total Points, ties to the team
+seated higher going in (organizer's rules) — which puts Insiders over Giant
+Crows at Wexford (Crows' "16" is 12 by their own games; the sheet's 36 agrees).
+**Waiting on the organizer (2026-09-30):**
+- **LOGAN** played Porter (seat B, left empty) but isn't in the app — new team,
+  or a rename (of OG?)?
+- **OG, Zeus, Team 39** played nowhere; they sit unranked at the end of Porter,
+  Wexford and King. Forfeited the week (rank last) or left the league (remove)?
+  Until then those three tiers can't lock.
+- Week 1's 93 `matches` still show the PUBLISHED line-ups, not what was played;
+  no scores hang off them. Redraw week 1 once Porter is settled, or leave.
+**`POD_6` is now KING'S order** (8:22 and 9:22 slots swapped from Bethune's):
+four of five 6-team gyms played it, and the organizer said "pick one".
 
 **⚠️ THE WEEKLY LOOP IS BUILT (2026-09-28).** The organizer runs it from the
 league's Ladder tab, no scripts:
