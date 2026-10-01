@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
+import { inviteDraftedPlayers } from "@/server/drafted-invites";
 
 type ActionError = { error: string };
 
@@ -128,6 +129,10 @@ export async function saveDraftAction(
       return { error: "Some players couldn't be returned to the pool." };
     }
   }
+
+  // Drafted players with an email and no account are told which team they're
+  // on — once per address, so re-saving the board doesn't email anyone again.
+  await inviteDraftedPlayers(supabase, competitionId);
 
   revalidatePath("/orgs");
   return { teams: teams.length, placed, returned: orphaned.length };

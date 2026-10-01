@@ -27,6 +27,12 @@ export interface InviteEmailProps {
    * team without ever being told they were the reason.
    */
   waiverRequired?: boolean;
+  /**
+   * The address the organizer entered for a drafted player. They're matched to
+   * their team by it when they sign up, so the email says to use it — sign up
+   * with another address and they land on an empty dashboard.
+   */
+  signupEmail?: string | null;
 }
 
 export function InviteEmail({
@@ -38,6 +44,7 @@ export function InviteEmail({
   venue,
   dates,
   waiverRequired = false,
+  signupEmail = null,
 }: InviteEmailProps) {
   const isCaptain = role === "captain";
   const heading = isCaptain
@@ -80,6 +87,14 @@ export function InviteEmail({
           ? "Claim your team to see your schedule, enter scores, and manage your roster — you'll sign in or create an account first."
           : "Join to see your schedule and standings on your dashboard."}
       </Text>
+
+      {signupEmail && (
+        <Text style={emailText}>
+          Create your free account (or sign in) with{" "}
+          <strong>{signupEmail}</strong> — that&apos;s the address your
+          organizer has, and it&apos;s how we put you on your team.
+        </Text>
+      )}
 
       {waiverRequired && (
         <Section

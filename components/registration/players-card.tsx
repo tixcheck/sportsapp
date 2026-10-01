@@ -28,6 +28,7 @@ import {
 import { QuestionFields } from "@/components/registration/question-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InviteUnjoinedButton } from "@/components/registration/invite-unjoined-button";
 import {
   Card,
   CardContent,
@@ -88,6 +89,13 @@ export function PlayersCard({
   // Narrow enough to stay readable on a phone; the dialog holds the rest.
   const columns = questions.slice(0, 3);
 
+  // Drafted onto a team, reachable by email, no account: the people the
+  // invite button is for. Same rule as the sender (needsDraftedInvite).
+  const unjoined = players.filter(
+    (p) => !p.userId && p.freeAgentId && p.teamId && p.email,
+  );
+  const notInvited = unjoined.filter((p) => !p.invitedAt).length;
+
   return (
     <Card>
       {/* The button belongs up here, not in the content: the content
@@ -104,10 +112,17 @@ export function PlayersCard({
             Edit anything that needs correcting — a phone number, a spelling.
           </CardDescription>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
-          <Plus className="size-3.5" />
-          Add a player
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <InviteUnjoinedButton
+            competitionId={competitionId}
+            notInvited={notInvited}
+            invitedNotJoined={unjoined.length - notInvited}
+          />
+          <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+            <Plus className="size-3.5" />
+            Add a player
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -383,7 +398,11 @@ function AccessBadge({ player }: { player: PlayerDirectoryRow }) {
   const state = leagueAccess(player);
   if (state === "no-account") {
     return (
-      <span className="text-muted-foreground text-xs">Not joined yet</span>
+      <span className="text-muted-foreground text-xs">
+        {player.invitedAt
+          ? `Invited ${new Date(player.invitedAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`
+          : "Not joined yet"}
+      </span>
     );
   }
   if (state === "can-see") {

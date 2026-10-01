@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0146`, and every one of `0060`–`0146` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146` on 2026-10-01). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0147`, and every one of `0060`–`0147` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146` and `0147` on 2026-10-01). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -55,6 +55,7 @@
     | `0144` | Sep 30 | `organizations.brand_accent` / `brand_background` (`#rrggbb`, checked) — the org's colours on its public Reverse Pairs and registration pages via `OrgTheme`; set on the org page's Brand colours card |
     | `0145` | Sep 30 | Reverse Pairs auto names: `teams.name_is_auto`; a pair is `Captain/Partner` or `Captain/TBD`, renamed by triggers on `team_members`/`team_invites` (`refresh_reverse_pair_name`), clashes numbered (`Sam/TBD 2`), any other rename clears the flag; one partner per pair (`reverse_pair_one_partner`); `register_reverse_pair` takes a blank name |
     | `0146` | Oct 1 | `organizations.brand_secondary` (`#rrggbb`, checked) — optional second brand colour; on a light page `orgPageCss` washes from an accent tint (top) to a tint of this (bottom), under white cards |
+    | `0147` | Oct 1 | `free_agents.invited_at` / `invited_email` — drafted players with no account are emailed to join (server/drafted-invites.ts), once per address |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -1716,6 +1717,24 @@ recording 17 would stack every round 3 minutes early.
 - Samuel cancelled and is not in the field; Chris & Erika joined late.
 
 ## Mango Sports Friday Mens League — a drafted 2-week cycle (set up 2026-09-25)
+
+**⚠️ 2026-10-01 — waiver attached; all 3 teams HELD until their joined players
+sign.** The owner asked that Mens players sign Mango's waiver (`e19d7bc5…`,
+"Fall Volleyball League Waiver", already on Coed). Attached the same way
+`setCompetitionWaiverAction` does (waiver_id set, every team re-synced): Teams
+1–3 went `pending_waiver` — 8 joined players, 0 signed — with the playoff on
+Fri Oct 2. The owner chose this knowing the risk. Check before the playoff that
+they've signed (or detach: `waiver_id = null` + re-sync each team).
+
+The 9 drafted players with an email and no account were emailed to join the
+same day (`lib/db/invite-drafted-players.mts`, the app's own invite email,
+with the waiver note). Karan had already signed up and was linked. Mango has no
+`contact_email`, so replies to invites and reminders go nowhere — ask Roger for
+one.
+
+The daily waiver-reminder cron had NEVER sent anything: it filtered
+`status <> 'complete'`, not a value of the enum, so the query failed and read
+as "no competitions". Fixed 2026-10-01.
 
 Org **Mango Sports** (`0c1cf5aa-c34c-4425-8a13-a711579dc53e`), competition
 `ed052851-387e-443f-9cb8-1b91f8291b24`, slug `mango-sports-friday-mens-league`.

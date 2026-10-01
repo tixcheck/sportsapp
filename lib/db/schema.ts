@@ -1925,6 +1925,9 @@ export const freeAgents = pgTable(
      * which drafts in list order.
      */
     draftRank: integer("draft_rank"),
+    // Last emailed to join, and at which address (0147) — one invite per address.
+    invitedAt: timestamp("invited_at", { withTimezone: true }),
+    invitedEmail: text("invited_email"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

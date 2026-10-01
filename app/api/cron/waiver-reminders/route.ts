@@ -58,11 +58,20 @@ export async function GET(request: Request) {
 
   // Competitions that actually require a waiver. Everything else is skipped
   // before a single roster is read.
-  const { data: comps } = await admin
+  //
+  // The status is `completed` — this once said `complete`, which isn't a value
+  // of the enum, so Postgres refused the query, `comps` came back null and the
+  // job reminded nobody, every day, without a word (found 2026-10-01). Read
+  // the error now rather than treat a failed query as an empty one.
+  const { data: comps, error: compsError } = await admin
     .from("competitions")
     .select("id, name, waiver_id, org_id, status")
     .not("waiver_id", "is", null)
-    .neq("status", "complete");
+    .not("status", "in", "(completed,cancelled)");
+  if (compsError) {
+    console.error("[waiver-reminders] competitions query failed");
+    return NextResponse.json({ error: "query failed" }, { status: 500 });
+  }
 
   let sent = 0;
   let skipped = 0;

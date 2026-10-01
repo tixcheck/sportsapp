@@ -572,6 +572,11 @@ export type PlayerDirectoryRow = {
    */
   freeAgentStatus: string | null;
   /**
+   * When a drafted player without an account was emailed to join, at the
+   * email they have now (0147). Null = not invited at this address.
+   */
+  invitedAt: string | null;
+  /**
    * A `team_members` row exists for them in this competition.
    *
    * Not cosmetic: `my_competitions` is built entirely on that table, so a
@@ -647,7 +652,7 @@ export async function getPlayerDirectory(
     supabase
       .from("free_agents")
       .select(
-        "id, user_id, name, email, phone, positions, skill_level, notes, status, placed_team_id",
+        "id, user_id, name, email, phone, positions, skill_level, notes, status, placed_team_id, invited_at, invited_email",
       )
       .eq("competition_id", competitionId)
       .neq("status", "withdrawn"),
@@ -700,6 +705,7 @@ export async function getPlayerDirectory(
         userId: m.user_id,
         freeAgentId: null,
         freeAgentStatus: null,
+        invitedAt: null,
         name,
         // Only worth carrying when it says something the name doesn't.
         accountName:
@@ -726,6 +732,8 @@ export async function getPlayerDirectory(
     notes: string | null;
     status: string;
     placed_team_id: string | null;
+    invited_at: string | null;
+    invited_email: string | null;
   }[]) {
     const draft = {
       name: fa.name,
@@ -760,6 +768,13 @@ export async function getPlayerDirectory(
       userId: fa.user_id,
       freeAgentId: fa.id,
       freeAgentStatus: fa.status,
+      // Only an invite to the address they have now counts.
+      invitedAt:
+        fa.invited_at &&
+        fa.email &&
+        fa.invited_email?.toLowerCase() === fa.email.trim().toLowerCase()
+          ? fa.invited_at
+          : null,
       name: fa.name,
       accountName: null,
       email: fa.email,

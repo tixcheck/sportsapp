@@ -5,6 +5,29 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-01 — Drafted players get an invite email (0147); waiver reminders actually send
+
+Mango: "Guys aren't seeing the email for mens." Adding a drafted player's email
+only stored it. Someone who signs up with that address is linked on first
+sign-in (0130/0131), but nothing ever told them to — and the owner had told
+Roger they'd get an email. Now `inviteDraftedPlayers` (server/drafted-invites.ts)
+emails a placed player with an email and no account — the existing invite
+template, plus "sign up with <this address>", plus the waiver note when the
+league has one — when an organizer adds/corrects their email, places them, or
+saves the draft board; and the Players tab has "Invite N not joined" /
+"Resend invites" and shows "Invited Oct 1". 0147 records the address invited, so
+it's one email per address (a corrected typo re-sends; re-saving doesn't). The
+rule is `needsDraftedInvite` (lib/registration, tested). Sent to Mango Mens' 9
+the same day via `lib/db/invite-drafted-players.mts`, which uses the same rule
+and email.
+
+Found on the way: the waiver-reminder cron filtered on a status that doesn't
+exist (`complete`, not `completed`), so every run failed its first query and
+reminded nobody — it has never sent one. Fixed, and it now reports a failed
+query instead of treating it as an empty one.
+
+---
+
 ## 2026-10-01 — "Now playing" on Reverse Pairs events
 
 Leagues and tournaments had a Now playing board; Reverse Pairs didn't. Built

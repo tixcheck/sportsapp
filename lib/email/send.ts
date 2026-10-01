@@ -150,6 +150,43 @@ export interface TeammateInviteEmailProps {
   waiverRequired?: boolean;
 }
 
+export interface DraftedPlayerInviteEmailProps {
+  teamName: string;
+  competitionName: string;
+  /** The organization, e.g. "Mango Sports". */
+  inviterName: string;
+  joinUrl: string;
+  /** The address they must sign up with to be matched to their team. */
+  signupEmail: string;
+  waiverRequired?: boolean;
+}
+
+/**
+ * A drafted player with no account: they're already on the team, so there's no
+ * invite token to claim — signing up (or in) with this address is what links
+ * them (claim_free_agent_signups).
+ */
+export function sendDraftedPlayerInvite(
+  to: string,
+  props: DraftedPlayerInviteEmailProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    replyTo,
+    subject: `You're on ${props.teamName} in ${props.competitionName}`,
+    react: InviteEmail({
+      role: "player",
+      teamName: props.teamName,
+      competitionName: props.competitionName,
+      inviterName: props.inviterName,
+      claimUrl: props.joinUrl,
+      signupEmail: props.signupEmail,
+      waiverRequired: props.waiverRequired,
+    }),
+  });
+}
+
 export function sendTeammateInvite(
   to: string,
   props: TeammateInviteEmailProps,

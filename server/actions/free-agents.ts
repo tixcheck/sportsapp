@@ -15,6 +15,7 @@ import { canDeleteSignup } from "@/lib/registration/signup-removal";
 import { loadOrgPeople } from "@/lib/queries/org-people";
 import { matchPeople, type OrgPerson } from "@/lib/registration/org-people";
 import type { Sport } from "@/lib/formats";
+import { inviteDraftedPlayers } from "@/server/drafted-invites";
 
 type ActionError = { error: string };
 
@@ -438,8 +439,56 @@ export async function placeFreeAgentsAction(
     return { error: "Those players couldn't be placed. Please try again." };
   }
 
+  // Placed players without an account are told they're on a team.
+  const { data: placedOn } = await supabase
+    .from("teams")
+    .select("competition_id")
+    .eq("id", parsed.data.teamId)
+    .maybeSingle();
+  if (placedOn) {
+    await inviteDraftedPlayers(
+      supabase,
+      (placedOn as { competition_id: string }).competition_id,
+      { freeAgentIds: parsed.data.freeAgentIds },
+    );
+  }
+
   await revalidateForTeam(supabase, parsed.data.teamId);
   return { placed: typeof data === "number" ? data : 0 };
+}
+
+const inviteSchema = z.object({
+  competitionId: idSchema,
+  /** Email everyone not yet joined again, not only those never emailed. */
+  resend: z.boolean().optional(),
+});
+
+/**
+ * "Invite everyone who hasn't joined" — the Players tab button.
+ *
+ * Emails every drafted player on a team who has an email and no account. By
+ * default only those not yet invited at their current address, so pressing it
+ * twice doesn't email anyone twice; `resend` is the deliberate "send again".
+ */
+export async function inviteUnjoinedPlayersAction(
+  input: z.input<typeof inviteSchema>,
+): Promise<ActionError | { sent: number; failed: number }> {
+  const parsed = inviteSchema.safeParse(input);
+  if (!parsed.success) return { error: "Unknown competition." };
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: parsed.data.competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only an organizer can invite players." };
+  }
+  const result = await inviteDraftedPlayers(
+    supabase,
+    parsed.data.competitionId,
+    { resend: parsed.data.resend },
+  );
+  await revalidateForCompetition(supabase, parsed.data.competitionId);
+  return result;
 }
 
 const formTeamSchema = z.object({
@@ -792,6 +841,11 @@ export async function updateFreeAgentDetailsAction(
   }
 
   await renameInLineups(supabase, competitionId, existing, v.name);
+  // A placed player whose email was just added or corrected hears about it —
+  // the organizer adding it is the moment they can finally be reached.
+  await inviteDraftedPlayers(supabase, competitionId, {
+    freeAgentIds: [v.freeAgentId],
+  });
   await revalidateForCompetition(supabase, competitionId);
   return { ok: true };
 }
