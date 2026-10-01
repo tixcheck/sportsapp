@@ -1583,12 +1583,9 @@ same call as the app's refund button) and `charge.refunded` arrived through
 the new endpoint and marked the row `refunded` within 5s. Card payments now
 settle on their own. Minor: the refund row's `stripe_refund_id` stayed null.
 
-**⚠️ LIVE $1 TEST EVENT — DELETE AFTER THE TEST.** `helix-payment-test`
-("Payment test — do not register", Helix org, public, $1 per pair, max 2
-pairs, created 2026-09-30) exists only to prove a real card charge + refund on
-Helix's live Stripe. Charge is $3.40 with fees since the $2 platform fee. Once paid, verified and
-refunded (the Reverse Pairs organizer page now has the Payments dashboard with
-refunds), delete the competition.
+**$1 test event — done and deleted (2026-09-30).** `helix-payment-test` proved
+a real card charge ($3.40) and refund on Helix's live Stripe, then was deleted
+(its payment row went with it; Stripe keeps the charge and refund).
 
 **Brand colours (0144, 2026-09-30):** the owner asked for the event page in
 Helix's logo and colours. The RP page now shows the flyer banner and "Hosted by"
