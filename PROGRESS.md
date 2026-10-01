@@ -5,6 +5,20 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-01 — A second brand colour: pages that match a two-colour logo (0146)
+
+The owner asked for Helix's page on a soft tint "matching the logo colors". A
+single tint caught one end of Helix's magenta-to-teal ring and read as plain
+pink, so organizations get an optional `brand_secondary`. `orgPageCss`
+(lib/branding, tested) builds on the embed theme with two page-only changes: a
+light tinted page gets white cards (a page that is one flat tint reads as a
+wash), and with a second colour the body fades from an accent tint at the top
+to a tint of the second at the bottom. Neither applies to a dark background.
+The Brand colours card has the third field and previews the same wash.
+Helix: magenta, blush, teal.
+
+---
+
 ## 2026-09-30 — Reverse Pairs: sign up alone, named Dani/Mel (0145)
 
 The owner: a captain may not have a partner when registering; let them invite

@@ -46,7 +46,7 @@ export default async function PublicReversePairsPage({
   const { data: branding } = await supabase
     .from("competitions")
     .select(
-      "banner_url, organizations(name, logo_url, brand_accent, brand_background)",
+      "banner_url, organizations(name, logo_url, brand_accent, brand_background, brand_secondary)",
     )
     .eq("id", event.competitionId)
     .maybeSingle();
@@ -57,6 +57,7 @@ export default async function PublicReversePairsPage({
         logo_url: string | null;
         brand_accent: string | null;
         brand_background: string | null;
+        brand_secondary: string | null;
       } | null;
     } | null
   )?.organizations;
@@ -116,7 +117,11 @@ export default async function PublicReversePairsPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <OrgTheme accent={org?.brand_accent} background={org?.brand_background} />
+      <OrgTheme
+        accent={org?.brand_accent}
+        background={org?.brand_background}
+        secondary={org?.brand_secondary}
+      />
       {bannerUrl && (
         // `contain`, as on the registration page: organizers upload a crest as
         // often as a wide banner, and cropping one to fill shows its middle.

@@ -321,6 +321,7 @@ export default async function RegisterPage({
       <OrgTheme
         accent={event.org.brandAccent}
         background={event.org.brandBackground}
+        secondary={event.org.brandSecondary}
       />
       <header className="border-border bg-surface border-b">
         {event.bannerUrl && (

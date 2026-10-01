@@ -141,8 +141,23 @@ const brandSchema = z
     orgId: z.string().uuid(),
     accent: z.string().trim(),
     background: z.string().trim(),
+    secondary: z.string().trim().optional().default(""),
   })
   .superRefine((v, ctx) => {
+    if (v.secondary && !parseHexColor(v.secondary)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["secondary"],
+        message: "Use a colour like #48c0c0.",
+      });
+    }
+    if (v.secondary && !v.accent) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["accent"],
+        message: "Pick an accent to go with the second colour.",
+      });
+    }
     if (v.accent && !parseHexColor(v.accent)) {
       ctx.addIssue({
         code: "custom",
@@ -180,7 +195,7 @@ export async function updateOrgBrandAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the colours." };
   }
-  const { orgId, accent, background } = parsed.data;
+  const { orgId, accent, background, secondary } = parsed.data;
 
   const supabase = await createClient();
   const { data: allowed } = await supabase.rpc("can_manage_org", {
@@ -195,6 +210,7 @@ export async function updateOrgBrandAction(
     .update({
       brand_accent: parseHexColor(accent),
       brand_background: parseHexColor(background),
+      brand_secondary: parseHexColor(secondary),
     })
     .eq("id", orgId);
   if (error) {

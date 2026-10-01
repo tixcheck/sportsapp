@@ -8,7 +8,8 @@ import { z } from "zod";
 import { toast } from "sonner";
 
 import { updateOrgBrandAction } from "@/server/actions/orgs";
-import { embedTheme, parseHexColor } from "@/lib/embed/theme";
+import { embedTheme, luminance, parseHexColor } from "@/lib/embed/theme";
+import { brandWash } from "@/lib/branding/page-theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,28 +29,31 @@ const colour = z
     "Use a colour like #c04890.",
   );
 const formSchema = z
-  .object({ accent: colour, background: colour })
-  .refine((v) => !v.background || v.accent, {
+  .object({ accent: colour, background: colour, secondary: colour })
+  .refine((v) => (!v.background && !v.secondary) || v.accent, {
     path: ["accent"],
-    message: "Pick an accent to go with the background.",
+    message: "Pick an accent to go with the other colours.",
   });
 type FormValues = z.infer<typeof formSchema>;
 
 /**
  * The org's colours on its public event pages — Reverse Pairs, registration.
  *
- * Two inputs on purpose: the accent (buttons, highlights) and the page
- * background. Text and card edges are derived so they stay readable, which the
+ * The accent (buttons, highlights), the page background, and an optional
+ * second colour that the page fades toward — for a logo with two colours in
+ * it. Text and card edges are derived so they stay readable, which the
  * preview shows before anything is saved.
  */
 export function OrgBrandCard({
   orgId,
   initialAccent,
   initialBackground,
+  initialSecondary,
 }: {
   orgId: string;
   initialAccent: string | null;
   initialBackground: string | null;
+  initialSecondary: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -58,11 +62,20 @@ export function OrgBrandCard({
     defaultValues: {
       accent: initialAccent ?? "",
       background: initialBackground ?? "",
+      secondary: initialSecondary ?? "",
     },
   });
   const v = useWatch({ control: form.control });
   const theme = embedTheme({ accent: v.accent, background: v.background });
   const errors = form.formState.errors;
+  const second = parseHexColor(v.secondary);
+  // The same wash the public page paints (lib/branding/page-theme.ts).
+  // Only a light page gets the wash and white cards — as on the real page.
+  const light = !!theme && luminance(theme.background) > 0.6;
+  const wash =
+    theme && light && second
+      ? brandWash(theme.background, theme.accent, second)
+      : undefined;
 
   function save(values: FormValues) {
     start(async () => {
@@ -79,7 +92,7 @@ export function OrgBrandCard({
   }
 
   const field = (
-    name: "accent" | "background",
+    name: "accent" | "background" | "secondary",
     label: string,
     hint: string,
   ) => (
@@ -120,9 +133,14 @@ export function OrgBrandCard({
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(save)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             {field("accent", "Accent", "Buttons and highlights.")}
             {field("background", "Background", "The page. Blank = white.")}
+            {field(
+              "secondary",
+              "Second colour",
+              "Optional. The page fades toward it — for a two-colour logo.",
+            )}
           </div>
 
           {theme && (
@@ -130,6 +148,7 @@ export function OrgBrandCard({
               className="rounded-lg border p-4"
               style={{
                 background: theme.background,
+                backgroundImage: wash,
                 color: theme.ink,
                 borderColor: theme.rule,
               }}
@@ -145,7 +164,12 @@ export function OrgBrandCard({
               </p>
               <div
                 className="mt-3 rounded-md p-3 text-sm"
-                style={{ background: theme.surface }}
+                style={{
+                  background:
+                    light && (wash || theme.background !== "#ffffff")
+                      ? "#ffffff"
+                      : theme.surface,
+                }}
               >
                 Register your pair
                 <span
@@ -162,12 +186,14 @@ export function OrgBrandCard({
             <Button type="submit" disabled={pending}>
               Save colours
             </Button>
-            {(initialAccent || initialBackground) && (
+            {(initialAccent || initialBackground || initialSecondary) && (
               <Button
                 type="button"
                 variant="ghost"
                 disabled={pending}
-                onClick={() => save({ accent: "", background: "" })}
+                onClick={() =>
+                  save({ accent: "", background: "", secondary: "" })
+                }
               >
                 Use the app&apos;s colours
               </Button>

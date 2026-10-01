@@ -180,6 +180,7 @@ export default async function OrgPage({
           orgId={orgId}
           initialAccent={org.brand_accent}
           initialBackground={org.brand_background}
+          initialSecondary={org.brand_secondary}
         />
       )}
 

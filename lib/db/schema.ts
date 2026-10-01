@@ -314,6 +314,8 @@ export const organizations = pgTable("organizations", {
    */
   brandAccent: text("brand_accent"),
   brandBackground: text("brand_background"),
+  // Optional second colour: tints the bottom of the page, the accent the top (0146).
+  brandSecondary: text("brand_secondary"),
   contactEmail: text("contact_email"),
   // Owner must exist; don't let a user be deleted out from under their org.
   ownerUserId: uuid("owner_user_id")

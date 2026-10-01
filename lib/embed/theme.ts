@@ -112,7 +112,7 @@ export function shiftUntilReadable(
 }
 
 /** Mix two colours, `amount` 0–1 toward `b`. */
-function mix(a: string, b: string, amount: number): string {
+export function mix(a: string, b: string, amount: number): string {
   const [ar, ag, ab] = channels(a);
   const [br, bg, bb] = channels(b);
   return toHex([

@@ -14,6 +14,7 @@ export interface OrgSummary {
   /** Brand colours for public event pages (0144). Null = the app's own. */
   brand_accent: string | null;
   brand_background: string | null;
+  brand_secondary: string | null;
 }
 
 export interface LeagueSummary {
@@ -196,7 +197,7 @@ export async function getOrg(orgId: string): Promise<OrgSummary | null> {
   const { data } = await supabase
     .from("organizations")
     .select(
-      "id, name, slug, logo_url, home_locality, brand_accent, brand_background",
+      "id, name, slug, logo_url, home_locality, brand_accent, brand_background, brand_secondary",
     )
     .eq("id", orgId)
     .single();
