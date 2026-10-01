@@ -1602,7 +1602,9 @@ Helix's logo and colours. The RP page now shows the flyer banner and "Hosted by"
 the Helix logo; colours come from the Brand colours card on the org page (Dani
 can set them). Mocked on the real event copy with flyer colours (accent
 `#f07848`, background `#0f1a2b`) and logo colours (accent `#c04890`, white);
-**none applied yet** — Helix's brand columns are null, awaiting the owner's pick.
+**Applied 2026-09-30: logo colours** — `brand_accent = #c04890` (the logo's
+magenta), background null (white), as the owner asked. Dani can change them on
+the org page's Brand colours card.
 
 3. **Players pay $84.76 for the $80** ($42.54 each half): card fees plus the
    platform's $2 are added on top, by design. The flyer says $80 — the owner
