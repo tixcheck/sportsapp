@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-01 — BVL: Serves You Right back to unpaid (data fix)
+
+Vee: Serves You Right (Spiking 6s Thursdays) showed unpaid on the payments page
+but fully registered under Teams, with no PayPal record. Their $2,040 PayPal
+payment had been confirmed in error and undone on 2026-09-16 — the day 0122
+added the undo that also re-gates the team; this undo predates it, so the
+payment went back to pending but the team stayed `active`. Set the team to
+`pending_payment` (not admitted unpaid, no paid rows). A sweep of every
+payment-required competition found no other active team short of its fee.
+
 ## 2026-10-01 — A second brand colour: pages that match a two-colour logo (0146)
 
 The owner asked for Helix's page on a soft tint "matching the logo colors". A
