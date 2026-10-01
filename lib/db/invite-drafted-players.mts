@@ -41,15 +41,25 @@ async function main() {
       from free_agents f left join teams t on t.id = f.placed_team_id
      where f.competition_id = ${c.id}
      order by t.name, f.name`;
-  const due = rows.filter((r) =>
-    needsDraftedInvite({
-      status: r.status,
-      userId: r.user_id,
-      email: r.email,
-      placedTeamId: r.placed_team_id,
-      invitedEmail: r.invited_email,
-    }),
+  // Anyone whose email already has an account isn't emailed to make one:
+  // that's backfill-0131-claim.ts's job (the same rule as the app's
+  // link_free_agent_account, 0149). Run it first; here they're just skipped.
+  const accounts = new Set(
+    (
+      await sql`select lower(btrim(email)) as e from users where email is not null`
+    ).map((u) => u.e as string),
   );
+  const due = rows
+    .filter((r) => !r.email || !accounts.has(r.email.trim().toLowerCase()))
+    .filter((r) =>
+      needsDraftedInvite({
+        status: r.status,
+        userId: r.user_id,
+        email: r.email,
+        placedTeamId: r.placed_team_id,
+        invitedEmail: r.invited_email,
+      }),
+    );
   console.log(
     `${c.name} (${c.org}) — waiver: ${c.waiver_id ? "yes" : "no"}, reply-to: ${c.contact_email ? "org contact email" : "none"}`,
   );

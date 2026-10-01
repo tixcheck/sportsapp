@@ -5,6 +5,19 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-01 — Drafted players are linked to their accounts straight away (0149)
+
+Matthew appeared twice on Mango Mens' Players tab. He'd had an account since
+Sep 22; his drafted row carried his email but was never linked, because
+`claim_free_agent_signups` runs only on the player's own sign-in. Three more
+the same. `link_free_agent_account` (0149) applies the claim's rule to one row,
+for that competition's organizers, and `inviteDraftedPlayers` runs it before
+choosing who to email — so entering an email that has an account links them
+(and their roster row) at once, and only people with no account get "create
+your account". Backfilled with the existing 0131 script (4 linked, none left).
+
+---
+
 ## 2026-10-01 — One waiver signature per org, not per league (0148)
 
 The owner: "one waiver is enough for the org." Attaching Mango's Coed waiver to
