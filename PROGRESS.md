@@ -15,6 +15,8 @@ payment went back to pending but the team stayed `active`. Set the team to
 `pending_payment` (not admitted unpaid, no paid rows). A sweep of every
 payment-required competition found no other active team short of its fee.
 
+---
+
 ## 2026-10-01 — A second brand colour: pages that match a two-colour logo (0146)
 
 The owner asked for Helix's page on a soft tint "matching the logo colors". A
