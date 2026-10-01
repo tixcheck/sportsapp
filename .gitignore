@@ -50,3 +50,6 @@ next-env.d.ts
 # Generated schedule sheets - output, not source
 *-schedule.html
 *-schedule.pdf
+
+# Throwaway local scripts
+lib/db/_tmp/
