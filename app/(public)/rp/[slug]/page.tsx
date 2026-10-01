@@ -137,8 +137,9 @@ export default async function PublicReversePairsPage({
           {event.name}
         </h1>
         <p className="text-muted-foreground text-sm">
-          Reverse Pairs · {event.pairs.length} pairs · {event.settings.courts}{" "}
-          court{event.settings.courts === 1 ? "" : "s"}
+          Reverse Pairs · {event.pairs.length} pair
+          {event.pairs.length === 1 ? "" : "s"} · {event.settings.courts} court
+          {event.settings.courts === 1 ? "" : "s"}
           {day && <> · {day}</>}
         </p>
         {org && (
