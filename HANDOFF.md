@@ -1610,8 +1610,9 @@ fades magenta → teal like the logo ring, white cards on top (owner asked for
 can change them on the org page's Brand colours card.
 
 3. **Players pay $84.76 for the $80** ($42.54 each half): card fees plus the
-   platform's $2 are added on top, by design. The flyer says $80 — the owner
-   should decide whether that's fine or the fee should absorb it.
+   platform's $2 are added on top, by design. **Decided 2026-10-01: players
+   pay the fees** — no change needed. Only step left: **publish** (organizer
+   page → Publish; sets `status = open`, `visibility = public`).
 
 **⚠️ Card payment was broken for every player until 0142 (2026-09-28).**
 `payment_accounts` is admin-only under RLS and every payer-facing check read it
