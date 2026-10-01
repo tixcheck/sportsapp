@@ -404,7 +404,7 @@ export async function getTeamStageFacts(competitionId: string): Promise<{
       ? supabase
           .from("waiver_acceptances")
           .select("user_id")
-          .eq("competition_id", competitionId)
+          // Signed once for the org's waiver counts in all its leagues (0148).
           .eq("waiver_id", waiverId)
       : Promise.resolve({ data: [] as { user_id: string }[] }),
   ]);

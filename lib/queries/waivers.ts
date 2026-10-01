@@ -147,7 +147,7 @@ export async function getCompetitionWaiverState(
       ? supabase
           .from("waiver_acceptances")
           .select("user_id, signed_name, accepted_at")
-          .eq("competition_id", competitionId)
+          // Signed once for the org's waiver counts in all its leagues (0148).
           .eq("waiver_id", waiverId)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     getPlayerNameAnswers(competitionId),
@@ -353,11 +353,22 @@ export async function getMySignedWaiverIds(
   } = await supabase.auth.getUser();
   if (!user) return [];
 
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("waiver_id")
+    .eq("id", competitionId)
+    .maybeSingle();
+  const waiverId = (comp as { waiver_id: string | null } | null)?.waiver_id;
+  if (!waiverId) return [];
+
   const { data } = await supabase
     .from("waiver_acceptances")
     .select("waiver_id")
-    .eq("competition_id", competitionId)
-    .eq("user_id", user.id);
+    // Any competition: a waiver signed for another of the org's leagues is the
+    // same document (0148). Scoped to the one this competition requires.
+    .eq("user_id", user.id)
+    .eq("waiver_id", waiverId)
+    .limit(1);
 
   return (data ?? []).map((r) => r.waiver_id as string);
 }

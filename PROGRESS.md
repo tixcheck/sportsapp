@@ -5,6 +5,21 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-01 — One waiver signature per org, not per league (0148)
+
+The owner: "one waiver is enough for the org." Attaching Mango's Coed waiver to
+Friday Mens held every Mens team, though seven of eight players had signed that
+exact document for Coed: a signature counted only for the competition it was
+given in. A waiver is the org's document, identified by `waiver_id`, so the
+test is now (user, waiver) everywhere — the entry gate, the dashboard's "waiver
+to sign" prompt, the trigger that re-checks a signer's teams (now in every
+league using that waiver), the reminder cron, the organizer's waiver list, the
+team gate and registration's "already signed" skip. `competition_id` stays on
+the acceptance as where they signed. A re-sync released Mens Teams 1 and 3 (Team
+2 waits on one player who has never signed) and one BVL team.
+
+---
+
 ## 2026-10-01 — Drafted players get an invite email (0147); waiver reminders actually send
 
 Mango: "Guys aren't seeing the email for mens." Adding a drafted player's email

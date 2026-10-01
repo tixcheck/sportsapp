@@ -114,7 +114,7 @@ export async function GET(request: Request) {
       const { data: signatures } = await admin
         .from("waiver_acceptances")
         .select("user_id")
-        .eq("competition_id", comp.id)
+        // Signed once for the org's waiver counts in all its leagues (0148).
         .eq("waiver_id", comp.waiver_id)
         .in("user_id", userIds);
       const signedIds = new Set(

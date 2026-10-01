@@ -57,7 +57,7 @@ export async function getTeamEntryGate(
     const { data: signatures } = await supabase
       .from("waiver_acceptances")
       .select("user_id")
-      .eq("competition_id", t.competition_id)
+      // Signed once for the org's waiver counts in all its leagues (0148).
       .eq("waiver_id", waiverId)
       .in(
         "user_id",
