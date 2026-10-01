@@ -26,27 +26,39 @@ export function InviteTeammateDialog({
   teamName,
   variant = "outline",
   size = "sm",
+  pair = false,
 }: {
   teamId: string;
   teamName: string;
+  /**
+   * A Reverse Pairs pair: one partner, asked for by name too, because the pair
+   * is named after them ("Dani/TBD" becomes "Dani/Mel" as the invite goes out).
+   */
+  pair?: boolean;
   variant?: "outline" | "ghost";
   size?: "sm" | "default";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   function invite() {
     start(async () => {
-      const res = await inviteTeammateAction(teamId, email.trim());
+      const res = await inviteTeammateAction(
+        teamId,
+        email.trim(),
+        name.trim() || undefined,
+      );
       if ("error" in res) {
         toast.error(res.error);
         return;
       }
       setLink(res.claimUrl);
       setEmail("");
+      setName("");
       toast.success(
         res.emailSent
           ? "Invite sent — they'll get a link to join."
@@ -67,19 +79,36 @@ export function InviteTeammateDialog({
       <DialogTrigger asChild>
         <Button type="button" variant={variant} size={size}>
           <UserPlus />
-          Invite teammate
+          {pair ? "Invite partner" : "Invite teammate"}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add a teammate to {teamName}</DialogTitle>
+          <DialogTitle>
+            {pair ? "Invite your partner" : `Add a teammate to ${teamName}`}
+          </DialogTitle>
           <DialogDescription>
-            They&apos;ll join the roster as a player (not a scorer). Send as
-            many as you need.
+            {pair
+              ? "We'll email them a link to join your pair. Inviting someone new replaces an invite you've already sent."
+              : "They'll join the roster as a player (not a scorer). Send as many as you need."}
           </DialogDescription>
         </DialogHeader>
+        {pair && (
+          <div className="grid gap-1.5">
+            <Label htmlFor={`tm-name-${teamId}`}>Partner&apos;s name</Label>
+            <Input
+              id={`tm-name-${teamId}`}
+              value={name}
+              maxLength={80}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Mel Chan"
+            />
+          </div>
+        )}
         <div className="grid gap-1.5">
-          <Label htmlFor={`tm-${teamId}`}>Player email</Label>
+          <Label htmlFor={`tm-${teamId}`}>
+            {pair ? "Partner's email" : "Player email"}
+          </Label>
           <Input
             id={`tm-${teamId}`}
             type="email"

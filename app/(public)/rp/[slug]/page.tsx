@@ -67,7 +67,7 @@ export default async function PublicReversePairsPage({
   // left" must too, or the form offers a place the database then refuses.
   const { data: holding } = await supabase
     .from("teams")
-    .select("id, name, status, captain_user_id")
+    .select("id, name, status, captain_user_id, name_is_auto")
     .eq("competition_id", event.competitionId)
     .neq("status", "withdrawn");
   const held = (holding ?? []) as {
@@ -75,6 +75,7 @@ export default async function PublicReversePairsPage({
     name: string;
     status: string;
     captain_user_id: string | null;
+    name_is_auto: boolean;
   }[];
   const awaitingPayment = held.filter((t) => t.status === "pending_payment");
   // The viewer's own pair: registering again would only say "already
@@ -93,6 +94,17 @@ export default async function PublicReversePairsPage({
       .maybeSingle();
     mine = held.find((t) => t.id === member?.team_id);
   }
+  // A pair signed up alone is "Dani/TBD" until a partner is invited or joins.
+  const needsPartner =
+    !!mine && mine.name_is_auto && /\/TBD( \d+)?$/.test(mine.name);
+  // The name the form will register them under, shown before they commit.
+  const { data: me } = user
+    ? await supabase
+        .from("users")
+        .select("display_name, email")
+        .eq("id", user.id)
+        .maybeSingle()
+    : { data: null };
 
   const played = event.games.filter((g) => g.scoreA !== null).length;
   const first = event.games.find((g) => g.scheduledAt)?.scheduledAt ?? null;
@@ -160,6 +172,8 @@ export default async function PublicReversePairsPage({
             {mine.status === "pending_payment"
               ? " — not paid yet, so not in the draw."
               : " — you're in."}
+            {needsPartner &&
+              " No partner yet — invite one from your pair's page."}
           </p>
           <Link
             href={`/teams/${mine.id}`}
@@ -176,6 +190,14 @@ export default async function PublicReversePairsPage({
         <ReversePairsRegisterForm
           competitionId={event.competitionId}
           signedIn={!!user}
+          me={
+            me
+              ? {
+                  displayName: me.display_name as string | null,
+                  email: me.email as string | null,
+                }
+              : null
+          }
           feeLabel={
             fee.registrationFeeCents > 0
               ? `${formatCents(fee.registrationFeeCents)} per pair`

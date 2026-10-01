@@ -433,6 +433,36 @@ export async function inviteTeammateAction(
     return { error: "Only the captain or organizer can add teammates." };
   }
 
+  // A Reverse Pairs pair is two people. Inviting someone new while an invite is
+  // still out means the captain changed their mind, so the old invite goes;
+  // once a partner has actually joined, it's a full pair. The database refuses
+  // a second partner either way (0145) — this just gets there kindly.
+  const { data: comp0 } = await supabase
+    .from("competitions")
+    .select("type")
+    .eq("id", team.competition_id)
+    .single();
+  if ((comp0?.type as string | undefined) === "reverse_pairs") {
+    const { count } = await supabase
+      .from("team_members")
+      .select("user_id", { count: "exact", head: true })
+      .eq("team_id", teamId)
+      .eq("role", "player");
+    if ((count ?? 0) > 0) {
+      return {
+        error:
+          "Your pair already has a partner. Ask the organizer if you need to change them.",
+      };
+    }
+    const { error: revokeErr } = await supabase
+      .from("team_invites")
+      .update({ status: "revoked" })
+      .eq("team_id", teamId)
+      .eq("role", "player")
+      .eq("status", "pending");
+    if (revokeErr) return { error: revokeErr.message };
+  }
+
   const token = generateToken();
   const expiresAt = new Date(
     Date.now() + INVITE_TTL_DAYS * 86_400_000,

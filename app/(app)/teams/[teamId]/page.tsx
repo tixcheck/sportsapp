@@ -229,7 +229,11 @@ export default async function TeamPage({
           <div className="flex items-center justify-between gap-3">
             <CardTitle>Roster</CardTitle>
             {canInvite && (
-              <InviteTeammateDialog teamId={team.id} teamName={team.name} />
+              <InviteTeammateDialog
+                teamId={team.id}
+                teamName={team.name}
+                pair={(competition.type as string) === "reverse_pairs"}
+              />
             )}
           </div>
         </CardHeader>

@@ -651,7 +651,11 @@ export async function updateReversePairsSettingsAction(
 
 const registerSchema = z.object({
   competitionId: idSchema,
-  pairName: z.string().trim().min(2, "Your pair needs a name.").max(80),
+  /**
+   * Blank (the default since 0145) = named for its people, "Dani/Mel" or
+   * "Dani/TBD", and kept up to date by the database as the partner arrives.
+   */
+  pairName: z.string().trim().max(80).optional(),
   partnerEmail: z
     .string()
     .trim()
@@ -664,7 +668,7 @@ const registerSchema = z.object({
 export type RegisterReversePairInput = z.input<typeof registerSchema>;
 
 /**
- * Sign yourself and your partner up.
+ * Sign yourself up — with your partner, or alone and invite them later.
  *
  * The gates live in `register_reverse_pair` rather than here: registration
  * being open, the deadline, and the last spot are all races, and checking them
@@ -688,7 +692,7 @@ export async function registerReversePairAction(
 
   const { data, error } = await supabase.rpc("register_reverse_pair", {
     _competition_id: v.competitionId,
-    _pair_name: v.pairName,
+    _pair_name: v.pairName ?? "",
     _partner_email: v.partnerEmail || null,
     _partner_name: v.partnerName || null,
   });

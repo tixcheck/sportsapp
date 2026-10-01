@@ -5,6 +5,22 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-30 — Reverse Pairs: sign up alone, named Dani/Mel (0145)
+
+The owner: a captain may not have a partner when registering; let them invite
+one later, and name pairs FirstName/FirstName. The partner was already optional
+and the pair page already had an invite button, so the work was the name and
+the guard rails. The name is owned by the database — triggers on
+`team_members` and `team_invites` — because a partner can arrive four ways
+(sign-up form, invite dialog, claim link, autolink) and a rename step in each
+would drift. `name_is_auto` means an organizer's own rename is never
+overwritten. Names are unique per event, so a clash is numbered rather than
+refused. A pair is two people, so a second partner is refused in the database,
+and a fresh invite replaces a pending one (the captain changed their mind).
+Rehearsed live in a rolled-back transaction as a real user.
+
+---
+
 ## 2026-09-30 — Card payments settle: a platform Stripe webhook
 
 Helix's live $3.40 test was paid in Stripe but stayed "unpaid" in the app. The

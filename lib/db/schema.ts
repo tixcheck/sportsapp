@@ -722,6 +722,9 @@ export const teams = pgTable(
       onDelete: "set null",
     }),
     name: text("name").notNull(),
+    // Reverse Pairs: the name is generated ("Dani/Mel", "Dani/TBD") and the DB
+    // keeps it in step with the roster. Any other rename clears it (0145).
+    nameIsAuto: boolean("name_is_auto").notNull().default(false),
     // KotC: the two participants' first names, e.g. "Sam/Riley" (nullable; other
     // competition types don't use it).
     players: text("players"),

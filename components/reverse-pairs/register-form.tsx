@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { registerReversePairAction } from "@/server/actions/reverse-pairs";
+import { pairName as pairNameFor } from "@/lib/reverse-pairs/pair-name";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,9 +21,12 @@ import {
 /**
  * Sign a pair up, from the public page.
  *
- * One name for the pair and, optionally, the partner's email. The partner is
- * invited rather than silently added, so they end up with an account of their
- * own and can see the schedule without borrowing a phone.
+ * No pair name to type: a pair is named for its people — "Dani/Mel", or
+ * "Dani/TBD" for someone signing up before they've found a partner — and the
+ * database renames it as the partner is invited or joins. The partner is
+ * optional here and can be invited later from the pair's page; either way
+ * they're invited rather than silently added, so they end up with an account
+ * of their own and can see the schedule without borrowing a phone.
  *
  * The rules that decide whether this succeeds live in the database, because
  * "is there a spot left" is a race. This form only tries.
@@ -30,11 +34,14 @@ import {
 export function ReversePairsRegisterForm({
   competitionId,
   signedIn,
+  me,
   feeLabel,
   spotsLeft,
 }: {
   competitionId: string;
   signedIn: boolean;
+  /** The signed-in player, to show the name they'll register under. */
+  me: { displayName: string | null; email: string | null } | null;
   /** e.g. "$40.00 per pair", or null when the event is free. */
   feeLabel: string | null;
   /** Null when uncapped. */
@@ -42,7 +49,6 @@ export function ReversePairsRegisterForm({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [pairName, setPairName] = useState("");
   const [partnerName, setPartnerName] = useState("");
   const [partnerEmail, setPartnerEmail] = useState("");
 
@@ -51,7 +57,6 @@ export function ReversePairsRegisterForm({
     start(async () => {
       const res = await registerReversePairAction({
         competitionId,
-        pairName,
         partnerName,
         partnerEmail,
       });
@@ -67,7 +72,6 @@ export function ReversePairsRegisterForm({
         return;
       }
       toast.success("You're in. See you on the day.");
-      setPairName("");
       setPartnerName("");
       setPartnerEmail("");
       router.refresh();
@@ -99,20 +103,13 @@ export function ReversePairsRegisterForm({
           </div>
         ) : (
           <form onSubmit={submit} className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor="rp-name">Pair name</Label>
-              <Input
-                id="rp-name"
-                required
-                maxLength={80}
-                placeholder="Sam &amp; Mel"
-                value={pairName}
-                onChange={(e) => setPairName(e.target.value)}
-              />
-              <p className="text-ink-3 text-xs">
-                However you want to appear on the schedule.
-              </p>
-            </div>
+            <p className="text-sm">
+              Your pair will be listed as{" "}
+              <span className="font-semibold">
+                {pairNameFor(me ?? {}, partnerName)}
+              </span>
+              .
+            </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
@@ -137,13 +134,14 @@ export function ReversePairsRegisterForm({
               </div>
             </div>
             <p className="text-ink-3 -mt-2 text-xs">
-              We&rsquo;ll email them an invite so they can join your pair
+              No partner yet? Leave these blank and invite them later from your
+              pair&rsquo;s page. Either way we email them an invite to join
               {feeLabel ? " — and pay their half, if you're splitting it" : ""}.
             </p>
 
             <Button
               type="submit"
-              disabled={pending || pairName.trim().length < 2}
+              disabled={pending}
               className="justify-self-start"
             >
               {pending ? "Registering…" : "Register"}
