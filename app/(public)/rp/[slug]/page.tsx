@@ -220,9 +220,9 @@ export default async function PublicReversePairsPage({
       {event.games.length === 0 ? (
         <div className="border-rule bg-surface space-y-3 rounded-lg border p-6">
           <p className="text-muted-foreground text-center text-sm">
-            The schedule hasn&rsquo;t been drawn yet — it&rsquo;s made once the
-            field is known, so everyone gets as many different teammates as the
-            day allows.
+            The schedule comes out once registration closes. We wait until we
+            know every pair, so everyone gets to play with as many different
+            partners as possible.
           </p>
           {held.length > 0 && (
             <div>
