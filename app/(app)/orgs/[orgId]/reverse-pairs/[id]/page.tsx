@@ -17,6 +17,7 @@ import { ReversePairsPairsCard } from "@/components/reverse-pairs/pairs-card";
 import { ReversePairsPublishCard } from "@/components/reverse-pairs/publish-card";
 import { ReversePairsSettingsCard } from "@/components/reverse-pairs/settings-card";
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
+import { ReversePairsNowPlaying } from "@/components/reverse-pairs/now-playing";
 import { ReversePairsSwapCard } from "@/components/reverse-pairs/swap-card";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -122,6 +123,12 @@ export default async function ReversePairsPage({
               locked={detail.games.some((g) => g.scoreA !== null)}
             />
           )}
+
+          <ReversePairsNowPlaying
+            games={detail.games}
+            byes={detail.byes}
+            timezone={detail.timezone}
+          />
 
           <ReversePairsSchedule
             games={detail.games}

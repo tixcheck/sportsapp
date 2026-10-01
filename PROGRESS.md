@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-01 — "Now playing" on Reverse Pairs events
+
+Leagues and tournaments had a Now playing board; Reverse Pairs didn't. Built
+for the format rather than reused: every court starts together and the whole
+field rotates, so the board is one ROUND (all its courts), plus who's sitting
+it out — which changes every round and is half of "am I on?" — and when the
+next round starts. `reversePairsNow` (lib/schedule, 9 tests) picks the latest
+round whose start has passed, moved on past rounds already fully scored, so it
+advances on scores or on the clock, whichever is first; it opens 30 minutes
+before the first round and clears when the day's rounds are all scored. On the
+public event page (top) and the organizer's Tonight tab. Checked against a
+throwaway copy of BVL's real schedule set to today, with the browser clock
+faked mid-round, then deleted. The public schedule now also uses the event's
+own timezone rather than a Toronto default.
+
+---
+
 ## 2026-10-01 — BVL: Serves You Right back to unpaid (data fix)
 
 Vee: Serves You Right (Spiking 6s Thursdays) showed unpaid on the payments page

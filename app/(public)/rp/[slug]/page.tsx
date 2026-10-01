@@ -8,6 +8,7 @@ import { getReversePairsBySlug } from "@/lib/queries/reverse-pairs";
 import { PartnerMatrixCard } from "@/components/reverse-pairs/partner-matrix";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 import { PublicReversePairsSchedule } from "@/components/reverse-pairs/public-schedule";
+import { ReversePairsNowPlaying } from "@/components/reverse-pairs/now-playing";
 import { AutoRefresh } from "@/components/public/auto-refresh";
 import { ReversePairsRegisterForm } from "@/components/reverse-pairs/register-form";
 import { getCompetitionPaymentSettings } from "@/lib/queries/payments";
@@ -251,6 +252,13 @@ export default async function PublicReversePairsPage({
         </div>
       ) : (
         <>
+          {/* First thing on the page on the day: who's on court right now. */}
+          <ReversePairsNowPlaying
+            games={event.games}
+            byes={event.byes}
+            timezone={event.timezone}
+          />
+
           {played > 0 && (
             <ReversePairsStandingsCard
               pairs={event.pairs}
@@ -258,7 +266,11 @@ export default async function PublicReversePairsPage({
             />
           )}
 
-          <PublicReversePairsSchedule games={event.games} byes={event.byes} />
+          <PublicReversePairsSchedule
+            games={event.games}
+            byes={event.byes}
+            timezone={event.timezone}
+          />
 
           <PartnerMatrixCard pairs={event.pairs} matrix={event.matrix} />
         </>
