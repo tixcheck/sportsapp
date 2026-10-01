@@ -53,7 +53,9 @@ export function orgPageCss({
   if (second) {
     // The banner's backdrop otherwise shows as a grey band across the wash.
     css += `:root{--paper-sunken:${mix(theme.background, theme.accent, 0.08)}}`;
-    css += `body{background-image:${brandWash(theme.background, theme.accent, second)}}`;
+    // At least the window's height, unrepeated: on a short page the gradient
+    // otherwise ends where the content does and starts over below it.
+    css += `body{min-height:100vh;background-repeat:no-repeat;background-image:${brandWash(theme.background, theme.accent, second)}}`;
   }
   return css;
 }

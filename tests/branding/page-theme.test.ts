@@ -29,7 +29,7 @@ describe("orgPageCss", () => {
       secondary: "#48c0c0",
     })!;
     expect(css).toMatch(
-      /body\{background-image:linear-gradient\(180deg,#[0-9a-f]{6} 0%,#fdf7fb 45%,#[0-9a-f]{6} 100%\)\}/,
+      /body\{min-height:100vh;background-repeat:no-repeat;background-image:linear-gradient\(180deg,#[0-9a-f]{6} 0%,#fdf7fb 45%,#[0-9a-f]{6} 100%\)\}/,
     );
     expect(css).toContain(":root{--paper-raised:#ffffff}");
   });
