@@ -5,6 +5,19 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-09-30 — Card payments settle: a platform Stripe webhook
+
+Helix's live $3.40 test was paid in Stripe but stayed "unpaid" in the app. The
+only webhook endpoint was a Connect endpoint, which hears events on connected
+accounts only; Checkout sessions here are destination charges on the platform,
+so `checkout.session.*` and `charge.refunded` were never sent — no card payment
+had ever settled (every paid row was PayPal). Added a platform endpoint and let
+the route verify against either secret (`STRIPE_PLATFORM_WEBHOOK_SECRET`).
+Settled Dani's row by hand after checking Stripe, then proved the new path with
+a real refund recorded by the webhook in 5s.
+
+---
+
 ## 2026-09-30 — Organizer brand colours on public event pages (0144)
 
 Helix asked for its Reverse Pairs page to carry its logo and match its colours.

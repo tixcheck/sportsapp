@@ -1575,10 +1575,13 @@ is PayPal. Fix: the route now accepts `STRIPE_PLATFORM_WEBHOOK_SECRET` as well,
 and a platform endpoint `we_1ULVEVFSGB6pS0FYf8P56xse` (live; checkout.session.
 completed/expired, charge.refunded; same URL) was created 2026-09-30. Dani's
 row was settled by hand the same day after checking Stripe (paid, $3.40, $2.40
-application fee, destination Helix) and her pair set `active`. **Still to do:**
-`STRIPE_PLATFORM_WEBHOOK_SECRET` in Vercel (Production) + redeploy — until then
-that endpoint's deliveries fail signature (400) and Stripe retries them for up
-to 3 days, and a refund through the app isn't recorded.
+application fee, destination Helix) and her pair set `active`.
+`STRIPE_PLATFORM_WEBHOOK_SECRET` set in Vercel and redeployed the same day.
+**Verified on production:** a signed probe is accepted (200) and a wrong
+secret refused (400); then Dani's $3.40 was refunded (`re_3ULV2BFSGB6pS0FY1v2kvxL1`,
+same call as the app's refund button) and `charge.refunded` arrived through
+the new endpoint and marked the row `refunded` within 5s. Card payments now
+settle on their own. Minor: the refund row's `stripe_refund_id` stayed null.
 
 **⚠️ LIVE $1 TEST EVENT — DELETE AFTER THE TEST.** `helix-payment-test`
 ("Payment test — do not register", Helix org, public, $1 per pair, max 2
