@@ -58,6 +58,10 @@ import {
   type AccountExistsEmailProps,
 } from "./templates/account-exists";
 import {
+  DetailsRequestEmail,
+  type DetailsRequestEmailProps,
+} from "./templates/details-request";
+import {
   PaymentConfirmedEmail,
   type PaymentConfirmedEmailProps,
 } from "./templates/payment-confirmed";
@@ -184,6 +188,20 @@ export function sendDraftedPlayerInvite(
       signupEmail: props.signupEmail,
       waiverRequired: props.waiverRequired,
     }),
+  });
+}
+
+/** An organizer asking a player for required details they never gave. */
+export function sendDetailsRequest(
+  to: string,
+  props: DetailsRequestEmailProps,
+  replyTo?: string,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    replyTo,
+    subject: `${props.organizerName} needs a few details — ${props.competitionName}`,
+    react: DetailsRequestEmail(props),
   });
 }
 

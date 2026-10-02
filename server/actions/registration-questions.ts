@@ -6,6 +6,13 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeTypedAddress } from "@/server/actions/places";
 import type { AddressMetadata } from "@/lib/registration/locality";
+import {
+  getPlayerDirectory,
+  getRegistrationQuestions,
+} from "@/lib/queries/registration-questions";
+import { playersMissingDetails } from "@/lib/registration/missing-details";
+import { sendDetailsRequest } from "@/lib/email/send";
+import { getOrigin } from "@/lib/utils/url";
 
 type ActionError = { error: string };
 
@@ -446,4 +453,65 @@ export async function setHomeLocalityAction(
 
   revalidatePath("/orgs");
   return { saved: true };
+}
+
+/**
+ * Email every player who owes required details — the Players tab button.
+ *
+ * BVL needed genders to form individual teams; the question was optional when
+ * people signed up. Each email names the missing questions and points at the
+ * dashboard, where the form now waits for pool players as well as rostered
+ * ones. Who is asked is `playersMissingDetails` over the same directory the
+ * organizer is looking at, read with their own rights.
+ */
+export async function askForMissingDetailsAction(
+  competitionId: string,
+): Promise<ActionError | { sent: number; failed: number }> {
+  if (!z.string().uuid().safeParse(competitionId).success) {
+    return { error: "Unknown competition." };
+  }
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only an organizer can ask players for details." };
+  }
+
+  const [rows, questions, { data: comp }] = await Promise.all([
+    getPlayerDirectory(competitionId),
+    getRegistrationQuestions(competitionId, "player"),
+    supabase
+      .from("competitions")
+      .select("name, organizations(name, contact_email)")
+      .eq("id", competitionId)
+      .maybeSingle(),
+  ]);
+  const c = comp as {
+    name: string;
+    organizations: { name: string; contact_email: string | null } | null;
+  } | null;
+  if (!c) return { error: "Unknown competition." };
+
+  const people = playersMissingDetails(rows, questions);
+  const dashboardUrl = `${await getOrigin()}/dashboard`;
+  let sent = 0;
+  let failed = 0;
+  for (const p of people) {
+    const res = await sendDetailsRequest(
+      p.email,
+      {
+        playerName: p.name.split(/\s+/)[0] ?? "",
+        competitionName: c.name,
+        organizerName: c.organizations?.name ?? "Your organizer",
+        missing: p.missing,
+        dashboardUrl,
+      },
+      c.organizations?.contact_email ?? undefined,
+    );
+    if (res.sent) sent++;
+    else failed++;
+  }
+  if (failed > 0) console.error(`[details-request] ${failed} not sent`);
+  return { sent, failed };
 }

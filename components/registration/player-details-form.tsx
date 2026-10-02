@@ -37,6 +37,7 @@ export function PlayerDetailsForm({
   initial,
   suggested = {},
   addressAutocomplete = false,
+  context = "waiver",
 }: {
   competitionId: string;
   competitionName: string;
@@ -47,6 +48,13 @@ export function PlayerDetailsForm({
   suggested?: AnswerMap;
   /** Whether a Places key is configured; false renders a plain input. */
   addressAutocomplete?: boolean;
+  /**
+   * Why it's being asked. `waiver`: above a waiver they still owe (the details
+   * gate the signature). `pool`: waiting to be placed — the organizer needs
+   * these to form teams. `team`: on a team, waiver done or none, answers
+   * missing — e.g. questions made required after they signed up.
+   */
+  context?: "waiver" | "pool" | "team";
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -89,8 +97,12 @@ export function PlayerDetailsForm({
         {organizerName} needs a few details
       </h2>
       <p className="text-ink-2 mt-1 text-sm">
-        For {competitionName}. Your team isn&rsquo;t confirmed until everyone
-        has filled these in and signed the waiver.
+        For {competitionName}.{" "}
+        {context === "waiver"
+          ? "Your team isn't confirmed until everyone has filled these in and signed the waiver."
+          : context === "pool"
+            ? `${organizerName} uses these to put you on a team.`
+            : `${organizerName} needs these on file for the season.`}
       </p>
 
       <form onSubmit={submit} className="mt-4 grid gap-4">

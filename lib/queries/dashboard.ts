@@ -119,6 +119,26 @@ export async function getMyPoolSignups(): Promise<PoolSignup[]> {
   );
 }
 
+/** Each competition's organization name — one query for the dashboard. */
+export async function getCompetitionOrgNames(
+  competitionIds: string[],
+): Promise<Map<string, string>> {
+  if (competitionIds.length === 0) return new Map();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("competitions")
+    .select("id, organizations(name)")
+    .in("id", competitionIds);
+  return new Map(
+    (
+      (data ?? []) as unknown as {
+        id: string;
+        organizations: { name: string } | null;
+      }[]
+    ).map((c) => [c.id, c.organizations?.name ?? "Your organizer"]),
+  );
+}
+
 /** Competitions the signed-in user plays in (any team_members role). */
 export async function getMyCompetitions(): Promise<MyCompetition[]> {
   const supabase = await createClient();

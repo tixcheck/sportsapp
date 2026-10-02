@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-02 — Players can fill in missing details before they're placed
+
+Vee (BVL) was forming individual teams with "no clue who's a dude or a girl":
+the player questions were optional when people signed up and required now. The
+details form only ever appeared beside a waiver the player still owed — and a
+pool player owes none until they're on a roster, while anyone who signed the
+waiver (now org-wide, 0148) never saw it again. The dashboard now shows the form
+wherever a required answer is missing and no waiver is owed — pool players
+("…uses these to put you on a team") and rostered ones alike. The Players tab
+marks "Details missing" and has "Ask N for missing details", which emails each
+of them the questions they skipped (`playersMissingDetails`, lib/registration,
+tested; `DetailsRequestEmail`). Checked at 375px with a throwaway pool sign-up.
+At the time: Thursday Spiking 6 of 7 individuals unanswered, Tuesday 2 of 2,
+Wednesday 3 of 8.
+
+---
+
 ## 2026-10-01 — Drafted players are linked to their accounts straight away (0149)
 
 Matthew appeared twice on Mango Mens' Players tab. He'd had an account since

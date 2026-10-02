@@ -29,6 +29,8 @@ import { QuestionFields } from "@/components/registration/question-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InviteUnjoinedButton } from "@/components/registration/invite-unjoined-button";
+import { AskDetailsButton } from "@/components/registration/ask-details-button";
+import { playersMissingDetails } from "@/lib/registration/missing-details";
 import {
   Card,
   CardContent,
@@ -96,6 +98,11 @@ export function PlayersCard({
   );
   const notInvited = unjoined.filter((p) => !p.invitedAt).length;
 
+  // Required answers still missing — the organizer can't form teams on
+  // assumptions ("no clue who's a dude or a girl"). Same rule as the email.
+  const owingDetails = playersMissingDetails(players, questions);
+  const owesDetails = new Set(owingDetails.map((p) => p.userId));
+
   return (
     <Card>
       {/* The button belongs up here, not in the content: the content
@@ -113,6 +120,10 @@ export function PlayersCard({
           </CardDescription>
         </div>
         <div className="flex flex-wrap gap-2">
+          <AskDetailsButton
+            competitionId={competitionId}
+            count={owingDetails.length}
+          />
           <InviteUnjoinedButton
             competitionId={competitionId}
             notInvited={notInvited}
@@ -201,6 +212,11 @@ export function PlayersCard({
                           state an organizer has to act on. */}
                       <td className="p-2">
                         <AccessBadge player={p} />
+                        {p.userId && owesDetails.has(p.userId) && (
+                          <span className="mt-1 block text-[11px] font-medium text-amber-800">
+                            Details missing
+                          </span>
+                        )}
                       </td>
                       {columns.map((q) => (
                         <td key={q.id} className="p-2">
