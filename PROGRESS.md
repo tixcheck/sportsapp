@@ -5,6 +5,21 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-04 — SMVA week 2 from the organizer's published order
+
+SMVA posted week 2's order (Mon Oct 5) on smva.ca. Week 1 couldn't be locked in
+the app (Porter unranked, LOGAN not a team, three no-shows undecided), so the
+sheet is the record, as the signed gym sheets were for week 1.
+`smva-09-week2-from-sheet.ts` creates LOGAN, writes the week-2 placements in
+the sheet's seat order (moving each team's tier, as Lock does) and draws the
+night with `planPodNight`, as Draw does: 36 teams, 77 games, 7:20 pm.
+Cross-checked the sheet against week 1's results — all movements follow
+2-up/2-down except King's Hitmen/Eagles order, kept as written. OG, Zeus,
+Team 39 and Toronto Warriors aren't on the sheet and aren't placed; none
+removed. Porter and King run as five.
+
+---
+
 ## 2026-10-04 — Whole-league reads no longer stop at 1,000 rows
 
 Vee's Players tab showed Hohitha's First name / Last name / Gender blank and
