@@ -28,9 +28,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
 import { chromium } from "playwright";
+import { DateTime } from "luxon";
 
 import { noteLines, SMVA_SHEET_NOTES } from "@/lib/competition/sheet-notes";
-import { resolvePlaceholders, type SheetTeam } from "@/lib/scheduler/gym-sheet";
+import type { SheetTeam } from "@/lib/scheduler/gym-sheet";
 import { movementLabel, podTemplate } from "@/lib/scheduler/pod-templates";
 
 const sql = postgres(process.env.DATABASE_URL!, { prepare: false, max: 1 });
@@ -70,6 +71,9 @@ interface TierPage {
   totalPoints: number;
   games: number;
   officials: string[];
+  /** "A and B and E" — who sets up courts, as the gym sheet words it. */
+  setupLetters: string;
+  courtLabels: string[];
 }
 
 /**
@@ -152,13 +156,10 @@ async function load(): Promise<{
     // The night's date, taken from the fixtures rather than assumed.
     if (!night) {
       const at = matchRows[0].scheduled_at as Date;
-      night = at.toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        timeZone: (comp.timezone as string) ?? "America/Toronto",
-      });
+      // Their sheet's own format: "Monday, September 28, 2026".
+      night = DateTime.fromJSDate(at, {
+        zone: (comp.timezone as string) ?? "America/Toronto",
+      }).toFormat("cccc, LLLL dd, yyyy");
     }
 
     // `round` is the WEEK; the slot within the night is the start time, and
@@ -228,6 +229,8 @@ async function load(): Promise<{
       totalPoints: template.totalPoints,
       games: gamesPerMatch(template.title, fixtures, template.totalPoints),
       officials: ((off?.officials as string[] | undefined) ?? []).slice(),
+      setupLetters: template.setup.map((x) => x.letter).join(" and "),
+      courtLabels: template.courtLabels,
     });
   }
 
@@ -235,307 +238,205 @@ async function load(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
-// Rendering — the same layout as the package their executive already has.
+// Rendering — THEIR sheet, as printed on Mon 28 Sep 2026 (Leacock).
+//
+// The organizer, 2026-10-04: the print-out should be "exactly how this sheet
+// is", so the gym sees no change. An earlier layout printed names in a fixture
+// list with per-game boxes and a cover page explaining it; it was the app's
+// idea of a better sheet, and the executive's test has always been whether the
+// app prints THEIR sheet. So: title and gym, the four coloured instruction
+// blocks, the letter schedule with movement and setup beside it, the A–F
+// cross-table with Running Totals / Total Points / 1st, 2nd / a grey "Do not
+// write" column and an arrow column, then the three officials with signature
+// lines. Letters, not names, in the schedule — the cross-table is the legend.
 // ---------------------------------------------------------------------------
 
-function scheduleRows(tier: TierPage): string {
-  const boxes = Array.from(
-    { length: tier.games },
-    () => '<td class="box"></td>',
-  ).join("");
-  const rows: string[] = [];
-  tier.slots.forEach((slot, slotIndex) => {
-    slot.fixtures.forEach((f, i) => {
-      const first = i === 0 && slotIndex > 0;
-      rows.push(
-        [
-          `<tr${first ? ' class="slot-start"' : ""}>`,
-          `<td class="time">${i === 0 ? esc(slot.time) : ""}</td>`,
-          `<td class="court">${esc(f.court)}</td>`,
-          `<td class="team right">${esc(f.home)}</td>`,
-          boxes,
-          '<td class="vs">v</td>',
-          boxes,
-          `<td class="team">${esc(f.away)}</td>`,
-          "</tr>",
-        ].join(""),
-      );
-      if (i === slot.fixtures.length - 1 && slot.sitting) {
-        rows.push(
-          `<tr class="sitting"><td></td><td></td><td colspan="${tier.games * 2 + 3}">` +
-            `${esc(slot.sitting)} sits this round</td></tr>`,
-        );
-      }
-    });
-  });
-  return rows.join("\n");
+const LETTERS = "ABCDEFG";
+
+/** "Tier 2 — Leacock" → "Leacock": the sheet heads each page with the gym. */
+function gymName(tierName: string): string {
+  return tierName.includes("—") ? tierName.split("—").pop()!.trim() : tierName;
 }
 
-function officialsHtml(names: string[]): string {
-  // Blank rules where the league has not named anyone — the gym writes them in.
-  if (names.length === 0) {
-    return [
-      '<span class="rule">#1</span>',
-      '<span class="rule">#2</span>',
-      '<span class="rule">#3</span>',
-    ].join("");
-  }
-  return names
-    .map((n, i) => `<span class="ref">#${i + 1} ${esc(n)}</span>`)
-    .join("");
-}
+/** Their colours, block by block, in the order SMVA_SHEET_NOTES lists them. */
+const NOTE_STYLE = [
+  { head: "orange", body: "orange" },
+  { head: "navy", body: "black" },
+  { head: "red", body: "red" },
+  { head: "red", body: "black" },
+];
 
-function notesHtml(teams: SheetTeam[]): string {
-  return SMVA_SHEET_NOTES.map((note) => {
+function notesHtml(): string {
+  return SMVA_SHEET_NOTES.map((note, i) => {
+    const style = NOTE_STYLE[i] ?? { head: "navy", body: "black" };
+    // The sheet prints the letter ("Team D"), not the team's name.
+    const title = note.title.replace(/\{([A-G])\}/g, "$1");
     const lines = noteLines(note)
-      .map((l) => `<li>${esc(resolvePlaceholders(l, teams))}</li>`)
+      .map((l) => `<p>${esc(l.replace(/\{([A-G])\}/g, "$1"))}</p>`)
       .join("");
-    return [
-      '<section class="note">',
-      `<h3>${esc(resolvePlaceholders(note.title, teams))}</h3>`,
-      `<ul>${lines}</ul>`,
-      "</section>",
-    ].join("");
+    return (
+      `<div class="note"><h3 class="${style.head}">${esc(title)}</h3>` +
+      `<div class="lines ${style.body}">${lines}</div></div>`
+    );
   }).join("\n");
 }
 
-function tierPage(tier: TierPage, league: string, night: string): string {
-  const headCols = Array.from(
-    { length: tier.games },
-    (_, i) => `<th class="box">G${i + 1}</th>`,
-  ).join("");
-  const resultRows = tier.teams
+function scheduleTable(tier: TierPage): string {
+  const letterOf = new Map(tier.teams.map((t, i) => [t.name, LETTERS[i]]));
+  const courts = tier.courtLabels;
+  const anySitting = tier.slots.some((s) => s.sitting);
+  const cols = courts.length + 2 + (anySitting ? 1 : 0);
+  const rows = tier.slots
+    .map((slot) => {
+      const cells = courts.map((label) => {
+        const f = slot.fixtures.find((x) => x.court === label);
+        return `<td>${f ? `${letterOf.get(f.home)} VS ${letterOf.get(f.away)}` : ""}</td>`;
+      });
+      const sits = anySitting
+        ? `<td>${slot.sitting ? letterOf.get(slot.sitting) : ""}</td>`
+        : "";
+      return `<tr><td class="t">${esc(slot.time)}</td><td></td>${cells.join("")}${sits}</tr>`;
+    })
+    .join("\n");
+  return [
+    '<table class="sched">',
+    `<tr><th colspan="${cols}" class="title">${esc(tier.title)}</th></tr>`,
+    `<tr><th class="t">Time</th><th></th>${courts.map((c) => `<th>${esc(c)}</th>`).join("")}${anySitting ? "<th>Sits</th>" : ""}</tr>`,
+    rows,
+    `<tr><th colspan="${cols}">${esc(tier.clock)}</th></tr>`,
+    tier.scoring
+      ? `<tr><th colspan="${cols}">${esc(tier.scoring)}</th></tr>`
+      : "",
+    "</table>",
+  ].join("\n");
+}
+
+/** A cell crossed corner to corner, like the sheet's diagonal. */
+const CROSS =
+  '<td class="x"><svg viewBox="0 0 10 10" preserveAspectRatio="none">' +
+  '<line x1="0" y1="0" x2="10" y2="10"/><line x1="10" y1="0" x2="0" y2="10"/>' +
+  "</svg></td>";
+
+function crossTable(tier: TierPage): string {
+  const n = tier.teams.length;
+  const letters = LETTERS.slice(0, n).split("");
+  const head = [
+    '<tr class="h1">',
+    '<th rowspan="2" class="l"></th><th rowspan="2" class="team">Team</th>',
+    ...letters.map((l) => `<th rowspan="2" class="sq">${l}</th>`),
+    '<th rowspan="2" class="run">Running Totals</th>',
+    '<th colspan="2" class="eon">End of Night Results</th>',
+    '<th rowspan="2" class="nw">Do not write in this column</th>',
+    '<th rowspan="2" class="arrow"></th>',
+    "</tr>",
+    '<tr class="h2"><th class="pts">Total Points</th><th class="pts">1st, 2nd, etc</th></tr>',
+  ].join("");
+  const body = tier.teams
+    .map((t, r) => {
+      const cells = letters.map((_, c) =>
+        c === r ? CROSS : '<td class="sq"></td>',
+      );
+      return (
+        `<tr><td class="l">${LETTERS[r]}</td><td class="team">${esc(t.name)}</td>` +
+        cells.join("") +
+        '<td class="run"></td><td class="pts"></td><td class="pts"></td>' +
+        '<td class="nw"></td><td class="arrow"></td></tr>'
+      );
+    })
+    .join("\n");
+  return `<table class="cross">${head}\n${body}</table>`;
+}
+
+function officialsHtml(names: string[]): string {
+  return [0, 1, 2]
     .map(
-      (t) =>
-        `<tr><td class="team">${esc(t.name)}</td>` +
-        '<td class="cell"><div class="box"></div></td>' +
-        '<td class="cell"><div class="box"></div></td></tr>',
+      (i) =>
+        `<div class="off"><span class="num">#${i + 1}</span>` +
+        `<span class="name">${esc(names[i] ?? "")}</span>` +
+        '<span class="sign"></span></div>',
     )
     .join("\n");
+}
 
-  // A bye grid is nearly twice the rows: 21 fixtures plus a "sits" line each
-  // slot against a six-team page's 15. At the normal row height Leacock spills
-  // onto a second page, and the whole point is one sheet per gym.
-  const fixtures = tier.slots.reduce((n, s) => n + s.fixtures.length, 0);
-  const dense = fixtures + tier.slots.filter((s) => s.sitting).length > 18;
-
+function tierPage(tier: TierPage, night: string): string {
   return [
-    `<article class="sheet${dense ? " dense" : ""}">`,
-    '<header class="sheet-head"><div>',
-    `<p class="league">${esc(league)}</p>`,
-    `<h1>${esc(tier.name)}</h1>`,
-    `<p class="venue">${esc(tier.venue)}${tier.address ? ` · ${esc(tier.address)}` : ""}</p>`,
-    '</div><div class="when">',
-    `<p class="week">Week ${WEEK}</p>`,
-    `<p>${esc(night)}</p>`,
-    `<p>First serve ${esc(tier.slots[0]?.time.split("-")[0].trim() ?? "")} PM</p>`,
-    "</div></header>",
-
-    '<div class="format">',
-    `<div><span class="k">Format</span>${esc(tier.title)}</div>`,
-    `<div><span class="k">Clock</span>${esc(tier.clock)}</div>`,
-    `<div><span class="k">Points available</span>${tier.totalPoints}</div>`,
-    `<div class="wide"><span class="k">Scoring</span>${esc(tier.scoring) || "—"}</div>`,
-    `<div><span class="k">Movement</span>${esc(tier.movement) || "—"}</div>`,
-    `<div class="wide"><span class="k">Court setup</span>${esc(tier.setup) || "—"}</div>`,
-    "</div>",
-
-    '<table class="schedule"><thead><tr>',
-    '<th class="time">Time</th><th class="court">Court</th>',
-    '<th class="team right">Home</th>',
-    headCols,
-    "<th></th>",
-    headCols,
-    '<th class="team">Away</th>',
-    "</tr></thead><tbody>",
-    scheduleRows(tier),
-    "</tbody></table>",
-
-    '<div class="footer-grid"><div>',
-    "<h2>End of night</h2>",
-    '<table class="results"><thead><tr>',
-    '<th class="team">Team</th><th>Total points</th><th>Rank</th>',
-    "</tr></thead><tbody>",
-    resultRows,
-    "</tbody></table>",
-    '<p class="officials"><span class="k">Officials</span>',
-    officialsHtml(tier.officials),
-    "</p>",
-    '</div><div class="notes">',
-    notesHtml(tier.teams),
+    '<article class="sheet">',
+    `<h1>${esc(night)}</h1>`,
+    `<h2>${esc(gymName(tier.name))}</h2>`,
+    `<section class="notes">${notesHtml()}</section>`,
+    '<div class="sched-row">',
+    scheduleTable(tier),
+    '<div class="aside">',
+    tier.movement ? `<p>${esc(tier.movement)}</p>` : "",
+    tier.setupLetters ? `<p>${esc(tier.setupLetters)} setup courts</p>` : "",
     "</div></div>",
+    crossTable(tier),
+    `<section class="officials">${officialsHtml(tier.officials)}</section>`,
     "</article>",
   ].join("\n");
 }
 
-function coverPage(league: string, night: string, tiers: TierPage[]): string {
-  const teams = tiers.reduce((n, t) => n + t.teams.length, 0);
-  const bottom = tiers.length;
-  return [
-    '<article class="sheet cover">',
-    `<p class="league">${esc(league)}</p>`,
-    '<h1 class="cover-title">Gym package</h1>',
-    `<p class="cover-sub">Week ${WEEK} · ${esc(night)} · ${tiers.length} gyms</p>`,
-    '<div class="cover-body">',
-
-    "<p>Every page after this one is printed by the app from the league's own",
-    "data — the tiers, the seeded rosters and the night's scheduled matches.",
-    "The grids are the league's grids: the same matchups on the same courts in",
-    "the same order, with the same clock, the same opening points and the same",
-    "total.</p>",
-
-    "<h3>What changes for the gym</h3>",
-    "<p>Nothing. The sheet still goes to the gym, still gets filled in by hand,",
-    "and still comes back to the executive over WhatsApp.</p>",
-
-    "<h3>What changes for the executive</h3>",
-    `<p>One line per team instead of ${teams}. At the end of the night the only`,
-    "entry is each team's <strong>total points</strong> and <strong>rank</strong>",
-    "— the two columns already on the sheet. The app moves the ladder from the",
-    "ranks, works out the next week's tiers, and prints the next package.",
-    "Per-match scores can be entered, but are not required.</p>",
-
-    "<h3>Team names, not letters</h3>",
-    '<p>The paper sheet says "A vs C" with a legend because nobody can rewrite',
-    "six team names into a printed grid by hand every week. That constraint is",
-    "gone, so the names are printed directly. The letters still exist",
-    'underneath — they are what the duty lines key off, so "Team D" still',
-    "lands on the fourth seed.</p>",
-
-    "<h3>Overall standings</h3>",
-    `<p>Position across all ${teams} teams, lowest total winning: first in`,
-    `Tier 1 scores 1, last in Tier ${bottom} scores ${teams}. Totals over`,
-    "different numbers of played nights are reported with the night count",
-    "beside them, so they are never silently compared.</p>",
-
-    "</div></article>",
-  ].join("\n");
-}
-
 const CSS = `
-:root {
-  --ink: #12161c;
-  --muted: #5b6675;
-  --line: #c9d0d9;
-  --rule: #8b95a3;
-  --accent: #1d3f6e;
-  --band: #eef2f7;
-}
 * { box-sizing: border-box; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-body {
-  margin: 0;
-  color: var(--ink);
-  background: #fff;
-  font: 10.5px/1.45 "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-variant-numeric: tabular-nums;
-}
-@page { size: Letter portrait; margin: 12mm 11mm; }
-
+body { margin: 0; color: #000; background: #fff;
+  font: 10.5px/1.25 Arial, Helvetica, sans-serif; }
+@page { size: Letter portrait; margin: 9mm 10mm; }
 .sheet { page-break-after: always; }
 .sheet:last-child { page-break-after: auto; }
 
-.sheet-head {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--accent);
-}
-.league {
-  margin: 0; font-size: 8.5px; letter-spacing: .13em; text-transform: uppercase;
-  color: var(--muted);
-}
-h1 { margin: 2px 0 1px; font-size: 21px; letter-spacing: -.01em; color: var(--accent); }
-.venue { margin: 0; color: var(--muted); font-size: 10px; }
-.when { text-align: right; white-space: nowrap; }
-.when p { margin: 0; font-size: 10px; color: var(--muted); }
-.when .week {
-  font-size: 13px; font-weight: 700; color: var(--ink); letter-spacing: .02em;
-}
+h1, h2 { margin: 0; text-align: center; font-size: 17px; font-weight: 700; }
+h2 { margin-bottom: 8px; }
 
-.format {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px 18px;
-  margin: 9px 0 11px; padding: 8px 10px; background: var(--band);
-  border-radius: 3px; font-size: 10px;
-}
-.format .wide { grid-column: span 2; }
-.k {
-  display: inline-block; min-width: 86px; padding-right: 8px;
-  font-size: 8.5px; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--muted);
-}
+.notes { margin: 0 0 10px; }
+.note h3 { margin: 2px 0 1px; font-size: 11px; font-weight: 700;
+  text-decoration: underline; }
+.note .lines { margin-left: 1.55in; font-size: 11px; font-weight: 700; }
+.note .lines p { margin: 0 0 1px; }
+.orange { color: #d9541e; }
+.navy { color: #1f3864; }
+.red { color: #c00000; }
+.black { color: #000; }
 
-table { width: 100%; border-collapse: collapse; }
-.schedule th {
-  font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--muted); font-weight: 600; text-align: left;
-  padding: 0 4px 4px; border-bottom: 1px solid var(--line);
-}
-.schedule td { padding: 3.5px 4px; border-bottom: 1px solid var(--line); }
-.schedule tr.slot-start td { border-top: 1.5px solid var(--rule); }
-.time { width: 74px; font-weight: 700; white-space: nowrap; }
-.court { width: 50px; color: var(--muted); }
-.team { font-weight: 600; }
-.right { text-align: right; }
-.vs { width: 14px; text-align: center; color: var(--muted); font-size: 9px; }
-th.box { text-align: center; width: 26px; }
-.schedule td.box {
-  width: 26px; height: 18px; padding: 0;
-  border: 1px solid var(--rule);
-}
-.sitting td { font-size: 9px; color: var(--muted); font-style: italic; }
+.sched-row { display: flex; gap: 22px; align-items: flex-start;
+  margin: 0 0 6px 0.32in; }
+.sched { border-collapse: collapse; width: 4.95in; font-size: 12px; }
+.sched th, .sched td { border: 1.3px solid #000; padding: 1px 4px;
+  text-align: left; white-space: nowrap; }
+.sched th { font-weight: 700; text-align: center; }
+.sched th.title, .sched th.t, .sched td.t { text-align: left; }
+.sched tr:nth-child(2) th { text-align: left; }
+.sched td { font-weight: 700; }
+.sched td:nth-child(2), .sched th:nth-child(2) { width: 0.62in; }
+.aside p { margin: 0 0 18px; font-size: 13px; }
 
-.footer-grid {
-  display: grid; grid-template-columns: 1fr 1.2fr; gap: 20px; margin-top: 12px;
-}
-h2 {
-  margin: 0 0 5px; font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--accent);
-}
-.results th {
-  font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted); font-weight: 600; text-align: center;
-  padding: 0 4px 3px; border-bottom: 1px solid var(--line);
-}
-.results th.team { text-align: left; }
-.results td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
-.results td.cell { width: 62px; }
-.results .box { height: 15px; border: 1px solid var(--rule); border-radius: 2px; }
-.officials { margin: 9px 0 0; font-size: 10px; }
-.rule {
-  display: inline-block; width: 70px; margin-right: 7px;
-  border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 9px;
-}
-.ref { display: inline-block; margin-right: 12px; font-size: 9.5px; }
+.cross { border-collapse: collapse; width: 100%; margin-top: 4px; }
+.cross th, .cross td { border: 1.5px solid #000; text-align: center;
+  padding: 0; }
+.cross th { font-size: 10.5px; font-weight: 400; }
+.cross tr.h1 th, .cross tr.h2 th { height: 0.3in; }
+.cross td { height: 0.47in; font-size: 11.5px; }
+.cross .l { width: 0.5in; }
+.cross .team { width: 1.35in; }
+.cross td.team { font-size: 10.5px; padding: 0 3px; }
+.cross .sq { width: 0.5in; }
+.cross .run { width: 1.85in; }
+.cross .eon { font-size: 9px; }
+.cross .pts { width: 0.62in; font-size: 9.5px; }
+.cross .nw { width: 0.52in; font-size: 8.5px; line-height: 1.05; }
+.cross td.nw { background: #a6a6a6; }
+.cross .arrow { width: 0.5in; }
+.cross td.x { position: relative; }
+.cross td.x svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cross td.x line { stroke: #000; stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 
-.notes { font-size: 9px; }
-.note { break-inside: avoid; margin-bottom: 7px; }
-.note h3 {
-  margin: 0 0 2px; font-size: 8.5px; letter-spacing: .09em;
-  text-transform: uppercase; color: var(--accent);
-}
-.note ul { margin: 0; padding-left: 13px; }
-.note li { margin-bottom: 1px; }
-
-/* A seven-team gym prints 28 rows where a six-team gym prints 15. Squeeze the
-   row height rather than the type: the names and the score boxes are what the
-   gym writes in, so they stay legible while the whitespace goes. */
-.dense .schedule td { padding: 1.4px 4px; }
-.dense .schedule td.box { height: 13px; }
-.dense .sitting td { font-size: 8px; }
-.dense .results td { padding: 1.4px 4px; }
-.dense .results .box { height: 12px; }
-.dense .footer-grid { gap: 14px; margin-top: 8px; }
-.dense .notes { font-size: 8.2px; }
-.dense .format { margin: 7px 0 8px; padding: 6px 10px; }
-
-.cover { padding-top: 6mm; }
-.cover-title { font-size: 34px; margin: 4px 0 2px; }
-.cover-sub { margin: 0 0 20px; color: var(--muted); font-size: 12px; }
-.cover-body { max-width: 62ch; font-size: 11px; line-height: 1.6; }
-.cover-body p { margin: 0 0 12px; }
-.cover-body h3 {
-  margin: 18px 0 5px; font-size: 9px; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--accent);
-}
+.officials { margin-top: 14px; width: 100%; }
+.off { display: flex; align-items: flex-end; gap: 8px; margin-bottom: 8px; }
+.off .num { width: 0.3in; font-size: 13px; font-weight: 700; text-align: right; }
+.off .name { width: 3.05in; height: 0.27in; border: 1.3px solid #000;
+  padding: 2px 4px; font-size: 12px; }
+.off .sign { flex: 1; margin-left: 0.9in; border-bottom: 1.3px solid #000;
+  height: 0.27in; }
 `;
 
 async function main() {
@@ -550,10 +451,7 @@ async function main() {
     `<style>${CSS}</style>`,
     "</head>",
     "<body>",
-    [
-      coverPage(league, night, tiers),
-      ...tiers.map((t) => tierPage(t, league, night)),
-    ].join("\n"),
+    [...tiers.map((t) => tierPage(t, night))].join("\n"),
     "</body>",
     "</html>",
   ].join("\n");
@@ -571,7 +469,7 @@ async function main() {
       path: pdfFile,
       format: "Letter",
       printBackground: true,
-      margin: { top: "12mm", bottom: "12mm", left: "11mm", right: "11mm" },
+      margin: { top: "9mm", bottom: "9mm", left: "10mm", right: "10mm" },
     });
   } finally {
     await browser.close();

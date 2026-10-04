@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-04 — SMVA's gym package prints their sheet, exactly
+
+The organizer wants the print-out to be "exactly how this sheet is" — the
+Leacock sheet they ran week 1 on — so the gym sees no change. The package had
+been the app's own design: team names in a fixture list, per-game boxes, a cover
+page arguing for it. `lib/db/sheet-smva-package.ts` now renders their layout:
+date and gym as the title; the four instruction blocks in their colours
+(orange / navy+black / red / red+black) with "Team D" as a letter; the letter
+schedule ("B VS D") with movement and "A and B and E setup courts" beside it;
+the A–F cross-table with diagonal crosses, Running Totals, End of Night Results
+(Total Points, 1st 2nd etc), the grey "Do not write" column and the arrow
+column; #1–#3 officials with signature lines. No cover page. The grid is still
+read from the week's matches, mapped back to letters. Five-team gyms (Porter,
+King this week) get a "Sits" column. One Letter page per gym.
+
+---
+
 ## 2026-10-04 — SMVA week 2 from the organizer's published order
 
 SMVA posted week 2's order (Mon Oct 5) on smva.ca. Week 1 couldn't be locked in
