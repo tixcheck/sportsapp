@@ -5,6 +5,25 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-04 — Whole-league reads no longer stop at 1,000 rows
+
+Vee's Players tab showed Hohitha's First name / Last name / Gender blank and
+"Details missing", and offered "Ask 117 for missing details" — though the
+database had all her answers. PostgREST caps a response at 1,000 rows, silently;
+Thursday Spiking has 1,851 registration answers, and every whole-league read
+got the first 1,000. True count once fixed: 4 of 257 (Tue Non-Spiking 7 of 125,
+Wed 6 of 108). The button was never pressed — it would have emailed ~113 people
+who had answered everything.
+
+`fetchAll` (lib/supabase/fetch-all.ts, tested) pages a query by id until a
+short page and throws rather than return a partial list. Used for the five
+whole-league answer reads (Players tab, CSV export, player names, locality
+tally, roster mix) and the two whole-waiver signature reads, which 0148 made
+org-wide (BVL's waiver: 513 signatures). Audit of per-competition row counts:
+nothing else is near the cap yet (next: kotc_events 307, matches 196).
+
+---
+
 ## 2026-10-04 — League details on the Profile page
 
 A BVL player: "I don't know where I can edit these details, since this is all

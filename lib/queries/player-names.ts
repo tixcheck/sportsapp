@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import {
   isFirstNameLabel,
   isLastNameLabel,
@@ -43,11 +44,16 @@ export async function getPlayerNameAnswers(
   const ids = [...firstIds, ...lastIds];
   if (ids.length === 0) return new Map();
 
-  const { data: answers } = await supabase
-    .from("registration_answers")
-    .select("question_id, user_id, value")
-    .eq("competition_id", competitionId)
-    .in("question_id", ids);
+  // Paged: a whole league's answers pass PostgREST's 1,000-row cap.
+  const answers = await fetchAll((from, to) =>
+    supabase
+      .from("registration_answers")
+      .select("question_id, user_id, value")
+      .eq("competition_id", competitionId)
+      .in("question_id", ids)
+      .order("id")
+      .range(from, to),
+  );
 
   const out: NameAnswers = new Map();
   for (const a of (answers ?? []) as {

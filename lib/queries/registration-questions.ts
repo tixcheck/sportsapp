@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import {
   tallyLocalities,
   type AddressMetadata,
@@ -181,13 +182,18 @@ export async function getAllAnswers(
   const supabase = await createClient();
   // The export's Name column was the account name while the First/Last columns
   // beside it said something fuller — the same row disagreeing with itself.
-  const [{ data }, names] = await Promise.all([
-    supabase
-      .from("registration_answers")
-      .select(
-        "question_id, value, user_id, team_id, users(display_name, email)",
-      )
-      .eq("competition_id", competitionId),
+  // Paged: a whole league's answers pass PostgREST's 1,000-row cap.
+  const [data, names] = await Promise.all([
+    fetchAll((from, to) =>
+      supabase
+        .from("registration_answers")
+        .select(
+          "question_id, value, user_id, team_id, users(display_name, email)",
+        )
+        .eq("competition_id", competitionId)
+        .order("id")
+        .range(from, to),
+    ),
     getPlayerNameAnswers(competitionId),
   ]);
 
@@ -301,11 +307,15 @@ export async function getTeamLocalities(competitionId: string): Promise<{
   }[];
   if (rosters.length === 0) return { homeCity, orgCity, ownCity, teams: [] };
 
-  const { data: answers } = await supabase
-    .from("registration_answers")
-    .select("user_id, value, metadata")
-    .eq("competition_id", competitionId)
-    .in("question_id", addressQuestionIds);
+  const answers = await fetchAll((from, to) =>
+    supabase
+      .from("registration_answers")
+      .select("user_id, value, metadata")
+      .eq("competition_id", competitionId)
+      .in("question_id", addressQuestionIds)
+      .order("id")
+      .range(from, to),
+  );
 
   // First non-empty answer per person. A second address question is extra
   // detail, not a second person.
@@ -400,12 +410,17 @@ export async function getTeamStageFacts(competitionId: string): Promise<{
       .from("registration_payments")
       .select("team_id, status, price_cents, method")
       .eq("competition_id", competitionId),
+    // Paged: one waiver now covers an org's leagues (0148), so its
+    // signatures grow past PostgREST's 1,000-row cap (BVL: 513 already).
     waiverId
-      ? supabase
-          .from("waiver_acceptances")
-          .select("user_id")
-          // Signed once for the org's waiver counts in all its leagues (0148).
-          .eq("waiver_id", waiverId)
+      ? fetchAll((from, to) =>
+          supabase
+            .from("waiver_acceptances")
+            .select("user_id")
+            .eq("waiver_id", waiverId)
+            .order("id")
+            .range(from, to),
+        ).then((data) => ({ data }))
       : Promise.resolve({ data: [] as { user_id: string }[] }),
   ]);
 
@@ -512,14 +527,18 @@ export async function getTeamChoiceMix(
   }[];
   if (rosters.length === 0) return [];
 
-  const { data: answers } = await supabase
-    .from("registration_answers")
-    .select("question_id, user_id, value")
-    .eq("competition_id", competitionId)
-    .in(
-      "question_id",
-      qs.map((q) => q.id),
-    );
+  const answers = await fetchAll((from, to) =>
+    supabase
+      .from("registration_answers")
+      .select("question_id, user_id, value")
+      .eq("competition_id", competitionId)
+      .in(
+        "question_id",
+        qs.map((q) => q.id),
+      )
+      .order("id")
+      .range(from, to),
+  );
 
   // One lookup for every (question, player) rather than a filter per team —
   // nineteen teams by two questions is otherwise thirty-eight passes.
@@ -669,12 +688,18 @@ export async function getPlayerDirectory(
       | null;
   }[];
 
-  const [{ data: answerRows }, names] = await Promise.all([
-    supabase
-      .from("registration_answers")
-      .select("question_id, value, user_id")
-      .eq("competition_id", competitionId)
-      .not("user_id", "is", null),
+  // Paged: Thursday Spiking's 1,851 answers were cut at 1,000, and players
+  // who had answered everything showed "Details missing" (2026-10-04).
+  const [answerRows, names] = await Promise.all([
+    fetchAll((from, to) =>
+      supabase
+        .from("registration_answers")
+        .select("question_id, value, user_id")
+        .eq("competition_id", competitionId)
+        .not("user_id", "is", null)
+        .order("id")
+        .range(from, to),
+    ),
     getPlayerNameAnswers(competitionId),
   ]);
 

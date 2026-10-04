@@ -9,6 +9,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { getPlayerNameAnswers, namePartsFor } from "@/lib/queries/player-names";
 import { resolvePlayerName } from "@/lib/registration/player-name";
 
@@ -143,12 +144,17 @@ export async function getCompetitionWaiverState(
       .from("team_members")
       .select("team_id, user_id, users(id, display_name, email)")
       .in("team_id", teamIds),
+    // Paged: one waiver now covers an org's leagues (0148), so its
+    // signatures grow past PostgREST's 1,000-row cap (BVL: 513 already).
     waiverId
-      ? supabase
-          .from("waiver_acceptances")
-          .select("user_id, signed_name, accepted_at")
-          // Signed once for the org's waiver counts in all its leagues (0148).
-          .eq("waiver_id", waiverId)
+      ? fetchAll<Record<string, unknown>>((from, to) =>
+          supabase
+            .from("waiver_acceptances")
+            .select("user_id, signed_name, accepted_at")
+            .eq("waiver_id", waiverId)
+            .order("id")
+            .range(from, to),
+        ).then((data) => ({ data }))
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     getPlayerNameAnswers(competitionId),
   ]);

@@ -2043,6 +2043,13 @@ shortening the sets or padding the second wave.**
 
 ## Known quirks
 
+- **PostgREST returns at most 1,000 rows per request, silently.** Any query
+  that reads a whole league (or a whole waiver) must page with `fetchAll`
+  (lib/supabase/fetch-all.ts) — order by a unique column, `.range(from, to)`.
+  Found 2026-10-04 when BVL Thursday's 1,851 registration answers read as
+  1,000 and the Players tab showed 117 players "missing details" (truly 4).
+  Largest per-competition tables after that: kotc_events 307, matches 196.
+
 - **Migrations `0050`+ are hand-written SQL**, not drizzle-kit output — `npm run
   db:migrate` won't apply them. They're applied with a throwaway node script that
   runs the file's statements against `DATABASE_URL` (split on
