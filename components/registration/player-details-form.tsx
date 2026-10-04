@@ -53,8 +53,9 @@ export function PlayerDetailsForm({
    * gate the signature). `pool`: waiting to be placed — the organizer needs
    * these to form teams. `team`: on a team, waiver done or none, answers
    * missing — e.g. questions made required after they signed up.
+   * `profile`: the profile page, always shown, for keeping answers current.
    */
-  context?: "waiver" | "pool" | "team";
+  context?: "waiver" | "pool" | "team" | "profile";
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -88,22 +89,40 @@ export function PlayerDetailsForm({
 
   return (
     <section className="border-rule bg-surface rounded-xl border p-5">
-      <p className="text-claret flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase">
-        <ClipboardList className="size-4" />
-        Before you play
-      </p>
+      {context === "profile" ? (
+        <>
+          <h3 className="font-semibold tracking-tight">{competitionName}</h3>
+          <p className="text-ink-2 mt-0.5 text-sm">
+            {organizerName}
+            {missing.length > 0 && (
+              <span className="ml-2 font-medium text-amber-800">
+                {missing.length} still needed
+              </span>
+            )}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-claret flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase">
+            <ClipboardList className="size-4" />
+            Before you play
+          </p>
 
-      <h2 className="mt-2 text-xl font-semibold tracking-tight">
-        {organizerName} needs a few details
-      </h2>
-      <p className="text-ink-2 mt-1 text-sm">
-        For {competitionName}.{" "}
-        {context === "waiver"
-          ? "Your team isn't confirmed until everyone has filled these in and signed the waiver."
-          : context === "pool"
-            ? `${organizerName} uses these to put you on a team.`
-            : `${organizerName} needs these on file for the season.`}
-      </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">
+            {organizerName} needs a few details
+          </h2>
+        </>
+      )}
+      {context !== "profile" && (
+        <p className="text-ink-2 mt-1 text-sm">
+          For {competitionName}.{" "}
+          {context === "waiver"
+            ? "Your team isn't confirmed until everyone has filled these in and signed the waiver."
+            : context === "pool"
+              ? `${organizerName} uses these to put you on a team.`
+              : `${organizerName} needs these on file for the season.`}
+        </p>
+      )}
 
       <form onSubmit={submit} className="mt-4 grid gap-4">
         <QuestionFields
@@ -123,8 +142,8 @@ export function PlayerDetailsForm({
 
       <p className="text-ink-3 mt-3 text-xs">
         These answers go to {organizerName} and to nobody else — not to your
-        teammates, and not to other teams. You can change them later from this
-        page.
+        teammates, and not to other teams. You can change them any time from
+        your profile.
       </p>
     </section>
   );

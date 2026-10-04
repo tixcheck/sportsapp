@@ -6,7 +6,6 @@ import {
   acceptPendingInvites,
   claimMySignups,
   competitionPath,
-  getCompetitionOrgNames,
   getMyCompetitions,
   getMyPendingInvites,
   getMyPoolSignups,
@@ -19,6 +18,7 @@ import { getMyOutstandingWaivers } from "@/lib/queries/waivers";
 import { SignWaiver } from "@/components/waivers/sign-waiver";
 import { PlayerDetailsForm } from "@/components/registration/player-details-form";
 import { missingRequired } from "@/lib/registration/required-answers";
+import { getMyLeagueDetails } from "@/lib/queries/my-league-details";
 import { addressAutocompleteAvailableAction } from "@/server/actions/places";
 import {
   getMyPlayerAnswers,
@@ -112,39 +112,11 @@ export default async function DashboardPage() {
   // sign-up form, and a question made required after they signed up (BVL,
   // 2026-10-02: "I have no clue who's a dude or a girl") never reached them.
   const owedIds = new Set(owedWaivers.map((w) => w.competitionId));
-  const teamOrgName = await getCompetitionOrgNames(
-    activeComps.map((c) => c.competitionId),
+  const detailsOwed = (await getMyLeagueDetails()).filter(
+    (d) =>
+      !owedIds.has(d.competitionId) &&
+      missingRequired(d.questions, d.answers).length > 0,
   );
-  const detailsCandidates = [
-    ...poolSignups.map((p) => ({
-      competitionId: p.competitionId,
-      name: p.name,
-      orgName: p.orgName,
-      context: "pool" as const,
-    })),
-    ...activeComps.map((c) => ({
-      competitionId: c.competitionId,
-      name: c.name,
-      orgName: teamOrgName.get(c.competitionId) ?? "Your organizer",
-      context: "team" as const,
-    })),
-  ].filter(
-    (c, i, all) =>
-      !owedIds.has(c.competitionId) &&
-      all.findIndex((x) => x.competitionId === c.competitionId) === i,
-  );
-  const detailsOwed = (
-    await Promise.all(
-      detailsCandidates.map(async (c) => {
-        const [questions, answers, suggested] = await Promise.all([
-          getRegistrationQuestions(c.competitionId, "player"),
-          getMyPlayerAnswers(c.competitionId),
-          getSuggestedPlayerAnswers(c.competitionId),
-        ]);
-        return { ...c, questions, answers, suggested };
-      }),
-    )
-  ).filter((d) => missingRequired(d.questions, d.answers).length > 0);
 
   return (
     <div className="space-y-10">

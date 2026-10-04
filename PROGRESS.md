@@ -5,6 +5,22 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-04 — League details on the Profile page
+
+A BVL player: "I don't know where I can edit these details, since this is all
+that comes up when I click my profile." The league's questions (address,
+gender, full name) appeared only on the dashboard, and only while a required
+answer was missing — once complete the form vanished and the answers were out
+of reach. The Profile page now has a "League details" card: every league the
+player is pooled or rostered in that asks anything, with their answers, always
+editable, flagging "N still needed". `getMyLeagueDetails`
+(lib/queries/my-league-details.ts) is shared with the dashboard, which still
+shows only the incomplete ones. The form's closing line now says answers can be
+changed "any time from your profile", which is finally true. That player
+(Hohitha) had in fact already answered everything in both leagues.
+
+---
+
 ## 2026-10-02 — Players can fill in missing details before they're placed
 
 Vee (BVL) was forming individual teams with "no clue who's a dude or a girl":
