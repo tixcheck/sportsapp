@@ -17,8 +17,7 @@ schedule ("B VS D") with movement and "A and B and E setup courts" beside it;
 the A–F cross-table with diagonal crosses, Running Totals, End of Night Results
 (Total Points, 1st 2nd etc), the grey "Do not write" column and the arrow
 column; #1–#3 officials with signature lines. No cover page. The grid is still
-read from the week's matches, mapped back to letters. Five-team gyms (Porter,
-King this week) get a "Sits" column. One Letter page per gym.
+read from the week's matches, mapped back to letters. Five-team gyms get a "Sits" column. One Letter page per gym.
 
 ---
 
@@ -33,7 +32,10 @@ night with `planPodNight`, as Draw does: 36 teams, 77 games, 7:20 pm.
 Cross-checked the sheet against week 1's results — all movements follow
 2-up/2-down except King's Hitmen/Eagles order, kept as written. OG, Zeus,
 Team 39 and Toronto Warriors aren't on the sheet and aren't placed; none
-removed. Porter and King run as five.
+removed. The sheet's two placeholder seats ("New team" Porter F, "empty for
+now" King F) are placeholder teams, so every 6-seat gym runs the 6-team grid as
+the organizer's sheet does — first loaded as five-team gyms, corrected the same
+day. 87 games.
 
 ---
 

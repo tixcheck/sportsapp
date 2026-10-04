@@ -430,13 +430,16 @@ owner's explicit go.**
 SMVA published week 2's order on smva.ca. `lib/db/smva-09-week2-from-sheet.ts`
 did what Lock + Draw would have: created **LOGAN** (moves up to PPL), wrote
 week-2 placements in the sheet's seat order with each team's `division_id`
-moved, and drew 77 games on the pinned grids for Mon Oct 5 from 7:20 pm
+moved, and drew the night on the pinned grids for Mon Oct 5 from 7:20 pm
 (`check:courts` clean). Every tier's ups/downs match 2-up/2-down from week 1,
 except King lists KILLER HITMEN above SCREAMING EAGLES (Eagles finished higher)
 — taken as written. **Not placed, so not playing:** OG, ZEUS, Team 39,
 TORONTO WARRIORS — the sheet leaves them out; nobody was withdrawn or deleted.
-The sheet's placeholders ("New team" Porter F, "empty for now" King F) aren't
-teams, so Porter and King play as FIVE (POD_5). Porter's week-1 ranks were
+The sheet's placeholders are now teams named as the sheet has them —
+**"New team" (Porter F)** and **"empty for now" (King F)** — so both gyms run
+the normal 6-team grid like the organizer's sheet (87 games; I first left them
+out and ran 5, which the owner corrected). When the real team is known, RENAME
+the placeholder (matches follow the team id); don't add a new team. Porter's week-1 ranks were
 never entered and aren't needed (pre-season counts only up/down). The items
 below are superseded by this.
 
