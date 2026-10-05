@@ -5,6 +5,7 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import { planTierNight } from "@/lib/scheduler/ladder-night";
+import { tierStartForWeek } from "@/lib/scheduler/wave-swap";
 import { planLadderWeek, rankLadderNight } from "@/lib/scheduler/ladder-week";
 import { applyLadderMovement } from "@/lib/scheduler/ladder-movement";
 import {
@@ -102,7 +103,7 @@ async function loadLadderContext(competitionId: string) {
       supabase
         .from("league_settings")
         .select(
-          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker",
+          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker, wave_swap_weeks",
         )
         .eq("competition_id", competitionId)
         .single(),
@@ -338,7 +339,15 @@ export async function drawLadderWeekAction(
       );
       shorted.push(...plan.shortedTeamIds);
 
-      const startsAt = DateTime.fromISO(`${date}T${d.start_time as string}`, {
+      // Early and late waves trade places every N weeks where the league
+      // asks for it (0150) — Mango Tuesdays, every 3, from Oct 13.
+      const start = tierStartForWeek(
+        d.start_time as string,
+        divisions.map((x) => x.start_time as string),
+        week,
+        (settings.wave_swap_weeks as number | null) ?? null,
+      );
+      const startsAt = DateTime.fromISO(`${date}T${start}`, {
         zone: tz,
       });
       for (const m of plan.matches) {
