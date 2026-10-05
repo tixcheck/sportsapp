@@ -46,6 +46,7 @@ export function PaymentsDashboard({
   currency = "CAD",
   payoutsReady,
   splitAllowed,
+  unit = "team",
 }: {
   competitionId: string;
   ledger: CompetitionLedger;
@@ -53,6 +54,8 @@ export function PaymentsDashboard({
   /** Whether the org's Stripe account can actually take money yet. */
   payoutsReady: boolean;
   splitAllowed: boolean;
+  /** What one entry is called — a Reverse Pairs event takes pairs. */
+  unit?: "team" | "pair";
 }) {
   const { totals, teams, feeCents } = ledger;
   const isPaid = feeCents > 0;
@@ -64,7 +67,7 @@ export function PaymentsDashboard({
           <CardTitle>Payments</CardTitle>
           <CardDescription>
             {isPaid
-              ? `${formatCents(feeCents, currency)} per team. You net the full amount — payers cover the fees.`
+              ? `${formatCents(feeCents, currency)} per ${unit}. You net the full amount — payers cover the fees.`
               : "This event is free. Teams are listed here so you can add and manage them."}
           </CardDescription>
         </div>
@@ -89,7 +92,7 @@ export function PaymentsDashboard({
                 value={formatCents(totals.outstandingPriceCents, currency)}
                 hint={
                   totals.teamsUnpaid + totals.teamsPartial > 0
-                    ? `${totals.teamsUnpaid + totals.teamsPartial} of ${totals.teamsCounted} teams`
+                    ? `${totals.teamsUnpaid + totals.teamsPartial} of ${totals.teamsCounted} ${unit}s`
                     : "Everyone's paid"
                 }
               />
@@ -121,9 +124,10 @@ export function PaymentsDashboard({
 
         {teams.length === 0 ? (
           <div className="border-border rounded-lg border border-dashed px-4 py-8 text-center">
-            <p className="text-sm font-medium">No teams yet</p>
+            <p className="text-sm font-medium">No {unit}s yet</p>
             <p className="text-muted-foreground mt-1 text-xs">
-              Teams appear here as they register — or add one yourself.
+              {unit === "pair" ? "Pairs" : "Teams"} appear here as they register
+              — or add one yourself.
             </p>
           </div>
         ) : (

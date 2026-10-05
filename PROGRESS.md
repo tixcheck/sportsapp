@@ -5,6 +5,17 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-05 — Reverse Pairs settings in sub-tabs
+
+The owner: "create sub tabs for settings and not have to scroll down for
+payments". The Reverse Pairs organizer page stacked Published, Event settings,
+Registration fee and the Payments ledger in one Settings tab. Now it uses the
+league page's nested `OrganizerTabs`: **Event** (publish + event form),
+**Payments** (the ledger), **Fee** (price and methods). The payments card takes
+a `unit` and says "per pair" / "pairs" there. Checked at 375px.
+
+---
+
 ## 2026-10-05 — Reverse Pairs on the org page: no more 404, no wrong sign-up form
 
 Dani (Helix): the event card's "Details" opened a 404. The org page built its

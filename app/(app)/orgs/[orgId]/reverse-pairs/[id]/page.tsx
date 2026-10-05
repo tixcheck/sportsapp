@@ -21,6 +21,7 @@ import { ReversePairsNowPlaying } from "@/components/reverse-pairs/now-playing";
 import { ReversePairsSwapCard } from "@/components/reverse-pairs/swap-card";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 
 export default async function ReversePairsPage({
   params,
@@ -170,65 +171,98 @@ export default async function ReversePairsPage({
         )}
 
         {isAdmin && (
-          <TabsContent value="settings" className="space-y-6">
-            <ReversePairsPublishCard
-              competitionId={detail.competitionId}
-              slug={detail.slug}
-              isPublic={detail.visibility === "public"}
+          <TabsContent value="settings">
+            {/* Sub-tabs, as the league page has: the four cards stacked meant
+                scrolling past the event form to reach payments (Helix,
+                2026-10-05). Payments sits second — it's the one an organizer
+                opens most once sign-ups start. */}
+            <OrganizerTabs
+              variant="nested"
+              tabs={[
+                {
+                  value: "event",
+                  label: "Event",
+                  content: (
+                    <div className="space-y-6">
+                      <ReversePairsPublishCard
+                        competitionId={detail.competitionId}
+                        slug={detail.slug}
+                        isPublic={detail.visibility === "public"}
+                      />
+                      <ReversePairsSettingsCard
+                        competitionId={detail.competitionId}
+                        timezone={detail.timezone}
+                        pairCount={detail.pairs.length}
+                        initial={{
+                          name: detail.name,
+                          date: detail.startDate ?? "",
+                          venue: detail.venue ?? "",
+                          courts: detail.settings.courts,
+                          minutesPerGame: detail.settings.minutesPerGame,
+                          pointsPerGame: detail.pointsPerGame,
+                          registrationOpen: detail.settings.registrationOpen,
+                          registrationDeadline:
+                            detail.settings.registrationDeadline,
+                          maxPairs: detail.settings.maxPairs,
+                        }}
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  value: "payments",
+                  label: "Payments",
+                  content: (
+                    <div className="space-y-6">
+                      {ledger && feeSettings && orgAccount !== undefined && (
+                        <PaymentsDashboard
+                          competitionId={detail.competitionId}
+                          ledger={ledger}
+                          payoutsReady={
+                            paymentAccountStatus(orgAccount).canAcceptPayments
+                          }
+                          splitAllowed={feeSettings.allowSplitPayment}
+                          unit="pair"
+                        />
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  value: "fee",
+                  label: "Fee",
+                  content: (
+                    <div className="space-y-6">
+                      {feeSettings && feeRates && (
+                        <RegistrationFeeCard
+                          competitionId={detail.competitionId}
+                          competitionType="reverse_pairs"
+                          initial={{
+                            feeDollars: feeSettings.registrationFeeCents / 100,
+                            allowCaptainPays: feeSettings.allowCaptainPays,
+                            allowSplitPayment: feeSettings.allowSplitPayment,
+                            taxEnabled: feeSettings.taxEnabled,
+                            taxPercent: feeSettings.taxPercent,
+                            paymentRequired: feeSettings.paymentRequired,
+                            etransferEmail: feeSettings.etransferEmail ?? "",
+                            etransferNote: feeSettings.etransferNote ?? "",
+                            paypalTeamUrl: feeSettings.paypalTeamUrl ?? "",
+                            paypalIndividualUrl:
+                              feeSettings.paypalIndividualUrl ?? "",
+                            paypalNote: feeSettings.paypalNote ?? "",
+                          }}
+                          rates={feeRates}
+                          payoutsReady={
+                            paymentAccountStatus(orgAccount).canAcceptPayments
+                          }
+                          unitLabel="pair"
+                        />
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
             />
-
-            <ReversePairsSettingsCard
-              competitionId={detail.competitionId}
-              timezone={detail.timezone}
-              pairCount={detail.pairs.length}
-              initial={{
-                name: detail.name,
-                date: detail.startDate ?? "",
-                venue: detail.venue ?? "",
-                courts: detail.settings.courts,
-                minutesPerGame: detail.settings.minutesPerGame,
-                pointsPerGame: detail.pointsPerGame,
-                registrationOpen: detail.settings.registrationOpen,
-                registrationDeadline: detail.settings.registrationDeadline,
-                maxPairs: detail.settings.maxPairs,
-              }}
-            />
-
-            {feeSettings && feeRates && (
-              <RegistrationFeeCard
-                competitionId={detail.competitionId}
-                competitionType="reverse_pairs"
-                initial={{
-                  feeDollars: feeSettings.registrationFeeCents / 100,
-                  allowCaptainPays: feeSettings.allowCaptainPays,
-                  allowSplitPayment: feeSettings.allowSplitPayment,
-                  taxEnabled: feeSettings.taxEnabled,
-                  taxPercent: feeSettings.taxPercent,
-                  paymentRequired: feeSettings.paymentRequired,
-                  etransferEmail: feeSettings.etransferEmail ?? "",
-                  etransferNote: feeSettings.etransferNote ?? "",
-                  paypalTeamUrl: feeSettings.paypalTeamUrl ?? "",
-                  paypalIndividualUrl: feeSettings.paypalIndividualUrl ?? "",
-                  paypalNote: feeSettings.paypalNote ?? "",
-                }}
-                rates={feeRates}
-                payoutsReady={
-                  paymentAccountStatus(orgAccount).canAcceptPayments
-                }
-                unitLabel="pair"
-              />
-            )}
-
-            {ledger && feeSettings && orgAccount !== undefined && (
-              <PaymentsDashboard
-                competitionId={detail.competitionId}
-                ledger={ledger}
-                payoutsReady={
-                  paymentAccountStatus(orgAccount).canAcceptPayments
-                }
-                splitAllowed={feeSettings.allowSplitPayment}
-              />
-            )}
           </TabsContent>
         )}
       </Tabs>
