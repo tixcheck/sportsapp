@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0149`, and every one of `0060`–`0149` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0150`, and every one of `0060`–`0150` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -58,6 +58,7 @@
     | `0147` | Oct 1 | `free_agents.invited_at` / `invited_email` — drafted players with no account are emailed to join (server/drafted-invites.ts), once per address |
     | `0148` | Oct 1 | A waiver signature counts across the org: `team_entry_blocked`, `waiver_outstanding` and the signing trigger match on (user, waiver_id), not competition. Applied with a re-sync of every waiver competition's teams (released Mango Mens Teams 1 & 3, BVL Wed Big Dig Energy) |
     | `0149` | Oct 1 | `link_free_agent_account(id)` — organizer-side claim for one drafted row (email → existing account, + roster row if placed). `inviteDraftedPlayers` calls it first, so existing accounts are linked, not emailed |
+    | `0150` | Oct 5 | `league_settings.wave_swap_weeks` — per-tier ladder nights trade early/late start times every N ladder weeks (`tierStartForWeek`, lib/scheduler/wave-swap.ts). Mango Coed = 3 |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -2029,6 +2030,14 @@ team**, 120 minutes. Two waves on 3 courts:
 | 1 | Tier 1 | Tier 2 |
 | 2 | Tier 3 | Tier 4 |
 | 3 | Tier 5 | Tier 6 |
+
+**⚠️ The waves SWAP every 3 weeks (from 2026-10-05, migration 0150).** Owner:
+"swap 7pm and 9pm tiers every 3 weeks… start next week Oct 13." `wave_swap_weeks
+= 3`; counted in LADDER weeks: 1–3 as the table above, 4–6 swapped (Tiers
+2/4/6 at 19:00, 1/3/5 at 21:00, same courts), 7–9 back, … Week 4 = Oct 13; the
+Oct 27 blackout doesn't count, so the swapped block is Oct 13, 20, Nov 3 and
+Nov 10 is back to normal. Applied by the draw — weeks 1–3 were already drawn
+and are untouched. No settings field yet; change it in the DB.
 
 Stored per division: `start_time`, `courts` (a plain court NUMBER array, first
 entry wins), `minutes_per_set = 20`, `ladder_target = 4`. `league_settings`

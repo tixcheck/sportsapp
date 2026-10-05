@@ -5,6 +5,20 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-05 — Mango Tuesdays: 7pm and 9pm tiers swap every 3 weeks (0150)
+
+The app had each tier's start time fixed (1/3/5 at 19:00, 2/4/6 at 21:00) and no
+record of a rotation. The owner: swap them every 3 weeks, from Oct 13.
+`league_settings.wave_swap_weeks` (0150, Mango Coed = 3) and `tierStartForWeek`
+(lib/scheduler/wave-swap.ts, tested): in a swapped block each tier draws with
+the other wave's start time, on its own court. Counted in ladder weeks, so a
+blackout doesn't use up part of a block — Oct 13 is week 4, and with Oct 27
+blacked out the swapped nights are Oct 13, 20 and Nov 3. Only a league with
+exactly two distinct start times swaps; anything else keeps its times. Takes
+effect when week 4 is drawn; already-drawn weeks are unchanged.
+
+---
+
 ## 2026-10-04 — SMVA's gym package prints their sheet, exactly
 
 The organizer wants the print-out to be "exactly how this sheet is" — the
