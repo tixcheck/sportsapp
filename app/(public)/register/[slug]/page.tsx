@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { OrgTheme } from "@/components/branding/org-theme";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { competitionPath } from "@/lib/queries/dashboard";
 import { DateTime } from "luxon";
 import { ArrowRight } from "lucide-react";
 
@@ -87,6 +88,15 @@ export default async function RegisterPage({
     getUser(),
   ]);
   if (!event) notFound();
+  // Only leagues and tournaments register here. A Reverse Pairs or KotC event
+  // signs up on its own page; this form would treat it as a team tournament
+  // and skip its rules (pair names, cap, split payment) — Helix, 2026-10-05.
+  if (
+    event.competitionType !== "league" &&
+    event.competitionType !== "tournament"
+  ) {
+    redirect(competitionPath(event.competitionType, event.slug));
+  }
 
   // Pricing drives whether the form asks how they'll pay and whether it sends
   // them on to Stripe. Read after the event so a missing slug 404s first.

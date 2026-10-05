@@ -298,7 +298,7 @@ export type MyPayment = {
   teamId: string;
   teamName: string;
   competitionName: string;
-  competitionType: "league" | "tournament" | "kotc";
+  competitionType: "league" | "tournament" | "kotc" | "reverse_pairs";
   competitionSlug: string;
 };
 

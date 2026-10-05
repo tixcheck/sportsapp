@@ -19,7 +19,7 @@ export type PublicOrgCompetition = {
   id: string;
   name: string;
   slug: string;
-  type: "league" | "tournament";
+  type: "league" | "tournament" | "reverse_pairs" | "kotc";
   sport: Sport;
   venue: string | null;
   startDate: string | null;
@@ -78,7 +78,7 @@ export async function getPublicOrg(slug: string): Promise<PublicOrg | null> {
     id: string;
     name: string;
     slug: string;
-    type: "league" | "tournament";
+    type: PublicOrgCompetition["type"];
     sport: Sport;
     venue: string | null;
     start_date: string | null;
@@ -97,6 +97,7 @@ export async function getPublicOrg(slug: string): Promise<PublicOrg | null> {
     { data: tournamentSettings },
     { data: payment },
     { data: teams },
+    { data: pairSettings },
   ] = await Promise.all([
     supabase
       .from("league_settings")
@@ -117,7 +118,19 @@ export async function getPublicOrg(slug: string): Promise<PublicOrg | null> {
       .from("teams")
       .select("competition_id, status")
       .in("competition_id", ids),
+    // Reverse Pairs keeps its sign-up rules in its own table: an open flag, a
+    // deadline and a cap in PAIRS (Helix, 2026-10-05 — read as a tournament,
+    // its card linked to a 404 and to the team-registration form).
+    supabase
+      .from("reverse_pairs_settings")
+      .select(
+        "competition_id, registration_open, registration_deadline, max_pairs",
+      )
+      .in("competition_id", ids),
   ]);
+  const rp = new Map(
+    (pairSettings ?? []).map((r) => [r.competition_id as string, r]),
+  );
 
   const ls = new Map(
     (leagueSettings ?? []).map((r) => [r.competition_id as string, r]),
@@ -154,20 +167,37 @@ export async function getPublicOrg(slug: string): Promise<PublicOrg | null> {
       | { registration_fee_cents: number; individual_fee_cents: number | null }
       | undefined;
 
+    const pairs = rp.get(r.id) as
+      | {
+          registration_open: boolean;
+          registration_deadline: string | null;
+          max_pairs: number | null;
+        }
+      | undefined;
+    const isPairs = r.type === "reverse_pairs";
+
     const maxTeams =
-      (r.type === "league" ? league?.max_teams : tourn?.max_teams) ?? null;
+      (isPairs
+        ? pairs?.max_pairs
+        : r.type === "league"
+          ? league?.max_teams
+          : tourn?.max_teams) ?? null;
     const teamsIn = counts.get(r.id) ?? 0;
     const deadline =
-      (r.type === "league"
-        ? league?.registration_deadline
-        : tourn?.registration_deadline) ?? null;
+      (isPairs
+        ? pairs?.registration_deadline
+        : r.type === "league"
+          ? league?.registration_deadline
+          : tourn?.registration_deadline) ?? null;
 
-    // Mirrors the register page exactly: a league opens by its own flag, a
-    // tournament by its status, and either closes at its deadline.
+    // Mirrors each type's own page: a league or a Reverse Pairs event opens by
+    // its own flag, a tournament by its status; all close at the deadline.
     const open =
-      (r.type === "league"
-        ? league?.registration_open === true
-        : r.status === "open") &&
+      (isPairs
+        ? pairs?.registration_open === true
+        : r.type === "league"
+          ? league?.registration_open === true
+          : r.status === "open") &&
       (!deadline || new Date(deadline) > new Date());
 
     // The first slot is the league's night. A league with several is rare and

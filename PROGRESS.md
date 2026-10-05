@@ -5,6 +5,24 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-05 — Reverse Pairs on the org page: no more 404, no wrong sign-up form
+
+Dani (Helix): the event card's "Details" opened a 404. The org page built its
+links as league → /l/, anything else → /t/, so a Reverse Pairs event went to a
+tournament URL. Worse, its "Register" went to /register/[slug], which loaded
+for a Reverse Pairs event and offered the TEAM-tournament form — skipping pair
+names, the pair cap and split payment. (The one sign-up so far, Brianna/TBD,
+came through the right pair form.) And the card judged it by tournament rules
+and said "per team" / "Indoor 6s".
+
+Now the org page reads `reverse_pairs_settings` (open flag, deadline,
+`max_pairs`), links Details and Register to /rp/[slug] via `competitionPath`,
+says "per pair" and "Reverse Pairs"; /register/[slug] redirects any type that
+isn't a league or tournament to its own page; the profile's payments list and
+the register loader use `competitionPath` too.
+
+---
+
 ## 2026-10-05 — Mango Tuesdays: 7pm and 9pm tiers swap every 3 weeks (0150)
 
 The app had each tier's start time fixed (1/3/5 at 19:00, 2/4/6 at 21:00) and no

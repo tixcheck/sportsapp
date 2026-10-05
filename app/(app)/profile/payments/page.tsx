@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { competitionPath as pathForType } from "@/lib/queries/dashboard";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -47,7 +48,8 @@ const STATUS: Record<
 
 function competitionPath(type: MyPayment["competitionType"], slug: string) {
   if (!slug) return null;
-  return type === "league" ? `/l/${slug}` : `/t/${slug}`;
+  // Every type's own page — Reverse Pairs was falling through to /t/ (404).
+  return pathForType(type, slug);
 }
 
 export default async function MyPaymentsPage() {

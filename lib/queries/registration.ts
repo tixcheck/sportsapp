@@ -3,6 +3,7 @@ import type { MatchFormat, WeeklySlot } from "@/lib/db/schema";
 import { getCompetitionVenues } from "@/lib/queries/venues";
 import type { VenueSummary } from "@/lib/venues/resolve";
 import type { Sport } from "@/lib/formats";
+import { competitionPath } from "@/lib/queries/dashboard";
 
 /**
  * The minimal shape a standalone registration page needs, for either a league
@@ -12,6 +13,8 @@ import type { Sport } from "@/lib/formats";
 export interface RegistrationEvent {
   id: string;
   type: "league" | "tournament";
+  /** The competition's real type — `type` above folds everything else into tournament. */
+  competitionType: string;
   name: string;
   slug: string;
   sport: Sport;
@@ -183,6 +186,7 @@ export async function getRegistrationEvent(
   return {
     id: comp.id,
     type: isLeague ? "league" : "tournament",
+    competitionType: comp.type as string,
     name: comp.name,
     slug: comp.slug,
     sport: comp.sport as Sport,
@@ -222,6 +226,6 @@ export async function getRegistrationEvent(
     maxTeams,
     teamsRegistered,
     spotsLeft,
-    publicPath: isLeague ? `/l/${comp.slug}` : `/t/${comp.slug}`,
+    publicPath: competitionPath(comp.type as string, comp.slug as string),
   };
 }

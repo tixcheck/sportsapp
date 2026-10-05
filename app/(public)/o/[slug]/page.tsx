@@ -9,6 +9,7 @@ import {
   type PublicOrgCompetition,
 } from "@/lib/queries/public-org";
 import { SPORTS } from "@/lib/formats";
+import { competitionPath } from "@/lib/queries/dashboard";
 import { formatCents } from "@/lib/payments/format";
 import { Button } from "@/components/ui/button";
 
@@ -110,9 +111,19 @@ export default async function PublicOrgPage({
 }
 
 function CompetitionRow({ c }: { c: PublicOrgCompetition }) {
-  const sportLabel = SPORTS.find((s) => s.value === c.sport)?.label ?? c.sport;
+  const isPairs = c.type === "reverse_pairs";
+  const sportLabel = isPairs
+    ? "Reverse Pairs"
+    : (SPORTS.find((s) => s.value === c.sport)?.label ?? c.sport);
   const full = c.spotsLeft !== null && c.spotsLeft <= 0;
-  const publicPath = c.type === "league" ? `/l/${c.slug}` : `/t/${c.slug}`;
+  // Each type has its own page; Reverse Pairs was falling through to /t/ and
+  // 404ing (Helix, 2026-10-05). Pairs also SIGN UP on their own page.
+  const publicPath = competitionPath(c.type, c.slug);
+  const registerPath =
+    c.type === "league" || c.type === "tournament"
+      ? `/register/${c.slug}`
+      : publicPath;
+  const unit = isPairs ? "pair" : "team";
 
   const when = [
     c.dayOfWeek !== null ? `${DAY[c.dayOfWeek] ?? ""}s` : null,
@@ -171,7 +182,7 @@ function CompetitionRow({ c }: { c: PublicOrgCompetition }) {
           <div className="flex items-center gap-2">
             <Users className="size-4 shrink-0" />
             <dd>
-              {formatCents(c.feeCents)} per team
+              {formatCents(c.feeCents)} per {unit}
               {c.allowIndividualSignups && c.individualFeeCents > 0 && (
                 <>
                   {" "}
@@ -186,7 +197,7 @@ function CompetitionRow({ c }: { c: PublicOrgCompetition }) {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {c.registrationOpen ? (
           <Button asChild>
-            <Link href={`/register/${c.slug}`}>
+            <Link href={registerPath}>
               {full ? "Join the waitlist" : "Register"}
               <ArrowRight className="size-4" />
             </Link>
