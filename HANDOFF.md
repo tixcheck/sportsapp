@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0152`, and every one of `0060`–`0152` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0152` on 2026-10-06). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0153`, and every one of `0060`–`0153` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -61,6 +61,7 @@
     | `0150` | Oct 5 | `league_settings.wave_swap_weeks` — per-tier ladder nights trade early/late start times every N ladder weeks (`tierStartForWeek`, lib/scheduler/wave-swap.ts). Mango Coed = 3 |
     | `0151` | Oct 6 | Platform fee recovery: `organizations.recover_manual_platform_fees` (Helix ONLY), `platform_fee_recoveries` ledger, `platform_fee_debts` / `claim_…` / `attach_…` / `release_…` / `team_fee_already_recovered` / `platform_fee_recovery_summary`. An entry let in without a card payment owes its fee; one owed fee rides on each later card payment's application fee |
     | `0152` | Oct 6 | `payment_method` += `cash`, `other`; `record_offline_payment(team, method, amount, note)` — organizer-only "Record payment" |
+    | `0153` | Oct 6 | `record_offline_payment` takes `_livemode` (0152's rows defaulted to false and were invisible on the live deployment) and refuses a second recording once the fee is covered. Repaired Helix: 3 duplicate Cristiane/Rafael e-transfer rows → 1, live |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -1639,6 +1640,10 @@ team/pair row: method (cash / e-transfer / PayPal / other), amount (defaults to
 what's owed), note. Writes a paid row (or confirms a pending offline one) and
 moves the entry into the draw once covered. Dani asked for it for cash and
 e-transfers.
+**0153 fix the same day:** 0152 didn't set `livemode`, so recorded payments
+were invisible (every payment read filters by mode) — Dani pressed it three
+times for Cristiane/Rafael. Repaired to one live row; the function now takes
+the mode from the app and refuses once the fee is covered.
 
 **Brand colours (0144, 2026-09-30):** the owner asked for the event page in
 Helix's logo and colours. The RP page now shows the flyer banner and "Hosted by"

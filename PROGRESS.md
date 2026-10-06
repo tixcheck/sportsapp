@@ -5,6 +5,18 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-06 — Fix: recorded payments were invisible and could stack (0153)
+
+Dani recorded Cristiane/Rafael's e-transfer and the Payments tab still said
+$160 owing, so she pressed it twice more. 0152's function never set
+`livemode`; the rows defaulted to false, and every payment read in the app is
+filtered to the deployment's Stripe mode. My miss — the rehearsal checked the
+row and the team status, not what the Payments tab reads. 0153 takes the mode
+from the app (as card payments do) and refuses a second recording once the fee
+is covered; the three rows were repaired to the one carrying her note, live.
+
+---
+
 ## 2026-10-06 — Helix: recover the platform fee on manual admits (0151); "Record payment" (0152)
 
 Owner: if Helix admits pairs manually, the platform's $2 should still be paid —

@@ -198,8 +198,15 @@ export async function recordOfflinePaymentAction(
     _method: v.method,
     _amount_cents: v.amountCents,
     _note: v.note ?? null,
+    // Every payment read in the app is filtered to this deployment's Stripe
+    // mode; a row without it is invisible (0153 — Helix's first recording
+    // didn't show, so it was pressed three times).
+    _livemode: currentStripeMode().livemode ?? true,
   });
   if (error) {
+    if (error.message.includes("already paid in full")) {
+      return { error: "This team has already paid in full." };
+    }
     console.error("[payments] record_offline_payment failed");
     return { error: "That payment couldn't be recorded. Please try again." };
   }
