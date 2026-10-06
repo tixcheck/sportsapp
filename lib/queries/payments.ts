@@ -871,3 +871,42 @@ export async function getMyOfflinePaymentReturn(
     payerReference: p.payer_reference,
   };
 }
+
+/**
+ * Platform fees on entries let in without a card payment, for an org that
+ * recovers them from later card payments (0151 — Helix only). Null when the
+ * org doesn't, so the Payments tab says nothing.
+ */
+export type FeeRecoverySummary = {
+  owedCount: number;
+  owedCents: number;
+  recoveredCount: number;
+  recoveredCents: number;
+};
+
+export async function getFeeRecoverySummary(
+  competitionId: string,
+): Promise<FeeRecoverySummary | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("platform_fee_recovery_summary", {
+    _competition_id: competitionId,
+  });
+  const row = (
+    data as
+      | {
+          enabled: boolean;
+          owed_count: number;
+          owed_cents: number;
+          recovered_count: number;
+          recovered_cents: number;
+        }[]
+      | null
+  )?.[0];
+  if (!row?.enabled) return null;
+  return {
+    owedCount: row.owed_count,
+    owedCents: row.owed_cents,
+    recoveredCount: row.recovered_count,
+    recoveredCents: row.recovered_cents,
+  };
+}

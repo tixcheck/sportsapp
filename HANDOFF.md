@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0150`, and every one of `0060`–`0150` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0152`, and every one of `0060`–`0152` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0152` on 2026-10-06). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -59,6 +59,8 @@
     | `0148` | Oct 1 | A waiver signature counts across the org: `team_entry_blocked`, `waiver_outstanding` and the signing trigger match on (user, waiver_id), not competition. Applied with a re-sync of every waiver competition's teams (released Mango Mens Teams 1 & 3, BVL Wed Big Dig Energy) |
     | `0149` | Oct 1 | `link_free_agent_account(id)` — organizer-side claim for one drafted row (email → existing account, + roster row if placed). `inviteDraftedPlayers` calls it first, so existing accounts are linked, not emailed |
     | `0150` | Oct 5 | `league_settings.wave_swap_weeks` — per-tier ladder nights trade early/late start times every N ladder weeks (`tierStartForWeek`, lib/scheduler/wave-swap.ts). Mango Coed = 3 |
+    | `0151` | Oct 6 | Platform fee recovery: `organizations.recover_manual_platform_fees` (Helix ONLY), `platform_fee_recoveries` ledger, `platform_fee_debts` / `claim_…` / `attach_…` / `release_…` / `team_fee_already_recovered` / `platform_fee_recovery_summary`. An entry let in without a card payment owes its fee; one owed fee rides on each later card payment's application fee |
+    | `0152` | Oct 6 | `payment_method` += `cash`, `other`; `record_offline_payment(team, method, amount, note)` — organizer-only "Record payment" |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -1618,6 +1620,25 @@ database does it, whichever way they arrive). The pair page's button is
 "Invite partner" (name + email); a new invite replaces a pending one, and a
 pair with a joined partner can't invite again (organizer changes it). Pairs
 named before 0145 (BVL, Thursdays) keep their typed names.
+
+**Platform fee recovery — Helix only (0151, 2026-10-06).** Owner: a pair the
+organizer lets in manually still owes the platform its $2; take it from her
+later card payments, one per payment; Helix only (others are on a free trial
+this season). An entry owes when `active` without a paid CARD payment
+(admitted unpaid, or a paid cash/e-transfer/PayPal/other row). Each TEAM card
+checkout (full, share, cover-remaining — not individual/free-agent) claims the
+oldest owed fee and adds it to `application_fee_amount`, out of the organizer's
+share; the webhook marks it recovered on payment, deletes it on expiry or FULL
+refund (a partial refund keeps it). An entry whose fee was recovered pays no
+platform fee on its own later card payment. Pending claims die after 25 h.
+**At switch-on, Cristiane/Rafael (admitted 2026-10-06 08:17) owed $2.** The
+Payments tab shows owed / recovered. Turn on for another org by setting the flag.
+
+**"Record payment" (0152, 2026-10-06).** Organizer-only button on each unpaid
+team/pair row: method (cash / e-transfer / PayPal / other), amount (defaults to
+what's owed), note. Writes a paid row (or confirms a pending offline one) and
+moves the entry into the draw once covered. Dani asked for it for cash and
+e-transfers.
 
 **Brand colours (0144, 2026-09-30):** the owner asked for the event page in
 Helix's logo and colours. The RP page now shows the flyer banner and "Hosted by"

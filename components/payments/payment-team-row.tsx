@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RefundDialog } from "@/components/payments/refund-dialog";
+import { RecordPaymentDialog } from "@/components/payments/record-payment-dialog";
 
 const STATE_STYLES: Record<TeamLedgerRow["state"], string> = {
   paid: "bg-emerald-100 text-emerald-900",
@@ -279,6 +280,11 @@ export function PaymentTeamRow({
                 <Mail className="size-3.5" />
                 Send payment link
               </Button>
+              <RecordPaymentDialog
+                teamId={team.teamId}
+                teamName={team.teamName}
+                outstandingCents={team.outstandingPriceCents}
+              />
               {isPending && (
                 <Button
                   variant="outline"

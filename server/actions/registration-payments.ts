@@ -24,6 +24,12 @@ import {
 } from "@/lib/payments/registration-plan";
 import { quotePayment } from "@/lib/payments/fees";
 import {
+  attachFeeRecovery,
+  claimFeeRecovery,
+  ratesForTeamPayment,
+  releaseFeeRecovery,
+} from "@/server/fee-recovery";
+import {
   platformFeeCentsFor,
   type CompetitionType,
 } from "@/lib/payments/platform-fee";
@@ -92,7 +98,7 @@ export async function startRegistrationCheckoutAction(
 
   const [settings, rates, account] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRatesFor(c.id),
+    ratesForTeamPayment(supabase, c.id, team.data),
     getPaymentAccount(c.org_id),
   ]);
 
@@ -126,6 +132,10 @@ export async function startRegistrationCheckoutAction(
   });
   if (!charge) return { error: "This event is free — there's nothing to pay." };
 
+  // One platform fee owed on an entry let in without a card payment rides on
+  // this payment, out of the organizer's share (0151 — Helix only).
+  let recovery = await claimFeeRecovery(supabase, team.data, charge.priceCents);
+
   const stripe = getStripe();
   const origin = await getOrigin();
 
@@ -154,7 +164,8 @@ export async function startRegistrationCheckoutAction(
         // A destination charge: Stripe settles to the organizer's connected
         // account and routes our cut to the platform in the same movement, so
         // the platform never holds the organizer's money.
-        application_fee_amount: charge.applicationFeeCents,
+        application_fee_amount:
+          charge.applicationFeeCents + (recovery?.cents ?? 0),
         transfer_data: { destination: account.stripeAccountId },
       },
       // The webhook matches on the session id, but this makes a Stripe
@@ -162,6 +173,7 @@ export async function startRegistrationCheckoutAction(
       metadata: {
         competition_id: c.id,
         team_id: team.data,
+        ...(recovery ? { fee_recovery_id: recovery.id } : {}),
         kind: "team_full",
       },
       success_url: `${origin}/teams/${team.data}?paid=1`,
@@ -219,10 +231,15 @@ export async function startRegistrationCheckoutAction(
       };
     }
 
+    await attachFeeRecovery(supabase, recovery, session.id);
+    recovery = null;
     return { url: session.url };
   } catch {
     console.error("[payments] checkout session create failed");
     return { error: STRIPE_FAILED };
+  } finally {
+    // Anything but a stored, live session gives the claimed fee back.
+    await releaseFeeRecovery(supabase, recovery);
   }
 }
 
@@ -274,7 +291,7 @@ export async function startShareCheckoutAction(
 
   const [settings, rates, account, rows, roster] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRatesFor(c.id),
+    ratesForTeamPayment(supabase, c.id, team.data),
     getPaymentAccount(c.org_id),
     getTeamPaymentRows(team.data),
     getTeamRoster(team.data),
@@ -348,6 +365,10 @@ export async function startShareCheckoutAction(
     taxCents,
   });
 
+  // One platform fee owed on an entry let in without a card payment rides on
+  // this payment, out of the organizer's share (0151 — Helix only).
+  let recovery = await claimFeeRecovery(supabase, team.data, share.priceCents);
+
   const stripe = getStripe();
   const origin = await getOrigin();
 
@@ -372,12 +393,14 @@ export async function startShareCheckoutAction(
         },
       ],
       payment_intent_data: {
-        application_fee_amount: quote.applicationFeeCents,
+        application_fee_amount:
+          quote.applicationFeeCents + (recovery?.cents ?? 0),
         transfer_data: { destination: account.stripeAccountId },
       },
       metadata: {
         competition_id: c.id,
         team_id: team.data,
+        ...(recovery ? { fee_recovery_id: recovery.id } : {}),
         kind: "player_share",
         payer_email: target,
       },
@@ -430,10 +453,15 @@ export async function startShareCheckoutAction(
       return { error: "That payment link expired. Please try again." };
     }
 
+    await attachFeeRecovery(supabase, recovery, session.id);
+    recovery = null;
     return { url: session.url };
   } catch {
     console.error("[payments] share checkout session create failed");
     return { error: STRIPE_FAILED };
+  } finally {
+    // Anything but a stored, live session gives the claimed fee back.
+    await releaseFeeRecovery(supabase, recovery);
   }
 }
 
@@ -498,7 +526,7 @@ export async function coverRemainingBalanceAction(
 
   const [settings, rates, account, rows] = await Promise.all([
     getCompetitionPaymentSettings(c.id),
-    getPlatformFeeRatesFor(c.id),
+    ratesForTeamPayment(supabase, c.id, team.data),
     getPaymentAccount(c.org_id),
     getTeamPaymentRows(team.data),
   ]);
@@ -540,6 +568,10 @@ export async function coverRemainingBalanceAction(
     taxCents,
   });
 
+  // One platform fee owed on an entry let in without a card payment rides on
+  // this payment, out of the organizer's share (0151 — Helix only).
+  let recovery = await claimFeeRecovery(supabase, team.data, outstanding);
+
   const stripe = getStripe();
   const origin = await getOrigin();
 
@@ -564,12 +596,14 @@ export async function coverRemainingBalanceAction(
         },
       ],
       payment_intent_data: {
-        application_fee_amount: quote.applicationFeeCents,
+        application_fee_amount:
+          quote.applicationFeeCents + (recovery?.cents ?? 0),
         transfer_data: { destination: account.stripeAccountId },
       },
       metadata: {
         competition_id: c.id,
         team_id: team.data,
+        ...(recovery ? { fee_recovery_id: recovery.id } : {}),
         kind: "team_full",
         covers: "remaining_balance",
       },
@@ -624,10 +658,15 @@ export async function coverRemainingBalanceAction(
       return { error: "That payment link expired. Please try again." };
     }
 
+    await attachFeeRecovery(supabase, recovery, session.id);
+    recovery = null;
     return { url: session.url };
   } catch {
     console.error("[payments] cover-rest session create failed");
     return { error: STRIPE_FAILED };
+  } finally {
+    // Anything but a stored, live session gives the claimed fee back.
+    await releaseFeeRecovery(supabase, recovery);
   }
 }
 

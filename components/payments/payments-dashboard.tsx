@@ -1,3 +1,4 @@
+import type { FeeRecoverySummary } from "@/lib/queries/payments";
 import type { CompetitionLedger } from "@/lib/payments/ledger";
 import { formatCents } from "@/lib/payments/format";
 import {
@@ -47,6 +48,7 @@ export function PaymentsDashboard({
   payoutsReady,
   splitAllowed,
   unit = "team",
+  feeRecovery = null,
 }: {
   competitionId: string;
   ledger: CompetitionLedger;
@@ -56,6 +58,8 @@ export function PaymentsDashboard({
   splitAllowed: boolean;
   /** What one entry is called — a Reverse Pairs event takes pairs. */
   unit?: "team" | "pair";
+  /** Platform fees owed on entries let in without a card (0151), if recovered. */
+  feeRecovery?: FeeRecoverySummary | null;
 }) {
   const { totals, teams, feeCents } = ledger;
   const isPaid = feeCents > 0;
@@ -141,6 +145,28 @@ export function PaymentsDashboard({
             ))}
           </div>
         )}
+
+        {feeRecovery &&
+          (feeRecovery.owedCount > 0 || feeRecovery.recoveredCount > 0) && (
+            <p className="text-muted-foreground text-xs">
+              {feeRecovery.owedCount > 0 && (
+                <>
+                  Platform fees owed:{" "}
+                  {formatCents(feeRecovery.owedCents, currency)} on{" "}
+                  {feeRecovery.owedCount} {unit}
+                  {feeRecovery.owedCount === 1 ? "" : "s"} admitted or paid
+                  outside the app — taken from your next card payments, one per
+                  payment.{" "}
+                </>
+              )}
+              {feeRecovery.recoveredCount > 0 && (
+                <>
+                  Recovered so far:{" "}
+                  {formatCents(feeRecovery.recoveredCents, currency)}.
+                </>
+              )}
+            </p>
+          )}
 
         {isPaid && (
           <p className="text-muted-foreground text-xs">

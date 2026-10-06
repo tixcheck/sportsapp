@@ -147,6 +147,67 @@ export async function admitTeamUnpaidAction(
   return { ok: true };
 }
 
+const recordSchema = z.object({
+  teamId: idSchema,
+  method: z.enum(["cash", "etransfer", "paypal", "other"]),
+  amountCents: z
+    .number()
+    .int()
+    .positive("Enter the amount received.")
+    .max(10_000_000),
+  note: z
+    .string()
+    .trim()
+    .max(280, "Keep the note under 280 characters.")
+    .optional(),
+});
+
+/**
+ * Record a payment the organizer took outside the app — cash at the door, an
+ * e-transfer, PayPal, anything — with a note (0152).
+ *
+ * Helix asked for exactly this: "mark them as paid by other means… with a
+ * text option… only org is allowed to." Unlike "Admit anyway", the books say
+ * PAID. The database checks the organizer too (`record_offline_payment`);
+ * this check turns a refusal into a sentence.
+ */
+export async function recordOfflinePaymentAction(
+  input: z.input<typeof recordSchema>,
+): Promise<ActionError | { ok: true; covered: boolean }> {
+  const parsed = recordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the payment." };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: team } = await supabase
+    .from("teams")
+    .select("competition_id")
+    .eq("id", v.teamId)
+    .maybeSingle();
+  if (!team) return { error: "Unknown team." };
+
+  const comp = await requireCompetitionAdmin(
+    (team as { competition_id: string }).competition_id,
+  );
+  if ("error" in comp) return comp;
+
+  const { data, error } = await supabase.rpc("record_offline_payment", {
+    _team_id: v.teamId,
+    _method: v.method,
+    _amount_cents: v.amountCents,
+    _note: v.note ?? null,
+  });
+  if (error) {
+    console.error("[payments] record_offline_payment failed");
+    return { error: "That payment couldn't be recorded. Please try again." };
+  }
+
+  revalidateCompetition(comp, v.teamId);
+  return { ok: true, covered: data === true };
+}
+
 // ---------------------------------------------------------------------------
 // Refunds
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import { getReversePairs } from "@/lib/queries/reverse-pairs";
 import { createClient } from "@/lib/supabase/server";
 import {
   getCompetitionLedger,
+  getFeeRecoverySummary,
   getCompetitionPaymentSettings,
   getPlatformFeeRatesFor,
   getPaymentAccount,
@@ -62,6 +63,9 @@ export default async function ReversePairsPage({
           feeCents: feeSettings.registrationFeeCents,
         })
       : null;
+  const feeRecovery = isAdmin
+    ? await getFeeRecoverySummary(detail.competitionId)
+    : null;
 
   const played = detail.games.filter((g) => g.scoreA !== null).length;
   const counts = [...detail.gamesPerPair.values()];
@@ -223,6 +227,7 @@ export default async function ReversePairsPage({
                           }
                           splitAllowed={feeSettings.allowSplitPayment}
                           unit="pair"
+                          feeRecovery={feeRecovery}
                         />
                       )}
                     </div>

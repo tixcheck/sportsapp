@@ -5,6 +5,27 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-06 — Helix: recover the platform fee on manual admits (0151); "Record payment" (0152)
+
+Owner: if Helix admits pairs manually, the platform's $2 should still be paid —
+"take it from other payments". Helix only (everyone else is on a free trial),
+one recovered fee per payment. An entry let in without a card payment owes its
+fee (`platform_fee_debts`); every team card checkout claims one
+(`claim_platform_fee_debt`, race-safe through a unique index) and adds it to the
+Stripe `application_fee_amount`, so it comes out of the organizer's share while
+the payer pays the normal price; `attach`/`release` around the session, and the
+webhook settles it (recovered on payment; owed again on expiry or full refund).
+An entry whose fee was already recovered pays none on its own later card
+payment. Rule for fit: `recoverableCents` (lib/payments, tested). Rehearsed on
+Helix in a rolled-back transaction — which also showed Dani had admitted
+Cristiane/Rafael that morning, now owing $2.
+
+Dani also wanted to mark pairs paid "by other means". `record_offline_payment`
++ a "Record payment" dialog on each unpaid row (method, amount, note; RHF+zod),
+organizer-only in the database. Adds `cash` and `other` payment methods.
+
+---
+
 ## 2026-10-05 — Reverse Pairs settings in sub-tabs
 
 The owner: "create sub tabs for settings and not have to scroll down for

@@ -143,6 +143,7 @@ export async function POST(request: Request) {
       .eq("stripe_checkout_session_id", expired.id)
       .eq("status", "pending");
     await releaseAbandonedTeam(admin, expired);
+    await settleFeeRecovery(admin, expired, "released");
     return NextResponse.json({ received: true });
   }
 
@@ -232,6 +233,7 @@ async function settleRegistrationPayment(
   // settled. Neither is an error worth making Stripe retry.
   const settled = data?.length ?? 0;
   if (settled > 0) {
+    await settleFeeRecovery(admin, session, "recovered");
     await confirmTeamIfPaid(admin, session);
     await admitFreeAgentIfPaid(admin, session);
     // After confirming, so the receipt can tell the payer whether the TEAM is
@@ -240,6 +242,41 @@ async function settleRegistrationPayment(
   }
 
   return NextResponse.json({ received: true, settled });
+}
+
+/**
+ * Settle the owed platform fee a checkout carried (0151): recovered when the
+ * payment lands, released (owed again) when the session expires unpaid.
+ *
+ * Matched by session id, and by the id in the session's metadata in case the
+ * checkout couldn't attach it. Logged, never thrown: the payment itself is
+ * what matters here, and a stale pending claim expires on its own.
+ */
+async function settleFeeRecovery(
+  admin: AdminClient,
+  session: Stripe.Checkout.Session,
+  outcome: "recovered" | "released",
+): Promise<void> {
+  const tagged = session.metadata?.fee_recovery_id;
+  for (const [column, value] of [
+    ["stripe_checkout_session_id", session.id],
+    ["id", tagged],
+  ] as const) {
+    if (!value) continue;
+    const q = admin.from("platform_fee_recoveries");
+    const { error } =
+      outcome === "recovered"
+        ? await q
+            .update({
+              status: "recovered",
+              recovered_at: new Date().toISOString(),
+              stripe_checkout_session_id: session.id,
+            })
+            .eq(column, value)
+            .eq("status", "pending")
+        : await q.delete().eq(column, value).eq("status", "pending");
+    if (error) console.error("[stripe-webhook] fee recovery update failed");
+  }
 }
 
 /**
@@ -390,7 +427,7 @@ async function recordRefund(
   const { data: existing } = await admin
     .from("registration_payments")
     .select(
-      "id, team_id, competition_id, total_cents, price_cents, tax_cents, application_fee_cents, refunded_cents, currency, payer_email, status",
+      "id, team_id, competition_id, total_cents, price_cents, tax_cents, application_fee_cents, refunded_cents, currency, payer_email, status, stripe_checkout_session_id",
     )
     .eq("stripe_payment_intent_id", paymentIntentId)
     .maybeSingle();
@@ -413,6 +450,7 @@ async function recordRefund(
     currency: string;
     payer_email: string | null;
     status: "pending" | "paid" | "cancelled" | "refunded";
+    stripe_checkout_session_id: string | null;
   };
 
   const refundedCents = charge.amount_refunded;
@@ -455,6 +493,15 @@ async function recordRefund(
     // they no longer have.
     console.error("[stripe-webhook] refund update failed");
     return NextResponse.json({ error: "update failed" }, { status: 500 });
+  }
+
+  // A full refund hands back the whole application fee — including any owed
+  // fee this payment recovered (0151) — so that debt is owed again.
+  if (charge.refunded && row.stripe_checkout_session_id) {
+    await admin
+      .from("platform_fee_recoveries")
+      .delete()
+      .eq("stripe_checkout_session_id", row.stripe_checkout_session_id);
   }
 
   await notifyRefund(

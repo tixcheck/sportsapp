@@ -158,6 +158,9 @@ export const paymentMethod = pgEnum("payment_method", [
   "card",
   "etransfer",
   "paypal",
+  // Recorded by an organizer for money taken outside the app (0152).
+  "cash",
+  "other",
 ]);
 
 export const registrationPaymentKind = pgEnum("registration_payment_kind", [
