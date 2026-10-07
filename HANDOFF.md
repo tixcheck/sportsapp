@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0154`, and every one of `0060`–`0154` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154` on 2026-10-07). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0155`, and every one of `0060`–`0155` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0155` on 2026-10-07). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -63,6 +63,7 @@
     | `0152` | Oct 6 | `payment_method` += `cash`, `other`; `record_offline_payment(team, method, amount, note)` — organizer-only "Record payment" |
     | `0153` | Oct 6 | `record_offline_payment` takes `_livemode` (0152's rows defaulted to false and were invisible on the live deployment) and refuses a second recording once the fee is covered. Repaired Helix: 3 duplicate Cristiane/Rafael e-transfer rows → 1, live |
     | `0154` | Oct 7 | `settings_changes` + `trg_record_settings_change` on league/tournament/reverse_pairs/payment settings and competitions: one row per tracked field that actually changed, with `changed_by = auth.uid()` (null = script/support). Organizer-readable. Shown as Settings → History (leagues), bottom of Settings (tournaments), Event tab (Reverse Pairs) |
+    | `0155` | Oct 7 | Gym permits: `venue_permits` (gym, weekday, courts + labels, hours, season) and `venue_permit_dates` (cancelled / pending_cancel / cancel_requested / changed hours, with notes). Org members read, org admins write. `courtsOnDate` (lib/venues/permits.ts) is the rule; BVL's loaded by `lib/db/load-bvl-permits-2026.ts` |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -1671,6 +1672,25 @@ The table's policy is unchanged.
 
 Rounds (10) and minutes (25) are placeholders; set them at draw time from the
 real field — 15 pairs on 2 courts balances at 5, 10 or 15 rounds.
+
+## BVL 2026/27 gym permits (loaded 2026-10-07)
+
+From the organizer's "PERMIT AVAILABILITY 2026-2027" workbook (Drive link the
+owner made public). Extracted to `lib/db/data/bvl-permits-2026.json`, loaded by
+`lib/db/load-bvl-permits-2026.ts --write` (idempotent, `source =
+bvl-permits-2026`): **21 permits, 133 date exceptions** — Tue 6 gyms/14 courts
+(Oct 13–Apr 27), Wed 5/14 (Oct 14–Apr 28), Thu 9/20 (Oct 15–Apr 22), Fri
+pickup Notre Dame 3 (Oct 16–Apr 30). Colours: green available, red cancelled,
+yellow going to cancel, orange cancel requested, break bands = off. Shown on the
+org page ("Gym permits").
+**Open:** (1) **Edmund Campion** and **Sandalwood Heights** added under the
+sheet's names, no address — get official names/addresses. (2) Terry Miller
+Wed **Apr 28** is an "X" in magenta, a colour the legend doesn't list — loaded
+as cancelled, confirm. (3) Sandalwood Heights Wed is cancelled every week until
+Mar 31. (4) Each league's `court_list` still lists all 13 gyms; the schedule
+builder doesn't read permits yet — that's the next step, with the tier lists
+BVL hasn't sent. (5) Tuesday permits run to **Apr 27** but the leagues end
+Apr 20 (Wed Apr 28 vs Apr 21) — ask which is right.
 
 ## BVL AGM demo league (built 2026-09-28)
 

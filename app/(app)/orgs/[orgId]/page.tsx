@@ -22,6 +22,8 @@ import { startPayoutsOnboardingAction } from "@/server/actions/payments";
 import { SPORTS } from "@/lib/formats";
 import { Button } from "@/components/ui/button";
 import { VenuesCard } from "@/components/venues/venues-card";
+import { GymPermitsCard } from "@/components/org/gym-permits-card";
+import { getOrgPermits } from "@/lib/queries/permits";
 import { OrgLogoCard } from "@/components/org/org-logo-card";
 import { OrgLocalityCard } from "@/components/org/org-locality-card";
 import { OrgPublicLink } from "@/components/org/org-public-link";
@@ -46,6 +48,7 @@ export default async function OrgPage({
   const { orgId } = await params;
   const org = await getOrg(orgId);
   if (!org) notFound();
+  const permits = await getOrgPermits(orgId);
   const [leagues, tournaments, kotc, reversePairs, orgs] = await Promise.all([
     getOrgLeagues(orgId),
     getOrgTournaments(orgId),
@@ -185,6 +188,9 @@ export default async function OrgPage({
       )}
 
       {isOrgAdmin && <VenuesCard orgId={orgId} venues={venues} />}
+
+      {/* What schedules are built on — readable by the whole org (0155). */}
+      <GymPermitsCard permits={permits.permits} dates={permits.dates} />
 
       {isOrgAdmin && (
         <Card>

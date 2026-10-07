@@ -5,6 +5,22 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Gym permits: when and where an org can play (0155)
+
+To build BVL's schedules on the gyms they actually have. The app knew a gym's
+name and court count, nothing about which nights or hours or which dates are
+cancelled. New: `venue_permits` (one recurring booking — gym, weekday, courts
+with their labels, hours, season) and `venue_permit_dates` (one night that
+differs — cancelled, going to be cancelled, cancellation requested, different
+hours — with the organizer's note). `courtsOnDate` (lib/venues/permits.ts,
+tested) answers "what can we use on this date": cancelled nights drop out,
+changed hours apply, pending cancellations stay but are flagged at risk. BVL's
+workbook loaded (21 permits, 133 exceptions; two new gyms); a read-only "Gym
+permits" card on the org page lists each night and only the dates that differ.
+Next: the schedule builder reads permits instead of the static court list.
+
+---
+
 ## 2026-10-07 — Settings history: who changed what, when (0154)
 
 BVL's Wed, Tue Reverse 4s and Thu registration deadlines had moved from Oct 3
