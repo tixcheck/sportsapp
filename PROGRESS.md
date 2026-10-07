@@ -5,6 +5,22 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Settings history: who changed what, when (0154)
+
+BVL's Wed, Tue Reverse 4s and Thu registration deadlines had moved from Oct 3
+to Oct 7/8/10 and nobody could say who — settings stored only their current
+value. Now triggers on the five settings tables write one `settings_changes`
+row per tracked field that actually changed (old value, new value,
+`auth.uid()`); an unchanged save writes nothing, and only fields worth
+auditing are tracked, so it stays tiny (a few thousand rows a year platform-
+wide). Organizers see "Recent changes" (Settings → History on leagues).
+`describeChange` (lib/settings, tested) reads deadlines in the league's own
+time, money in dollars. Rehearsed on BVL Thursday as one of its organizers in
+a rolled-back transaction. The Oct 5 extensions themselves can't be traced —
+nothing was recorded then.
+
+---
+
 ## 2026-10-07 — Full names on the Teams card
 
 BVL: the Teams card listed "Emelly" while the Players tab said "Emelly Alli".

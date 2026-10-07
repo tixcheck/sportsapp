@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0153`, and every one of `0060`–`0153` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0154`, and every one of `0060`–`0154` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154` on 2026-10-07). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -62,6 +62,7 @@
     | `0151` | Oct 6 | Platform fee recovery: `organizations.recover_manual_platform_fees` (Helix ONLY), `platform_fee_recoveries` ledger, `platform_fee_debts` / `claim_…` / `attach_…` / `release_…` / `team_fee_already_recovered` / `platform_fee_recovery_summary`. An entry let in without a card payment owes its fee; one owed fee rides on each later card payment's application fee |
     | `0152` | Oct 6 | `payment_method` += `cash`, `other`; `record_offline_payment(team, method, amount, note)` — organizer-only "Record payment" |
     | `0153` | Oct 6 | `record_offline_payment` takes `_livemode` (0152's rows defaulted to false and were invisible on the live deployment) and refuses a second recording once the fee is covered. Repaired Helix: 3 duplicate Cristiane/Rafael e-transfer rows → 1, live |
+    | `0154` | Oct 7 | `settings_changes` + `trg_record_settings_change` on league/tournament/reverse_pairs/payment settings and competitions: one row per tracked field that actually changed, with `changed_by = auth.uid()` (null = script/support). Organizer-readable. Shown as Settings → History (leagues), bottom of Settings (tournaments), Event tab (Reverse Pairs) |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -2094,6 +2095,12 @@ shortening the sets or padding the second wave.**
 **No schedule has been generated.**
 
 ## Known quirks
+
+- **Settings changes are only recorded from 2026-10-07 (0154).** Before that a
+  setting held only its current value — which is why nobody could say who
+  moved BVL's Wed/Tue Reverse 4s/Thu registration deadlines from Oct 3 to
+  Oct 7/8/10. To track a new setting, add its column to that table's trigger
+  argument list in 0154 (and a label in lib/settings/history-labels.ts).
 
 - **PostgREST returns at most 1,000 rows per request, silently.** Any query
   that reads a whole league (or a whole waiver) must page with `fetchAll`

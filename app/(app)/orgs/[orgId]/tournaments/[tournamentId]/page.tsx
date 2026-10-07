@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SettingsHistoryCard } from "@/components/competition/settings-history-card";
+import { getSettingsHistory } from "@/lib/queries/settings-history";
 import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
 import { CalendarDays, Clock, MapPin, Printer, QrCode } from "lucide-react";
@@ -550,6 +552,9 @@ export default async function TournamentPage({
     </Card>
   );
 
+  // Who changed which setting, when (0154). Organizer-only by RLS.
+  const settingsHistory = await getSettingsHistory(t.id);
+
   const settingsTab = (
     <div className="space-y-6">
       <IndividualSignupSettings
@@ -669,6 +674,10 @@ export default async function TournamentPage({
           </CardContent>
         </Card>
       )}
+      <SettingsHistoryCard
+        changes={settingsHistory}
+        timezone={t.timezone ?? "America/Toronto"}
+      />
     </div>
   );
 

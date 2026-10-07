@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { SettingsHistoryCard } from "@/components/competition/settings-history-card";
+import { getSettingsHistory } from "@/lib/queries/settings-history";
 
 import { getReversePairs } from "@/lib/queries/reverse-pairs";
 import { createClient } from "@/lib/supabase/server";
@@ -63,6 +65,9 @@ export default async function ReversePairsPage({
           feeCents: feeSettings.registrationFeeCents,
         })
       : null;
+  const settingsHistory = isAdmin
+    ? await getSettingsHistory(detail.competitionId)
+    : [];
   const feeRecovery = isAdmin
     ? await getFeeRecoverySummary(detail.competitionId)
     : null;
@@ -209,6 +214,10 @@ export default async function ReversePairsPage({
                             detail.settings.registrationDeadline,
                           maxPairs: detail.settings.maxPairs,
                         }}
+                      />
+                      <SettingsHistoryCard
+                        changes={settingsHistory}
+                        timezone={detail.timezone}
                       />
                     </div>
                   ),

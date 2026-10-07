@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SettingsHistoryCard } from "@/components/competition/settings-history-card";
+import { getSettingsHistory } from "@/lib/queries/settings-history";
 import { DateTime } from "luxon";
 import { notFound } from "next/navigation";
 import { CalendarDays, MapPin, Printer, QrCode } from "lucide-react";
@@ -712,6 +714,9 @@ export default async function LeaguePage({
     </div>
   );
 
+  // Who changed which setting, when (0154). Organizer-only by RLS.
+  const settingsHistory = await getSettingsHistory(league.id);
+
   const settingsRegistration = (
     <div className="space-y-6">
       <EventBlurbCard
@@ -968,6 +973,16 @@ export default async function LeaguePage({
         { value: "payments", label: "Payments", content: settingsPayments },
         { value: "format", label: "Format", content: settingsFormat },
         { value: "venues", label: "Courts & venues", content: settingsVenues },
+        {
+          value: "history",
+          label: "History",
+          content: (
+            <SettingsHistoryCard
+              changes={settingsHistory}
+              timezone={league.timezone ?? "America/Toronto"}
+            />
+          ),
+        },
         // Every card in Admin is gated on canManage, so for anyone else the
         // tab would open on nothing — worse than not offering it.
         ...(coOrgs.canManage
