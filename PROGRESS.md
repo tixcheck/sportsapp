@@ -5,6 +5,18 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Full names on the Teams card
+
+BVL: the Teams card listed "Emelly" while the Players tab said "Emelly Alli".
+`getTeamRosters` used the bare account name; it now runs the Players tab's
+rule (`resolvePlayerName` over the league's First/Last answers — fills in a
+short account name, never overrules a full one). Audit at the time: 114 short
+names filled across BVL's four leagues; 6 still short (no surname given); 7
+account names that differ from the registered name (married names, a form
+typo "Crokr", "Da Silva"/"DaSilva") — left as the account name, by design.
+
+---
+
 ## 2026-10-06 — Fix: recorded payments were invisible and could stack (0153)
 
 Dani recorded Cristiane/Rafael's e-transfer and the Payments tab still said

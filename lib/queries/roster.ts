@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPlayerNameAnswers, namePartsFor } from "@/lib/queries/player-names";
+import { resolvePlayerName } from "@/lib/registration/player-name";
 
 export interface RosterMember {
   name: string;
@@ -86,8 +88,24 @@ export async function getTeamRosters(
           email: string;
         }[],
       };
+  // The name a player gave the LEAGUE beats a bare account name: BVL's Teams
+  // card listed "Emelly" while she registered as Emelly Alli (2026-10-07).
+  // Same rule as the Players tab (`resolvePlayerName` fills in, never
+  // overrules a full account name). The answers are organizer-readable only,
+  // so anyone else gets the account name, as before.
+  const answers = await getPlayerNameAnswers(competitionId);
   const nameById = new Map(
-    (users ?? []).map((u) => [u.id as string, u.display_name || u.email]),
+    (users ?? []).map((u) => [
+      u.id as string,
+      resolvePlayerName(
+        namePartsFor(
+          answers,
+          u.id as string,
+          (u.display_name as string | null) ?? null,
+          (u.email as string | null) ?? null,
+        ),
+      ),
+    ]),
   );
   const emailById = new Map(
     (users ?? []).map((u) => [u.id as string, u.email as string]),
