@@ -5,6 +5,22 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Fix: editing a finished score erased the old one before submit
+
+Mango asked which Sep 29 scores Roger corrected; every audit row read
+"changed from X to X". The score form autosaves drafts as you type
+(`saveDraftSetsAction`), and it did so over FINISHED games too — so by the
+time "Submit score" ran, the old score was already gone: the audit compared
+the new score with itself, and the restore point saved the new score. Drafts
+now skip completed/forfeit games; their score changes only on submit.
+Rehearsed in the browser on a Test Org game (old score held until submit,
+audit "25–20 to 20–25"), then restored. Mango's corrections were rebuilt from
+the earlier audit rows: four Sep 29 results flipped — which, scored that way
+at the lock, would have sent Dubai up to Tier 2 and Bangkok down to Tier 4
+for Oct 6.
+
+---
+
 ## 2026-10-07 — Schedule views per league (0158)
 
 Mango: "they dont need so many options" — six buttons above the schedule (By

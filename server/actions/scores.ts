@@ -338,6 +338,20 @@ export async function saveDraftSetsAction(
     };
   }
 
+  // A finished game's score changes only on "Record result". Drafting over it
+  // replaced the recorded score keystroke by keystroke, so by the time the
+  // edit was submitted the old score was already gone: the audit said
+  // "changed from 25–22 to 25–22" and the restore point saved the NEW score
+  // (Mango Coed, Sep 29 corrections, Oct 7). Keep the result until then.
+  const { data: current } = await supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .single();
+  if (current?.status === "completed" || current?.status === "forfeit") {
+    return { success: true };
+  }
+
   await supabase.from("sets").delete().eq("match_id", matchId);
   const rows = sets
     .filter((s) => Number.isInteger(s.home) && Number.isInteger(s.away))
