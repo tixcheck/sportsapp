@@ -5,6 +5,32 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — BVL rounds: a two-week round robin, then movement (0157)
+
+BVL doesn't move teams weekly: "They do one round in two weeks. That means
+every team in the tier plays against each other and then after that they are
+moved up and down and then another round is generated." The ladder already
+drew, locked and moved — once a week. 0157 adds `ladder_round_weeks` (BVL: 2)
+and a third draw style, `bvl_round`: the whole round is drawn at once on BVL's
+own grids (`lib/scheduler/bvl-round.ts`, transcribed from their Women's Round 1
+sheet — 6 teams over two weeks with 1v4, 2v6, 3v5 played twice; 5 teams a full
+round robin each week with an OFF column; 4 teams), and the lock refuses
+anything but the round's last week and ranks on every game of the round.
+`ladder_tier_nights` says where and when each tier plays each week, because
+BVL moves tiers between gyms week to week and stacks two tiers in one gym
+(Aquinas: Tier B at 6:15, Tier A at 8:10) — a tier's gym can't be a season-long
+property; without a row a tier falls back to its division's gym and start time.
+The planner reports what it can't fit (no grid for the team count, too few
+slots or courts) instead of guessing. Validated end to end on a throwaway copy
+of Women's Round 1 drawn through the Ladder tab: all 74 games match the sheet
+on night, gym, time, court, tier and pairing; redraw, lock and undo all work.
+The Ladder panel now speaks in rounds ("Round 1 (weeks 1–2) is drawn"). Not
+switched on for any league — BVL hasn't sent tier rankings or how many teams
+move per boundary. No organizer UI yet for the per-week gym plan; it's set by
+script for now, as SMVA's pod grids were.
+
+---
+
 ## 2026-10-07 — Gym permits: when and where an org can play (0155)
 
 To build BVL's schedules on the gyms they actually have. The app knew a gym's

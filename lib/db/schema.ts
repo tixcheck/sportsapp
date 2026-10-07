@@ -574,6 +574,8 @@ export const leagueSettings = pgTable("league_settings", {
    * pod-templates.ts — Scarborough, whose grids "have to be this".
    */
   ladderDraw: text("ladder_draw").notNull().default("generated"),
+  /** Playing weeks per ladder round (BVL: 2; 0157). */
+  ladderRoundWeeks: integer("ladder_round_weeks").notNull().default(1),
   // Titled instruction blocks printed on every score sheet (migration 0118).
   // Scarborough's gym package is mostly standing instructions — who sets the
   // clock, what the winning team does with the nets — and their executive's
@@ -2213,4 +2215,34 @@ export const matchAbsences = pgTable(
     index("match_absences_competition_idx").on(t.competitionId),
     index("match_absences_match_idx").on(t.matchId),
   ],
+);
+
+/**
+ * Where and when each tier plays each week of a BVL round (0157). BVL moves
+ * tiers between gyms and shares gyms between tiers, so it can't be a season
+ * property of the division.
+ */
+export const ladderTierNights = pgTable(
+  "ladder_tier_nights",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    divisionId: uuid("division_id")
+      .notNull()
+      .references(() => divisions.id, { onDelete: "cascade" }),
+    week: integer("week").notNull(),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
+    /** "HH:MM", one per grid slot. */
+    slotTimes: text("slot_times").array().notNull(),
+    courtLabels: text("court_labels").array(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [unique().on(t.divisionId, t.week)],
 );

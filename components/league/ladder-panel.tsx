@@ -43,6 +43,16 @@ export function LadderPanel({
   const drawn = currentWeekGames > 0;
   // Pinned-grid leagues enter each gym's final standings, not every score.
   const byStandings = state.draw === "pod_grid";
+  // BVL locks and draws a ROUND of several weeks at a time (0157); everything
+  // the panel says is about the round, and the lock goes on its last week.
+  const { round, roundWeeks } = state;
+  const byRound = roundWeeks.length > 1;
+  const span = byRound
+    ? `Round ${round} (weeks ${roundWeeks[0]}–${roundWeeks[roundWeeks.length - 1]})`
+    : `Week ${currentWeek}`;
+  const unit = byRound ? `round ${round}` : `week ${currentWeek}`;
+  const nextUnit = byRound ? `round ${round + 1}` : `week ${currentWeek + 1}`;
+  const lockWeek = roundWeeks[roundWeeks.length - 1];
   const tiersEntered = state.standingsThisWeek.filter(
     (t) => t.standingsEntered,
   ).length;
@@ -68,14 +78,16 @@ export function LadderPanel({
         <CardTitle>Ladder</CardTitle>
         <CardDescription>
           {notStarted
-            ? "Draw week 1 to start the ladder. Teams begin in the tier they're in now."
+            ? byRound
+              ? `Draw ${span.toLowerCase()} to start the ladder. Every tier plays its full round robin across the round, then teams move. Teams begin in the tier they're in now.`
+              : "Draw week 1 to start the ladder. Teams begin in the tier they're in now."
             : drawn && !currentWeekComplete
               ? byStandings
                 ? `Week ${currentWeek} is drawn — ${currentWeekGames} games. Enter each gym's final standings below (${tiersEntered} of ${state.standingsThisWeek.length} done), then lock the week.`
-                : `Week ${currentWeek} is drawn — ${currentWeekGames} games. Lock it once every score is in.`
+                : `${span} is drawn — ${currentWeekGames} games. Lock it once every score is in.`
               : drawn && currentWeekComplete
-                ? `Week ${currentWeek} is complete. Lock it to move teams and draw week ${currentWeek + 1}.`
-                : `Teams are placed for week ${currentWeek}. Draw it to make the schedule.`}
+                ? `${span} is complete. Lock it to move teams and draw ${nextUnit}.`
+                : `Teams are placed for ${byRound ? span.toLowerCase() : unit}. Draw it to make the schedule.`}
         </CardDescription>
       </CardHeader>
 
@@ -91,7 +103,7 @@ export function LadderPanel({
                     matchCount: number;
                     shorted: number;
                   };
-                  return `Week ${res.week} drawn — ${res.matchCount} games${
+                  return `${byRound ? `Round ${Math.ceil(res.week / roundWeeks.length)}` : `Week ${res.week}`} drawn — ${res.matchCount} games${
                     res.shorted > 0
                       ? `. ${res.shorted} team(s) are one short this week.`
                       : "."
@@ -104,10 +116,12 @@ export function LadderPanel({
           >
             <Shuffle className="size-4" />
             {notStarted
-              ? "Draw week 1"
+              ? byRound
+                ? "Draw round 1"
+                : "Draw week 1"
               : drawn
-                ? `Redraw week ${currentWeek}`
-                : `Draw week ${currentWeek}`}
+                ? `Redraw ${unit}`
+                : `Draw ${unit}`}
           </Button>
 
           {!notStarted && (
@@ -115,10 +129,12 @@ export function LadderPanel({
               variant="outline"
               onClick={() =>
                 run(
-                  () => lockLadderWeekAction(competitionId, currentWeek),
+                  () => lockLadderWeekAction(competitionId, lockWeek),
                   (r) => {
                     const res = r as { nextWeek: number; moves: number };
-                    return `Week ${currentWeek} locked — ${res.moves} team(s) moved. Week ${res.nextWeek} is ready to draw.`;
+                    return byRound
+                      ? `Round ${round} locked — ${res.moves} team(s) moved. Round ${round + 1} is ready to draw.`
+                      : `Week ${currentWeek} locked — ${res.moves} team(s) moved. Week ${res.nextWeek} is ready to draw.`;
                   },
                 )
               }
@@ -126,17 +142,21 @@ export function LadderPanel({
               className="w-full sm:w-auto"
             >
               <Lock className="size-4" />
-              Lock week {currentWeek}
+              Lock {unit}
             </Button>
           )}
 
-          {currentWeek > 1 && (
+          {roundWeeks[0] > 1 && (
             <Button
               variant="ghost"
               onClick={() =>
                 run(
-                  () => unlockLadderWeekAction(competitionId, currentWeek - 1),
-                  () => `Week ${currentWeek - 1} unlocked.`,
+                  () =>
+                    unlockLadderWeekAction(competitionId, roundWeeks[0] - 1),
+                  () =>
+                    byRound
+                      ? `Round ${round - 1} unlocked.`
+                      : `Week ${currentWeek - 1} unlocked.`,
                 )
               }
               disabled={pending}
@@ -227,8 +247,10 @@ export function LadderPanel({
           </p>
         ) : (
           <p className="text-muted-foreground text-xs">
-            Arrows show who&apos;s in the swap places on last week&apos;s order
-            — this week&apos;s results decide who actually moves.
+            Arrows show who&apos;s in the swap places on last{" "}
+            {byRound ? "round" : "week"}&apos;s order — this{" "}
+            {byRound ? "round" : "week"}&apos;s results decide who actually
+            moves.
           </p>
         )}
       </CardContent>

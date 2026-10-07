@@ -5,6 +5,13 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import { planTierNight } from "@/lib/scheduler/ladder-night";
+import {
+  bvlTemplate,
+  evenSlotTimes,
+  planBvlRound,
+  roundWeeksOf,
+  type BvlTierWeek,
+} from "@/lib/scheduler/bvl-round";
 import { tierStartForWeek } from "@/lib/scheduler/wave-swap";
 import { planLadderWeek, rankLadderNight } from "@/lib/scheduler/ladder-week";
 import { applyLadderMovement } from "@/lib/scheduler/ladder-movement";
@@ -103,7 +110,7 @@ async function loadLadderContext(competitionId: string) {
       supabase
         .from("league_settings")
         .select(
-          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker, wave_swap_weeks",
+          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker, wave_swap_weeks, ladder_round_weeks",
         )
         .eq("competition_id", competitionId)
         .single(),
@@ -206,6 +213,36 @@ export async function drawLadderWeekAction(
         .sort((a, b) => (a.position as number) - (b.position as number))
         .map((p) => p.team_id as string),
     }));
+  }
+
+  // BVL: a round of several weeks, drawn all at once on BVL's grids.
+  if (settings.ladder_draw === "bvl_round") {
+    // Always from the round's FIRST week: once a round is drawn its later
+    // weeks have placements too, and a redraw must start from the top.
+    const roundLength = (settings.ladder_round_weeks as number | null) ?? 2;
+    const start = roundWeeksOf(week, roundLength)[0];
+    const startRosters = divisions.map((d) => ({
+      divisionId: d.id as string,
+      teamIds: (placements ?? [])
+        .filter((p) => p.week === start && p.division_id === d.id)
+        .sort((a, b) => (a.position as number) - (b.position as number))
+        .map((p) => p.team_id as string),
+    }));
+    return drawBvlRound({
+      supabase,
+      competitionId,
+      slug: (comp.slug as string | null) ?? null,
+      week: start,
+      roundLength,
+      rosters: start === week ? rosters : startRosters,
+      divisions,
+      timezone: (comp.timezone as string) ?? DEFAULT_TIMEZONE,
+      startDate: comp.start_date as string,
+      dayOfWeek: slot.dayOfWeek,
+      defaultStart: slot.startTime ?? "18:00",
+      minutesPerSlot: (settings.minutes_per_game as number | null) ?? 40,
+      blackouts: (settings.blackout_dates as string[] | null) ?? [],
+    });
   }
 
   // Refuse to draw over games that already exist for this week.
@@ -502,6 +539,208 @@ async function drawPodWeek(input: {
 }
 
 /**
+ * Draw a whole BVL round (`ladder_draw = 'bvl_round'`, 0157) — every week of
+ * it at once, on BVL's grids (lib/scheduler/bvl-round.ts).
+ *
+ * The round's first week already has its placements (seeded, or written by
+ * the last lock); the round's later weeks get the same seats, so the lock can
+ * rank the tier on everything it played. Where and when each tier plays each
+ * week comes from `ladder_tier_nights` (BVL moves tiers between gyms and
+ * shares gyms between tiers); a tier without a row that week plays at its
+ * division's gym and start time, slots `minutesPerSlot` apart.
+ *
+ * Nights are the next playing nights after the last round, skipping blackouts;
+ * a redraw keeps the nights it replaces. Never draws over a played game.
+ */
+async function drawBvlRound(input: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  competitionId: string;
+  slug: string | null;
+  week: number;
+  roundLength: number;
+  rosters: { divisionId: string; teamIds: string[] }[];
+  divisions: {
+    id: unknown;
+    name: unknown;
+    venue_id?: unknown;
+    start_time?: unknown;
+  }[];
+  timezone: string;
+  startDate: string;
+  dayOfWeek: number;
+  defaultStart: string;
+  minutesPerSlot: number;
+  blackouts: string[];
+}): Promise<
+  ActionError | { week: number; matchCount: number; shorted: number }
+> {
+  const { supabase, competitionId, timezone: zone } = input;
+  const weeks = roundWeeksOf(input.week, input.roundLength);
+  if (input.week !== weeks[0]) {
+    return {
+      error: `Week ${input.week} is inside a round that started in week ${weeks[0]}. Rounds are drawn from their first week.`,
+    };
+  }
+
+  // What's already there for this round: refuse over results, else redraw.
+  const { data: existing } = await supabase
+    .from("matches")
+    .select("id, status, round, scheduled_at")
+    .eq("competition_id", competitionId)
+    .in("round", weeks);
+  if ((existing ?? []).some((m) => SETTLED.has(m.status as string))) {
+    return {
+      error: `This round already has results. Lock it to move on.`,
+    };
+  }
+  const keptNight = new Map<number, string>();
+  for (const m of existing ?? []) {
+    if (m.scheduled_at && !keptNight.has(m.round as number)) {
+      keptNight.set(
+        m.round as number,
+        localDate(m.scheduled_at as string, zone),
+      );
+    }
+  }
+
+  // The round's nights.
+  const nights: string[] = [];
+  for (const w of weeks) {
+    const kept = keptNight.get(w);
+    if (kept) {
+      nights.push(kept);
+      continue;
+    }
+    if (nights.length > 0) {
+      nights.push(nextPlayingNight(nights[nights.length - 1], input.blackouts));
+      continue;
+    }
+    const { data: previous } = await supabase
+      .from("matches")
+      .select("scheduled_at")
+      .eq("competition_id", competitionId)
+      .lt("round", w)
+      .not("scheduled_at", "is", null)
+      .order("scheduled_at", { ascending: false })
+      .limit(1);
+    const last = previous?.[0]?.scheduled_at as string | undefined;
+    nights.push(
+      last
+        ? nextPlayingNight(localDate(last, zone), input.blackouts)
+        : firstPlayingNight(input.startDate, input.dayOfWeek, input.blackouts),
+    );
+  }
+
+  // Each tier's gym and times, each week.
+  const { data: planRows } = await supabase
+    .from("ladder_tier_nights")
+    .select("division_id, week, venue_id, slot_times, court_labels")
+    .eq("competition_id", competitionId)
+    .in("week", weeks);
+  const plan = new Map(
+    (planRows ?? []).map((p) => [`${p.division_id}:${p.week}`, p]),
+  );
+  const divById = new Map(input.divisions.map((d) => [d.id as string, d]));
+
+  const roundPlan = planBvlRound(
+    weeks.map((w, i) => ({
+      week: w,
+      date: nights[i],
+      tiers: input.rosters
+        .filter((r) => r.teamIds.length > 0)
+        .map((r): BvlTierWeek => {
+          const row = plan.get(`${r.divisionId}:${w}`);
+          const div = divById.get(r.divisionId);
+          const slots =
+            bvlTemplate(r.teamIds.length)?.weeks[i % 2].slots.length ?? 0;
+          return {
+            divisionId: r.divisionId,
+            teamIds: r.teamIds,
+            venueId:
+              (row?.venue_id as string | null | undefined) ??
+              (div?.venue_id as string | null) ??
+              null,
+            slotTimes:
+              (row?.slot_times as string[] | undefined) ??
+              evenSlotTimes(
+                String(div?.start_time ?? input.defaultStart).slice(0, 5),
+                input.minutesPerSlot,
+                slots,
+              ),
+            courtLabels: (row?.court_labels as string[] | null) ?? undefined,
+          };
+        }),
+    })),
+  );
+  if (roundPlan.problems.length > 0) {
+    const p = roundPlan.problems[0];
+    const name = (divById.get(p.divisionId)?.name as string) ?? "A tier";
+    return {
+      error: `${name}, week ${p.week}: ${p.reason}. Nothing was drawn.`,
+    };
+  }
+  if (roundPlan.fixtures.length === 0) return { error: "No games to draw." };
+
+  // The round's later weeks sit in the same seats as its first.
+  const { data: firstWeek } = await supabase
+    .from("ladder_placements")
+    .select("team_id, division_id, position")
+    .eq("competition_id", competitionId)
+    .eq("week", weeks[0]);
+  const later = weeks.slice(1);
+  if (later.length > 0) {
+    const { error: clearErr } = await supabase
+      .from("ladder_placements")
+      .delete()
+      .eq("competition_id", competitionId)
+      .in("week", later);
+    if (clearErr) return { error: clearErr.message };
+    const copies = later.flatMap((w) =>
+      (firstWeek ?? []).map((p) => ({
+        competition_id: competitionId,
+        team_id: p.team_id as string,
+        division_id: p.division_id as string,
+        week: w,
+        position: p.position as number,
+      })),
+    );
+    if (copies.length > 0) {
+      const { error: copyErr } = await supabase
+        .from("ladder_placements")
+        .insert(copies);
+      if (copyErr) return { error: copyErr.message };
+    }
+  }
+
+  if ((existing ?? []).length > 0) {
+    const { error: delErr } = await supabase
+      .from("matches")
+      .delete()
+      .eq("competition_id", competitionId)
+      .in("round", weeks);
+    if (delErr) return { error: delErr.message };
+  }
+
+  const rows = roundPlan.fixtures.map((f) => ({
+    competition_id: competitionId,
+    round: f.week,
+    division_id: f.divisionId,
+    venue_id: f.venueId,
+    home_team_id: f.homeTeamId,
+    away_team_id: f.awayTeamId,
+    court: f.court,
+    status: "scheduled" as const,
+    scheduled_at: DateTime.fromISO(`${f.date}T${f.time}`, { zone }).toISO()!,
+  }));
+  const { error } = await supabase.from("matches").insert(rows);
+  if (error) return { error: error.message };
+
+  revalidatePath("/orgs");
+  if (input.slug) revalidatePath(`/l/${input.slug}`);
+  return { week: input.week, matchCount: rows.length, shorted: 0 };
+}
+
+/**
  * Lock a week: rank each tier on that night alone, swap teams across the
  * boundaries, and write next week's placements.
  *
@@ -522,6 +761,18 @@ export async function lockLadderWeekAction(
   if (!comp || !settings) return { error: "League not found." };
   if (settings.ladder_enabled !== true) {
     return { error: "This league isn't set up as a ladder." };
+  }
+
+  // A round of several weeks locks once, after its last week, on all of
+  // them (BVL — 0157). A one-week ladder is a round of one.
+  const roundWeeks = roundWeeksOf(
+    week,
+    (settings.ladder_round_weeks as number | null) ?? 1,
+  );
+  if (week !== roundWeeks[roundWeeks.length - 1]) {
+    return {
+      error: `Week ${week} is part of a round that runs to week ${roundWeeks[roundWeeks.length - 1]} — lock after that week.`,
+    };
   }
 
   const { data: placements } = await supabase
@@ -586,7 +837,7 @@ export async function lockLadderWeekAction(
       .from("matches")
       .select("id, status, division_id, home_team_id, away_team_id")
       .eq("competition_id", competitionId)
-      .eq("round", week);
+      .in("round", roundWeeks);
     // Games recorded against a typed tier don't need a score. An older game
     // with no tier recorded can't be placed, so it still has to be settled.
     const matches = (allMatches ?? []).filter(
@@ -704,13 +955,24 @@ export async function unlockLadderWeekAction(
 
   const supabase = await createClient();
 
+  // The next ROUND is what a lock created: one week, or several for BVL.
+  const { data: rs } = await supabase
+    .from("league_settings")
+    .select("ladder_round_weeks")
+    .eq("competition_id", competitionId)
+    .maybeSingle();
+  const roundLength =
+    (rs as { ladder_round_weeks: number | null } | null)?.ladder_round_weeks ??
+    1;
+  const nextRound = roundWeeksOf(week + 1, roundLength);
+
   // Only the newest week can be undone — unwinding further would need every
   // later week redrawn, and those games may already have been played.
   const { data: later } = await supabase
     .from("ladder_placements")
     .select("week")
     .eq("competition_id", competitionId)
-    .gt("week", week + 1)
+    .gt("week", nextRound[nextRound.length - 1])
     .limit(1);
   if ((later ?? []).length > 0) {
     return { error: "A later week is already locked. Undo that one first." };
@@ -729,7 +991,7 @@ export async function unlockLadderWeekAction(
     .from("matches")
     .select("id, status")
     .eq("competition_id", competitionId)
-    .eq("round", week + 1);
+    .in("round", nextRound);
 
   // Scores are never discarded by an undo. If the next week has already been
   // played, the organizer has to deal with that deliberately — losing results
@@ -744,7 +1006,7 @@ export async function unlockLadderWeekAction(
     .from("ladder_placements")
     .delete()
     .eq("competition_id", competitionId)
-    .eq("week", week + 1);
+    .in("week", nextRound);
   if (delErr) return { error: delErr.message };
 
   // The drawn night goes with the ladder it was drawn from.
@@ -753,7 +1015,7 @@ export async function unlockLadderWeekAction(
       .from("matches")
       .delete()
       .eq("competition_id", competitionId)
-      .eq("round", week + 1);
+      .in("round", nextRound);
     if (matchErr) return { error: matchErr.message };
   }
 

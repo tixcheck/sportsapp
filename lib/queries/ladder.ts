@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { LadderUnit } from "@/lib/validations/ladder";
 import { typedTierOrder } from "@/lib/scheduler/ladder-results";
+import { roundWeeksOf } from "@/lib/scheduler/bvl-round";
 
-export type LadderDraw = "generated" | "pod_grid";
+export type LadderDraw = "generated" | "pod_grid" | "bvl_round";
 
 export interface LadderTierView {
   divisionId: string;
@@ -40,6 +41,15 @@ export interface LadderState {
   currentWeekComplete: boolean;
   /** Games drawn for the current week (0 = drawn but not yet generated). */
   currentWeekGames: number;
+  /**
+   * The weeks of the round `currentWeek` belongs to — just `[currentWeek]`
+   * for a weekly ladder, two weeks for BVL (0157). Games and completeness
+   * above count the whole round, since the round is what gets drawn and
+   * locked.
+   */
+  roundWeeks: number[];
+  /** 1-based round number of `currentWeek` (round 1 before the start). */
+  round: number;
 }
 
 const SETTLED = new Set(["completed", "forfeit", "cancelled"]);
@@ -61,7 +71,7 @@ export async function getLadderState(
     supabase
       .from("league_settings")
       .select(
-        "ladder_enabled, ladder_draw, ladder_unit, ladder_target, ladder_swaps",
+        "ladder_enabled, ladder_draw, ladder_unit, ladder_target, ladder_swaps, ladder_round_weeks",
       )
       .eq("competition_id", competitionId)
       .maybeSingle(),
@@ -94,6 +104,8 @@ export async function getLadderState(
   let standingsThisWeek: LadderTierView[] = [];
   let currentWeekComplete = false;
   let currentWeekGames = 0;
+  const roundLength = (settings.ladder_round_weeks as number | null) ?? 1;
+  const roundWeeks = roundWeeksOf(Math.max(currentWeek, 1), roundLength);
 
   if (currentWeek > 0) {
     const thisWeek = (placements ?? []).filter((p) => p.week === currentWeek);
@@ -135,7 +147,7 @@ export async function getLadderState(
       .from("matches")
       .select("id, status, division_id")
       .eq("competition_id", competitionId)
-      .eq("round", currentWeek);
+      .in("round", roundWeeks);
     currentWeekGames = (weekMatches ?? []).length;
 
     // Mirrors the lock: a typed tier needs no scores; every other game does.
@@ -158,7 +170,11 @@ export async function getLadderState(
 
   return {
     enabled: settings.ladder_enabled === true,
-    draw: settings.ladder_draw === "pod_grid" ? "pod_grid" : "generated",
+    draw:
+      settings.ladder_draw === "pod_grid" ||
+      settings.ladder_draw === "bvl_round"
+        ? settings.ladder_draw
+        : "generated",
     unit: (settings.ladder_unit as LadderUnit) ?? "sets",
     target: (settings.ladder_target as number) ?? 6,
     swaps: (settings.ladder_swaps as number[] | null) ?? [],
@@ -167,6 +183,8 @@ export async function getLadderState(
     standingsThisWeek,
     currentWeekComplete,
     currentWeekGames,
+    roundWeeks,
+    round: Math.ceil(roundWeeks[0] / roundLength),
   };
 }
 
