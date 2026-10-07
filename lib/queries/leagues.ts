@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 import { parseRankMode, type RankMode } from "@/lib/scheduler/tiebreakers";
 import type { Sport } from "@/lib/formats";
 import type { LeagueCourt, MatchFormat, WeeklySlot } from "@/lib/db/schema";
@@ -150,9 +151,10 @@ export interface ScheduleMatch {
   refTeamName: string | null;
   isAbnormal: boolean;
   /**
-   * The tier this game belongs to. Matches don't store a division — teams do —
-   * so it's read off the home team (both sides of a tiered game share a tier).
-   * Absent on an untiered league, a bracket game, or a tournament match.
+   * The tier this game was PLAYED in: the game's own tier, else its teams'
+   * ladder placement that week, else (an ordinary tiered league) the home
+   * team's tier. Absent on an untiered league, a bracket game, or a
+   * tournament match.
    */
   divisionId?: string | null;
   divisionName?: string | null;
@@ -371,7 +373,7 @@ async function loadSchedule(
   // 0066's rule is enforced where it belongs: an unpaid team never reaches a
   // schedule or the standings in the first place. Hiding what a team is CALLED
   // enforced nothing; it only made the schedule unreadable.
-  const [{ data: teams }, { data: divisions }] = await Promise.all([
+  const [{ data: teams }, { data: divisions }, placements] = await Promise.all([
     supabase
       .from("teams")
       .select("id, name, division_id")
@@ -380,7 +382,24 @@ async function loadSchedule(
       .from("divisions")
       .select("id, name, tier_order")
       .eq("competition_id", leagueId),
+    // A ladder moves teams every week; `teams.division_id` is only where they
+    // are NOW. Mango Coed, Oct 7: Sep 29's games were filed under today's
+    // tiers — Tier 4 showed 12 games and Tier 2 none.
+    fetchAll((from, to) =>
+      supabase
+        .from("ladder_placements")
+        .select("id, team_id, week, division_id")
+        .eq("competition_id", leagueId)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
+  const placedIn = new Map(
+    placements.map((p) => [
+      `${p.team_id as string}:${p.week as number}`,
+      p.division_id as string,
+    ]),
+  );
   const nameById = new Map(
     (teams ?? []).map((t) => [t.id as string, t.name as string]),
   );
@@ -400,7 +419,7 @@ async function loadSchedule(
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, venue_id, bracket_track, bracket_position, venues(name)",
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, venue_id, division_id, bracket_track, bracket_position, venues(name)",
     )
     .eq("competition_id", leagueId)
     .order("scheduled_at", { ascending: true })
@@ -428,9 +447,16 @@ async function loadSchedule(
   }
 
   return (matches ?? []).map((m) => {
-    // Prefer the home team's tier; fall back to the away team's so a game with
-    // a TBD home side still lands in the right block.
+    // The tier the game was played in; then the home team's current tier,
+    // falling back to the away team's so a TBD home side still lands right.
+    const placed = (teamId: string | null) =>
+      teamId && m.round != null
+        ? placedIn.get(`${teamId}:${m.round as number}`)
+        : undefined;
     const divisionId =
+      (m.division_id as string | null) ??
+      placed(m.home_team_id) ??
+      placed(m.away_team_id) ??
       (m.home_team_id ? divisionByTeam.get(m.home_team_id) : null) ??
       (m.away_team_id ? divisionByTeam.get(m.away_team_id) : null) ??
       null;

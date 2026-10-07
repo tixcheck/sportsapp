@@ -5,6 +5,19 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Fix: ladder schedules filed past games under today's tiers
+
+Mango Coed, Sep 29: some tiers showed more games and some fewer (Tier 4: 12,
+Tier 2: none). The games were right — every tier had 6, every team played 4.
+The schedule tagged each game with the home team's CURRENT tier, and the
+ladder has moved teams twice since. `loadSchedule` (lib/queries/leagues.ts)
+now uses the game's own tier, then its teams' ladder placement that week, and
+only then today's tier. Checked against the live data: every past night in
+Mango Coed, Mango Summer and SMVA week 1 now groups evenly; nights that were
+already right are unchanged.
+
+---
+
 ## 2026-10-07 — BVL rounds: a two-week round robin, then movement (0157)
 
 BVL doesn't move teams weekly: "They do one round in two weeks. That means
