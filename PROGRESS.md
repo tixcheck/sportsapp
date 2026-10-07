@@ -17,7 +17,10 @@ Rehearsed in the browser on a Test Org game (old score held until submit,
 audit "25–20 to 20–25"), then restored. Mango's corrections were rebuilt from
 the earlier audit rows: four Sep 29 results flipped — which, scored that way
 at the lock, would have sent Dubai up to Tier 2 and Bangkok down to Tier 4
-for Oct 6.
+for Oct 6. Mango had already played it that way, so with the user's go-ahead
+the two swapped places in Oct 6's 12 unscored Tier 2/4 games (players and
+refs), the week 3 placements and their current tier — one transaction,
+verified: every Oct 6 game's teams and ref sit in that game's tier.
 
 ---
 
