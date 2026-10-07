@@ -1684,8 +1684,10 @@ bvl-permits-2026`): **21 permits, 133 date exceptions** — Tue 6 gyms/14 courts
 pickup Notre Dame 3 (Oct 16–Apr 30). Colours: green available, red cancelled,
 yellow going to cancel, orange cancel requested, break bands = off. Shown on the
 org page ("Gym permits").
-**Open:** (1) **Edmund Campion** and **Sandalwood Heights** added under the
-sheet's names, no address — get official names/addresses. (2) Terry Miller
+**Open:** (1) ~~Edmund Campion / Sandalwood Heights addresses~~ — done by
+Vee 2026-10-07: she entered **St. Edmund Campion Secondary School** herself (the
+loader's duplicate was merged into hers, permit moved) and filled in **Sandalwood
+Heights Secondary School**; the loader now maps to those names. (2) Terry Miller
 Wed **Apr 28** is an "X" in magenta, a colour the legend doesn't list — loaded
 as cancelled, confirm. (3) Sandalwood Heights Wed is cancelled every week until
 Mar 31. (4) Each league's `court_list` still lists all 13 gyms; the schedule

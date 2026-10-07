@@ -58,9 +58,10 @@ const VENUE_FOR: Record<string, string> = {
   "Terry Miller": "Terry Miller Recreation Centre",
   "Cassie Campbell": "Cassie Campbell Community Centre",
   Chinguacousy: "Chinguacousy Secondary School",
-  // Not saved yet: added under the sheet's own names.
-  "Edmund Campion": "Edmund Campion",
-  "Sandalwood Heights": "Sandalwood Heights",
+  // First loaded under the sheet's short names; BVL then entered the real
+  // ones with addresses (2026-10-07) and the duplicate Campion was merged.
+  "Edmund Campion": "St. Edmund Campion Secondary School",
+  "Sandalwood Heights": "Sandalwood Heights Secondary School",
 };
 
 /** "3 Courts" → 1,2,3 · "Court A/B" → A,B · "Court C" → C. */
