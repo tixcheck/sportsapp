@@ -5,6 +5,32 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Re-draft leagues: rosters follow the board, stats follow who played (0159)
+
+Mango Friday: Roger re-drafted on Oct 2 and "the new teams don't show up".
+The board (free_agents) saved; the rosters (team_members) didn't follow for
+five players — `place_free_agents` only clears the team the BOARD last had
+someone on, and rows made by Oct 1's Teams-tab invites were never touched
+(Quinton, Bryan, Ionut on two teams; Harsh M and Fabio Di Roma, whose pool
+rows were typed without an email, never linked at all). `sync_draft_rosters`
+now runs on every draft save and pool-email edit: the board is the roster;
+anyone on a roster but not on the board is named in a warning.
+
+Stats: without lineups a player was credited with every game their CURRENT
+team ever played, so a re-draft rewrote everyone's history.
+`competitions.appearances_from_roster` + a trigger record each side's lineup
+from its roster when a game completes (absentees skipped, an entered lineup
+kept), so stats read who was on the team that night. Not switched on for any
+league yet — Friday needs its Session 1 lineups backfilled first, or turning
+on lineup-based stats would blank Sep 25 / Oct 2. Rehearsed both on Friday's
+live data as its organizer, rolled back.
+
+Dashboard: for a league that re-drafts, "Your teams" ranks the team in the
+current session's mini series (labelled, "· finished" once its playoff has
+passed) and lists who's on the team now.
+
+---
+
 ## 2026-10-07 — Fix: editing a finished score erased the old one before submit
 
 Mango asked which Sep 29 scores Roger corrected; every audit row read

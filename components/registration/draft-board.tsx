@@ -155,8 +155,20 @@ export function DraftBoard({
       }
       setDirty(false);
       toast.success(
-        `Draft saved — ${res.placed} placed${res.returned ? `, ${res.returned} back in the pool` : ""}.`,
+        `Draft saved — ${res.placed} placed${res.returned ? `, ${res.returned} back in the pool` : ""}. Team rosters updated.`,
       );
+      // Someone on a roster the board doesn't know can't be moved by it — say
+      // who, and how to fix it, rather than leaving them on an old team quietly.
+      if (res.offBoard.length > 0) {
+        toast.warning(
+          `Not on the draft board, so still on their old team: ${res.offBoard
+            .map((p) => `${p.name} (${p.team})`)
+            .join(
+              ", ",
+            )}. Add their email to their pool entry to link them, then save again.`,
+          { duration: 20000 },
+        );
+      }
       router.refresh();
     });
   }

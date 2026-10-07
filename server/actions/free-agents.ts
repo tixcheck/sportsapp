@@ -846,6 +846,12 @@ export async function updateFreeAgentDetailsAction(
   await inviteDraftedPlayers(supabase, competitionId, {
     freeAgentIds: [v.freeAgentId],
   });
+  // An email that just linked someone's account can leave them on the team a
+  // Teams-tab invite once put them on; the board is the truth (0159).
+  const { error: syncErr } = await supabase.rpc("sync_draft_rosters", {
+    _competition_id: competitionId,
+  });
+  if (syncErr) console.error("[free-agents] roster sync failed");
   await revalidateForCompetition(supabase, competitionId);
   return { ok: true };
 }

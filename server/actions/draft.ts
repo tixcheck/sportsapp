@@ -42,9 +42,16 @@ export type DraftBoardInput = z.input<typeof boardSchema>;
  * re-draft can reuse the existing four rather than accumulating a new set every
  * three weeks.
  */
-export async function saveDraftAction(
-  input: DraftBoardInput,
-): Promise<ActionError | { teams: number; placed: number; returned: number }> {
+export async function saveDraftAction(input: DraftBoardInput): Promise<
+  | ActionError
+  | {
+      teams: number;
+      placed: number;
+      returned: number;
+      /** On a roster, not on the board — the save couldn't move them (0159). */
+      offBoard: { team: string; name: string }[];
+    }
+> {
   const parsed = boardSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the draft." };
@@ -130,12 +137,30 @@ export async function saveDraftAction(
     }
   }
 
+  // The rosters follow the board (0159). `place_free_agents` only clears the
+  // team the board last had someone on; a roster row made any other way — a
+  // Teams-tab invite, an account link — stayed behind, so Mango's Oct 2
+  // re-draft left five players showing on their old teams.
+  const { data: synced, error: syncErr } = await supabase.rpc(
+    "sync_draft_rosters",
+    { _competition_id: competitionId },
+  );
+  if (syncErr) {
+    console.error("[draft] roster sync failed", syncErr.message);
+    return {
+      error: "The draft saved, but the team rosters didn't update. Save again.",
+    };
+  }
+  const offBoard =
+    (synced as { offBoard?: { team: string; name: string }[] } | null)
+      ?.offBoard ?? [];
+
   // Drafted players with an email and no account are told which team they're
   // on — once per address, so re-saving the board doesn't email anyone again.
   await inviteDraftedPlayers(supabase, competitionId);
 
   revalidatePath("/orgs");
-  return { teams: teams.length, placed, returned: orphaned.length };
+  return { teams: teams.length, placed, returned: orphaned.length, offBoard };
 }
 
 const ranksSchema = z.object({

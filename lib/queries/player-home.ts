@@ -13,8 +13,12 @@
  * genuinely useful thing on the page.
  */
 
+import { DateTime } from "luxon";
+
 import { createClient } from "@/lib/supabase/server";
 import { loadStandings } from "@/lib/standings/compute";
+import { getSeriesStandings } from "@/lib/queries/series-standings";
+import { getPublicRosterNames } from "@/lib/queries/roster";
 import { getMyMatches, type MyMatch } from "@/lib/queries/my-matches";
 
 export interface PlayerStandingRow {
@@ -34,6 +38,15 @@ export interface PlayerStandingRow {
   differential: number;
   /** True when every one of this team's games has been played. */
   seasonDone: boolean;
+  /**
+   * A league that re-drafts every session (Mango Friday, Big Shoots): the
+   * table is this session's mini series, not the season — "Team 1" is a
+   * different group of people each session, so a season table ranks nobody.
+   * Null for every other league.
+   */
+  session: { label: string; finished: boolean } | null;
+  /** Who's on the team now — for a re-drafted league, where it changes. */
+  teammates: string[];
 }
 
 /**
@@ -158,7 +171,7 @@ export async function getPlayerHome(limit = 6): Promise<PlayerHome> {
   const { data: comps } = compIds.length
     ? await supabase
         .from("competitions")
-        .select("id, name, type, slug, status")
+        .select("id, name, type, slug, status, timezone")
         .in("id", compIds)
     : { data: [] as Record<string, unknown>[] };
 
@@ -175,8 +188,21 @@ export async function getPlayerHome(limit = 6): Promise<PlayerHome> {
     // exactly the thing a player wants to look back at.
     if (!comp) continue;
 
-    const groups = await loadStandings(supabase, compId);
+    // A league that re-drafts ranks the current session's mini series.
+    const today = DateTime.now()
+      .setZone((comp.timezone as string | null) ?? "America/Toronto")
+      .toFormat("yyyy-MM-dd");
+    const series =
+      comp.type === "league" ? await getSeriesStandings(compId, today) : null;
+    const thisSeries =
+      series && series.series.length > 0
+        ? series.series[series.current - 1]
+        : null;
+    const groups = thisSeries
+      ? thisSeries.groups
+      : await loadStandings(supabase, compId);
     const rows = groups.flatMap((g) => g.rows.filter((r) => !r.withdrawn));
+    const roster = thisSeries ? await getPublicRosterNames(compId) : {};
 
     for (const team of myTeams.filter((t) => t.competitionId === compId)) {
       const i = rows.findIndex((r) => r.teamId === team.teamId);
@@ -201,6 +227,17 @@ export async function getPlayerHome(limit = 6): Promise<PlayerHome> {
             m.competitionId === compId &&
             (m.homeTeamId === team.teamId || m.awayTeamId === team.teamId),
         ),
+        session: thisSeries
+          ? {
+              label: thisSeries.label,
+              finished:
+                thisSeries.playoffNight != null &&
+                thisSeries.playoffNight < today,
+            }
+          : null,
+        teammates: (roster[team.teamId] ?? [])
+          .filter((p) => !p.pending)
+          .map((p) => p.name),
       });
     }
   }

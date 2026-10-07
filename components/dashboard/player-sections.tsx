@@ -131,6 +131,14 @@ export function YourTeams({ rows }: { rows: PlayerStandingRow[] }) {
           >
             <p className="truncate text-sm font-semibold">{r.teamName}</p>
             <p className="text-ink-3 truncate text-xs">{r.competitionName}</p>
+            {r.session && (
+              // Re-drafted every session: the table below is this session's,
+              // and "Team 1" means these people only until the next draft.
+              <p className="text-ink-2 mt-1 text-xs">
+                {r.session.label}
+                {r.session.finished ? " · finished" : " · this session"}
+              </p>
+            )}
 
             <div className="mt-3 flex items-baseline gap-3">
               {r.position ? (
@@ -149,9 +157,15 @@ export function YourTeams({ rows }: { rows: PlayerStandingRow[] }) {
               <p className="text-ink-2 mt-2 text-xs tabular-nums">
                 {r.won}&ndash;{r.lost} · {r.differential > 0 ? "+" : ""}
                 {r.differential}
-                {r.seasonDone && (
+                {r.seasonDone && !r.session && (
                   <span className="text-ink-3"> · season complete</span>
                 )}
+              </p>
+            )}
+            {r.session && r.teammates.length > 0 && (
+              <p className="text-ink-3 mt-2 line-clamp-2 text-xs">
+                <span className="text-ink-2 font-medium">Your team: </span>
+                {r.teammates.join(", ")}
               </p>
             )}
           </Link>
