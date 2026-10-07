@@ -53,6 +53,7 @@ export default async function EmbedSchedulePage({
           timezone={league.timezone}
           sport={league.sport}
           initialDay={defaultScheduleDay(playingDays, today)}
+          views={league.scheduleViews}
         />
         <EmbedFooter slug={slug} label="Full schedule & standings" />
       </EmbedAutoHeight>

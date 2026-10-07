@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SCHEDULE_VIEWS } from "@/lib/schedule/schedule-views";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -291,3 +292,16 @@ export const DAY_LABELS = [
   "Friday",
   "Saturday",
 ];
+
+/**
+ * The schedule views a league offers (0158). An empty list means "the
+ * default set" and is stored as null; order matters — the first opens.
+ */
+export const setScheduleViewsSchema = z.object({
+  competitionId: z.string().uuid(),
+  views: z
+    .array(z.enum(SCHEDULE_VIEWS))
+    .max(SCHEDULE_VIEWS.length)
+    .refine((v) => new Set(v).size === v.length, "A view is listed twice."),
+});
+export type SetScheduleViewsInput = z.infer<typeof setScheduleViewsSchema>;

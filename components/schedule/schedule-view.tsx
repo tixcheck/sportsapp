@@ -23,6 +23,11 @@ import {
   normalizeCourtLabel,
 } from "@/lib/scheduler/court-label";
 import { MatchCard } from "./match-card";
+import {
+  scheduleViewsFor,
+  SCHEDULE_VIEW_LABELS,
+  type ScheduleViewKey,
+} from "@/lib/schedule/schedule-views";
 import { MatchupMatrix } from "./matchup-matrix";
 import { NowPlaying } from "./now-playing";
 import { RescheduleDialog } from "./reschedule-dialog";
@@ -310,6 +315,15 @@ function groupByCourt(
     .map(({ key, heading, matches }) => ({ key, heading, matches }));
 }
 
+const VIEW_ICONS: Record<ScheduleViewKey, typeof List> = {
+  round: List,
+  date: CalendarDays,
+  tier: Layers,
+  team: Users,
+  court: MapPin,
+  matrix: Grid3x3,
+};
+
 export function ScheduleView({
   matches,
   timezone,
@@ -321,7 +335,13 @@ export function ScheduleView({
   initialDay = null,
   visibleDays = null,
   tierLabel = "tier",
+  views = null,
 }: {
+  /**
+   * The league's chosen views (`league_settings.schedule_views`, 0158), first
+   * = the one it opens on. Null offers the default set.
+   */
+  views?: readonly string[] | null;
   matches: ScheduleMatch[];
   timezone: string;
   /**
@@ -364,9 +384,8 @@ export function ScheduleView({
   visibleDays?: string[] | null;
 }) {
   const scorable = new Set(scorableMatchIds);
-  const [view, setView] = useState<
-    "list" | "agenda" | "court" | "team" | "tier" | "matrix"
-  >("list");
+  // Null until the viewer picks one: then the league's first view applies.
+  const [view, setView] = useState<ScheduleViewKey | null>(null);
   // Only worth offering when there's more than one tier to separate.
   const tierCount = new Set(matches.map((m) => m.divisionId).filter(Boolean))
     .size;
@@ -419,13 +438,11 @@ export function ScheduleView({
         )
       : dayScoped;
 
-  // "By date" can be hidden (single-day); fall back to By round if it was set.
-  const effectiveView =
-    view === "agenda" && !multiDay
-      ? "list"
-      : view === "tier" && !hasTiers
-        ? "list"
-        : view;
+  // Views that don't apply (By date on one night, By tier with one tier) are
+  // never offered; a stale pick falls back to the league's first view.
+  const offered = scheduleViewsFor(views, { editable, multiDay, hasTiers });
+  const effectiveView: ScheduleViewKey =
+    view && offered.includes(view) ? view : offered[0];
 
   // By-team always groups the day-scoped schedule so each team's day is complete;
   // the My-team filter then keeps only the followed teams' sections. (Filtering
@@ -468,7 +485,7 @@ export function ScheduleView({
         ? groupByTier(shown, timezone, sport, tierLabel)
         : effectiveView === "team"
           ? teamGroups
-          : effectiveView === "agenda"
+          : effectiveView === "date"
             ? groupByDate(shown, timezone)
             : mineOnly && canFilterMine
               ? groupByRoundWithOff(shown, dayScoped, myTeamIds, timezone)
@@ -550,56 +567,19 @@ export function ScheduleView({
           so it used to overflow and get clipped.
         */}
         <div className="bg-muted flex max-w-full flex-wrap rounded-lg p-0.5">
-          <ToggleButton
-            active={effectiveView === "list"}
-            onClick={() => setView("list")}
-          >
-            <List className="size-4" />
-            By round
-          </ToggleButton>
-          {multiDay && (
-            <ToggleButton
-              active={view === "agenda"}
-              onClick={() => setView("agenda")}
-            >
-              <CalendarDays className="size-4" />
-              By date
-            </ToggleButton>
-          )}
-          {hasTiers && (
-            <ToggleButton
-              active={effectiveView === "tier"}
-              onClick={() => setView("tier")}
-            >
-              <Layers className="size-4" />
-              By {tierLabel}
-            </ToggleButton>
-          )}
-          <ToggleButton
-            active={view === "team"}
-            onClick={() => setView("team")}
-          >
-            <Users className="size-4" />
-            By team
-          </ToggleButton>
-          {editable && (
-            <ToggleButton
-              active={view === "court"}
-              onClick={() => setView("court")}
-            >
-              <MapPin className="size-4" />
-              By court
-            </ToggleButton>
-          )}
-          {editable && (
-            <ToggleButton
-              active={view === "matrix"}
-              onClick={() => setView("matrix")}
-            >
-              <Grid3x3 className="size-4" />
-              Matrix
-            </ToggleButton>
-          )}
+          {offered.map((v) => {
+            const Icon = VIEW_ICONS[v];
+            return (
+              <ToggleButton
+                key={v}
+                active={effectiveView === v}
+                onClick={() => setView(v)}
+              >
+                <Icon className="size-4" />
+                {v === "tier" ? `By ${tierLabel}` : SCHEDULE_VIEW_LABELS[v]}
+              </ToggleButton>
+            );
+          })}
         </div>
         {canFilterMine && (
           <button

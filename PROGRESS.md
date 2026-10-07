@@ -5,6 +5,20 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-07 — Schedule views per league (0158)
+
+Mango: "they dont need so many options" — six buttons above the schedule (By
+round, date, tier, team, court, Matrix). New `league_settings.schedule_views`
+(null = the default set, unchanged everywhere); `scheduleViewsFor`
+(lib/schedule/schedule-views.ts, tested) decides what shows — a chosen list
+goes to organizer, public page and embed alike (so By court can be public),
+views that don't apply drop out, and the schedule opens on the first.
+Organizers pick them on Settings → Format → Schedule views. Mango Coed set to
+By tier + By court; checked at 375px on the public page, the embed, and the
+card itself (on a Test Org league, then reset).
+
+---
+
 ## 2026-10-07 — Fix: ladder schedules filed past games under today's tiers
 
 Mango Coed, Sep 29: some tiers showed more games and some fewer (Tier 4: 12,

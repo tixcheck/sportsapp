@@ -56,6 +56,7 @@ import { ManageTiersDialog } from "@/components/league/manage-tiers-dialog";
 import { WeightedStandingsTable } from "@/components/league/weighted-standings-table";
 import { getWeightedStandings } from "@/lib/queries/weighted-standings";
 import { EditLeagueSettingsDialog } from "@/components/league/edit-league-settings-dialog";
+import { ScheduleViewsCard } from "@/components/league/schedule-views-card";
 import { CompleteToggle } from "@/components/competition/complete-toggle";
 import { DeleteCompetitionDialog } from "@/components/competition/delete-competition-dialog";
 import { AuditLogCard } from "@/components/competition/audit-log-card";
@@ -378,6 +379,7 @@ export default async function LeaguePage({
             editable
             sport={league.sport}
             slotMinutes={league.minutesPerGame}
+            views={league.scheduleViews}
           />
         </CardContent>
       ) : null}
@@ -881,6 +883,10 @@ export default async function LeaguePage({
           />
         </CardContent>
       </Card>
+      <ScheduleViewsCard
+        competitionId={league.id}
+        initial={league.scheduleViews}
+      />
     </div>
   );
 

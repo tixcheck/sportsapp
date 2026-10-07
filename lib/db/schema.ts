@@ -576,6 +576,8 @@ export const leagueSettings = pgTable("league_settings", {
   ladderDraw: text("ladder_draw").notNull().default("generated"),
   /** Playing weeks per ladder round (BVL: 2; 0157). */
   ladderRoundWeeks: integer("ladder_round_weeks").notNull().default(1),
+  /** Schedule views offered, first = default; null = all that apply (0158). */
+  scheduleViews: text("schedule_views").array(),
   // Titled instruction blocks printed on every score sheet (migration 0118).
   // Scarborough's gym package is mostly standing instructions — who sets the
   // clock, what the winning team does with the nets — and their executive's

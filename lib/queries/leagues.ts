@@ -95,6 +95,8 @@ export interface LeagueDetail {
   minutesPerGame: number;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: RankMode;
+  /** Schedule views offered, first = default; null = all that apply (0158). */
+  scheduleViews: string[] | null;
   /** Fixture order within a round — see league_settings.pairing_order. */
   pairingOrder: "circle" | "sequential";
   /** Pro-rate short-handed (mid-season) teams to the full slate for ranking. */
@@ -191,6 +193,8 @@ export interface PublicLeague {
   /** `divisionId` groups the Teams tab by tier, the way the schedule is. */
   teams: { id: string; name: string; divisionId: string | null }[];
   schedule: ScheduleMatch[];
+  /** Schedule views offered, first = default; null = all that apply (0158). */
+  scheduleViews: string[] | null;
 }
 
 /** The org if the current user can see it (RLS), else null. */
@@ -235,7 +239,7 @@ export async function getLeagueDetail(
   const { data: settings } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order, session_nights",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order, session_nights, schedule_views",
     )
     .eq("competition_id", leagueId)
     .maybeSingle();
@@ -314,6 +318,7 @@ export async function getLeagueDetail(
     projectShortTeams: ((settings?.tiebreaker as string | null) ?? "").endsWith(
       "_projected",
     ),
+    scheduleViews: (settings?.schedule_views as string[] | null) ?? null,
     pairingOrder:
       settings?.pairing_order === "sequential" ? "sequential" : "circle",
     courtList: (settings?.court_list as LeagueCourt[] | null) ?? null,
@@ -539,7 +544,9 @@ export async function getPublicLeague(
   // missing-column error can't take down the tiebreaker read above.
   const { data: regRow } = await supabase
     .from("league_settings")
-    .select("registration_open, registration_deadline, session_nights")
+    .select(
+      "registration_open, registration_deadline, session_nights, schedule_views",
+    )
     .eq("competition_id", league.id)
     .maybeSingle();
 
@@ -574,5 +581,6 @@ export async function getPublicLeague(
       divisionId: (t.division_id as string | null) ?? null,
     })),
     schedule,
+    scheduleViews: (regRow?.schedule_views as string[] | null) ?? null,
   };
 }

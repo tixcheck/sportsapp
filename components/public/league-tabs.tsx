@@ -172,6 +172,7 @@ export function LeagueTabs({
           initialDay={initialDay}
           visibleDays={visibleDays}
           slotMinutes={estimateMatchMinutes(league.matchFormat)}
+          views={league.scheduleViews}
         />
       </TabsContent>
 

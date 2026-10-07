@@ -35,12 +35,14 @@ import {
   editLeagueSchema,
   manageLeagueTiersSchema,
   setLeagueRegistrationSchema,
+  setScheduleViewsSchema,
   setTeamTierSchema,
   type AddTeamInput,
   type CreateLeagueInput,
   type EditLeagueInput,
   type ManageLeagueTiersInput,
   type SetLeagueRegistrationInput,
+  type SetScheduleViewsInput,
   type SetTeamTierInput,
 } from "@/lib/validations/league";
 import {
@@ -1030,4 +1032,42 @@ export async function unpublishLeagueAction(
   revalidatePath(`/l/${data.slug}`);
   revalidatePath(`/orgs`);
   return { status: "draft" };
+}
+
+/**
+ * Choose which schedule views a league offers — organizer, public page and
+ * embed alike (0158). An empty list goes back to the default set.
+ */
+export async function setScheduleViewsAction(
+  input: SetScheduleViewsInput,
+): Promise<ActionError | { views: string[] | null }> {
+  const parsed = setScheduleViewsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form." };
+  }
+  const { competitionId, views } = parsed.data;
+
+  const supabase = await createClient();
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: competitionId,
+  });
+  if (isAdmin !== true) {
+    return { error: "Only the organizer can change the schedule views." };
+  }
+
+  const stored = views.length > 0 ? views : null;
+  const { error } = await supabase
+    .from("league_settings")
+    .update({ schedule_views: stored })
+    .eq("competition_id", competitionId);
+  if (error) return { error: error.message };
+
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("slug")
+    .eq("id", competitionId)
+    .single();
+  if (comp?.slug) revalidatePath(`/l/${comp.slug}`);
+  revalidatePath("/orgs");
+  return { views: stored };
 }
