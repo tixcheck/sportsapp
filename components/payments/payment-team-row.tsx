@@ -161,7 +161,11 @@ export function PaymentTeamRow({
                 Not in the draw
               </span>
             )}
-            {team.admittedUnpaid && (
+            {/* Only while they still owe: "admitted unpaid" is history once the
+                fee is in. Cristiane/Rafael kept it after Dani recorded their
+                e-transfer (2026-10-07). The record itself stays on the team —
+                it's why their platform fee is owed (0151). */}
+            {team.admittedUnpaid && team.outstandingPriceCents > 0 && (
               <span className="inline-flex items-center gap-1 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] text-sky-900">
                 <ShieldCheck className="size-3" />
                 Admitted unpaid
