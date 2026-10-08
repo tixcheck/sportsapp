@@ -5,7 +5,11 @@ import {
   type Appearance,
 } from "@/lib/stats/attribution";
 import { nightOf } from "@/lib/stats/night-lineup";
-import { buildPartnerGrid, type PartnerGrid } from "@/lib/stats/partner-grid";
+import {
+  buildPartnerGrid,
+  type GridPlayer,
+  type PartnerGrid,
+} from "@/lib/stats/partner-grid";
 import { getFullTimeRoster } from "@/lib/queries/full-time-roster";
 import { isFullTime } from "@/lib/stats/roster-split";
 
@@ -60,6 +64,12 @@ export async function getMatchLineup(
  */
 export async function getPartnerGrid(
   competitionId: string,
+  /**
+   * Drafted players to list even with no lineup yet — they're full-time, and
+   * a row of zeros is exactly what "never played with anyone" looks like.
+   * Big Shoots expected its 24 and saw 22: two new players hadn't played.
+   */
+  alsoInclude: (GridPlayer & { aliases: string[] })[] = [],
 ): Promise<PartnerGrid> {
   const supabase = await createClient();
 
@@ -129,6 +139,13 @@ export async function getPartnerGrid(
     nameByKey.set(identityKey(a), a.playerName.trim());
   }
 
+  for (const p of alsoInclude) {
+    // Lineups may know a player by their account or by the name they were
+    // drafted under; either one already in the grid means they're listed.
+    if (!p.aliases.some((k) => nameByKey.has(k))) {
+      nameByKey.set(p.key, p.name.trim());
+    }
+  }
   return buildPartnerGrid(
     [...nameByKey.entries()].map(([key, name]) => ({ key, name })),
     partnershipCounts(counted, nightOfMatch),

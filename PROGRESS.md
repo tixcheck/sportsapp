@@ -20,6 +20,16 @@ with their nights; a player already with a past teammate carries a ↺ badge.
 The full "Who has played with whom" grid sits under the board on the Teams
 tab (still on Stats too). The never-together card is gone.
 
+Follow-up the same morning — Liam: "when I clear all players the matrix
+shrinks … with empty teams the matrix shows 12 … once I saved it showed a ton
+of repeats and goes to 22 … should be 24 FT players". Full-time was "on a
+roster right now", so clearing the board (and the 0159 roster sync) dropped
+the league out of the grid — and the board's repeat counts with it, hence "no
+repeats" until he saved. `getFullTimeRoster` now also counts anyone a lineup
+ever recorded as rostered (22, whatever the board holds), and the grid lists
+placed players with no lineup yet (Eric Macdonald, Jack Zhu → 24). The same
+fix keeps the Stats tab from filing everyone under Subs mid-redraft.
+
 ---
 
 ## 2026-10-08 — Big Shoots drops the playoff night (0160) + head-to-head-then-differential

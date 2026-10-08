@@ -28,13 +28,29 @@ export async function getFullTimeRoster(
 ): Promise<ReadonlySet<string>> {
   const supabase = await createClient();
 
-  const { data } = await supabase.rpc("competition_roster_aliases", {
-    _competition_id: competitionId,
-  });
+  const [{ data }, { data: rostered }] = await Promise.all([
+    supabase.rpc("competition_roster_aliases", {
+      _competition_id: competitionId,
+    }),
+    // Anyone a lineup ever recorded as ROSTERED stays full-time. The roster
+    // alone is only who is on a team NOW: Big Shoots' Liam cleared the board
+    // to re-draft and saved it (2026-10-08), the rosters emptied, and his
+    // whole league dropped out of the who-played-with-whom grid and into the
+    // Subs table until he saved the new teams. Being drafted once is history,
+    // not a state the next draft can undo. Lineups are public (0089).
+    supabase
+      .from("match_appearances")
+      .select("user_id, player_name")
+      .eq("competition_id", competitionId)
+      .eq("role", "rostered"),
+  ]);
 
-  return rosterKeys(
-    ((data ?? []) as { user_id: string | null; name: string | null }[]).map(
+  return rosterKeys([
+    ...((data ?? []) as { user_id: string | null; name: string | null }[]).map(
       (r): RosterPerson => ({ userId: r.user_id, name: r.name }),
     ),
-  );
+    ...(
+      (rostered ?? []) as { user_id: string | null; player_name: string }[]
+    ).map((r): RosterPerson => ({ userId: r.user_id, name: r.player_name })),
+  ]);
 }

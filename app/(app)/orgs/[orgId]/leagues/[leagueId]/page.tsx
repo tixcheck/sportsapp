@@ -195,8 +195,23 @@ export default async function LeaguePage({
   const localities = await getTeamLocalities(league.id);
   const choiceMix = await getTeamChoiceMix(league.id);
   // Only a league that saves lineups knows who played with whom.
+  // Drafted players who haven't played yet still get their row.
   const partnerGrid = league.trackAppearances
-    ? await getPartnerGrid(league.id)
+    ? await getPartnerGrid(
+        league.id,
+        freeAgents
+          .filter((f) => f.status === "placed")
+          .map((f) => ({
+            key: identityKey({ userId: f.userId, playerName: f.name }),
+            name: f.name,
+            aliases: [
+              ...(f.userId
+                ? [identityKey({ userId: f.userId, playerName: f.name })]
+                : []),
+              identityKey({ userId: null, playerName: f.name }),
+            ],
+          })),
+      )
     : null;
   // The draft pool is everyone who can be dealt onto a team: placed or still
   // available. Keyed by account where there is one, because that is how their
