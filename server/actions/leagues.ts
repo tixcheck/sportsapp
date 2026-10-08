@@ -274,6 +274,10 @@ export async function updateLeagueSettingsAction(
       blackout_dates: v.blackoutDates.length ? v.blackoutDates : null,
       // Every Nth played night is a playoff (migration 0121); null = none.
       session_nights: v.sessionNights ?? null,
+      // Left alone when the form didn't send it.
+      ...(v.sessionPlayoff === undefined
+        ? {}
+        : { session_playoff: v.sessionPlayoff }),
     })
     .eq("competition_id", competitionId);
   if (setErr) return { error: setErr.message };

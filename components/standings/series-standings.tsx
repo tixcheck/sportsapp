@@ -13,6 +13,7 @@ import {
   StandingsLegend,
   StandingsTable,
 } from "@/components/standings/standings-table";
+import type { RankMode } from "@/lib/scheduler/tiebreakers";
 
 /**
  * Standings a mini series at a time, for a league that re-drafts in sessions.
@@ -31,7 +32,10 @@ export function SeriesStandings({
   sport,
   differential = false,
   showPoints = false,
+  mode,
 }: {
+  /** The league's ranking mode, for the legend's sentence. */
+  mode?: RankMode;
   series: Series[];
   /** 1-based number of the series to open on. */
   current: number;
@@ -66,13 +70,13 @@ export function SeriesStandings({
 
       <p className="text-muted-foreground text-sm">
         {chosen
-          ? `${chosen.label} · ${chosen.span}. Its regular nights only${
-              chosen.playoffNight
-                ? `; its playoff is ${DateTime.fromISO(
-                    chosen.playoffNight,
-                  ).toFormat("EEE LLL d")}`
-                : ""
-            }.`
+          ? chosen.playoffNight
+            ? `${chosen.label} · ${chosen.span}. Its regular nights only; its playoff is ${DateTime.fromISO(
+                chosen.playoffNight,
+              ).toFormat("EEE LLL d")}.`
+            : // No playoff night (0160): every night counts, and the top of
+              // this table after the last one wins the series.
+              `${chosen.label} · ${chosen.span}. Every night counts — top of the table after the last night wins the series.`
           : "Every night of the season, across every series."}
       </p>
 
@@ -102,6 +106,7 @@ export function SeriesStandings({
               sport={sport}
               differential={differential}
               showPoints={showPoints}
+              mode={mode}
             />
           )}
         </>

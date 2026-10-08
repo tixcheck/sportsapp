@@ -101,6 +101,8 @@ export interface LeagueDetail {
   pairingOrder: "circle" | "sequential";
   /** Pro-rate short-handed (mid-season) teams to the full slate for ranking. */
   projectShortTeams: boolean;
+  /** Each session ends in a playoff night (0160). */
+  sessionPlayoff: boolean;
   /** The league's specific courts (+ prime flags); null = plain 1…N numbering. */
   courtList: LeagueCourt[] | null;
   courts: number;
@@ -239,7 +241,7 @@ export async function getLeagueDetail(
   const { data: settings } = await supabase
     .from("league_settings")
     .select(
-      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order, session_nights, schedule_views",
+      "weekly_slots, rounds_per_team, games_per_team, blackout_dates, tiebreaker, court_list, games_per_week, minutes_per_game, pairing_order, session_nights, schedule_views, session_playoff",
     )
     .eq("competition_id", leagueId)
     .maybeSingle();
@@ -311,6 +313,7 @@ export async function getLeagueDetail(
     matchFormat: league.match_format as MatchFormat,
     roundsPerTeam: settings?.rounds_per_team ?? 1,
     sessionNights: (settings?.session_nights as number | null) ?? null,
+    sessionPlayoff: settings?.session_playoff !== false,
     gamesPerTeam: (settings?.games_per_team as number | null) ?? null,
     gamesPerWeek: (settings?.games_per_week as number | null) ?? 1,
     minutesPerGame: (settings?.minutes_per_game as number | null) ?? 45,

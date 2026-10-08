@@ -261,7 +261,7 @@ export function EditLeagueSettingsDialog({
             <Field
               label="Nights per session"
               error={errors.sessionNights?.message}
-              hint="For leagues that re-draft in blocks. Every Nth night is a playoff night, and players' playoff game wins are counted on it. Blank = no sessions."
+              hint="For leagues that re-draft in blocks. Standings run per session. Blank = no sessions."
             >
               <Input
                 type="number"
@@ -448,14 +448,35 @@ export function EditLeagueSettingsDialog({
                 OVA — match wins → set ratio → point ratio → head-to-head
               </option>
               <option value="headToHead">
-                Head-to-head first — match wins → head-to-head → set ratio →
-                point ratio
+                Head-to-head first — match wins → head-to-head → head-to-head
+                point margin → point ratio
+              </option>
+              <option value="headToHeadDiff">
+                Head-to-head, then differential — match wins → head-to-head → PF
+                − PA → point ratio
               </option>
               <option value="differential">
                 Point differential — match wins → PF − PA → head-to-head
               </option>
             </select>
           </Field>
+
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              {...register("sessionPlayoff")}
+            />
+            <span>
+              Last night of each session is a playoff
+              <span className="text-muted-foreground block text-xs">
+                Off: the last night is a normal night, the series is decided by
+                its table over every night, and PO W goes to the players who
+                played the last night for the team on top. A playoff already
+                played stays as it was. Only applies with nights per session.
+              </span>
+            </span>
+          </label>
 
           <label className="flex items-start gap-2 text-sm">
             <input

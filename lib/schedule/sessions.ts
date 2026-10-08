@@ -94,9 +94,30 @@ export interface MiniSeries {
 export function miniSeries(
   nights: string[],
   sessionNights: number | null,
+  opts: {
+    /**
+     * Whether a full session ends in a playoff (`league_settings.
+     * session_playoff`, 0160). Big Shoots, 2026-10-08: "we just keep the
+     * standings the exact way that it is and add the 3rd week" — off, every
+     * night counts toward the series.
+     */
+    sessionPlayoff?: boolean;
+    /**
+     * Nights that actually held a playoff. Always a playoff night, whatever
+     * the setting says now: Big Shoots' Series 1 was decided by its Oct 2
+     * playoff before they dropped the format ("series 1 stays as is").
+     */
+    playedPlayoffNights?: ReadonlySet<string>;
+  } = {},
 ): MiniSeries[] {
+  const { sessionPlayoff = true, playedPlayoffNights } = opts;
   return splitSessions(nights, sessionNights).map((block, i) => {
-    const hasPlayoff = sessionNights != null && block.length === sessionNights;
+    const last = block[block.length - 1];
+    const hasPlayoff =
+      (playedPlayoffNights?.has(last) ?? false) ||
+      (sessionPlayoff &&
+        sessionNights != null &&
+        block.length === sessionNights);
     return {
       number: i + 1,
       regularNights: hasPlayoff ? block.slice(0, -1) : block,

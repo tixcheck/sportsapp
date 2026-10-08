@@ -508,7 +508,8 @@ export const leagueSettings = pgTable("league_settings", {
   // told the opposite of what the app did.
   // "ova"        = match wins → set ratio → point ratio → head-to-head (default)
   // "differential" = match wins → point differential (PF−PA) → head-to-head
-  // "headToHead" = match wins → head-to-head → set ratio → point ratio
+  // "headToHead" = match wins → head-to-head → head-to-head point margin → point ratio
+  // "headToHeadDiff" = match wins → head-to-head → point differential → point ratio (Big Shoots)
   // May carry a "_projected" suffix (see projectShortTeams) — parse with
   // startsWith/replace, never ===.
   tiebreaker: text("tiebreaker").notNull().default("ova"),
@@ -591,6 +592,8 @@ export const leagueSettings = pgTable("league_settings", {
   // cannot shift the sessions. Null = no sessions, which is every league but
   // the ones that re-draft in blocks — a default would invent playoffs for BVL.
   sessionNights: integer("session_nights"),
+  /** Whether each session ends in a playoff night (0160). */
+  sessionPlayoff: boolean("session_playoff").notNull().default(true),
 });
 
 /** 1:1 with competitions where type = 'tournament'. */

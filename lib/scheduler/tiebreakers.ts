@@ -82,8 +82,11 @@ export type TiebreakerStep = 1 | 2 | 3 | 4 | 5;
  *  - "headToHead": match wins → head-to-head → set ratio → point ratio. Asked
  *    for by a ladder whose tiers are three teams playing each other twice,
  *    where finishing level is routine and beating someone is felt to settle it.
+ *  - "headToHeadDiff": match wins → head-to-head → point differential → point
+ *    ratio. Big Shoots (2026-10-08): "if there is a tie, it goes head to head
+ *    and then 2nd tie goes to points difference".
  */
-export type RankMode = "ova" | "differential" | "headToHead";
+export type RankMode = "ova" | "differential" | "headToHead" | "headToHeadDiff";
 
 /**
  * Decode `league_settings.tiebreaker` into a mode.
@@ -103,6 +106,7 @@ export function parseRankMode(stored: string | null | undefined): RankMode {
   const base = (stored ?? "").replace(/_projected$/, "");
   if (base === "differential") return "differential";
   if (base === "headToHead") return "headToHead";
+  if (base === "headToHeadDiff") return "headToHeadDiff";
   return "ova";
 }
 
@@ -459,7 +463,40 @@ const STEP_ORDER: Record<RankMode, readonly Criterion[]> = {
   // point. And they need to be top." Margin, not volume: the team in the
   // higher-scoring games should not out-rank the one that won by more.
   headToHead: ["wins", "headToHead", "headToHeadPoints", "pointRatio"],
+  // Big Shoots' order: the meetings first, then the margin over EVERY game —
+  // not just the meetings, which is what separates it from `headToHead`.
+  headToHeadDiff: ["wins", "headToHead", "differential", "pointRatio"],
 };
+
+/**
+ * The ranking order in words, read off `STEP_ORDER` so the sentence under a
+ * table can never describe a different hierarchy from the one applied.
+ */
+export function rankingOrderText(
+  mode: RankMode,
+  opts: { unit: string; points: string; sets: boolean },
+): string {
+  return rankingOrderSteps(mode, opts).join(", then ");
+}
+
+/** `rankingOrderText` as a list, for a caller that annotates a step. */
+export function rankingOrderSteps(
+  mode: RankMode,
+  opts: { unit: string; points: string; sets: boolean },
+): string[] {
+  const words: Record<Criterion, string> = {
+    wins: `${opts.unit} won`,
+    setRatio: "set ratio",
+    pointRatio: `${opts.points} ratio`,
+    differential: `${opts.points} differential`,
+    headToHead: "head-to-head among teams still tied",
+    headToHeadPoints: `head-to-head ${opts.points} margin`,
+  };
+  return STEP_ORDER[mode]
+    .filter((c, i, all) => all.indexOf(c) === i)
+    .filter((c) => opts.sets || c !== "setRatio")
+    .map((c) => words[c]);
+}
 
 function criterionAt(step: TiebreakerStep, mode: RankMode): Criterion {
   // Step 5 is "unresolved" and never asks for a value.

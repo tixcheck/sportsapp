@@ -4,6 +4,7 @@ import {
   matchOutcome,
   playoffNightsFor,
   seriesFinalWinners,
+  tableSeriesCredits,
   tallyAttendance,
   type Absence,
 } from "@/lib/stats/attendance";
@@ -290,5 +291,56 @@ describe("tallyAttendance", () => {
       [absent("unscheduled", "t1", "Owen Walsh")],
     );
     expect(t.size).toBe(0);
+  });
+});
+
+// Big Shoots, 2026-10-08: no playoff night any more — "At the end of the 3rd
+// week the winning players in week 3 should get the PO W."
+describe("tableSeriesCredits", () => {
+  const games = [
+    { id: "w1a", night: "2026-10-09", homeTeamId: "t1", awayTeamId: "t2" },
+    { id: "w3a", night: "2026-10-23", homeTeamId: "t1", awayTeamId: "t2" },
+    { id: "w3b", night: "2026-10-23", homeTeamId: "t3", awayTeamId: "t1" },
+    { id: "w3c", night: "2026-10-23", homeTeamId: "t3", awayTeamId: "t4" },
+  ];
+  const credits = tableSeriesCredits(
+    [{ key: "series:2", lastNight: "2026-10-23", winnerTeamId: "t1" }],
+    games,
+  );
+
+  it("credits the winner's games on the series' last night, and only those", () => {
+    expect([...credits.seriesFinals]).toEqual([
+      ["w3a", "t1"],
+      ["w3b", "t1"],
+    ]);
+  });
+
+  it("is one series won, however many of those games a player played", () => {
+    const t = tallyAttendance({
+      appearances: [
+        appear("w1a", "t1", "Jamie Orth"),
+        appear("w3a", "t1", "Jamie Orth"),
+        appear("w3b", "t1", "Jamie Orth"),
+        // Played week 1 for the winners but not week 3: no PO W.
+        appear("w1a", "t1", "Sam Lee"),
+        // Week 3 on the losing side of the winners' game.
+        appear("w3a", "t2", "Ari Pal"),
+      ],
+      absences: [],
+      nightOfMatch: new Map(games.map((g) => [g.id, g.night])),
+      seriesFinals: credits.seriesFinals,
+      seriesOf: credits.seriesOf,
+    });
+    expect(t.get("n:jamie orth")?.seriesWon).toBe(1);
+    expect(t.get("n:sam lee")?.seriesWon).toBe(0);
+    expect(t.get("n:ari pal")?.seriesWon).toBe(0);
+  });
+
+  it("credits nobody until the series has a winner", () => {
+    const none = tableSeriesCredits(
+      [{ key: "series:2", lastNight: "2026-10-23", winnerTeamId: null }],
+      games,
+    );
+    expect(none.seriesFinals.size).toBe(0);
   });
 });

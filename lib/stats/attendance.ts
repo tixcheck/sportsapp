@@ -142,6 +142,41 @@ export function seriesFinalWinners(
   return out;
 }
 
+/**
+ * PO W for a series decided on its table, not a playoff (0160).
+ *
+ * Big Shoots, 2026-10-08: "At the end of the 3rd week the winning players in
+ * week 3 should get the PO W." So: once every game of the series is scored,
+ * the team top of its table wins it, and the credit goes through that team's
+ * games on the series' LAST night — whoever played them. Returns the same
+ * shape `tallyAttendance` reads for finals (match → winning team), plus the
+ * series each of those matches belongs to.
+ */
+export function tableSeriesCredits(
+  series: { key: string; lastNight: string; winnerTeamId: string | null }[],
+  matches: {
+    id: string;
+    night: string | null;
+    homeTeamId: string | null;
+    awayTeamId: string | null;
+  }[],
+): { seriesFinals: Map<string, string>; seriesOf: Map<string, string> } {
+  const seriesFinals = new Map<string, string>();
+  const seriesOf = new Map<string, string>();
+  for (const s of series) {
+    if (!s.winnerTeamId) continue;
+    for (const m of matches) {
+      if (m.night !== s.lastNight) continue;
+      if (m.homeTeamId !== s.winnerTeamId && m.awayTeamId !== s.winnerTeamId) {
+        continue;
+      }
+      seriesFinals.set(m.id, s.winnerTeamId);
+      seriesOf.set(m.id, s.key);
+    }
+  }
+  return { seriesFinals, seriesOf };
+}
+
 export function tallyAttendance(input: {
   appearances: Appearance[];
   absences: Absence[];
@@ -149,8 +184,16 @@ export function tallyAttendance(input: {
   nightOfMatch: Map<string, string>;
   /** Each series final → the team that won it (`seriesFinalWinners`). */
   seriesFinals: Map<string, string>;
+  /**
+   * The series each crediting match belongs to, when a series is credited
+   * through SEVERAL matches — a series decided on its table rather than a
+   * final credits everyone who played its last night for the winner
+   * (`tableSeriesCredits`), and three games that night are still one series.
+   * A match absent here is its own series, as a final is.
+   */
+  seriesOf?: Map<string, string>;
 }): Map<string, AttendanceTally> {
-  const { appearances, absences, nightOfMatch, seriesFinals } = input;
+  const { appearances, absences, nightOfMatch, seriesFinals, seriesOf } = input;
 
   const nightsPlayed = new Map<string, Set<string>>();
   const seriesWon = new Map<string, Set<string>>();
@@ -161,8 +204,9 @@ export function tallyAttendance(input: {
     const key = identityKey(a);
     addTo(nightsPlayed, key, night);
     if (seriesFinals.get(a.matchId) === a.teamId) {
-      // Keyed by the final: listed twice in one final is still one series.
-      addTo(seriesWon, key, a.matchId);
+      // Keyed by the series: listed twice in one final, or playing all three
+      // games of a deciding night, is still one series.
+      addTo(seriesWon, key, seriesOf?.get(a.matchId) ?? a.matchId);
     }
   }
 

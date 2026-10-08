@@ -318,6 +318,7 @@ export function LeagueTabs({
             format={league.matchFormat}
             sport={league.sport}
             differential={league.tiebreaker === "differential"}
+            mode={league.tiebreaker}
           />
         ) : standings.length > 1 ? (
           <StandingsGroups
@@ -342,6 +343,7 @@ export function LeagueTabs({
                 format={league.matchFormat}
                 sport={league.sport}
                 differential={league.tiebreaker === "differential"}
+                mode={league.tiebreaker}
               />
             )}
           </>

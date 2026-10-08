@@ -20,10 +20,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { getFullTimeRoster } from "@/lib/queries/full-time-roster";
 import { isFullTime } from "@/lib/stats/roster-split";
+import { loadStandings } from "@/lib/standings/compute";
+import { miniSeries } from "@/lib/schedule/sessions";
 import {
   matchOutcome,
   playoffNightsFor,
   seriesFinalWinners,
+  tableSeriesCredits,
   tallyAttendance,
   type Absence,
   type MatchOutcome,
@@ -215,13 +218,13 @@ async function playerStatsByAppearance(
       .maybeSingle(),
     supabase
       .from("league_settings")
-      .select("session_nights")
+      .select("session_nights, session_playoff")
       .eq("competition_id", competitionId)
       .maybeSingle(),
     supabase
       .from("matches")
       .select(
-        "id, scheduled_at, round, bracket_position, playoff_session, home_team_id, away_team_id",
+        "id, scheduled_at, round, bracket_position, playoff_session, home_team_id, away_team_id, status",
       )
       .eq("competition_id", competitionId),
     // Public since 0135, like appearances. It used to be asked for only by the
@@ -285,6 +288,7 @@ async function playerStatsByAppearance(
     playoff_session: string | null;
     home_team_id: string | null;
     away_team_id: string | null;
+    status: string;
   }[];
   const nightOfMatch = new Map<string, string>();
   for (const m of matchList) {
@@ -303,27 +307,42 @@ async function playerStatsByAppearance(
   for (const ms of matchSets) {
     outcomes.set(`${ms.matchId}:${ms.teamId}`, matchOutcome(ms.sets));
   }
+  // A league without a playoff night decides each series on its table
+  // (0160): the PO W goes to whoever played the last night for the team on
+  // top, once every game of the series is scored.
+  const tableDecided = await tableDecidedSeries(
+    supabase,
+    competitionId,
+    matchList,
+    nightOfMatch,
+    sessionNights,
+    (settings as { session_playoff: boolean | null } | null)
+      ?.session_playoff !== false,
+  );
+  const playoffFinals = seriesFinalWinners(
+    matchList.map((m) => ({
+      id: m.id,
+      round: m.round,
+      bracketPosition: m.bracket_position,
+      playoffSession: m.playoff_session,
+      night: nightOfMatch.get(m.id) ?? null,
+      homeTeamId: m.home_team_id,
+      awayTeamId: m.away_team_id,
+    })),
+    // Scheduled nights, not scored ones: a playoff is a playoff before
+    // anyone has entered its results.
+    playoffNightsFor([...nightOfMatch.values()], sessionNights),
+    (matchId, teamId) => outcomes.get(`${matchId}:${teamId}`) ?? null,
+  );
   const attendance = tallyAttendance({
     appearances,
     absences,
     nightOfMatch,
     // PO W is mini series won — the final of each session's playoff, not every
-    // game won on a playoff night (Big Shoots, 2026-09-28).
-    seriesFinals: seriesFinalWinners(
-      matchList.map((m) => ({
-        id: m.id,
-        round: m.round,
-        bracketPosition: m.bracket_position,
-        playoffSession: m.playoff_session,
-        night: nightOfMatch.get(m.id) ?? null,
-        homeTeamId: m.home_team_id,
-        awayTeamId: m.away_team_id,
-      })),
-      // Scheduled nights, not scored ones: a playoff is a playoff before
-      // anyone has entered its results.
-      playoffNightsFor([...nightOfMatch.values()], sessionNights),
-      (matchId, teamId) => outcomes.get(`${matchId}:${teamId}`) ?? null,
-    ),
+    // game won on a playoff night (Big Shoots, 2026-09-28) — or, without a
+    // playoff, the top of the series table.
+    seriesFinals: new Map([...playoffFinals, ...tableDecided.seriesFinals]),
+    seriesOf: tableDecided.seriesOf,
   });
   const extras = (userId: string | null, name: string) => {
     const t = attendance.get(identityKey({ userId, playerName: name }));
@@ -713,4 +732,78 @@ export async function getStatsReadiness(
     lineupMatches: lineup.size,
     bothMatches: both,
   };
+}
+
+/**
+ * The series a league without a playoff night decides on its table (0160),
+ * as PO W credits. Empty where the league plays playoffs or has no sessions.
+ *
+ * A series counts once all of its nights are there and every game on them is
+ * settled — "at the end of the 3rd week". A night that held a playoff is
+ * still a playoff (Series 1 at Big Shoots), and its final credits as before.
+ */
+async function tableDecidedSeries(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+  matches: {
+    id: string;
+    status: string;
+    bracket_position: number | null;
+    playoff_session: string | null;
+    home_team_id: string | null;
+    away_team_id: string | null;
+  }[],
+  nightOfMatch: Map<string, string>,
+  sessionNights: number | null,
+  sessionPlayoff: boolean,
+): Promise<{
+  seriesFinals: Map<string, string>;
+  seriesOf: Map<string, string>;
+}> {
+  const empty = { seriesFinals: new Map(), seriesOf: new Map() };
+  if (sessionPlayoff || sessionNights == null || sessionNights < 2) {
+    return empty;
+  }
+  const nights = [...new Set(nightOfMatch.values())];
+  const played = new Set(
+    matches
+      .filter((m) => m.bracket_position != null || m.playoff_session != null)
+      .map((m) => nightOfMatch.get(m.id))
+      .filter((n): n is string => !!n),
+  );
+  const settled = new Set(["completed", "forfeit", "cancelled"]);
+  const decided = miniSeries(nights, sessionNights, {
+    sessionPlayoff: false,
+    playedPlayoffNights: played,
+  }).filter(
+    (s) =>
+      s.playoffNight == null &&
+      s.regularNights.length === sessionNights &&
+      matches
+        .filter((m) => s.regularNights.includes(nightOfMatch.get(m.id) ?? ""))
+        .every((m) => settled.has(m.status)),
+  );
+
+  const series = await Promise.all(
+    decided.map(async (s) => {
+      const groups = await loadStandings(supabase, competitionId, {
+        nights: s.regularNights,
+      });
+      const top = groups[0]?.rows.find((r) => !r.withdrawn);
+      return {
+        key: `series:${s.number}`,
+        lastNight: s.regularNights[s.regularNights.length - 1],
+        winnerTeamId: top?.teamId ?? null,
+      };
+    }),
+  );
+  return tableSeriesCredits(
+    series,
+    matches.map((m) => ({
+      id: m.id,
+      night: nightOfMatch.get(m.id) ?? null,
+      homeTeamId: m.home_team_id,
+      awayTeamId: m.away_team_id,
+    })),
+  );
 }

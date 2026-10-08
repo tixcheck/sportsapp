@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   ladder_swaps: "Ladder movement",
   wave_swap_weeks: "Swap early/late tiers every",
   session_nights: "Session nights",
+  session_playoff: "Playoff night each session",
   pool_size: "Pool size",
   bracket_type: "Bracket",
   playoff_teams: "Playoff teams",

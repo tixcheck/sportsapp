@@ -111,4 +111,22 @@ describe("miniSeries", () => {
   it("is empty for a league without sessions", () => {
     expect(miniSeries(NIGHTS, null)).toEqual([]);
   });
+
+  // Big Shoots, 2026-10-08: night 3 becomes a normal night, the series is
+  // decided over all three — but Series 1, already settled by its playoff,
+  // "stays as is".
+  it("without a session playoff, every night counts; a played playoff stays", () => {
+    const [first, second] = miniSeries(NIGHTS, 3, {
+      sessionPlayoff: false,
+      playedPlayoffNights: new Set(["2026-10-02"]),
+    });
+    expect(first.regularNights).toEqual(["2026-09-18", "2026-09-25"]);
+    expect(first.playoffNight).toBe("2026-10-02");
+    expect(second.regularNights).toEqual([
+      "2026-10-09",
+      "2026-10-16",
+      "2026-10-23",
+    ]);
+    expect(second.playoffNight).toBeNull();
+  });
 });

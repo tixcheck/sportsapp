@@ -36,12 +36,12 @@ export async function getSeriesStandings(
         .maybeSingle(),
       supabase
         .from("league_settings")
-        .select("session_nights")
+        .select("session_nights, session_playoff")
         .eq("competition_id", competitionId)
         .maybeSingle(),
       supabase
         .from("matches")
-        .select("scheduled_at, playoff_session")
+        .select("scheduled_at, playoff_session, bracket_position")
         .eq("competition_id", competitionId),
     ]);
   const sessionNights = (settings?.session_nights as number | null) ?? null;
@@ -50,25 +50,32 @@ export async function getSeriesStandings(
   }
 
   const zone = (comp.timezone as string | null) ?? "America/Toronto";
+  const nightOf = (m: {
+    playoff_session: unknown;
+    scheduled_at: unknown;
+  }): string | null =>
+    (m.playoff_session as string | null) ??
+    (m.scheduled_at
+      ? DateTime.fromISO(m.scheduled_at as string, { zone: "utc" })
+          .setZone(zone)
+          .toISODate()
+      : null);
   const nights = [
-    ...new Set(
-      (matches ?? [])
-        .map(
-          (m) =>
-            (m.playoff_session as string | null) ??
-            (m.scheduled_at
-              ? DateTime.fromISO(m.scheduled_at as string, { zone: "utc" })
-                  .setZone(zone)
-                  .toISODate()
-              : null),
-        )
-        .filter((n): n is string => !!n),
-    ),
+    ...new Set((matches ?? []).map(nightOf).filter((n): n is string => !!n)),
   ].sort();
-
-  const started = miniSeries(nights, sessionNights).filter(
-    (s) => (s.regularNights[0] ?? s.playoffNight ?? "9999") <= today,
+  // A night that held a playoff stays one even once the league stops
+  // playing them — Big Shoots' Series 1 "stays as is".
+  const playedPlayoffNights = new Set(
+    (matches ?? [])
+      .filter((m) => m.bracket_position != null || m.playoff_session != null)
+      .map(nightOf)
+      .filter((n): n is string => !!n),
   );
+
+  const started = miniSeries(nights, sessionNights, {
+    sessionPlayoff: settings?.session_playoff !== false,
+    playedPlayoffNights,
+  }).filter((s) => (s.regularNights[0] ?? s.playoffNight ?? "9999") <= today);
   if (started.length === 0) return null;
 
   const label = (d: string) => DateTime.fromISO(d).toFormat("LLL d");

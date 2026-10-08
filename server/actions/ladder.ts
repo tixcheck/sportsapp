@@ -29,7 +29,7 @@ import {
   type LadderSettingsInput,
 } from "@/lib/validations/ladder";
 import type { LeagueCourt, MatchFormat, WeeklySlot } from "@/lib/db/schema";
-import type { MatchResult, RankMode } from "@/lib/scheduler/tiebreakers";
+import { parseRankMode, type MatchResult } from "@/lib/scheduler/tiebreakers";
 
 const DEFAULT_TIMEZONE = "America/Toronto";
 const SETTLED = new Set(["completed", "forfeit", "cancelled"]);
@@ -885,7 +885,8 @@ export async function lockLadderWeekAction(
       }));
   }
 
-  const mode = ((settings.tiebreaker as string) ?? "ova") as RankMode;
+  // Through the parser: the raw column may carry "_projected" (see its doc).
+  const mode = parseRankMode(settings.tiebreaker as string | null);
   const fromScores = new Map(
     rankLadderNight(scored, results, mode).map((t) => [
       t.divisionId,

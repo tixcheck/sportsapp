@@ -5,6 +5,37 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-08 — Big Shoots drops the playoff night (0160) + head-to-head-then-differential
+
+Liam (Big Shoots): "we don't like the playoff format … the winner is just the
+cumulative points over the miniseries … keep the standings the exact way that
+it is and add the 3rd week. At the end of the 3rd week the winning players in
+week 3 should get the PO W. If there is a tie, it goes head to head and then
+2nd tie goes to points difference. Series 1 stays as is."
+
+- `league_settings.session_playoff` (default true; Settings → "Last night of
+  each session is a playoff"; tracked in settings history). Off: `miniSeries`
+  counts every night of a session, the organizer isn't offered a playoff to
+  draw, and the series is won by the top of its table once every game is
+  settled. A night that actually held a playoff stays one (`playedPlayoffNights`)
+  — that is how Series 1 "stays as is".
+- PO W without a playoff: `tableSeriesCredits` — the winner's games on the
+  series' last night credit whoever played them, once per series.
+- New rank mode `headToHeadDiff`: wins → head-to-head → point differential
+  (over all games, not the meeting — the difference from Mango's
+  `headToHead`) → point ratio. Tested against `headToHead` on a fixture where
+  they disagree.
+- The standings legend now reads the order off the applied hierarchy
+  (`rankingOrderSteps`) where the league's mode is known; it used to describe
+  every non-differential league as head-to-head-last. The settings dropdown's
+  `headToHead` label was also wrong (said set ratio third) — fixed.
+- The ladder lock now parses its tiebreaker (`parseRankMode`) instead of
+  casting the raw column, which may carry `_projected`.
+- Big Shoots switched over (session_playoff off, headToHeadDiff). Series 1's
+  table order is identical under both rules; checked on the public page.
+
+---
+
 ## 2026-10-07 — Re-draft leagues: rosters follow the board, stats follow who played (0159)
 
 Mango Friday: Roger re-drafted on Oct 2 and "the new teams don't show up".

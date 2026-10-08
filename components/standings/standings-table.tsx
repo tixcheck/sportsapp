@@ -11,6 +11,7 @@ import type { Sport } from "@/lib/formats";
 import { standingsLegendFlags } from "@/lib/formats";
 import { sportConfig } from "@/lib/sports";
 import { cn } from "@/lib/utils";
+import { rankingOrderSteps, type RankMode } from "@/lib/scheduler/tiebreakers";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 
 import { PositionPill } from "./position-pill";
@@ -312,7 +313,15 @@ export function StandingsLegend({
   format,
   differential = false,
   showPoints = false,
+  mode,
 }: {
+  /**
+   * The league's ranking mode. When given, the sentence is read off the
+   * hierarchy actually applied (`rankingOrderSteps`) — the fixed wording
+   * below only knows OVA and differential, and described head-to-head-first
+   * leagues as if head-to-head came last.
+   */
+  mode?: RankMode;
   className?: string;
   /** Names the PF/PA columns. Defaults to volleyball. */
   sport?: Sport;
@@ -338,14 +347,31 @@ export function StandingsLegend({
   const showSets = !single && !differential;
   return (
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
-      <p>
-        <span className="font-semibold">How rankings are calculated:</span> by{" "}
-        {unit} won{ties ? " (a tied game counts as ½ a win)" : ""},
-        {differential
-          ? ` then ${pts.unit.toLowerCase()} differential (${pts.short[0]} − ${pts.short[1]}),`
-          : `${showSets ? " then set ratio (SW / SL)," : ""} then ${pts.unit.toLowerCase()} ratio (${pts.short[0]} / ${pts.short[1]}),`}{" "}
-        then head-to-head among teams still tied.
-      </p>
+      {mode ? (
+        <p>
+          <span className="font-semibold">How rankings are calculated:</span>{" "}
+          {(() => {
+            const steps = rankingOrderSteps(mode, {
+              unit,
+              points: pts.unit.toLowerCase(),
+              sets: !single,
+            });
+            return `by ${steps[0]}${ties ? " (a tied game counts as ½ a win)" : ""}${steps
+              .slice(1)
+              .map((s) => `, then ${s}`)
+              .join("")}.`;
+          })()}
+        </p>
+      ) : (
+        <p>
+          <span className="font-semibold">How rankings are calculated:</span> by{" "}
+          {unit} won{ties ? " (a tied game counts as ½ a win)" : ""},
+          {differential
+            ? ` then ${pts.unit.toLowerCase()} differential (${pts.short[0]} − ${pts.short[1]}),`
+            : `${showSets ? " then set ratio (SW / SL)," : ""} then ${pts.unit.toLowerCase()} ratio (${pts.short[0]} / ${pts.short[1]}),`}{" "}
+          then head-to-head among teams still tied.
+        </p>
+      )}
       <p className="text-ink-3">
         GP games played / scheduled · MW/ML {unit} won/lost ·
         {ties ? " T tied ·" : ""}

@@ -171,9 +171,13 @@ export default async function LeaguePage({
   // nobody can pay yet" hint rather than hiding the card — an organizer should
   // be able to set a price before finishing Stripe.
   const waitlist = await getWaitlist(leagueId);
-  // A league that re-drafts in sessions ends each one with a playoff night.
+  // A league that re-drafts in sessions ends each one with a playoff night —
+  // unless it dropped them (0160), when only a playoff already drawn stays
+  // (Big Shoots' Series 1).
   const sessionPlayoffs = league.sessionNights
-    ? await getSessionPlayoffs(leagueId)
+    ? (await getSessionPlayoffs(leagueId)).filter(
+        (n) => league.sessionPlayoff || n.drawn,
+      )
     : [];
   const series = league.sessionNights
     ? await getSeriesStandings(
@@ -292,6 +296,7 @@ export default async function LeaguePage({
     courts: league.courts,
     roundsPerTeam: league.roundsPerTeam,
     sessionNights: league.sessionNights,
+    sessionPlayoff: league.sessionPlayoff,
     gamesPerTeam: league.gamesPerTeam,
     gamesPerWeek: league.gamesPerWeek,
     minutesPerGame: league.minutesPerGame,
@@ -415,6 +420,7 @@ export default async function LeaguePage({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+              mode={league.tiebreaker}
               showPoints
             />
           ) : standings.length > 1 ? (
@@ -440,6 +446,7 @@ export default async function LeaguePage({
                   format={league.matchFormat}
                   sport={league.sport}
                   differential={league.tiebreaker === "differential"}
+                  mode={league.tiebreaker}
                   showPoints
                 />
               )}
