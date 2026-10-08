@@ -16,11 +16,10 @@ import { splitFullTime } from "@/lib/stats/roster-split";
 import { FreeAgentsCard } from "@/components/registration/free-agents-card";
 import { RemovedSignupsCard } from "@/components/registration/removed-signups-card";
 import { DraftBoard } from "@/components/registration/draft-board";
-import { NeverTogetherCard } from "@/components/registration/never-together-card";
 import { PlayerPartnerGridCard } from "@/components/stats/player-partner-grid";
 import { getPartnerGrid } from "@/lib/queries/appearances";
 import { identityKey } from "@/lib/stats/attribution";
-import { neverTogetherForPool } from "@/lib/stats/partner-grid";
+import { pairNightsForPool } from "@/lib/draft/repeats";
 import { IndividualSignupSettings } from "@/components/registration/individual-signup-settings";
 import { getLeagueDetail, getLeagueSchedule } from "@/lib/queries/leagues";
 import { getStandings } from "@/lib/standings/compute";
@@ -205,13 +204,16 @@ export default async function LeaguePage({
   const draftPool = freeAgents
     .filter((f) => f.status === "placed" || f.status === "available")
     .map((f) => ({
+      id: f.id,
       key: identityKey({ userId: f.userId, playerName: f.name }),
-      name: f.name,
     }));
-  const neverTogether =
+  // Shown ON the board, per team, as it is being built: who on each new team
+  // has already played together. The list of everyone's never-played-with
+  // names it replaces was "hard to make sense of" (Big Shoots, 2026-10-08).
+  const pairNights =
     partnerGrid && draftPool.length > 0
-      ? neverTogetherForPool(partnerGrid, draftPool)
-      : null;
+      ? pairNightsForPool(partnerGrid, draftPool)
+      : undefined;
   // Only when there is nothing to show: an empty table has several causes
   // in an appearance league, and "record the scores" is wrong advice for an
   // organizer who already has.
@@ -619,15 +621,14 @@ export default async function LeaguePage({
           competitionId={league.id}
           agents={freeAgents}
           teams={league.teams.map((t) => ({ id: t.id, name: t.name }))}
+          pairNights={pairNights}
         />
       )}
 
-      {/* Beside the board, because it is read while dealing out new teams. */}
-      {neverTogether && (
-        <NeverTogetherCard
-          entries={neverTogether.entries}
-          newcomers={neverTogether.newcomers}
-        />
+      {/* The full grid, beside the board it is read with — it used to live
+          only at the foot of the Stats tab, where Liam couldn't find it. */}
+      {partnerGrid && freeAgents.length > 0 && (
+        <PlayerPartnerGridCard grid={partnerGrid} />
       )}
 
       {(league.allowIndividualSignups || freeAgents.length > 0) && (

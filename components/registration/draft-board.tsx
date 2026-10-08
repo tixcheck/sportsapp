@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { teamRepeats, type PairNights } from "@/lib/draft/repeats";
 
 const POOL = "__pool__";
 
@@ -54,7 +55,14 @@ export function DraftBoard({
   teams,
   teamSize = 7,
   defaultTeams = 4,
+  pairNights,
 }: {
+  /**
+   * Nights each pair of pool players has shared a team (from saved lineups).
+   * When given, each team shows who on it has played together before — the
+   * question an organizer re-drafting is asking (Big Shoots, 2026-10-08).
+   */
+  pairNights?: PairNights;
   competitionId: string;
   agents: FreeAgent[];
   teams: { id: string; name: string }[];
@@ -250,10 +258,25 @@ export function DraftBoard({
       .join(" · ");
   }
 
+  // Who on each team, as the board stands, has played together before.
+  const repeatsByTeam = new Map(
+    columns.map((c) => [
+      c.key,
+      pairNights ? teamRepeats(board[c.key] ?? [], pairNights) : null,
+    ]),
+  );
+  const repeatOf = new Map<string, { id: string; nights: number }[]>();
+  for (const r of repeatsByTeam.values()) {
+    for (const [id, list] of Object.entries(r?.byPlayer ?? {})) {
+      repeatOf.set(id, list);
+    }
+  }
+
   const chip = (id: string) => {
     const p = byId.get(id);
     if (!p) return null;
     const on = held === id;
+    const repeats = repeatOf.get(id) ?? [];
 
     // While ranking, the chip is a form row rather than a draggable token —
     // dragging and typing in the same control fight each other on touch.
@@ -309,6 +332,16 @@ export function DraftBoard({
             {ranks[id] ?? "–"}
           </span>
           <span className="truncate">{p.name}</span>
+          {repeats.length > 0 && (
+            <span
+              className="shrink-0 rounded bg-amber-100 px-1 text-[0.65rem] font-semibold text-amber-800 tabular-nums"
+              title={`Already played with ${repeats
+                .map((r) => `${byId.get(r.id)?.name ?? "?"} (${r.nights})`)
+                .join(", ")}`}
+            >
+              ↺{repeats.length}
+            </span>
+          )}
         </span>
         <span className="text-ink-3 shrink-0 text-[0.7rem]">
           {p.positions.map((x) => SHORT[x] ?? x).join("/")}
@@ -442,6 +475,57 @@ export function DraftBoard({
                     <div className="flex min-h-24 flex-col gap-1.5">
                       {ids.map(chip)}
                     </div>
+                    {(() => {
+                      const r = repeatsByTeam.get(c.key);
+                      if (!r || ids.length < 2) return null;
+                      if (r.pairs === 0) {
+                        return (
+                          <p className="text-pine text-xs font-medium">
+                            All new pairings ✓
+                          </p>
+                        );
+                      }
+                      // Each pair once, most nights first.
+                      const seen = new Set<string>();
+                      const pairs = ids
+                        .flatMap((a) =>
+                          (r.byPlayer[a] ?? []).map((x) => ({
+                            a,
+                            b: x.id,
+                            nights: x.nights,
+                          })),
+                        )
+                        .filter((x) => {
+                          const k = [x.a, x.b].sort().join("|");
+                          if (seen.has(k)) return false;
+                          seen.add(k);
+                          return true;
+                        })
+                        .sort((x, y) => y.nights - x.nights);
+                      return (
+                        <div className="text-xs text-amber-800">
+                          <p className="font-medium">
+                            {r.pairs} pair{r.pairs === 1 ? " has" : "s have"}{" "}
+                            played together
+                          </p>
+                          <ul className="text-ink-2 mt-0.5 space-y-0.5">
+                            {pairs.slice(0, 4).map((x) => (
+                              <li key={`${x.a}|${x.b}`}>
+                                {byId.get(x.a)?.name} + {byId.get(x.b)?.name}{" "}
+                                <span className="text-ink-3 tabular-nums">
+                                  · {x.nights} night{x.nights === 1 ? "" : "s"}
+                                </span>
+                              </li>
+                            ))}
+                            {pairs.length > 4 && (
+                              <li className="text-ink-3">
+                                and {pairs.length - 4} more
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}

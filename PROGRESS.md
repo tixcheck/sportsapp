@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-08 — Draft board shows who has already played together
+
+Liam (Big Shoots), re-drafting for Series 2: "can't see the played together
+matrix … I see this recommendation, hard to make sense of it." The grid was at
+the foot of the Stats tab, and the card beside the board listed, for every
+pool player, up to eight names they'd never played with — 20 lines answering
+a question nobody was asking. The question while dragging people around is:
+on the teams I'm building, who has already been together?
+
+The board now answers that live (`lib/draft/repeats.ts`, tested): each team
+says "All new pairings ✓" or "N pairs have played together" and names them
+with their nights; a player already with a past teammate carries a ↺ badge.
+The full "Who has played with whom" grid sits under the board on the Teams
+tab (still on Stats too). The never-together card is gone.
+
+---
+
 ## 2026-10-08 — Big Shoots drops the playoff night (0160) + head-to-head-then-differential
 
 Liam (Big Shoots): "we don't like the playoff format … the winner is just the
