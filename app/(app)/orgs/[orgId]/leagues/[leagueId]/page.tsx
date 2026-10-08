@@ -352,7 +352,16 @@ export default async function LeaguePage({
         <div className="flex flex-wrap items-center gap-2">
           {league.matchCount > 0 && (
             <Button asChild variant="outline" size="sm">
-              <Link href={`/print/schedule/${league.id}`} target="_blank">
+              <Link
+                // A league on pinned grids prints its own gym sheets, a tier
+                // at a time (SMVA) — not the generic list of games.
+                href={
+                  ladder?.enabled && ladder.draw === "pod_grid"
+                    ? `/print/gym-sheet/${league.id}`
+                    : `/print/schedule/${league.id}`
+                }
+                target="_blank"
+              >
                 <Printer className="size-4" />
                 Print
               </Link>

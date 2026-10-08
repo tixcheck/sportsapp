@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-08 — SMVA: Print gives each gym its own one-page sheet
+
+Alessandro (SMVA): "print option does our format and only need to print 1
+tier so they choose tier then get the 1 page to print". Print on a ladder
+league drawn on pinned grids now opens `/print/gym-sheet/<id>`: pick the week
+(latest drawn by default) and a tier, get that tier's single Letter page in
+THEIR sheet format — the same markup and CSS as
+`lib/db/sheet-smva-package.ts`, which produced the page their executive
+approved — or "All tiers" for the whole package. `lib/queries/gym-sheets.ts`
+reads it through the viewer's RLS; games loaded from SMVA's own sheets carry
+no tier, so a game is placed by its home team's seat that week. SMVA's
+instruction blocks were never saved to the league, so the pinned-grid format
+falls back to `SMVA_SHEET_NOTES`. Checked weeks 1–3, all seven tiers; Leacock
+week 2 prints as one page.
+
+---
+
 ## 2026-10-08 — Draft board shows who has already played together
 
 Liam (Big Shoots), re-drafting for Series 2: "can't see the played together
