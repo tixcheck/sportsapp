@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — BVL: Print gives the round schedule, laid out like the mock (0162)
+
+BVL asked for the app's print to look like the Round 1 mock they approved.
+Print on a `bvl_round` league now opens `/print/round-schedule/<id>`: pick the
+round; the league's own notes (Women's: rosters due Oct 21, nets duty, game
+day — saved verbatim from their sheet into `sheet_notes`) and the red-games
+rule in a red box; an organizer's roster check (on by default, one click to
+hide; `competition_roster_check`, 0162, organizer-only, same rule as the
+entry and schedule gates plus invites and payment); each night gym by gym
+with the gym's address and entry directions, tier colours, seats, red games
+outlined with "1 game · X serves" (higher seed week 1, the other team week
+2), the 5-team "Off" column, nets duty; then the tier lists. Rendered as an
+organizer on a throwaway Test Org copy of Women's Round 1 (74 games, 18 red,
+deleted after) and checked page by page.
+
+---
+
 ## 2026-10-10 — BVL: the schedule is shown only to complete teams (0161)
 
 Owner: "The schedule should only be visible to teams and captains with full

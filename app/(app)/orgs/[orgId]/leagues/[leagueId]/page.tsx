@@ -358,7 +358,10 @@ export default async function LeaguePage({
                 href={
                   ladder?.enabled && ladder.draw === "pod_grid"
                     ? `/print/gym-sheet/${league.id}`
-                    : `/print/schedule/${league.id}`
+                    : ladder?.enabled && ladder.draw === "bvl_round"
+                      ? // BVL's round, laid out like the mock they approved.
+                        `/print/round-schedule/${league.id}`
+                      : `/print/schedule/${league.id}`
                 }
                 target="_blank"
               >
