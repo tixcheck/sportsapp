@@ -65,7 +65,7 @@
     | `0154` | Oct 7 | `settings_changes` + `trg_record_settings_change` on league/tournament/reverse_pairs/payment settings and competitions: one row per tracked field that actually changed, with `changed_by = auth.uid()` (null = script/support). Organizer-readable. Shown as Settings → History (leagues), bottom of Settings (tournaments), Event tab (Reverse Pairs) |
     | `0155` | Oct 7 | Gym permits: `venue_permits` (gym, weekday, courts + labels, hours, season) and `venue_permit_dates` (cancelled / pending_cancel / cancel_requested / changed hours, with notes). Org members read, org admins write. `courtsOnDate` (lib/venues/permits.ts) is the rule; BVL's loaded by `lib/db/load-bvl-permits-2026.ts` |
     | `0156` | Oct 7 | Gym permits readable by org members OR platform admins, writable via `can_manage_org` — 0155 hid BVL's permits from the platform owner, who isn't a BVL member |
-    | `0157` | Oct 7 | BVL rounds: `league_settings.ladder_round_weeks` (default 1), `ladder_draw` may be `'bvl_round'`, and `ladder_tier_nights` (tier × week → gym, slot times, court labels; read via `can_view_competition`, write via `is_competition_admin`). Lock only on a round's last week, ranking every game in it. No league uses it yet |
+    | `0157` | Oct 7 | BVL rounds: `league_settings.ladder_round_weeks` (default 1), `ladder_draw` may be `'bvl_round'`, and `ladder_tier_nights` (tier × week → gym, slot times, court labels; read via `can_view_competition`, write via `is_competition_admin`). Lock only on a round's last week, ranking every game in it. BVL Women's Wednesday on it since 2026-10-10 (see BVL section) |
     | `0158` | Oct 7 | `league_settings.schedule_views text[]` — which schedule views a league offers, first = default; null = the default set. Mango Coed: `{tier,court}` |
     | `0159` | Oct 7 | `sync_draft_rosters(competition)` — rosters follow the draft board (called on draft save and pool email edit; reports roster players not on the board in a re-draft league). `competitions.appearances_from_roster` + trigger `matches_fill_roster_appearances`: a completed game records each side's lineup from its roster. Flag on for no league yet (Friday needs Session 1 backfill first) |
     | `0160` | Oct 8 | `league_settings.session_playoff` (default true): off = a session's last night is a normal night, the series table counts every night and decides the winner (PO W to that team's last-night players). Nights that held a playoff stay playoffs. Tracked in settings history. Big Shoots: off, tiebreaker `headToHeadDiff` |
@@ -1677,6 +1677,16 @@ The table's policy is unchanged.
 
 Rounds (10) and minutes (25) are placeholders; set them at draw time from the
 real field — 15 pairs on 2 courts balances at 5, 10 or 15 rounds.
+
+## BVL Women's Wednesday — on the round format (live 2026-10-10)
+
+`ladder_draw = 'bvl_round'`, `ladder_round_weeks = 2`, swaps `[2,2,2]`, Divisions A–D seated from
+Theresa's confirmed Round 1 sheet. Round 1 (Oct 14 + 21, 74 games) drawn by `planBvlRound` with
+`ladder_tier_nights` rows for weeks 1–2; the plain 35-game schedule that preceded it was removed
+(`match_audit` `schedule_erased`). **Next:** lock after Oct 21's games, then Round 2 needs
+`ladder_tier_nights` for weeks 3–4 — owner: same gym per tier, balance early/late starts — and
+**Big Dig Energy stays at St. Thomas Aquinas all season** (its tier plays there; not automated yet).
+Open with BVL: how the red repeat games count; average ranking for April seeding.
 
 ## BVL 2026/27 gym permits (loaded 2026-10-07)
 
