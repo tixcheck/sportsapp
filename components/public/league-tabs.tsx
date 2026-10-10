@@ -29,6 +29,8 @@ import { LadderNightStandings } from "@/components/league/ladder-night-standings
 import { WeightedStandingsTable } from "@/components/league/weighted-standings-table";
 import type { WeightedTable } from "@/lib/queries/weighted-standings";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
+import type { ScheduleGate } from "@/lib/queries/schedule-gate";
+import { ScheduleGateCard } from "@/components/schedule/schedule-gate-card";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -52,7 +54,13 @@ export function LeagueTabs({
   rosters = {},
   session = null,
   series = null,
+  scheduleGate = null,
 }: {
+  /**
+   * A league that shares its schedule with ready teams only (0161). When this
+   * viewer can't see it, the schedule and standings show why instead.
+   */
+  scheduleGate?: ScheduleGate | null;
   league: PublicLeague;
   /** Player names per team id, for the Teams tab. Empty lists nobody. */
   rosters?: Record<string, RosterName[]>;
@@ -163,17 +171,21 @@ export function LeagueTabs({
       </div>
 
       <TabsContent value="schedule" className="mt-6">
-        <ScheduleView
-          matches={league.schedule}
-          timezone={league.timezone}
-          myTeamIds={myTeamIds}
-          scorableMatchIds={scorableMatchIds}
-          sport={league.sport}
-          initialDay={initialDay}
-          visibleDays={visibleDays}
-          slotMinutes={estimateMatchMinutes(league.matchFormat)}
-          views={league.scheduleViews}
-        />
+        {scheduleGate && !scheduleGate.canView ? (
+          <ScheduleGateCard gate={scheduleGate} />
+        ) : (
+          <ScheduleView
+            matches={league.schedule}
+            timezone={league.timezone}
+            myTeamIds={myTeamIds}
+            scorableMatchIds={scorableMatchIds}
+            sport={league.sport}
+            initialDay={initialDay}
+            visibleDays={visibleDays}
+            slotMinutes={estimateMatchMinutes(league.matchFormat)}
+            views={league.scheduleViews}
+          />
+        )}
       </TabsContent>
 
       <TabsContent value="teams" className="mt-6 space-y-6">
@@ -294,6 +306,9 @@ export function LeagueTabs({
       )}
 
       <TabsContent value="standings" className="mt-6 space-y-6">
+        {scheduleGate && !scheduleGate.canView && (
+          <ScheduleGateCard gate={scheduleGate} />
+        )}
         {/*
           Above the per-night tables: for a ladder league this IS the season,
           and a captain opening Standings wants their overall position before

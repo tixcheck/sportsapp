@@ -5,6 +5,28 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — BVL: the schedule is shown only to complete teams (0161)
+
+Owner: "The schedule should only be visible to teams and captains with full
+roster and signed waiver." Decided with him: a per-league switch,
+`competitions.schedule_ready_teams_only`, on for all four BVL indoor leagues
+(not the pick-up event — individuals, no teams); a READY team's signed-in
+members see the whole league schedule; everyone else gets a "finish your
+roster" checklist. Ready is the existing entry gate — `team_entry_blocked`
+is null (minimum roster joined, every member signed the waiver).
+
+Enforced in the database: `can_view_schedule` now decides `matches_select`
+(the captain-sees-own-games shortcut is off when the switch is), scores via
+`can_view_match`, and `ladder_tier_nights`. Organizers, org members and
+platform admins always see it. `my_schedule_gate` returns the signed-in
+player's own teams' gaps for the checklist (public page, standings tab,
+embed). Rehearsed on Women's with the switch on, rolled back: anonymous 0
+games, ready team 74, team short 2 players 0 plus its checklist, organizer
+74. Ready now: Women's 15/23, Reverse 4s 9/14, Non-Spiking 17/26, Thursday
+32/53.
+
+---
+
 ## 2026-10-10 — BVL Women's Wednesday live on the round format
 
 Theresa (BVL) confirmed the Round 1 tiers and that Edmund Campion is open on
