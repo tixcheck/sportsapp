@@ -87,8 +87,13 @@ export interface RoundSchedule {
 export async function getRoundSchedule(
   competitionId: string,
   opts: { round: number | null; roster: boolean },
+  /**
+   * The connection to read with — the viewer's own (RLS) unless a trusted
+   * script passes one, e.g. to produce a PDF for an organizer by email.
+   */
+  client?: Awaited<ReturnType<typeof createClient>>,
 ): Promise<RoundSchedule | null> {
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
   const [
     { data: comp },
     { data: settings },
