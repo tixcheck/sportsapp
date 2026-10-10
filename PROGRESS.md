@@ -5,6 +5,21 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — BVL Reverse 4s (Tue) live on the round format (0163)
+
+Indru confirmed the mock and sent the real ranking 1–14 (same tier groups,
+different order within them), 35-minute slots for the 4-team tiers (gym until
+10:00), a time for every game, and any 4-team order. One engine change: the
+Women's 6-team grid is 18 games with red halves, but Reverse 4s Tier B plays
+everyone ONCE — `league_settings.ladder_round_grid` (0163, 'bvl' | 'once')
+picks the grid; 'once' is the fifteen pairings in five slots, 3 on week 1
+and 2 on week 2, no halves (tested). Loaded live: Divisions A–C seated in
+Indru's order, 2-week rounds, 2 up / 2 down, grid 'once', his gym plan, the
+sheet's match notes for the print, and 39 games drawn (B 15 once each; A and
+C 12, every pairing twice). Starts Tue Oct 13.
+
+---
+
 ## 2026-10-10 — BVL: Print gives the round schedule, laid out like the mock (0162)
 
 BVL asked for the app's print to look like the Round 1 mock they approved.

@@ -103,7 +103,7 @@ export async function getRoundSchedule(
       .maybeSingle(),
     supabase
       .from("league_settings")
-      .select("ladder_draw, ladder_round_weeks, sheet_notes")
+      .select("ladder_draw, ladder_round_weeks, ladder_round_grid, sheet_notes")
       .eq("competition_id", competitionId)
       .maybeSingle(),
     supabase
@@ -264,7 +264,10 @@ export async function getRoundSchedule(
         const nets = tiersHere
           .map((d) => {
             const ids = seated.get(d) ?? [];
-            const grid = bvlTemplate(ids.length)?.weeks[weekIndex % 2];
+            const grid = bvlTemplate(
+              ids.length,
+              settings.ladder_round_grid === "once" ? "once" : "bvl",
+            )?.weeks[weekIndex % 2];
             const teams = (grid?.nets ?? []).map(
               (n) => teamName.get(ids[n - 1]) ?? "—",
             );

@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0162`, and every one of `0060`–`0162` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0162` on 2026-10-10). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0163`, and every one of `0060`–`0163` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0163` on 2026-10-10). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -71,6 +71,7 @@
     | `0160` | Oct 8 | `league_settings.session_playoff` (default true): off = a session's last night is a normal night, the series table counts every night and decides the winner (PO W to that team's last-night players). Nights that held a playoff stay playoffs. Tracked in settings history. Big Shoots: off, tiebreaker `headToHeadDiff` |
     | `0161` | Oct 10 | `competitions.schedule_ready_teams_only`: with it on, `can_view_schedule` gates `matches`, `sets` (via `can_view_match`) and `ladder_tier_nights` to organizers/org members/platform admins and members of teams whose `team_entry_blocked` is null. `my_schedule_gate` feeds the checklist. ON for BVL's 4 indoor leagues (not Pick-Up) |
     | `0162` | Oct 10 | `competition_roster_check(competition)` — organizer-only per-team joined/min/unsigned/invited/paid/blocked, for the printed round schedule's roster check |
+    | `0163` | Oct 10 | `league_settings.ladder_round_grid` ('bvl' default \| 'once'): 'once' = a 6-team tier plays everyone once, 3 slots then 2, no red halves. BVL Reverse 4s = 'once' |
     | `0142` | Sep 28 | `org_payment_account()` — payers can see whether an org takes cards (the table stays admin-only). Card payment had never worked for a player before this |
     | `0141` | Sep 28 | `matches.playoff_session` + `place_bracket_winner` scoped by it — a bracket per session (Big Shoots' Playoff Format 1 nights). Null for every existing bracket |
     | `0140` | Sep 28 | `competition_player_names` lists a drafted player under their DRAFTED name, not their account's display name ("CeliacJack" → Jack Sullivan) |
@@ -1689,6 +1690,12 @@ Theresa's confirmed Round 1 sheet. Round 1 (Oct 14 + 21, 74 games) drawn by `pla
 `ladder_tier_nights` for weeks 3–4 — owner: same gym per tier, balance early/late starts — and
 **Big Dig Energy stays at St. Thomas Aquinas all season** (its tier plays there; not automated yet).
 Open with BVL: how the red repeat games count; average ranking for April seeding.
+
+## BVL Reverse 4s (Tuesday) — on the round format (live 2026-10-10)
+
+`bvl_round`, 2-week rounds, swaps `[2,2]`, `ladder_round_grid = 'once'`. Divisions A (4) / B (6) / C (4) seated in Indru's
+ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers on 35-minute slots, Tier B on 40. Notre Dame
+8:30 on Oct 13 belongs to Non-Spiking's alignment night. Next: lock after Oct 20, then Round 2 gyms from Indru.
 
 ## BVL 2026/27 gym permits (loaded 2026-10-07)
 

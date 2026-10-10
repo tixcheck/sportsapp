@@ -11,6 +11,7 @@ import {
   evenSlotTimes,
   planBvlRound,
   roundWeeksOf,
+  type BvlGridStyle,
   type BvlTierWeek,
 } from "@/lib/scheduler/bvl-round";
 import { tierStartForWeek } from "@/lib/scheduler/wave-swap";
@@ -111,7 +112,7 @@ async function loadLadderContext(competitionId: string) {
       supabase
         .from("league_settings")
         .select(
-          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker, wave_swap_weeks, ladder_round_weeks",
+          "ladder_enabled, ladder_unit, ladder_target, ladder_swaps, ladder_draw, weekly_slots, court_list, minutes_per_game, blackout_dates, tiebreaker, wave_swap_weeks, ladder_round_weeks, ladder_round_grid",
         )
         .eq("competition_id", competitionId)
         .single(),
@@ -244,6 +245,7 @@ export async function drawLadderWeekAction(
       minutesPerSlot: (settings.minutes_per_game as number | null) ?? 40,
       blackouts: (settings.blackout_dates as string[] | null) ?? [],
       matchFormat: comp.match_format as MatchFormat,
+      grid: settings.ladder_round_grid === "once" ? "once" : "bvl",
     });
   }
 
@@ -575,6 +577,8 @@ async function drawBvlRound(input: {
   blackouts: string[];
   /** The league's format; a red half-match plays its first game only. */
   matchFormat: MatchFormat;
+  /** Which of BVL's grids this league plays (0163). */
+  grid: BvlGridStyle;
 }): Promise<
   ActionError | { week: number; matchCount: number; shorted: number }
 > {
@@ -656,7 +660,8 @@ async function drawBvlRound(input: {
           const row = plan.get(`${r.divisionId}:${w}`);
           const div = divById.get(r.divisionId);
           const slots =
-            bvlTemplate(r.teamIds.length)?.weeks[i % 2].slots.length ?? 0;
+            bvlTemplate(r.teamIds.length, input.grid)?.weeks[i % 2].slots
+              .length ?? 0;
           return {
             divisionId: r.divisionId,
             teamIds: r.teamIds,
@@ -675,6 +680,7 @@ async function drawBvlRound(input: {
           };
         }),
     })),
+    input.grid,
   );
   if (roundPlan.problems.length > 0) {
     const p = roundPlan.problems[0];

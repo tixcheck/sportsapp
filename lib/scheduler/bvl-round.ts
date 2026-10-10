@@ -154,7 +154,49 @@ const TEMPLATES = new Map(
   [4, 5, 6].map((n) => [n, [BVL_4, BVL_5, BVL_6][n - 4]]),
 );
 
-export function bvlTemplate(teams: number): BvlTemplate | null {
+/**
+ * 6 teams who play everyone ONCE over the round — BVL Reverse 4s (Indru,
+ * 2026-10-10): "6 team tier will play all other teams once (one double, one
+ * triple)". The fifteen pairings in five slots (a standard rotation, team 1
+ * fixed), three slots in week 1 and two in week 2, as his Round 1 sheet sets
+ * the gyms. No red halves: every game is a full match.
+ */
+const BVL_6_ONCE: BvlTemplate = {
+  teams: 6,
+  courts: 3,
+  weeks: [
+    {
+      slots: [
+        row("1v6", "2v5", "3v4"),
+        row("1v5", "4v6", "2v3"),
+        row("1v4", "3v5", "2v6"),
+      ],
+      off: [],
+      nets: [],
+    },
+    {
+      slots: [row("1v3", "2v4", "5v6"), row("1v2", "3v6", "4v5")],
+      off: [],
+      nets: [],
+    },
+  ],
+  scoring: null,
+  halfPairs: [],
+};
+
+/**
+ * Which grids a league plays (`league_settings.ladder_round_grid`, 0163):
+ * "bvl" — the Women's sheet (6-team tiers play 18 games with red halves);
+ * "once" — 6-team tiers play everyone once, 3 slots then 2 (Reverse 4s).
+ * 4- and 5-team tiers are the same either way.
+ */
+export type BvlGridStyle = "bvl" | "once";
+
+export function bvlTemplate(
+  teams: number,
+  style: BvlGridStyle = "bvl",
+): BvlTemplate | null {
+  if (style === "once" && teams === 6) return BVL_6_ONCE;
   return TEMPLATES.get(teams) ?? null;
 }
 
@@ -205,6 +247,7 @@ export interface BvlRoundPlan {
  */
 export function planBvlRound(
   weeks: { week: number; date: string; tiers: BvlTierWeek[] }[],
+  style: BvlGridStyle = "bvl",
 ): BvlRoundPlan {
   const fixtures: BvlFixture[] = [];
   const nets: BvlRoundPlan["nets"] = [];
@@ -212,7 +255,7 @@ export function planBvlRound(
 
   weeks.forEach((w, weekIndex) => {
     for (const tier of w.tiers) {
-      const t = bvlTemplate(tier.teamIds.length);
+      const t = bvlTemplate(tier.teamIds.length, style);
       if (!t) {
         problems.push({
           week: w.week,

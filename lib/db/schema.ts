@@ -577,6 +577,8 @@ export const leagueSettings = pgTable("league_settings", {
   ladderDraw: text("ladder_draw").notNull().default("generated"),
   /** Playing weeks per ladder round (BVL: 2; 0157). */
   ladderRoundWeeks: integer("ladder_round_weeks").notNull().default(1),
+  /** BVL grid style for a round league: 'bvl' | 'once' (0163). */
+  ladderRoundGrid: text("ladder_round_grid").notNull().default("bvl"),
   /** Schedule views offered, first = default; null = all that apply (0158). */
   scheduleViews: text("schedule_views").array(),
   // Titled instruction blocks printed on every score sheet (migration 0118).

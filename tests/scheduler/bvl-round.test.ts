@@ -321,3 +321,51 @@ describe("combineHalves", () => {
     expect(combineHalves([r("w1", "A", "B", 25, 20)])[0].sets).toHaveLength(1);
   });
 });
+
+describe("Reverse 4s grid — 6-team tiers play everyone once (3 slots, then 2)", () => {
+  const t = bvlTemplate(6, "once")!;
+  it("15 pairings, each exactly once, every team in every slot", () => {
+    const pairs = t.weeks.flatMap((w) =>
+      w.slots
+        .flat()
+        .map((g) => `${Math.min(g.home, g.away)}-${Math.max(g.home, g.away)}`),
+    );
+    expect(pairs).toHaveLength(15);
+    expect(new Set(pairs).size).toBe(15);
+    for (const w of t.weeks)
+      for (const slot of w.slots)
+        expect(slot.flatMap((g) => [g.home, g.away]).sort()).toEqual([
+          1, 2, 3, 4, 5, 6,
+        ]);
+  });
+  it("week 1 is a triple, week 2 a double; no red halves", () => {
+    expect(t.weeks.map((w) => w.slots.length)).toEqual([3, 2]);
+    expect(t.halfPairs).toEqual([]);
+  });
+  it("4- and 5-team grids don't change with the style", () => {
+    expect(bvlTemplate(4, "once")).toBe(bvlTemplate(4));
+    expect(bvlTemplate(5, "once")).toBe(bvlTemplate(5));
+    expect(bvlTemplate(6)).not.toBe(t);
+  });
+  it("planBvlRound uses it when asked: 15 games, none half", () => {
+    const six = ["a", "b", "c", "d", "e", "f"];
+    const plan = planBvlRound(
+      [1, 2].map((week) => ({
+        week,
+        date: `2026-10-${week === 1 ? 13 : 20}`,
+        tiers: [
+          {
+            divisionId: "B",
+            teamIds: six,
+            venueId: null,
+            slotTimes: ["18:30", "19:10", "19:50"],
+          },
+        ],
+      })),
+      "once",
+    );
+    expect(plan.problems).toEqual([]);
+    expect(plan.fixtures).toHaveLength(15);
+    expect(plan.fixtures.some((f) => f.half)).toBe(false);
+  });
+});
