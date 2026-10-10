@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { planTierNight } from "@/lib/scheduler/ladder-night";
 import {
   bvlTemplate,
+  combineHalves,
   evenSlotTimes,
   planBvlRound,
   roundWeeksOf,
@@ -242,6 +243,7 @@ export async function drawLadderWeekAction(
       defaultStart: slot.startTime ?? "18:00",
       minutesPerSlot: (settings.minutes_per_game as number | null) ?? 40,
       blackouts: (settings.blackout_dates as string[] | null) ?? [],
+      matchFormat: comp.match_format as MatchFormat,
     });
   }
 
@@ -571,6 +573,8 @@ async function drawBvlRound(input: {
   defaultStart: string;
   minutesPerSlot: number;
   blackouts: string[];
+  /** The league's format; a red half-match plays its first game only. */
+  matchFormat: MatchFormat;
 }): Promise<
   ActionError | { week: number; matchCount: number; shorted: number }
 > {
@@ -721,6 +725,13 @@ async function drawBvlRound(input: {
     if (delErr) return { error: delErr.message };
   }
 
+  // A red pairing plays ONE game each week; the two make the match
+  // (`combineHalves`). Score entry reads this per-match format.
+  const halfFormat: MatchFormat = {
+    ...input.matchFormat,
+    bestOf: 1,
+    setsToPoints: input.matchFormat.setsToPoints.slice(0, 1),
+  };
   const rows = roundPlan.fixtures.map((f) => ({
     competition_id: competitionId,
     round: f.week,
@@ -731,6 +742,7 @@ async function drawBvlRound(input: {
     court: f.court,
     status: "scheduled" as const,
     scheduled_at: DateTime.fromISO(`${f.date}T${f.time}`, { zone }).toISO()!,
+    ...(f.half ? { match_format: halfFormat } : {}),
   }));
   const { error } = await supabase.from("matches").insert(rows);
   if (error) return { error: error.message };
@@ -835,7 +847,9 @@ export async function lockLadderWeekAction(
   if (scored.length > 0) {
     const { data: allMatches } = await supabase
       .from("matches")
-      .select("id, status, division_id, home_team_id, away_team_id")
+      .select(
+        "id, status, division_id, home_team_id, away_team_id, match_format",
+      )
       .eq("competition_id", competitionId)
       .in("round", roundWeeks);
     // Games recorded against a typed tier don't need a score. An older game
@@ -875,14 +889,25 @@ export async function lockLadderWeekAction(
       setsByMatch.set(s.match_id as string, list);
     }
 
-    results = matches
-      .filter((m) => m.home_team_id && m.away_team_id)
-      .map((m) => ({
-        matchId: m.id as string,
-        homeTeamId: m.home_team_id as string,
-        awayTeamId: m.away_team_id as string,
-        sets: setsByMatch.get(m.id as string) ?? [],
-      }));
+    // BVL's red pairings are one game a week; the round's two halves are one
+    // match (Theresa, 2026-10-10) — joined before ranking, not counted twice.
+    const isRound = settings.ladder_draw === "bvl_round";
+    results = combineHalves(
+      matches
+        .filter((m) => m.home_team_id && m.away_team_id)
+        .map((m) => ({
+          matchId: m.id as string,
+          homeTeamId: m.home_team_id as string,
+          awayTeamId: m.away_team_id as string,
+          sets: setsByMatch.get(m.id as string) ?? [],
+          half: isRound && (m.match_format as MatchFormat | null)?.bestOf === 1,
+        })),
+    ).map((r) => ({
+      matchId: r.matchId,
+      homeTeamId: r.homeTeamId,
+      awayTeamId: r.awayTeamId,
+      sets: r.sets,
+    }));
   }
 
   // Through the parser: the raw column may carry "_projected" (see its doc).

@@ -39,6 +39,13 @@ export interface BvlTemplate {
   weeks: [BvlWeekGrid, BvlWeekGrid];
   /** The sheet's scoring note for this size of tier, if it has one. */
   scoring: string | null;
+  /**
+   * Pairings played in BOTH weeks as ONE game each — the sheet's red cells.
+   * BVL: "RED - Means you only play 1 match - Higher rank team gets serve the
+   * 1st week. 2nd Team gets serve the second week." Theresa, 2026-10-10:
+   * "The 2 week will make one" — the two single games are one match.
+   */
+  halfPairs: [number, number][];
 }
 
 const g = (pair: string): BvlGame => {
@@ -49,8 +56,9 @@ const row = (...pairs: string[]) => pairs.map(g);
 
 /**
  * 6 teams, 3 courts, 3 games each a night. Week A and week B between them hold
- * all fifteen pairings; 3v5, 2v6 and 1v4 are played in both (each team meets
- * one opponent twice — 6 games over the round, 5 opponents).
+ * all fifteen pairings; 3v5, 2v6 and 1v4 are played in both — but as ONE game
+ * each week, the two together making the match (red on their sheet), so each
+ * team plays all five opponents once.
  */
 const BVL_6: BvlTemplate = {
   teams: 6,
@@ -76,6 +84,11 @@ const BVL_6: BvlTemplate = {
     },
   ],
   scoring: null,
+  halfPairs: [
+    [1, 4],
+    [2, 6],
+    [3, 5],
+  ],
 };
 
 /**
@@ -111,6 +124,7 @@ const BVL_5: BvlTemplate = {
     },
   ],
   scoring: null,
+  halfPairs: [],
 };
 
 /**
@@ -133,6 +147,7 @@ const BVL_4: BvlTemplate = {
     },
   ],
   scoring: "Games start at 4-4",
+  halfPairs: [],
 };
 
 const TEMPLATES = new Map(
@@ -171,6 +186,8 @@ export interface BvlFixture {
   court: string;
   slotIndex: number;
   time: string;
+  /** One game of a two-week match (red on BVL's sheet) — see `halfPairs`. */
+  half: boolean;
 }
 
 export interface BvlRoundPlan {
@@ -223,6 +240,10 @@ export function planBvlRound(
         continue;
       }
       const team = (n: number) => tier.teamIds[n - 1];
+      const isHalf = (a: number, b: number) =>
+        t.halfPairs.some(
+          ([x, y]) => (x === a && y === b) || (x === b && y === a),
+        );
       grid.slots.forEach((games, slotIndex) =>
         games.forEach((game, c) =>
           fixtures.push({
@@ -235,6 +256,7 @@ export function planBvlRound(
             court: courts[c],
             slotIndex,
             time: tier.slotTimes[slotIndex],
+            half: isHalf(game.home, game.away),
           }),
         ),
       );
@@ -261,4 +283,51 @@ export function evenSlotTimes(
     const t = h * 60 + m + i * minutes;
     return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
   });
+}
+
+/** A result the lock ranks on, as `rankLadderNight` takes it. */
+export interface RoundResult {
+  matchId: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  sets: { home: number; away: number }[];
+  /** One game of a two-week match. */
+  half: boolean;
+}
+
+/**
+ * Join each two-week match's halves into one result before ranking a round.
+ *
+ * Theresa (BVL), 2026-10-10: "The 2 week will make one." A red pairing plays
+ * one game in each week; ranked separately they would be two 1–0 results, so a
+ * team that split them would bank a win AND a loss where BVL counts one tied
+ * match. Together they are the match: 2–0 is a win, 1–1 a tie. The second
+ * half's sets are turned to the first half's home/away, since who is "home"
+ * can differ between the weeks. A half whose partner isn't there yet (week 2
+ * not played) stays on its own.
+ */
+export function combineHalves(results: RoundResult[]): RoundResult[] {
+  const out: RoundResult[] = [];
+  const open = new Map<string, RoundResult>();
+  const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+  for (const r of results) {
+    if (!r.half) {
+      out.push(r);
+      continue;
+    }
+    const k = key(r.homeTeamId, r.awayTeamId);
+    const first = open.get(k);
+    if (!first) {
+      const copy = { ...r, sets: [...r.sets] };
+      open.set(k, copy);
+      out.push(copy);
+      continue;
+    }
+    const flipped = first.homeTeamId !== r.homeTeamId;
+    first.sets.push(
+      ...r.sets.map((x) => (flipped ? { home: x.away, away: x.home } : x)),
+    );
+    open.delete(k);
+  }
+  return out;
 }

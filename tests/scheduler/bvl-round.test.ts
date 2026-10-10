@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   bvlTemplate,
+  combineHalves,
   evenSlotTimes,
   planBvlRound,
   roundWeeksOf,
@@ -220,5 +221,103 @@ describe("planBvlRound — Women's Round 1 as on the sheet", () => {
     ]);
     expect(bad.fixtures).toHaveLength(0);
     expect(bad.problems.map((p) => p.divisionId)).toEqual(["X", "Y", "Z"]);
+  });
+});
+
+describe("BVL red games — one game each week, one match together", () => {
+  const six = ["s1", "s2", "s3", "s4", "s5", "s6"];
+  const plan = planBvlRound(
+    [1, 2].map((week) => ({
+      week,
+      date: week === 1 ? "2026-10-14" : "2026-10-21",
+      tiers: [
+        {
+          divisionId: "B",
+          teamIds: six,
+          venueId: null,
+          slotTimes: ["18:15", "18:55", "19:35"],
+        },
+        {
+          divisionId: "D",
+          teamIds: ["d1", "d2", "d3", "d4", "d5"],
+          venueId: null,
+          slotTimes: evenSlotTimes("19:00", 30, 5),
+          courtLabels: ["a", "b"],
+        },
+      ],
+    })),
+  );
+
+  it("flags exactly the sheet's red cells: 3v5, 2v6, 1v4, in both weeks", () => {
+    const half = plan.fixtures.filter((f) => f.half);
+    expect(half).toHaveLength(6);
+    expect(half.every((f) => f.divisionId === "B")).toBe(true);
+    // Week 1's last slot and week 2's first.
+    expect(
+      half.filter((f) => f.week === 1).every((f) => f.slotIndex === 2),
+    ).toBe(true);
+    expect(
+      half.filter((f) => f.week === 2).every((f) => f.slotIndex === 0),
+    ).toBe(true);
+    const pairs = new Set(
+      half.map((f) => [f.homeTeamId, f.awayTeamId].sort().join("-")),
+    );
+    expect([...pairs].sort()).toEqual(["s1-s4", "s2-s6", "s3-s5"]);
+  });
+
+  it("each 6-team side then plays all five opponents, once each", () => {
+    for (const t of six) {
+      const opp = new Set(
+        plan.fixtures
+          .filter((f) => f.homeTeamId === t || f.awayTeamId === t)
+          .map((f) => (f.homeTeamId === t ? f.awayTeamId : f.homeTeamId)),
+      );
+      expect(opp.size).toBe(5);
+    }
+  });
+});
+
+describe("combineHalves", () => {
+  const r = (
+    id: string,
+    home: string,
+    away: string,
+    h: number,
+    a: number,
+    half = true,
+  ) => ({
+    matchId: id,
+    homeTeamId: home,
+    awayTeamId: away,
+    sets: [{ home: h, away: a }],
+    half,
+  });
+
+  it("a split pair is one tied match, even when home/away swap between weeks", () => {
+    const out = combineHalves([
+      r("w1", "A", "B", 25, 20),
+      r("w2", "B", "A", 25, 22),
+    ]);
+    expect(out).toHaveLength(1);
+    // Turned to week 1's orientation: A won game 1, B won game 2.
+    expect(out[0].sets).toEqual([
+      { home: 25, away: 20 },
+      { home: 22, away: 25 },
+    ]);
+  });
+
+  it("2–0 over the two weeks is one win; full matches pass straight through", () => {
+    const out = combineHalves([
+      r("w1", "A", "B", 25, 20),
+      r("full", "A", "C", 25, 10, false),
+      r("w2", "A", "B", 25, 18),
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.find((x) => x.matchId === "w1")!.sets).toHaveLength(2);
+    expect(out.find((x) => x.matchId === "full")!.sets).toHaveLength(1);
+  });
+
+  it("week 1's half alone stays a single game until week 2 is played", () => {
+    expect(combineHalves([r("w1", "A", "B", 25, 20)])[0].sets).toHaveLength(1);
   });
 });

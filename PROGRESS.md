@@ -16,8 +16,15 @@ Divisions A–D seated in BVL's sheet order, 2-week rounds, 2 up / 2 down,
 `planBvlRound` (the same games the mock showed and the validation matched
 against their sheet). Verified on the live public page.
 
-Open with BVL: how the "red" repeat games count (one game each week, serve
-alternating — one result each, or one match across both weeks?); Round 2
+Red games settled the same day (Theresa: "The 2 week will make one"): BVL's
+6-team grid now carries `halfPairs` (1v4, 2v6, 3v5 — the sheet's red cells);
+the planner flags them `half`, the draw gives them a one-game `match_format`
+so score entry asks for one game, and the lock joins each pair's two halves
+with `combineHalves` before ranking (2–0 a win, 1–1 a tie), turning week 2's
+sets to week 1's home/away. The 18 live red games were marked to match. Tier
+ranking is wins/losses first; BVL will decide the tiebreak for ties later (the
+league default applies until then). Average ranking: skip Round 1, from Round 2
+average each team's overall rank taken after the end-of-round re-rank. Round 2
 gyms (owner: keep each tier's gym, balance early/late starts); an average
 ranking across rounds for April playoff seeding; and Big Dig Energy must stay
 at one gym all season — whichever tier it is in plays there (not built yet;
