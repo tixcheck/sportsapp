@@ -5,6 +5,26 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — BVL Women's Wednesday live on the round format
+
+Theresa (BVL) confirmed the Round 1 tiers and that Edmund Campion is open on
+Oct 21. With the owner's go-ahead the plain 35-game schedule someone generated
+on Oct 9 (6:00 PM, no gyms, no tiers; nothing scored) was removed — logged as
+`schedule_erased` in `match_audit` — and the league switched to `bvl_round`:
+Divisions A–D seated in BVL's sheet order, 2-week rounds, 2 up / 2 down,
+`ladder_tier_nights` for Oct 14 and 21, and the 74 games drawn by
+`planBvlRound` (the same games the mock showed and the validation matched
+against their sheet). Verified on the live public page.
+
+Open with BVL: how the "red" repeat games count (one game each week, serve
+alternating — one result each, or one match across both weeks?); Round 2
+gyms (owner: keep each tier's gym, balance early/late starts); an average
+ranking across rounds for April playoff seeding; and Big Dig Energy must stay
+at one gym all season — whichever tier it is in plays there (not built yet;
+Round 1 already complies, Tier A is at Aquinas both weeks).
+
+---
+
 ## 2026-10-08 — SMVA: Print gives each gym its own one-page sheet
 
 Alessandro (SMVA): "print option does our format and only need to print 1
