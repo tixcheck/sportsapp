@@ -27,6 +27,7 @@ function comp(over: Partial<MyCompetition> = {}): MyCompetition {
     nextMatch: null,
     hasMatches: true,
     lastMatchAt: daysAgo(3),
+    scheduleLock: null,
     ...over,
   };
 }

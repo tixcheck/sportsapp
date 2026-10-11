@@ -30,6 +30,16 @@ export interface MyCompetition {
    * genuinely finished (migration 0095).
    */
   lastMatchAt: string | null;
+  /**
+   * The league shows its schedule to complete teams only (0161) and this team
+   * isn't complete — so no next game, and the roster numbers say why (0164).
+   */
+  scheduleLock: {
+    joined: number;
+    min: number | null;
+    unsigned: number;
+    invited: number;
+  } | null;
 }
 
 export interface PendingInvite {
@@ -171,6 +181,14 @@ export async function getMyCompetitions(): Promise<MyCompetition[]> {
         : null,
       hasMatches: (r.has_matches as boolean | null) ?? false,
       lastMatchAt: (r.last_match_at as string | null) ?? null,
+      scheduleLock: r.schedule_locked
+        ? {
+            joined: (r.roster_joined as number | null) ?? 0,
+            min: (r.roster_min as number | null) ?? null,
+            unsigned: (r.roster_unsigned as number | null) ?? 0,
+            invited: (r.roster_invited as number | null) ?? 0,
+          }
+        : null,
     }),
   );
 }

@@ -291,18 +291,54 @@ export default async function DashboardPage() {
                           : c.memberRole}
                       </span>
                     </CardDescription>
-                    <p className="text-muted-foreground mt-1 truncate text-sm">
-                      {next ? (
-                        `Next: ${next}`
-                      ) : c.hasMatches ? (
-                        // Nothing left for THIS team, though the league may
-                        // still be running. Don't claim the standings are
-                        // final — other teams are often still playing.
-                        <>You&rsquo;ve played all your games</>
-                      ) : (
-                        <>Schedule not published yet</>
-                      )}
-                    </p>
+                    {c.scheduleLock ? (
+                      // Gated league, incomplete team (0161/0164): say what
+                      // unlocks the schedule — Indru's captain saw a bare
+                      // "Next: vs …" and couldn't tell what to do.
+                      <div className="mt-2 space-y-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+                        <p className="font-medium">
+                          Your schedule unlocks when your roster is complete.
+                        </p>
+                        {c.scheduleLock.min != null &&
+                          c.scheduleLock.joined < c.scheduleLock.min && (
+                            <p>
+                              {c.scheduleLock.joined} of {c.scheduleLock.min}{" "}
+                              players joined —{" "}
+                              {c.scheduleLock.min - c.scheduleLock.joined} more
+                              needed
+                              {c.scheduleLock.invited > 0
+                                ? ` (${c.scheduleLock.invited} invited, not joined yet)`
+                                : ""}
+                              .
+                            </p>
+                          )}
+                        {c.scheduleLock.unsigned > 0 && (
+                          <p>
+                            {c.scheduleLock.unsigned} player
+                            {c.scheduleLock.unsigned === 1
+                              ? " hasn't"
+                              : "s haven't"}{" "}
+                            signed the waiver.
+                          </p>
+                        )}
+                        {c.memberRole === "captain" && (
+                          <p>Invite players below; they join from the email.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground mt-1 truncate text-sm">
+                        {next ? (
+                          `Next: ${next}`
+                        ) : c.hasMatches ? (
+                          // Nothing left for THIS team, though the league may
+                          // still be running. Don't claim the standings are
+                          // final — other teams are often still playing.
+                          <>You&rsquo;ve played all your games</>
+                        ) : (
+                          <>Schedule not published yet</>
+                        )}
+                      </p>
+                    )}
                   </CardHeader>
                   <CardContent className="mt-auto flex flex-wrap items-center gap-2 pt-0">
                     <Button asChild variant="outline" size="sm">

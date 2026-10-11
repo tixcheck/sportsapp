@@ -5,6 +5,24 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — Dashboard honours the schedule gate (0164)
+
+Indru forwarded a captain's screenshot (Fubu, 3 of 4 joined): the dashboard
+card said "Next: vs Big Dig Energy · Round 1 · Court b" — `my_competitions`
+is SECURITY DEFINER, so it read games 0161 withholds — and nothing said what
+to do. Owner's call: nothing until the roster is complete. `my_competitions`
+now returns no next game for an incomplete team in a gated league, plus
+`schedule_locked` and the team's numbers; the card shows "Your schedule
+unlocks when your roster is complete — 3 of 4 joined, 1 more needed (4
+invited, not joined yet)". Rehearsed as Fubu's captain (locked, no game) and
+Big Dig Energy's (ready, next game shown).
+
+Also: Theresa (BVL) saw an old Test Org demo league ("Brampton Beach Thursdays
+— Round 5", public, open) as her next game — she'd been added to its team
+SENDERS on Sep 25. Removed her roster row and the invite that put her there.
+
+---
+
 ## 2026-10-10 — BVL Reverse 4s (Tue) live on the round format (0163)
 
 Indru confirmed the mock and sent the real ranking 1–14 (same tier groups,
