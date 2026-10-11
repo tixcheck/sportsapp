@@ -118,6 +118,8 @@ import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card"
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { getLadderState } from "@/lib/queries/ladder";
 import { LadderPanel } from "@/components/league/ladder-panel";
+import { getAlignmentNight } from "@/lib/queries/alignment";
+import { AlignmentCard } from "@/components/alignment/alignment-card";
 import { LadderSetupWizard } from "@/components/league/ladder-setup-wizard";
 import {
   Card,
@@ -149,6 +151,7 @@ export default async function LeaguePage({
     playoffGames,
     waiverState,
     orgWaivers,
+    alignment,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -163,6 +166,7 @@ export default async function LeaguePage({
     getPlayoffSchedule(leagueId),
     getCompetitionWaiverState(leagueId),
     getOrgWaivers(orgId),
+    getAlignmentNight(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -339,85 +343,94 @@ export default async function LeaguePage({
   };
 
   const scheduleTab = (
-    <Card id="schedule" className="scroll-mt-4">
-      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
-        <div>
-          <CardTitle>Schedule</CardTitle>
-          <CardDescription>
-            {league.matchCount > 0
-              ? `${league.matchCount} matches generated.`
-              : "No matches yet."}
-          </CardDescription>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {league.matchCount > 0 && (
-            <Button asChild variant="outline" size="sm">
-              <Link
-                // A league on pinned grids prints its own gym sheets, a tier
-                // at a time (SMVA) — not the generic list of games.
-                href={
-                  ladder?.enabled && ladder.draw === "pod_grid"
-                    ? `/print/gym-sheet/${league.id}`
-                    : ladder?.enabled && ladder.draw === "bvl_round"
-                      ? // BVL's round, laid out like the mock they approved.
-                        `/print/round-schedule/${league.id}`
-                      : `/print/schedule/${league.id}`
-                }
-                target="_blank"
-              >
-                <Printer className="size-4" />
-                Print
-              </Link>
-            </Button>
-          )}
-          {league.matchCount > 0 && hasUnscheduledTeams && (
-            <AddTeamsMidSeasonDialog
-              competitionId={league.id}
+    <div className="space-y-6">
+      {alignment && (
+        <AlignmentCard
+          competitionId={league.id}
+          night={alignment}
+          timezone={league.timezone}
+        />
+      )}
+      <Card id="schedule" className="scroll-mt-4">
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Schedule</CardTitle>
+            <CardDescription>
+              {league.matchCount > 0
+                ? `${league.matchCount} matches generated.`
+                : "No matches yet."}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {league.matchCount > 0 && (
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  // A league on pinned grids prints its own gym sheets, a tier
+                  // at a time (SMVA) — not the generic list of games.
+                  href={
+                    ladder?.enabled && ladder.draw === "pod_grid"
+                      ? `/print/gym-sheet/${league.id}`
+                      : ladder?.enabled && ladder.draw === "bvl_round"
+                        ? // BVL's round, laid out like the mock they approved.
+                          `/print/round-schedule/${league.id}`
+                        : `/print/schedule/${league.id}`
+                  }
+                  target="_blank"
+                >
+                  <Printer className="size-4" />
+                  Print
+                </Link>
+              </Button>
+            )}
+            {league.matchCount > 0 && hasUnscheduledTeams && (
+              <AddTeamsMidSeasonDialog
+                competitionId={league.id}
+                timezone={league.timezone}
+              />
+            )}
+            {league.matchCount > 0 && (
+              <ApplyCourtsDialog
+                competitionId={league.id}
+                currentCourts={league.courts}
+              />
+            )}
+            {league.matchCount > 0 && (
+              <PushScheduleDialog
+                competitionId={league.id}
+                timezone={league.timezone}
+              />
+            )}
+            {/* A ladder draws week by week; the season generator would wipe it. */}
+            {!ladder?.enabled && (
+              <GenerateScheduleButton
+                competitionId={league.id}
+                hasSchedule={league.matchCount > 0}
+              />
+            )}
+          </div>
+        </CardHeader>
+        {league.teams.length < 2 ? (
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              {ladder?.enabled
+                ? "Draw a week from the Ladder tab to fill the schedule."
+                : "Add at least 2 teams to generate a round-robin schedule."}
+            </p>
+          </CardContent>
+        ) : schedule.length > 0 ? (
+          <CardContent>
+            <ScheduleView
+              matches={schedule}
               timezone={league.timezone}
+              editable
+              sport={league.sport}
+              slotMinutes={league.minutesPerGame}
+              views={league.scheduleViews}
             />
-          )}
-          {league.matchCount > 0 && (
-            <ApplyCourtsDialog
-              competitionId={league.id}
-              currentCourts={league.courts}
-            />
-          )}
-          {league.matchCount > 0 && (
-            <PushScheduleDialog
-              competitionId={league.id}
-              timezone={league.timezone}
-            />
-          )}
-          {/* A ladder draws week by week; the season generator would wipe it. */}
-          {!ladder?.enabled && (
-            <GenerateScheduleButton
-              competitionId={league.id}
-              hasSchedule={league.matchCount > 0}
-            />
-          )}
-        </div>
-      </CardHeader>
-      {league.teams.length < 2 ? (
-        <CardContent>
-          <p className="text-muted-foreground text-sm">
-            {ladder?.enabled
-              ? "Draw a week from the Ladder tab to fill the schedule."
-              : "Add at least 2 teams to generate a round-robin schedule."}
-          </p>
-        </CardContent>
-      ) : schedule.length > 0 ? (
-        <CardContent>
-          <ScheduleView
-            matches={schedule}
-            timezone={league.timezone}
-            editable
-            sport={league.sport}
-            slotMinutes={league.minutesPerGame}
-            views={league.scheduleViews}
-          />
-        </CardContent>
-      ) : null}
-    </Card>
+          </CardContent>
+        ) : null}
+      </Card>
+    </div>
   );
 
   const standingsTab = (

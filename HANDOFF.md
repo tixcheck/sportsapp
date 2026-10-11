@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0164`, and every one of `0060`–`0164` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0164` on 2026-10-10). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0165`, and every one of `0060`–`0165` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -1697,6 +1697,17 @@ Open with BVL: how the red repeat games count; average ranking for April seeding
 `bvl_round`, 2-week rounds, swaps `[2,2]`, `ladder_round_grid = 'once'`. Divisions A (4) / B (6) / C (4) seated in Indru's
 ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers on 35-minute slots, Tier B on 40. Notre Dame
 8:30 on Oct 13 belongs to Non-Spiking's alignment night. Next: lock after Oct 20, then Round 2 gyms from Indru.
+
+## BVL Non-Spiking (Tuesday) — alignment night in the app (live 2026-10-10)
+
+0165. Oct 13: 5 `alignment_sessions`, 75 round-0 games. D'Youville 6:15 (ranks 21–26) → 7:30 (17–20 + 6:15's top two)
+→ 8:40 (13–16 + 7:30's top two); North Park 8:00 (7–12); Notre Dame 8:30 (1–6). Climbers move up automatically when
+a session's last score is completed. The organizer card ("Alignment night", above the schedule) shows the 1–26 ranking once
+all five sessions are done, and "Seat Round 1 tiers" sets tiers and seeds. **Unconfirmed with Indru:** the ranking rule
+in `place_ranks` (see PROGRESS), 8:40 vs 8:45 at D'Youville, which tier plays where, games for the 4-team tiers.
+**INDY 1** was created by us (status pending_waiver); "Ball Buster" (pending_payment) looks like a duplicate of Ball
+Busters and is not in the night. **Round 1 (Oct 20)** still needs ladder settings (4-week rounds, 35-minute slots) after
+seating.
 
 ## BVL 2026/27 gym permits (loaded 2026-10-07)
 

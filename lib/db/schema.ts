@@ -894,6 +894,11 @@ export const matches = pgTable(
     // format). Used for league playoffs that differ from the season, e.g.
     // best-of-3 brackets off a single-set season. Null = resolve normally.
     matchFormat: jsonb("match_format").$type<MatchFormat>(),
+    /** An alignment-night game (0165): its session ranks when the last lands. */
+    alignmentSessionId: uuid("alignment_session_id").references(
+      (): AnyPgColumn => alignmentSessions.id,
+      { onDelete: "set null" },
+    ),
     status: matchStatus("status").notNull().default("scheduled"),
     // Set true only when an organizer used the override to record a result that
     // failed the normal completion checks (abandoned/injury). Audit/display
@@ -1615,6 +1620,50 @@ export const ladderPlacements = pgTable(
     uniqueIndex("ladder_placements_result_rank_unique")
       .on(t.competitionId, t.divisionId, t.week, t.resultRank)
       .where(sql`${t.resultRank} is not null`),
+  ],
+);
+
+/**
+ * One session of an alignment night (migration 0165): six seats A–F playing
+ * Schedule B. When its last game is completed a trigger ranks it and seats
+ * its top two in the session that `climbFrom`s it; `place_ranks` maps the
+ * finishing order into the night's 1–N ranking (`alignment_ranking`).
+ */
+export const alignmentSessions = pgTable(
+  "alignment_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    competitionId: uuid("competition_id")
+      .notNull()
+      .references(() => competitions.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    venueId: uuid("venue_id").references(() => venues.id, {
+      onDelete: "set null",
+    }),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    /** Teams by seat A..F; null = filled by the climbers. */
+    seeds: uuid("seeds").array().notNull(),
+    climbFrom: uuid("climb_from").references(
+      (): AnyPgColumn => alignmentSessions.id,
+      { onDelete: "set null" },
+    ),
+    /** Overall rank per finishing place; null = climbs to the next session. */
+    placeRanks: integer("place_ranks").array().notNull(),
+    fixtures: jsonb("fixtures")
+      .$type<{ match_id: string; home: string; away: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    placings: uuid("placings").array(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("alignment_sessions_competition_id_seq_key").on(
+      t.competitionId,
+      t.seq,
+    ),
   ],
 );
 

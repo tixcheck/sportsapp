@@ -5,6 +5,44 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — Alignment night in the app (0165), live for BVL Non-Spiking
+
+Indru's alignment night (Tue Oct 13) ran on paper: onsites write scores,
+move D'Youville's top two into the next time slot by hand, and Indru ranks all
+26 teams afterwards. Owner: "Why cant we just capture all the scores in the
+app and then decide ranking? The app is to make their life easier."
+
+- `alignment_sessions` (0165): six seats A–F per session, Schedule B fixtures,
+  `climb_from` and `place_ranks`. Games are ordinary matches (round 0, one
+  timed set, a level game allowed) tagged `alignment_session_id`, so the
+  usual score entry works.
+- A trigger ranks a session the moment its last game is completed: wins, then
+  +/− capped at 15 a game (BVL's sheet), then seat. It writes the top two into
+  the next session's E/F seats and games. A corrected score re-ranks; a
+  cleared game reopens the session; a session that has started is never
+  re-seated.
+- `alignment_ranking` maps each session's places through `place_ranks` into
+  1–N, empty until every session is done. All reads go through
+  `can_view_schedule`.
+- **Why `place_ranks` is data:** how sessions combine into one ranking is
+  BVL's rule to confirm, not ours. Loaded as proposed to Indru: Notre Dame
+  1–6, North Park 7–12, D'Youville 8:40 13–18, 7:30's places 3–6 → 19–22,
+  6:15's places 3–6 → 23–26. Changing it is an UPDATE, not a deploy.
+- **Organizer card** above the schedule shows live session tables and the
+  final ranking. "Seat Round 1 tiers" (sizes pre-filled 4, 6, 6, 6, 4 for 26)
+  sets each team's tier and seed, until Round 1 is drawn. Round 0 shows as
+  "Alignment night" on the schedule, and the Round 1 draw lands on the next
+  night (Oct 20).
+- **NS loaded live:** 5 sessions, 75 games, Indru's ranks matched to the
+  registered team names. INDY 1 (on his list, not in the app) was added. The
+  unpaid "Ball Buster" duplicate was left out.
+- Rehearsed in a rolled-back transaction (`apply-0165.ts`): the climbers move
+  up, 26 distinct ranks, anonymous visitors see nothing, and clearing or
+  re-entering a game works. Clicked through on a Test Org demo at desktop
+  and 375px, then restored the demo.
+
+---
+
 ## 2026-10-10 — Organizer messages: "Send a test to me"
 
 Theresa (BVL): "can I do a trial email before i send out a mass one? … send

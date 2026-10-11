@@ -66,8 +66,9 @@ function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
   ].sort()) {
     synthetic.set(t, maxRound + 1 + synthetic.size);
   }
+  // Round 0 is an alignment night (0165); -1 is the no-time pile.
   const roundOf = (m: ScheduleMatch): number =>
-    m.round ?? (m.scheduledAt ? synthetic.get(m.scheduledAt)! : 0);
+    m.round ?? (m.scheduledAt ? synthetic.get(m.scheduledAt)! : -1);
 
   const map = new Map<number, ScheduleMatch[]>();
   for (const m of matches) {
@@ -81,7 +82,12 @@ function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
       const date = ms.find((m) => m.scheduledAt)?.scheduledAt;
       return {
         key: `r${round}`,
-        heading: round ? `Round ${round}` : "Unscheduled",
+        heading:
+          round > 0
+            ? `Round ${round}`
+            : round === 0
+              ? "Alignment night"
+              : "Unscheduled",
         sub: date
           ? DateTime.fromISO(date, { zone: tz }).toFormat("cccc, LLL d")
           : undefined,
