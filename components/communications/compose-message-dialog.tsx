@@ -60,16 +60,25 @@ export function ComposeMessageDialog({
     );
   }
 
-  function send() {
+  function send(test = false) {
     start(async () => {
       const res = await sendOrgMessageAction(orgId, {
         competitionIds: selected,
         subject,
         body,
         audience,
+        test,
       });
       if ("error" in res) {
         toast.error(res.error);
+        return;
+      }
+      // A test leaves the dialog open with the message intact, ready to send.
+      if ("test" in res) {
+        toast.success(
+          `Test sent to ${res.to}. The real message would go to ${res.wouldReach} ${res.wouldReach === 1 ? "person" : "people"}.`,
+          { duration: 10000 },
+        );
         return;
       }
       toast.success(
@@ -208,7 +217,15 @@ export function ComposeMessageDialog({
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={send} disabled={!canSend || pending}>
+          <Button
+            variant="outline"
+            onClick={() => send(true)}
+            disabled={!canSend || pending}
+            title="Sends this exact email only to you, so you can check it first."
+          >
+            Send a test to me
+          </Button>
+          <Button onClick={() => send()} disabled={!canSend || pending}>
             {pending
               ? "Sending…"
               : `Send to ${selected.length === 0 ? "…" : audience === "captains" ? "captains" : "everyone"}`}

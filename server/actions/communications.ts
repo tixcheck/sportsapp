@@ -33,6 +33,13 @@ const messageSchema = z.object({
     .min(10, "Write a bit more than that.")
     .max(10_000, "That message is too long to email."),
   audience: z.enum(["players", "captains"]),
+  /**
+   * Send only to the organizer, as a preview. Theresa (BVL), 2026-10-10: "can
+   * I do a trial email before i send out a mass one? … send one just to
+   * myself?" Every check the real send makes still runs, so the test also
+   * says how many people the real one would reach.
+   */
+  test: z.boolean().optional(),
 });
 
 export type OrgMessageInput = z.infer<typeof messageSchema>;
@@ -51,7 +58,11 @@ export type OrgMessageInput = z.infer<typeof messageSchema>;
 export async function sendOrgMessageAction(
   orgId: string,
   values: OrgMessageInput,
-): Promise<ActionError | { sent: number; failed: number }> {
+): Promise<
+  | ActionError
+  | { sent: number; failed: number }
+  | { test: true; to: string; wouldReach: number }
+> {
   const org = z.string().uuid().safeParse(orgId);
   if (!org.success) return { error: "Unknown organization." };
 
@@ -169,6 +180,35 @@ export async function sendOrgMessageAction(
   const origin = await getOrigin();
   const paragraphs = toParagraphs(v.body);
   const eventsLine = validComps.map((c) => c.name).join(", ");
+
+  if (v.test) {
+    if (!user.email) return { error: "Your account has no email to send to." };
+    const { data: me } = await supabase
+      .from("users")
+      .select("unsubscribe_token")
+      .eq("id", user.id)
+      .maybeSingle();
+    const result = await sendOrgMessageBatch(
+      `[Test] ${v.subject}`,
+      [
+        {
+          to: user.email,
+          props: {
+            orgName,
+            eventsLine,
+            paragraphs,
+            unsubscribeUrl: `${origin}/unsubscribe/${(me as { unsubscribe_token?: string } | null)?.unsubscribe_token ?? ""}?kind=org_messages`,
+          },
+        },
+      ],
+      user.email,
+    );
+    if (result.sent === 0) {
+      return { error: "The test couldn't be sent. Please try again." };
+    }
+    // Not logged as a broadcast: nobody else received it.
+    return { test: true, to: user.email, wouldReach: recipients.length };
+  }
 
   let sent = 0;
   let failed = 0;

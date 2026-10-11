@@ -5,6 +5,18 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-10 — Organizer messages: "Send a test to me"
+
+Theresa (BVL): "can I do a trial email before i send out a mass one? … send
+one just to myself?" The compose dialog has a "Send a test to me" button:
+`sendOrgMessageAction` with `test: true` runs every check the real send
+does (org admin, events in this org, recipients resolved), then sends the
+same email only to the organizer with "[Test]" in the subject, doesn't log it
+as a broadcast, and reports how many people the real send would reach. The
+dialog stays open with the message, ready to send for real.
+
+---
+
 ## 2026-10-10 — Dashboard honours the schedule gate (0164)
 
 Indru forwarded a captain's screenshot (Fubu, 3 of 4 joined): the dashboard
