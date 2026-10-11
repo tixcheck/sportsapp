@@ -38,9 +38,9 @@ export function AlignmentCard({
         <CardTitle>Alignment night · {day}</CardTitle>
         <CardDescription>
           Scores go in like any game. When a session&apos;s last score lands it
-          is ranked — wins, then +/− (15 points at most a game) — and its top
-          two move up into the next session on their own. {done}/
-          {night.sessions.length} sessions finished.
+          is ranked — wins, then head to head, then +/− (15 points at most a
+          game) — and its top two move up into the next session on their own.{" "}
+          {done}/{night.sessions.length} sessions finished.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

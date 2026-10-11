@@ -6,7 +6,7 @@
  * rounds of timed games on courts A, B and C. The 6-team rounds are a full
  * round robin — each team meets the other five once.
  *
- * Ranking a finished session (wins, then +/- capped at 15 a game, then seat)
+ * Ranking a finished session (wins, head to head, then +/-; see rankSession)
  * and moving its top two up happen in the database (`alignment_advance`,
  * 0165), so they run the moment the last score lands, whoever enters it.
  * `rankSession` here is the same rule, for tests and previews.
@@ -93,24 +93,43 @@ export interface SessionGame {
 }
 
 /**
- * A session's finishing order: wins, then +/- with each game's margin capped
- * at 15 ("Maximum recorded difference margin is 15 POINTS"), then seat. A
- * level game is no win for either side. Same rule as `alignment_advance`.
+ * A session's finishing order, BVL's rule (Indru, 2026-10-10): "Wins; head to
+ * head; +/- head to head for tied teams; overall +/-." Among teams level on
+ * wins: wins in the games between them, then +/- in those games, then overall
+ * +/-, then seat. Every margin is capped at 15 ("Maximum recorded difference
+ * margin is 15 POINTS"); a level game is no win. One pass per tied group.
+ * Same rule as `alignment_standings_core` (0166).
  */
 export function rankSession(seats: string[], games: SessionGame[]): string[] {
+  const margin = (g: SessionGame) =>
+    Math.max(-15, Math.min(15, g.homeScore - g.awayScore));
   const wins = new Map(seats.map((s) => [s, 0]));
   const pm = new Map(seats.map((s) => [s, 0]));
   for (const g of games) {
-    const d = Math.max(-15, Math.min(15, g.homeScore - g.awayScore));
+    const d = margin(g);
     if (d > 0) wins.set(g.home, (wins.get(g.home) ?? 0) + 1);
     if (d < 0) wins.set(g.away, (wins.get(g.away) ?? 0) + 1);
     pm.set(g.home, (pm.get(g.home) ?? 0) + d);
     pm.set(g.away, (pm.get(g.away) ?? 0) - d);
   }
+  const h2hWins = new Map(seats.map((s) => [s, 0]));
+  const h2hPm = new Map(seats.map((s) => [s, 0]));
+  for (const g of games) {
+    if (wins.get(g.home) !== wins.get(g.away)) continue;
+    const d = margin(g);
+    if (d > 0) h2hWins.set(g.home, (h2hWins.get(g.home) ?? 0) + 1);
+    if (d < 0) h2hWins.set(g.away, (h2hWins.get(g.away) ?? 0) + 1);
+    h2hPm.set(g.home, (h2hPm.get(g.home) ?? 0) + d);
+    h2hPm.set(g.away, (h2hPm.get(g.away) ?? 0) - d);
+  }
+  const by = (m: Map<string, number>) => (a: string, b: string) =>
+    (m.get(b) ?? 0) - (m.get(a) ?? 0);
   return [...seats].sort(
     (a, b) =>
-      (wins.get(b) ?? 0) - (wins.get(a) ?? 0) ||
-      (pm.get(b) ?? 0) - (pm.get(a) ?? 0) ||
+      by(wins)(a, b) ||
+      by(h2hWins)(a, b) ||
+      by(h2hPm)(a, b) ||
+      by(pm)(a, b) ||
       seats.indexOf(a) - seats.indexOf(b),
   );
 }

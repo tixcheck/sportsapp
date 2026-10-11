@@ -5,6 +5,28 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-11 — Alignment night: Indru's answers applied (0166)
+
+Indru confirmed the night's rules (email, Oct 10):
+
+- **Tiebreak within a session:** "Wins; head to head; +/- head to head for
+  tied teams; overall +/-." This is 0166. Among teams level on wins, the
+  games between just those teams decide (wins, then their +/−), then overall
+  +/−, then seat. Margins are still capped at 15. It's one pass per tied
+  group, so with three teams level their mini-table decides and isn't re-run
+  on a pair that is still level. `rankSession` mirrors it. `apply-0166.ts`
+  plays 40 random tie-heavy sessions and checks SQL and TypeScript agree
+  (40/40).
+- **Ranking:** North Park's top 2 swap with Notre Dame's bottom 2, and
+  D'Youville 8:40's top 2 with North Park's bottom 2. NS `place_ranks` are now
+  ND 1–4, 7, 8 · NP 5, 6, 9, 10, 13, 14 · DY 8:40 11, 12, 15–18 (7:30 and 6:15
+  unchanged). Data only.
+- **D'Youville runs 70 minutes, not 75** (the permit now starts at 6:15).
+  Its games were moved to 13-minute rounds, so the 7:30 ends at 8:40 and the
+  last session keeps its 8:40 start.
+
+---
+
 ## 2026-10-10 — Alignment night in the app (0165), live for BVL Non-Spiking
 
 Indru's alignment night (Tue Oct 13) ran on paper: onsites write scores,

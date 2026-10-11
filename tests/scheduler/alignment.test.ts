@@ -83,6 +83,39 @@ describe("rankSession", () => {
     expect(order.slice(-2)).toEqual(["D", "E"]);
   });
 
+  it("head to head before +/-", () => {
+    // B and C both 1–0 overall would be equal; make them 1–1 with B beating C
+    // by 1, while C has the far better overall +/-.
+    const order = rankSession(seats, [
+      g("B", "C", 11, 10),
+      g("C", "D", 25, 10),
+      g("E", "B", 25, 10),
+    ]);
+    // E 1 win; B and C 1 win each — B won their game, so B is above C even
+    // though C is +14 overall and B is -14.
+    expect(order.indexOf("B")).toBeLessThan(order.indexOf("C"));
+  });
+
+  it("three level: the mini-table among them, then its +/-", () => {
+    // A, B, C each beat one of the others (a cycle): 1–1 head to head, so
+    // head-to-head +/- decides: A +10, B -2, C -8.
+    const order = rankSession(seats, [
+      g("A", "B", 20, 10),
+      g("B", "C", 20, 12),
+      g("C", "A", 20, 18),
+    ]);
+    expect(order.slice(0, 3)).toEqual(["A", "B", "C"]);
+  });
+
+  it("then overall +/- when head to head is level too", () => {
+    // B and C never met; both 1–0. Overall: C +12, B +3.
+    const order = rankSession(seats, [
+      g("B", "E", 13, 10),
+      g("C", "D", 22, 10),
+    ]);
+    expect(order.slice(0, 2)).toEqual(["C", "B"]);
+  });
+
   it("a level game is no win for either side", () => {
     const order = rankSession(seats, [g("A", "B", 12, 12)]);
     expect(order).toEqual(seats);

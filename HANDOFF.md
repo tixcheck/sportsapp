@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0165`, and every one of `0060`–`0165` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0166`, and every one of `0060`–`0166` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -1703,11 +1703,16 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 0165. Oct 13: 5 `alignment_sessions`, 75 round-0 games. D'Youville 6:15 (ranks 21–26) → 7:30 (17–20 + 6:15's top two)
 → 8:40 (13–16 + 7:30's top two); North Park 8:00 (7–12); Notre Dame 8:30 (1–6). Climbers move up automatically when
 a session's last score is completed. The organizer card ("Alignment night", above the schedule) shows the 1–26 ranking once
-all five sessions are done, and "Seat Round 1 tiers" sets tiers and seeds. **Unconfirmed with Indru:** the ranking rule
-in `place_ranks` (see PROGRESS), 8:40 vs 8:45 at D'Youville, which tier plays where, games for the 4-team tiers.
-**INDY 1** was created by us (status pending_waiver); "Ball Buster" (pending_payment) looks like a duplicate of Ball
-Busters and is not in the night. **Round 1 (Oct 20)** still needs ladder settings (4-week rounds, 35-minute slots) after
-seating.
+all five sessions are done, and "Seat Round 1 tiers" sets tiers and seeds. **Confirmed by Indru 2026-10-10:** session
+tiebreak wins → head to head → h2h +/− → overall +/− (0166); NP's top 2 swap with ND's bottom 2 and DY 8:40's top 2 with
+NP's bottom 2 (`place_ranks` ND 1–4,7,8 · NP 5,6,9,10,13,14 · DY8:40 11,12,15–18); D'Youville sessions are 70 min (13-min
+rounds), 8:40 start stays. **INDY 1** was created by us, empty (pending_waiver). V (Veteun) is to put its individual
+sign-ups on THAT team, not make a new one. "Ball Buster" (pending_payment) is a duplicate that will likely drop. Not in
+the night. **Round 1 (Oct 20):** 4-week round; B/C/D rotate D'Youville 6:15 → D'Youville 8:10 → North Park 8:00 (every
+team one early start at least); A and E at Jim Archdekin 6:00/8:00, rotating. 6-team tiers play triples Oct 20/Nov 3 and
+doubles Oct 27/Nov 10. 4-team tiers play three doubles + one triple (9 games, each pair 3×). Needs a 4-week grid style. The
+NS convenor may switch to 21-point games. Note: re-running `apply-0165.ts` now fails (0166 changed the function return
+types). That's harmless, but it's not a re-run target any more.
 
 ## BVL 2026/27 gym permits (loaded 2026-10-07)
 
