@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { teamNameError } from "@/lib/teams/name-errors";
 import { offerNextWaitlistSpot } from "@/server/actions/waitlist";
+import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
 import { sendCaptainInvite, sendTeammateInvite } from "@/lib/email/send";
@@ -523,7 +524,9 @@ export async function inviteTeammateAction(
  */
 export async function removeTeamAction(
   teamId: string,
-): Promise<ActionError | { removed: true; needsRedraw: boolean }> {
+): Promise<
+  ActionError | { removed: true; needsRedraw: boolean; openSeats: number }
+> {
   const supabase = await createClient();
   const guard = await assertTeamAdmin(supabase, teamId);
   if ("error" in guard) return guard;
@@ -545,9 +548,54 @@ export async function removeTeamAction(
     .from("matches")
     .select("id", { count: "exact", head: true })
     .eq("competition_id", team.competitionId);
-  const needsRedraw = (anyMatches ?? 0) > 0;
+  const hasSchedule = (anyMatches ?? 0) > 0;
+
+  // A drawn ladder or an alignment night (0165) isn't a generator's output —
+  // there is nothing to redraw it from. Removing a team used to wipe one
+  // anyway: BVL Non-Spiking lost all 75 alignment-night games, the night
+  // before, when an unused placeholder team was removed. Keep the games; the
+  // team's seats go TBD (matches' team FKs are SET NULL).
+  const handBuilt =
+    hasSchedule && (await isHandBuiltSchedule(supabase, team.competitionId));
+  const needsRedraw = hasSchedule && !handBuilt;
+
+  let openSeats = 0;
+  if (handBuilt) {
+    const { count } = await supabase
+      .from("matches")
+      .select("id", { count: "exact", head: true })
+      .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`);
+    openSeats = count ?? 0;
+    // Its alignment seats empty too, so a session doesn't rank a ghost.
+    const { data: sessions } = await supabase
+      .from("alignment_sessions")
+      .select("id, seeds")
+      .eq("competition_id", team.competitionId)
+      .contains("seeds", [teamId]);
+    for (const sess of sessions ?? []) {
+      const { error } = await supabase
+        .from("alignment_sessions")
+        .update({
+          seeds: (sess.seeds as (string | null)[]).map((id) =>
+            id === teamId ? null : id,
+          ),
+        })
+        .eq("id", sess.id);
+      if (error) return { error: error.message };
+    }
+  }
 
   if (needsRedraw) {
+    // Snapshot first, and abort if it fails: a wiped schedule must always be
+    // one click from coming back.
+    const snap = await captureRestorePoint(supabase, {
+      competitionId: team.competitionId,
+      reason: "schedule_erased",
+      label: `Before removing ${team.name}`,
+    });
+    if ("error" in snap) {
+      return { error: `Could not save a restore point: ${snap.error}` };
+    }
     // Discard the stale schedule + pools (nulls every team's pool_id) so nothing
     // is half-broken; the organizer redraws from the smaller field.
     const { error: delMatches } = await supabase
@@ -574,7 +622,26 @@ export async function removeTeamAction(
   await offerNextWaitlistSpot(team.competitionId, team.divisionId ?? null);
 
   revalidatePath("/orgs");
-  return { removed: true, needsRedraw };
+  return { removed: true, needsRedraw, openSeats };
+}
+
+/** A schedule the generator didn't make and can't remake: a ladder, an alignment night. */
+async function isHandBuiltSchedule(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<boolean> {
+  const [{ data: settings }, { count: sessions }] = await Promise.all([
+    supabase
+      .from("league_settings")
+      .select("ladder_enabled")
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("alignment_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("competition_id", competitionId),
+  ]);
+  return settings?.ladder_enabled === true || (sessions ?? 0) > 0;
 }
 
 /**

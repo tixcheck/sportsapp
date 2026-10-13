@@ -1647,6 +1647,8 @@ export const alignmentSessions = pgTable(
       (): AnyPgColumn => alignmentSessions.id,
       { onDelete: "set null" },
     ),
+    /** How many of the last seats climb in from `climbFrom` (0167). */
+    climbers: integer("climbers").notNull().default(2),
     /** Overall rank per finishing place; null = climbs to the next session. */
     placeRanks: integer("place_ranks").array().notNull(),
     fixtures: jsonb("fixtures")

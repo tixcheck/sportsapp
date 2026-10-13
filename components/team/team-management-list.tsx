@@ -673,7 +673,9 @@ function RemoveDialog({
       toast.success(
         res.needsRedraw
           ? "Team removed — redraw pools to rebuild the schedule."
-          : "Team removed.",
+          : res.openSeats > 0
+            ? `Team removed. Its ${res.openSeats} game${res.openSeats === 1 ? "" : "s"} now show TBD on the schedule.`
+            : "Team removed.",
       );
       setOpen(false);
       onDone();
@@ -695,7 +697,9 @@ function RemoveDialog({
             exists, removing this team{" "}
             <strong>discards the current pools and schedule</strong> — including
             any manual time/court tweaks — so you can redraw for the smaller
-            field. Surviving teams keep their seeds.
+            field (a restore point is saved first). A ladder or alignment-night
+            schedule is kept instead: this team&apos;s games show TBD. Surviving
+            teams keep their seeds.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

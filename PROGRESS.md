@@ -5,6 +5,47 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-13 — NS alignment night rebuilt; removing a team no longer wipes a hand-built schedule (0167)
+
+**What happened.** V removed two Non-Spiking teams in the app the night
+before alignment night: INDY 1 (it doesn't exist; she'd made it while trying
+the system) and the Ball Buster duplicate. `removeTeamAction` discards the
+whole schedule whenever one exists, on the assumption the organizer
+regenerates a round robin. The dialog did say so. All 75 alignment-night
+games went, with no restore point and no audit row. Reverse 4s and Women's
+were untouched.
+
+**Fix in the app.** In a ladder league or one with alignment sessions,
+removing a team now keeps the schedule. The team's games show TBD (team FKs
+are SET NULL) and its alignment seats are emptied. Everywhere else, a
+restore point is captured before the wipe, and the action aborts if it
+can't be.
+
+**25 teams, Indru's plan (2026-10-12):** "Top Gun will come at 6:15. So we'll
+have six in the first session then keep three for the subsequent session."
+0167 adds `alignment_sessions.climbers` (default 2): how many of a session's
+last seats are filled from the session it climbs from. It's stored, not
+inferred from null seats, because the seats stop being null once filled and a
+corrected upstream score must still re-seat them.
+
+**Live state:**
+- D'Youville 6:15 is Top Gun (#20) plus 21–24 and 26, with places 4–6 → 23–25.
+- 7:30 is ranks 17–19 plus the 6:15's top 3.
+- 8:40 is unchanged.
+- 75 games were rebuilt (D'Youville on 13-minute rounds).
+- One transaction applied 0167 and rebuilt everything. Its dry run played the
+  whole night on the real data first: top 3, then top 2 climbed, 25 distinct
+  ranks.
+
+**Also:**
+- Reverse 4s and NS now score two games to 25, win by 2, cap 27 (BVL's sheet).
+  Reverse 4s had been win by 1 with no cap, which would have rejected 27–25.
+- `suggestTierSizes` gives an odd count one 5-team tier just above the bottom
+  (25 → 4, 6, 6, 5, 4). Indru: Round 1 runs 4-6-6-5-4 unless a 26th team turns
+  up.
+
+---
+
 ## 2026-10-11 — Alignment night: Indru's answers applied (0166)
 
 Indru confirmed the night's rules (email, Oct 10):

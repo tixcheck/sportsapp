@@ -151,6 +151,8 @@ describe("suggestTierSizes", () => {
     expect(suggestTierSizes(26)).toEqual([4, 6, 6, 6, 4]);
     expect(suggestTierSizes(24)).toEqual([6, 6, 6, 6]);
     expect(suggestTierSizes(22)).toEqual([6, 6, 6, 4]);
+    // Odd: one tier of 5 just above the bottom.
+    expect(suggestTierSizes(25)).toEqual([4, 6, 6, 5, 4]);
     for (const n of [5, 7, 9, 13, 17, 23, 31, 53]) {
       const s = suggestTierSizes(n);
       expect(s.reduce((a, b) => a + b, 0)).toBe(n);

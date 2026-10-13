@@ -175,6 +175,12 @@ export function suggestTierSizes(teams: number): number[] {
       return ends.length === 2 ? [4, ...sixes, 4] : [...sixes, ...ends];
     }
   }
+  // An odd count can't be all 4s and 6s: one tier of 5, just above the
+  // bottom (BVL Non-Spiking's 25 → 4, 6, 6, 5, 4).
+  if (teams % 2 === 1 && teams >= 9) {
+    const rest = suggestTierSizes(teams - 5);
+    return [...rest.slice(0, -1), 5, rest[rest.length - 1]];
+  }
   const sixes = Array(Math.floor(teams / 6)).fill(6);
   const rest = teams % 6;
   return rest >= 2 ? [...sixes, rest] : [...sixes.slice(1), 6 + rest];

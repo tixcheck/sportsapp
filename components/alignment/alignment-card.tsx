@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import { SeatTiersForm } from "./seat-tiers-form";
 
+const ORDINALS = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
+
 /**
  * The organizer's view of an alignment night (0165): each session filling in
  * as onsites enter scores, climbers moving up on their own, then the night's
@@ -104,7 +106,7 @@ function SessionTable({
             <tr key={x.letter} className="border-border border-t">
               <td className="py-1">–</td>
               <td className="text-muted-foreground py-1 italic" colSpan={4}>
-                {i === 0 ? "1st" : "2nd"} from the{" "}
+                {ORDINALS[i] ?? `#${i + 1}`} from the{" "}
                 {s.climbFromStartsAt ? time(s.climbFromStartsAt) : "earlier"}{" "}
                 session
               </td>
