@@ -5,6 +5,26 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-13 — Organizers can message their players; waiver-pending teams get messages (0169)
+
+Indru (BVL convenor, org role 'organizer'): "how do we access it? … Need to
+send something before making rule changes otherwise teams will be confused."
+"Send a message" was owner/admin only, so the convenors couldn't use it.
+
+- **Organizers can send.** An org organizer already has full access to
+  every competition in the org (0029). The button shows for them,
+  `sendOrgMessageAction` accepts them, and 0169 lets them log and read
+  `org_messages` (`is_org_member`, insert only as themselves). Rehearsed as
+  a BVL organizer: logging failed before and works after. Organizers can
+  read players' emails, so their sends reach people.
+- **Teams finishing a roster or waivers now get messages.** Recipients were
+  `status = 'active'` only, which left out 28 of BVL's 110 teams (97
+  players): paid, on the schedule, and exactly who a rule-change notice is
+  for. It's now `active` + `pending_waiver`. Unpaid (`pending_payment`) and
+  withdrawn teams are still excluded, as before.
+
+---
+
 ## 2026-10-13 — Draft board saves big leagues
 
 V (BVL) couldn't save Thursday's draft after adding a second INDY team: "Too

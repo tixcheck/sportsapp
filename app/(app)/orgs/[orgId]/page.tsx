@@ -112,7 +112,7 @@ export default async function OrgPage({
         <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
           {org.name}
         </h1>
-        {isOrgAdmin && (
+        {(isOrgAdmin || myRole === "organizer") && (
           <ComposeMessageDialog orgId={orgId} competitions={messageable} />
         )}
       </div>

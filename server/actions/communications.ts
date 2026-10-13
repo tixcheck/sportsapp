@@ -85,8 +85,12 @@ export async function sendOrgMessageAction(
     .eq("user_id", user.id)
     .maybeSingle();
   const role = (membership as { role?: string } | null)?.role;
-  if (role !== "owner" && role !== "admin") {
-    return { error: "Only an organization admin can send messages." };
+  // Organizers run the divisions and already have full access to every event
+  // in the org (0029), so they message their players too (0169).
+  if (role !== "owner" && role !== "admin" && role !== "organizer") {
+    return {
+      error: "Only the organization's admins and organizers can send messages.",
+    };
   }
 
   // Every selected competition must belong to THIS org. Without this an admin
@@ -118,8 +122,11 @@ export async function sendOrgMessageAction(
       validComps.map((c) => c.id),
     )
     // Withdrawn teams have left, and an unpaid team isn't in yet. Neither
-    // should receive "see you Tuesday".
-    .eq("status", "active");
+    // should receive "see you Tuesday". A team still finishing its roster or
+    // waivers IS in — it's paid and on the schedule — and is exactly who a
+    // rule-change notice is for: "active" alone left out 28 of BVL's 110
+    // teams (97 players) on 2026-10-13.
+    .in("status", ["active", "pending_waiver"]);
   const teamIds = (teams ?? []).map((t) => t.id as string);
   if (teamIds.length === 0) {
     return { error: "There are no teams in those events yet." };
