@@ -5,6 +5,52 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-13 — Scorekeepers: scores only, one league (0168)
+
+Indru (BVL), on giving onsites organizer access: "Is there only one level of
+admin access? … are they able to add/delete/view team or member information
+etc?" They were: the only way to let an onsite score was a league-organizer
+grant, which is the whole league.
+
+- **Data:** `competition_scorekeepers` (0168), added and removed by email by
+  any league admin (`grant_/revoke_/list_competition_scorekeeper`). A
+  scorekeeper is strictly less than an admin, so admins adding them can't
+  escalate. `can_enter_score` and `can_view_schedule` count scorekeepers, so
+  they see a gated league's schedule. Nothing else counts them.
+- **Rules** (`lib/scoring/entry-role.ts`, shared by the score action and the
+  score page):
+  - a scorekeeper's entry is final, with no captain confirmation;
+  - they can correct a final score;
+  - no abnormal-result override;
+  - game-day lock as for captains.
+- **The match guard (closes an old gap):** `matches_score_update` (0010) let
+  anyone who may score a game update ANY column. A captain could move their
+  own game's time, court or teams through the API (`rescheduleMatchAction`
+  has no admin check of its own). A BEFORE UPDATE trigger now lets a non-admin
+  change only `status`, and never set `is_abnormal`. It applies to direct
+  client writes only (`current_user = 'authenticated'`), so definer functions
+  (`place_bracket_winner`, `alignment_advance`) are unaffected.
+- **UI:**
+  - `/score/[competitionId]`: one night's games by start time, Enter / Edit
+    on each. Opens on tonight, else the next night (`pickScoreDay`).
+  - Dashboard "Keeping score" link.
+  - League → Settings → Admin → Scorekeepers. The Admin tab now shows for
+    every league admin; its other cards stay owner/admin-gated.
+- **Rehearsed (`apply-0168.ts`, rolled back) as a real non-BVL user made
+  scorekeeper of NS:**
+  - Allowed: sees the gated schedule (75 games, a stranger 0), enters a
+    score, and completing the 6:15 still fills the 7:30 through
+    `alignment_advance`.
+  - Blocked: moving a court, abnormal flag, renaming or deleting a team,
+    payments, emails, adding scorekeepers, admin.
+  - Sees no more roster rows than a stranger (rosters are public in a public
+    league).
+- Clicked through at 375px on the Test Org demo: scorekeeper → dashboard →
+  night → entry → final → back on the list; organizer's Scorekeepers card.
+  Demo restored.
+
+---
+
 ## 2026-10-13 — NS alignment night rebuilt; removing a team no longer wipes a hand-built schedule (0167)
 
 **What happened.** V removed two Non-Spiking teams in the app the night

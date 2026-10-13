@@ -1,3 +1,4 @@
+import { showEntryForm } from "@/lib/scoring/entry-role";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -23,11 +24,13 @@ export default async function MatchEntryPage({
   const match = await getMatchForEntry(matchId);
   if (!match) notFound();
 
-  // Admins can always enter/edit (organizer override). Captains/refs see the
+  // Admins and scorekeepers can always enter/edit. Captains/refs see the
   // form only before the score is final and when they're not the confirmer.
-  const showEntry =
-    match.canEnter &&
-    (match.isAdmin || (match.state !== "final" && !match.canConfirm));
+  const showEntry = showEntryForm(match.role, {
+    canEnter: match.canEnter,
+    final: match.state === "final",
+    awaitingMyConfirmation: match.canConfirm,
+  });
 
   // Organizers can undo a result that's been entered (or a match left mid-entry)
   // — but not for playoff matches, where it would desync the bracket.
@@ -48,6 +51,14 @@ export default async function MatchEntryPage({
             className="text-muted-foreground hover:underline"
           >
             ← Back to schedule
+          </Link>
+        )}
+        {match.role === "scorekeeper" && (
+          <Link
+            href={`/score/${match.competitionId}`}
+            className="text-muted-foreground hover:underline"
+          >
+            ← Back to all games
           </Link>
         )}
         <Link

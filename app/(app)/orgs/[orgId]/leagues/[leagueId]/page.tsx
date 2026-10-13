@@ -44,10 +44,15 @@ import {
 import { teamRegistrationStatus } from "@/lib/teams/registration-status";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
-import { getCompetitionAdmins } from "@/lib/queries/organizers";
+import {
+  getCompetitionAdmins,
+  getCompetitionScorekeepers,
+} from "@/lib/queries/organizers";
 import {
   addCompetitionAdminAction,
+  addScorekeeperAction,
   removeCompetitionAdminAction,
+  removeScorekeeperAction,
 } from "@/server/actions/organizers";
 import { SPORTS, findPresetId } from "@/lib/formats";
 import { AddTeamForm } from "@/components/league/add-team-form";
@@ -152,6 +157,7 @@ export default async function LeaguePage({
     waiverState,
     orgWaivers,
     alignment,
+    scorekeepers,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -167,6 +173,7 @@ export default async function LeaguePage({
     getCompetitionWaiverState(leagueId),
     getOrgWaivers(orgId),
     getAlignmentNight(leagueId),
+    getCompetitionScorekeepers(leagueId),
   ]);
 
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
@@ -957,6 +964,31 @@ export default async function LeaguePage({
 
   const settingsAdmin = (
     <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Scorekeepers</CardTitle>
+            <CardDescription>
+              Onsites who enter scores — and nothing else. They see this
+              league&apos;s schedule and can enter or fix any game&apos;s score;
+              they can&apos;t see rosters or contact details, or change teams,
+              the schedule or settings. They need an account first.
+            </CardDescription>
+          </div>
+          <Button asChild variant="outline" size="sm" className="shrink-0">
+            <Link href={`/score/${league.id}`}>Scorekeeper page</Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <OrganizerManager
+            rows={scorekeepers}
+            addAction={addScorekeeperAction.bind(null, league.id)}
+            removeAction={removeScorekeeperAction.bind(null, league.id)}
+            emptyText="No scorekeepers yet. Add one by email."
+          />
+        </CardContent>
+      </Card>
+
       {coOrgs.canManage && (
         <Card>
           <CardHeader>
@@ -1037,11 +1069,9 @@ export default async function LeaguePage({
             />
           ),
         },
-        // Every card in Admin is gated on canManage, so for anyone else the
-        // tab would open on nothing — worse than not offering it.
-        ...(coOrgs.canManage
-          ? [{ value: "admin", label: "Admin", content: settingsAdmin }]
-          : []),
+        // Scorekeepers are for every convenor; the rest of Admin is gated on
+        // canManage card by card.
+        { value: "admin", label: "Admin", content: settingsAdmin },
       ]}
     />
   );

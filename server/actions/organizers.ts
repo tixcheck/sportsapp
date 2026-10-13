@@ -72,3 +72,32 @@ export async function removeCompetitionAdminAction(
   revalidatePath("/orgs");
   return { ok: true };
 }
+
+/** Scorekeepers (0168): scores only, in one league. Any league admin may add. */
+export async function addScorekeeperAction(
+  competitionId: string,
+  email: string,
+): Promise<Result> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("grant_competition_scorekeeper", {
+    _competition_id: competitionId,
+    _email: email.trim(),
+  });
+  if (error) return { error: mapError(error.message) };
+  revalidatePath("/orgs");
+  return { ok: true };
+}
+
+export async function removeScorekeeperAction(
+  competitionId: string,
+  userId: string,
+): Promise<Result> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("revoke_competition_scorekeeper", {
+    _competition_id: competitionId,
+    _user_id: userId,
+  });
+  if (error) return { error: mapError(error.message) };
+  revalidatePath("/orgs");
+  return { ok: true };
+}

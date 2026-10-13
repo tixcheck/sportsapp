@@ -33,7 +33,10 @@ import {
 } from "@/components/dashboard/player-sections";
 import type { Sport } from "@/lib/formats";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
-import { getHelperCompetitions } from "@/lib/queries/organizers";
+import {
+  getHelperCompetitions,
+  getMyScorekeeping,
+} from "@/lib/queries/organizers";
 import { Button } from "@/components/ui/button";
 import { PendingInviteCard } from "@/components/dashboard/pending-invite-card";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
@@ -74,6 +77,7 @@ export default async function DashboardPage() {
     home,
     owedWaivers,
     poolSignups,
+    scorekeeping,
   ] = await Promise.all([
     getUserOrgs(),
     getMyCompetitions(),
@@ -83,6 +87,7 @@ export default async function DashboardPage() {
     getPlayerHome(),
     getMyOutstandingWaivers(),
     getMyPoolSignups(),
+    getMyScorekeeping(),
   ]);
   // One check for the page: whether address suggestions are configured at all.
   const addressAutocomplete = await addressAutocompleteAvailableAction();
@@ -120,6 +125,30 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-10">
+      {/* Scorekeepers (0168) come here at the gym, phone in hand: one tap to
+          the night's games. */}
+      {scorekeeping.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold">Keeping score</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {scorekeeping.map((c) => (
+              <Link
+                key={c.competitionId}
+                href={`/score/${c.competitionId}`}
+                className="border-border bg-surface hover:bg-muted flex items-center justify-between gap-3 rounded-lg border p-4"
+              >
+                <span className="text-foreground text-sm font-medium">
+                  {c.name}
+                </span>
+                <span className="text-claret shrink-0 text-sm font-medium">
+                  Enter scores →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {invites.length > 0 && (
         <section className="space-y-3">
           <h2 className="font-display text-lg font-semibold">

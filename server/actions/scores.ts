@@ -46,6 +46,11 @@ async function onMatchCompleted(
   // in-app. (notifyResult remains available in lib/notifications if re-enabled.)
 }
 import type { MatchFormat } from "@/lib/db/schema";
+import {
+  canEditFinal,
+  needsConfirmation,
+  scorerRole,
+} from "@/lib/scoring/entry-role";
 
 type ActionError = { error: string };
 
@@ -95,7 +100,10 @@ async function redirectAfterScore(
   supabase: Awaited<ReturnType<typeof createClient>>,
   competitionId: string,
   isAdmin: boolean,
+  isScorekeeper = false,
 ): Promise<string> {
+  // A scorekeeper goes back to the league's games, ready for the next one.
+  if (!isAdmin && isScorekeeper) return `/score/${competitionId}`;
   if (!isAdmin) return "/my-matches";
   const { data: comp } = await supabase
     .from("competitions")
@@ -154,9 +162,16 @@ export async function submitScoreAction(
     _competition_id: match.competition_id,
   });
   const isAdmin = isAdminData === true;
+  const { data: isScorekeeperData } = await supabase.rpc(
+    "is_competition_scorekeeper",
+    { _competition_id: match.competition_id },
+  );
+  const isScorekeeper = isScorekeeperData === true;
+  const role = scorerRole(isAdmin, isScorekeeper);
 
-  // A final score is locked for captains/refs, but an organizer can edit it.
-  if (match.status === "completed" && !isAdmin) {
+  // A final score is locked for captains/refs; an organizer or scorekeeper
+  // can edit it.
+  if (match.status === "completed" && !canEditFinal(role)) {
     return { error: "This score is final — ask the organizer to edit it." };
   }
 
@@ -279,7 +294,10 @@ export async function submitScoreAction(
 
   // An organizer's entry is authoritative — it completes immediately, with no
   // separate confirmation step, even when the competition requires confirmation.
-  const requiresConfirmation = comp.require_confirmation === true && !isAdmin;
+  const requiresConfirmation = needsConfirmation(
+    role,
+    comp.require_confirmation === true,
+  );
   await supabase
     .from("matches")
     .update({
@@ -307,6 +325,7 @@ export async function submitScoreAction(
     supabase,
     match.competition_id,
     isAdmin,
+    isScorekeeper,
   );
   return { success: true, requiresConfirmation, redirectTo };
 }

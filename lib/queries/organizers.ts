@@ -60,6 +60,52 @@ export async function getCompetitionAdmins(
   return { canManage: true, admins };
 }
 
+/** A league's scorekeepers (0168) — any league admin may see and manage them. */
+export async function getCompetitionScorekeepers(
+  competitionId: string,
+): Promise<OrganizerRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("list_competition_scorekeepers", {
+    _competition_id: competitionId,
+  });
+  return ((data ?? []) as CompAdminRow[]).map((r) => ({
+    userId: r.user_id,
+    name: r.display_name ?? null,
+    email: r.email ?? "",
+  }));
+}
+
+/** Leagues the signed-in user keeps score for, for their dashboard. */
+export async function getMyScorekeeping(): Promise<
+  { competitionId: string; name: string }[]
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("competition_scorekeepers")
+    .select("competition_id, competitions(name, status)")
+    .eq("user_id", user.id);
+  return (
+    (data ?? []) as unknown as {
+      competition_id: string;
+      competitions: { name: string; status: string } | null;
+    }[]
+  )
+    .filter(
+      (r) =>
+        r.competitions &&
+        r.competitions.status !== "completed" &&
+        r.competitions.status !== "cancelled",
+    )
+    .map((r) => ({
+      competitionId: r.competition_id,
+      name: r.competitions!.name,
+    }));
+}
+
 export interface HelperCompetition {
   competitionId: string;
   name: string;

@@ -1,3 +1,8 @@
+import {
+  needsConfirmation,
+  scorerRole,
+  type ScorerRole,
+} from "@/lib/scoring/entry-role";
 import type { Sport } from "@/lib/formats";
 import { createClient } from "@/lib/supabase/server";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
@@ -279,6 +284,8 @@ export interface MatchEntryData {
   canConfirm: boolean;
   /** The viewer administers this competition — may enter/edit any match. */
   isAdmin: boolean;
+  /** admin / scorekeeper (0168) / player — what this viewer may do. */
+  role: ScorerRole;
   /** Recorded via the organizer override (abandoned/injury). */
   isAbnormal: boolean;
   /** Future-dated game a non-admin can't score yet — locked until game day. */
@@ -310,6 +317,7 @@ export async function getMatchForEntry(
     { data: comp },
     { data: canEnterData },
     { data: isAdminData },
+    { data: isScorekeeperData },
     { data: teams },
     { data: sets },
     { data: confs },
@@ -323,6 +331,9 @@ export async function getMatchForEntry(
       .single(),
     supabase.rpc("can_enter_score", { _match_id: matchId }),
     supabase.rpc("is_competition_admin", { _competition_id: m.competition_id }),
+    supabase.rpc("is_competition_scorekeeper", {
+      _competition_id: m.competition_id,
+    }),
     supabase
       .from("teams")
       .select("id, name")
@@ -375,12 +386,17 @@ export async function getMatchForEntry(
     .reverse()
     .find((c) => c.action === "submitted")?.captain_user_id;
   const isAdmin = isAdminData === true;
+  const role = scorerRole(isAdmin, isScorekeeperData === true);
   // A future-dated game is locked for non-admins until game day.
   const futureLocked = !isAdmin && isFutureMatch(m.scheduled_at, comp.timezone);
   const canEnter = canEnterData === true && !futureLocked;
-  // An organizer's entry is authoritative — no confirmation step, and they can
-  // edit a final score. Captains still go through require_confirmation.
-  const requireConfirmation = comp.require_confirmation === true && !isAdmin;
+  // An organizer's or scorekeeper's entry is authoritative — no confirmation
+  // step, and they can edit a final score. Captains still go through
+  // require_confirmation.
+  const requireConfirmation = needsConfirmation(
+    role,
+    comp.require_confirmation === true,
+  );
   const canConfirm =
     requireConfirmation &&
     state === "pending" &&
@@ -416,6 +432,7 @@ export async function getMatchForEntry(
     canEnter,
     canConfirm,
     isAdmin,
+    role,
     isAbnormal: m.is_abnormal === true,
     futureLocked,
     bracketPosition: m.bracket_position,
