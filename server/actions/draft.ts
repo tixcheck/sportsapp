@@ -10,6 +10,8 @@ type ActionError = { error: string };
 
 const idSchema = z.string().uuid();
 
+const MAX_BOARD_TEAMS = 100;
+
 const boardSchema = z.object({
   competitionId: idSchema,
   teams: z
@@ -21,7 +23,14 @@ const boardSchema = z.object({
         playerIds: z.array(idSchema),
       }),
     )
-    .max(16),
+    // The board carries EVERY team in the league, drafted or not. 16 was
+    // Mango's scale; BVL Thursday has 55 and couldn't save its two INDY
+    // teams ("Too big: expected array to have <=16 items", 2026-10-13).
+    // A ceiling, not a rule: it only stops an absurd payload.
+    .max(
+      MAX_BOARD_TEAMS,
+      `A draft board can hold up to ${MAX_BOARD_TEAMS} teams.`,
+    ),
 });
 
 export type DraftBoardInput = z.input<typeof boardSchema>;

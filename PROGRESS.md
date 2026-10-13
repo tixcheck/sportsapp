@@ -5,6 +5,19 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-13 — Draft board saves big leagues
+
+V (BVL) couldn't save Thursday's draft after adding a second INDY team: "Too
+big: expected array to have <=16 items". The board sends every team in the
+league, drafted or not, and `saveDraftAction` capped it at 16 (Mango's
+scale). Thursday has 55. The cap is now 100.
+
+Checked before raising it: the save's `sync_draft_rosters` removes roster
+rows only for people who are in the pool and placed elsewhere. On Thursday
+that's nobody, so the 50-odd captain-registered rosters are untouched.
+
+---
+
 ## 2026-10-13 — Scorekeepers: scores only, one league (0168)
 
 Indru (BVL), on giving onsites organizer access: "Is there only one level of
