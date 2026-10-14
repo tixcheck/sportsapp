@@ -63,7 +63,7 @@
     | `0152` | Oct 6 | `payment_method` += `cash`, `other`; `record_offline_payment(team, method, amount, note)` — organizer-only "Record payment" |
     | `0153` | Oct 6 | `record_offline_payment` takes `_livemode` (0152's rows defaulted to false and were invisible on the live deployment) and refuses a second recording once the fee is covered. Repaired Helix: 3 duplicate Cristiane/Rafael e-transfer rows → 1, live |
     | `0154` | Oct 7 | `settings_changes` + `trg_record_settings_change` on league/tournament/reverse_pairs/payment settings and competitions: one row per tracked field that actually changed, with `changed_by = auth.uid()` (null = script/support). Organizer-readable. Shown as Settings → History (leagues), bottom of Settings (tournaments), Event tab (Reverse Pairs) |
-    | `0155` | Oct 7 | Gym permits: `venue_permits` (gym, weekday, courts + labels, hours, season) and `venue_permit_dates` (cancelled / pending_cancel / cancel_requested / changed hours, with notes). Org members read, org admins write. `courtsOnDate` (lib/venues/permits.ts) is the rule; BVL's loaded by `lib/db/load-bvl-permits-2026.ts` |
+    | `0155` | Oct 7 | Gym permits: `venue_permits` (gym, weekday, courts + labels, hours, season) and `venue_permit_dates` (cancelled / pending_cancel / cancel_requested / changed hours, with notes). Org members read, org admins write. `courtsOnDate` (lib/venues/permits.ts) is the rule; BVL's loaded by `lib/db/load-bvl-permit-pdfs-2026.ts` (approved PDFs, 2026-10-14; replaced the workbook load) |
     | `0156` | Oct 7 | Gym permits readable by org members OR platform admins, writable via `can_manage_org` — 0155 hid BVL's permits from the platform owner, who isn't a BVL member |
     | `0157` | Oct 7 | BVL rounds: `league_settings.ladder_round_weeks` (default 1), `ladder_draw` may be `'bvl_round'`, and `ladder_tier_nights` (tier × week → gym, slot times, court labels; read via `can_view_competition`, write via `is_competition_admin`). Lock only on a round's last week, ranking every game in it. BVL Women's Wednesday on it since 2026-10-10 (see BVL section) |
     | `0158` | Oct 7 | `league_settings.schedule_views text[]` — which schedule views a league offers, first = default; null = the default set. Mango Coed: `{tier,court}` |
@@ -1743,26 +1743,30 @@ doubles Oct 27/Nov 10. 4-team tiers play three doubles + one triple (9 games, ea
 NS convenor may switch to 21-point games. Note: re-running `apply-0165.ts` now fails (0166 changed the function return
 types). That's harmless, but it's not a re-run target any more.
 
-## BVL 2026/27 gym permits (loaded 2026-10-07)
+## BVL 2026/27 gym permits (approved PDFs, loaded 2026-10-14)
 
-From the organizer's "PERMIT AVAILABILITY 2026-2027" workbook (Drive link the
-owner made public). Extracted to `lib/db/data/bvl-permits-2026.json`, loaded by
-`lib/db/load-bvl-permits-2026.ts --write` (idempotent, `source =
-bvl-permits-2026`): **21 permits, 133 date exceptions** — Tue 6 gyms/14 courts
-(Oct 13–Apr 27), Wed 5/14 (Oct 14–Apr 28), Thu 9/20 (Oct 15–Apr 22), Fri
-pickup Notre Dame 3 (Oct 16–Apr 30). Colours: green available, red cancelled,
-yellow going to cancel, orange cancel requested, break bands = off. Shown on the
-org page ("Gym permits").
-**Open:** (1) ~~Edmund Campion / Sandalwood Heights addresses~~ — done by
-Vee 2026-10-07: she entered **St. Edmund Campion Secondary School** herself (the
-loader's duplicate was merged into hers, permit moved) and filled in **Sandalwood
-Heights Secondary School**; the loader now maps to those names. (2) Terry Miller
-Wed **Apr 28** is an "X" in magenta, a colour the legend doesn't list — loaded
-as cancelled, confirm. (3) Sandalwood Heights Wed is cancelled every week until
-Mar 31. (4) Each league's `court_list` still lists all 13 gyms; the schedule
-builder doesn't read permits yet — that's the next step, with the tier lists
-BVL hasn't sent. (5) Tuesday permits run to **Apr 27** but the leagues end
-Apr 20 (Wed Apr 28 vs Apr 21) — ask which is right.
+**Source of truth is now the 19 approved permit PDFs** (City of Brampton rental
+agreements FA-157252..5; Peel DSB and Dufferin-Peel CDSB board permits), shared
+2026-10-14. Extracted to `lib/db/data/bvl-permit-pdfs-2026.json`, loaded by
+`lib/db/load-bvl-permit-pdfs-2026.ts --write` (`source = bvl-permit-pdfs-2026`):
+**25 permits, 73 date exceptions**. It replaced the Oct 7 workbook load
+(`bvl-permits-2026`, 21 permits). The workbook was wrong where it mattered:
+Terry Miller is 6–10 (it said 6:30–10:30, and Thursday Oct 15 was built on it),
+St. Thomas Aquinas Thursday is 8:15–10 and ends Dec 17, St. Thomas Aquinas Wed
+and Marguerite Tue are two bookings (6:15–8 + 8:15–10, so 8:00–8:15 is
+unpermitted), Chinguacousy Thu Oct 22 is cancelled. Court counts and labels
+aren't on the permits; the loader keeps them from the workbook rows.
+How the loader reads a permit: weeks inside a permit's range that the PDF
+doesn't book, or marks Cancelled, become `cancelled`. Back-to-back bookings are
+merged (Chinguacousy 6–8 + 8–10). Jim Archdekin Court C is two permits, 8–10
+until mid-March and 6–10 after. The document for BVL is generated from the same
+data (Desktop "BVL Gym Permits 2026-27.pdf").
+**Open:** (1) Women's Wed Oct 21 has 8:10 starts at Campion, Marguerite and
+St. Thomas Aquinas, but the permits start at 8:15. (2) Thursday alignment week 2
+(Oct 22) can't use Chinguacousy. (3) City permits still book break nights
+(Dec 22/29, Mar 16–18, the last week of April) that the workbook marked off;
+BVL may want to cancel them. (4) The schedule builder still doesn't read
+permits; check by hand (`lib/db/_tmp/permit-check.mts` checks every game).
 
 ## BVL AGM demo league (built 2026-09-28)
 

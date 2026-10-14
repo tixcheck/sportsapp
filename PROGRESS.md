@@ -5,6 +5,27 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — BVL's approved gym permits loaded; Terry Miller Thursday fixed
+
+- **Permits.** The 19 approved PDFs BVL holds were parsed (580 bookings) into
+  `lib/db/data/bvl-permit-pdfs-2026.json` and loaded by
+  `lib/db/load-bvl-permit-pdfs-2026.ts`: 25 permits and 73 cancelled or
+  changed dates. They replace the Oct 7 workbook, which had 119 date-level
+  differences from the real permits (details in HANDOFF). A 10-page document
+  for BVL covers what needs attention, a summary of every permit, a calendar
+  for each night, the workbook differences and the sources.
+- **Why replace rather than merge:** the permits are what the City and the
+  boards actually granted. The workbook was BVL's plan, and it was wrong on
+  hours for 3 gyms. Only court counts and labels come from the workbook,
+  because the permits don't state them.
+- **Thursday Oct 15 at Terry Miller:**
+  - the 9:30 session had 2 climbers where the sheet says 1, so it is now 4
+    teams on BVL's 2-court sheet (8:30 ranks 49–51);
+  - the whole gym moved 30 minutes earlier to fit the 6–10 permit.
+  - Every one of the 344 BVL games was checked against the permits. Nothing
+    conflicts on Oct 15; Women's Oct 21 has 8:10 starts where the permits
+    start at 8:15.
+
 ## 2026-10-14 — Ladder weeks lock and draw themselves overnight (0171)
 
 Owner: "why do an org have to click lock and draw new week? … If all scores

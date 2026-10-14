@@ -1,0 +1,663 @@
+{
+  "source": "BVL approved permit PDFs, shared 2026-10-14",
+  "permits": [
+    {
+      "venue": "Cassie Campbell Community Centre",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "18:30",
+      "end": "22:30",
+      "startsOn": "2026-10-22",
+      "endsOn": "2027-04-29",
+      "permitNumbers": ["FA-157253"],
+      "exceptions": [
+        {
+          "date": "2026-10-29",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Chinguacousy Secondary School",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-04-22",
+      "permitNumbers": ["2026-09-23-0032", "2026-09-23-0033"],
+      "exceptions": [
+        {
+          "date": "2026-10-22",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-11-26",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-18",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-25",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Gore Meadow Community Centre",
+      "label": null,
+      "dayOfWeek": 2,
+      "start": "20:00",
+      "end": "22:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-04-27",
+      "permitNumbers": ["FA-157255"],
+      "exceptions": []
+    },
+    {
+      "venue": "Gore Meadow Community Centre",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "20:00",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-04-29",
+      "permitNumbers": ["FA-157255"],
+      "exceptions": [
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Jim Archdekin Recreation Centre",
+      "label": "Court C",
+      "dayOfWeek": 2,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2027-03-16",
+      "endsOn": "2027-04-27",
+      "permitNumbers": ["FA-157252"],
+      "exceptions": []
+    },
+    {
+      "venue": "Jim Archdekin Recreation Centre",
+      "label": "Court C",
+      "dayOfWeek": 2,
+      "start": "20:00",
+      "end": "22:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-03-09",
+      "permitNumbers": ["FA-157252"],
+      "exceptions": []
+    },
+    {
+      "venue": "Jim Archdekin Recreation Centre",
+      "label": "Court C",
+      "dayOfWeek": 4,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2027-03-18",
+      "endsOn": "2027-04-29",
+      "permitNumbers": ["FA-157252"],
+      "exceptions": []
+    },
+    {
+      "venue": "Jim Archdekin Recreation Centre",
+      "label": "Court C",
+      "dayOfWeek": 4,
+      "start": "20:00",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-03-11",
+      "permitNumbers": ["FA-157252"],
+      "exceptions": [
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Jim Archdekin Recreation Centre",
+      "label": "Courts A/B",
+      "dayOfWeek": 2,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-04-27",
+      "permitNumbers": ["FA-157252"],
+      "exceptions": []
+    },
+    {
+      "venue": "Jim Archdekin Recreation Centre",
+      "label": "Courts A/B",
+      "dayOfWeek": 4,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-04-29",
+      "permitNumbers": ["FA-157252"],
+      "exceptions": [
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "North Park Secondary School",
+      "label": null,
+      "dayOfWeek": 2,
+      "start": "20:00",
+      "end": "22:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-04-27",
+      "permitNumbers": ["2026-07-17-0003"],
+      "exceptions": [
+        {
+          "date": "2026-12-22",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-29",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-16",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Notre Dame Catholic Secondary School",
+      "label": null,
+      "dayOfWeek": 2,
+      "start": "18:15",
+      "end": "22:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-04-27",
+      "permitNumbers": ["2026-06-08-0112"],
+      "exceptions": [
+        {
+          "date": "2026-12-22",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-29",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-16",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Notre Dame Catholic Secondary School",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "18:15",
+      "end": "20:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-04-29",
+      "permitNumbers": ["2026-06-08-0135"],
+      "exceptions": [
+        {
+          "date": "2026-11-05",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-18",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-25",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Notre Dame Catholic Secondary School",
+      "label": null,
+      "dayOfWeek": 5,
+      "start": "19:30",
+      "end": "22:00",
+      "startsOn": "2026-09-25",
+      "endsOn": "2027-04-30",
+      "permitNumbers": ["2026-06-08-0130"],
+      "exceptions": [
+        {
+          "date": "2026-10-30",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-11-06",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-12-25",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-01-01",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-19",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-26",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Sandalwood Heights Secondary School",
+      "label": null,
+      "dayOfWeek": 3,
+      "start": "18:00",
+      "end": "20:00",
+      "startsOn": "2027-04-07",
+      "endsOn": "2027-04-28",
+      "permitNumbers": ["2026-08-17-0052"],
+      "exceptions": []
+    },
+    {
+      "venue": "St. Edmund Campion Secondary School",
+      "label": null,
+      "dayOfWeek": 3,
+      "start": "20:15",
+      "end": "22:00",
+      "startsOn": "2026-10-14",
+      "endsOn": "2027-04-28",
+      "permitNumbers": ["2026-06-08-0114"],
+      "exceptions": [
+        {
+          "date": "2026-11-04",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-30",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-17",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Marguerite d'Youville Secondary School",
+      "label": null,
+      "dayOfWeek": 2,
+      "start": "18:15",
+      "end": "20:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-04-27",
+      "permitNumbers": ["2026-06-08-0117"],
+      "exceptions": [
+        {
+          "date": "2026-12-22",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-29",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-16",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-04-20",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Marguerite d'Youville Secondary School",
+      "label": null,
+      "dayOfWeek": 2,
+      "start": "20:15",
+      "end": "22:00",
+      "startsOn": "2026-10-13",
+      "endsOn": "2027-04-13",
+      "permitNumbers": ["2026-06-08-0123"],
+      "exceptions": [
+        {
+          "date": "2026-12-22",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-29",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-16",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Marguerite d'Youville Secondary School",
+      "label": null,
+      "dayOfWeek": 3,
+      "start": "20:15",
+      "end": "22:00",
+      "startsOn": "2026-10-14",
+      "endsOn": "2027-04-28",
+      "permitNumbers": ["2026-08-17-0029"],
+      "exceptions": [
+        {
+          "date": "2026-12-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-30",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-17",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-04-21",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Marguerite d'Youville Secondary School",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "18:15",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-04-15",
+      "permitNumbers": ["2026-06-08-0108"],
+      "exceptions": [
+        {
+          "date": "2026-10-15",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-10-22",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-18",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-25",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Thomas Aquinas Catholic Secondary School",
+      "label": null,
+      "dayOfWeek": 3,
+      "start": "18:15",
+      "end": "20:00",
+      "startsOn": "2026-10-14",
+      "endsOn": "2027-04-28",
+      "permitNumbers": ["2026-06-08-0124"],
+      "exceptions": [
+        {
+          "date": "2026-10-21",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-10-28",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-12-02",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-12-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-30",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-17",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Thomas Aquinas Catholic Secondary School",
+      "label": null,
+      "dayOfWeek": 3,
+      "start": "20:15",
+      "end": "22:00",
+      "startsOn": "2026-10-14",
+      "endsOn": "2027-04-28",
+      "permitNumbers": ["2026-06-08-0125"],
+      "exceptions": [
+        {
+          "date": "2026-12-02",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        },
+        {
+          "date": "2026-12-23",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-30",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-17",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2027-03-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "St. Thomas Aquinas Catholic Secondary School",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "20:15",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2026-12-17",
+      "permitNumbers": ["2026-08-17-0113"],
+      "exceptions": [
+        {
+          "date": "2026-12-03",
+          "status": "cancelled",
+          "note": "Cancelled on the permit"
+        }
+      ]
+    },
+    {
+      "venue": "Terry Miller Recreation Centre",
+      "label": null,
+      "dayOfWeek": 3,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2026-10-14",
+      "endsOn": "2027-04-28",
+      "permitNumbers": ["FA-157254"],
+      "exceptions": []
+    },
+    {
+      "venue": "Terry Miller Recreation Centre",
+      "label": null,
+      "dayOfWeek": 4,
+      "start": "18:00",
+      "end": "22:00",
+      "startsOn": "2026-10-15",
+      "endsOn": "2027-04-29",
+      "permitNumbers": ["FA-157254"],
+      "exceptions": [
+        {
+          "date": "2026-12-24",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        },
+        {
+          "date": "2026-12-31",
+          "status": "cancelled",
+          "note": "Not booked on the permit"
+        }
+      ]
+    }
+  ]
+}
