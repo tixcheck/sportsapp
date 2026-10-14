@@ -1682,6 +1682,25 @@ The table's policy is unchanged.
 Rounds (10) and minutes (25) are placeholders; set them at draw time from the
 real field — 15 pairs on 2 courts balances at 5, 10 or 15 rounds.
 
+## BVL Thursday Co-ed 6s — alignment week 1 in the app (loaded 2026-10-14)
+
+Competition `0c1f9215-…`, 55 teams. Oct 15: 14 `alignment_sessions`, 160 round-0
+games, from BVL's "2026_thursday_alignment_v2.xlsx".
+- **Gyms:**
+  - Notre Dame 6:15 (1–6).
+  - Jim Archdekin 6:00/7:00 (4 teams, courts A/B), then 8:00/9:00 (6 teams, A/B/C).
+  - Chinguacousy hourly 6:00–9:00 (6 teams).
+  - St. Thomas Aquinas 8:15 (6 teams on 2 courts).
+  - Terry Miller 6:30/7:30/8:30 (4 teams), then 9:30 (5 teams).
+- **Climbing:** top 2 climb (`climbers = 2`) in every multi-session gym.
+- **Ranking:** `place_ranks` stack each gym top-down, with no swaps between gyms
+  (not confirmed by BVL; it's an UPDATE if they want swaps like Tuesday's).
+- **Grids:** `sessionGrid` in `lib/scheduler/alignment.ts`.
+- **Load:** `lib/db/_tmp/load-thu-alignment.ts`. It refuses to run if the league
+  has any games.
+- **Next:** the sheet says "two weeks of alignment". Week 2 (Oct 22) isn't
+  defined yet (d'Youville is cancelled that night), and Round 1 tiers come after it.
+
 ## BVL Women's Wednesday — on the round format (live 2026-10-10)
 
 `ladder_draw = 'bvl_round'`, `ladder_round_weeks = 2`, swaps `[2,2,2]`, Divisions A–D seated from

@@ -5,6 +5,41 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — BVL Thursday 6s: alignment week 1 loaded (Oct 15), 4- and 5-team sessions
+
+Owner sent BVL's "2026_thursday_alignment_v2.xlsx" and said: "Build the
+schedule as its shown in the sheet." 55 teams, five gyms, all of them
+registered (six names spelled differently on the sheet; mapped by hand in
+`lib/db/_tmp/load-thu-alignment.ts`).
+
+- **New grids** (`lib/scheduler/alignment.ts`, `sessionGrid`). Until now every
+  session was six teams on three courts (Schedule B). Thursday also has:
+  - 4 teams on 2 courts: BVL's own "Schedule- 2 courts" sheet from the
+    2025/26 Thursday file (A–B C–D, A–C B–D, A–D B–C; 10' warm-up, 16' games).
+  - 5 teams on 2 courts (Terry Miller 9:30): a plain round robin, one bye
+    each. BVL has no sheet for it.
+  - 6 teams on 2 courts (St. Thomas Aquinas 8:15): Schedule B's 15 games in
+    order, two at a time, so 8 rounds of 12'.
+  The database side (`alignment_advance`, standings, ranking) never assumed
+  six seats, so no migration was needed.
+- **Loaded live:** 14 sessions, 160 games. Notre Dame 6:15 (ranks 1–6), Jim
+  Archdekin 6:00→7:00→8:00→9:00 (7–20), Chinguacousy hourly 6:00–9:00
+  (21–38), St. Thomas Aquinas 8:15 (39–44), Terry Miller hourly 6:30–9:30
+  (45–55). Top 2 climb in every multi-session gym. Hourly 6-team sessions
+  are 5' + 5 × 11', so they fit in the hour the sheet gives them.
+- **`place_ranks` stack each gym top-down, with no swaps between gyms.** The
+  sheet doesn't say how sessions combine. Last year's sheets carried rank
+  numbers that collided (copied formulas), so stacking is the only reading
+  consistent with the seeds. It's data, so changing it is an UPDATE.
+- The dry run played the whole night: every climb filled, 55 distinct ranks,
+  and `alignment_ranking` returns 55 rows for the org owner.
+- Onsite printout: `lib/db/_tmp/print-thu.mts` (find-your-team, a sheet per
+  gym with score boxes).
+
+**Not covered by the sheet:** week 2 (Oct 22) and the Round 1 tiers after it.
+
+---
+
 ## 2026-10-13 — Organizers can message their players; waiver-pending teams get messages (0169)
 
 Indru (BVL convenor, org role 'organizer'): "how do we access it? … Need to

@@ -1,10 +1,11 @@
 /**
  * BVL's alignment night — the session grid. Pure: no DB, no clock.
  *
- * Every session is six teams lettered A–F by rank, playing "STANDARD SCHEDULE
- * B" from BVL's sheet: a 5-minute "explain process and warm up", then five
- * rounds of timed games on courts A, B and C. The 6-team rounds are a full
- * round robin — each team meets the other five once.
+ * A session is up to six teams lettered A–F by rank. Six teams on three
+ * courts play "STANDARD SCHEDULE B" from BVL's sheet: a 5-minute "explain
+ * process and warm up", then five rounds of timed games on courts A, B and C.
+ * Smaller gyms use the other grids below (`sessionGrid`). Every grid is a full
+ * round robin — each team meets every other team in its session once.
  *
  * Ranking a finished session (wins, head to head, then +/-; see rankSession)
  * and moving its top two up happen in the database (`alignment_advance`,
@@ -61,11 +62,109 @@ export interface AlignmentFixture {
 }
 
 /**
- * A session's games: Schedule B, courts a/b/c, each round `gameMinutes`
- * apart after the warm-up. BVL's sheets give 13–15 minute games; NS's says 14.
+ * Four teams on two courts — BVL Thursday's "Schedule- 2 courts" sheet
+ * (2025/26): a 10-minute warm-up, then three 16-minute rounds.
+ */
+export const SCHEDULE_4_TWO_COURTS: [string, string][][] = [
+  [
+    ["A", "B"],
+    ["C", "D"],
+  ],
+  [
+    ["A", "C"],
+    ["B", "D"],
+  ],
+  [
+    ["A", "D"],
+    ["B", "C"],
+  ],
+];
+
+/**
+ * Five teams on two courts (BVL Thursday 2026, Terry Miller 9:30). BVL has no
+ * sheet for it, so: a plain round robin, five rounds of two games, each team
+ * sitting out one round.
+ */
+export const SCHEDULE_5_TWO_COURTS: [string, string][][] = [
+  [
+    ["B", "E"],
+    ["C", "D"],
+  ],
+  [
+    ["A", "C"],
+    ["D", "E"],
+  ],
+  [
+    ["A", "E"],
+    ["B", "D"],
+  ],
+  [
+    ["A", "B"],
+    ["C", "E"],
+  ],
+  [
+    ["A", "D"],
+    ["B", "C"],
+  ],
+];
+
+/**
+ * Six teams on two courts (BVL Thursday 2026, St. Thomas Aquinas): Schedule
+ * B's fifteen games in Schedule B's order, two at a time — eight rounds, the
+ * last a single game.
+ */
+export const SCHEDULE_6_TWO_COURTS: [string, string][][] = [
+  [
+    ["A", "F"],
+    ["B", "E"],
+  ],
+  [
+    ["C", "D"],
+    ["A", "E"],
+  ],
+  [
+    ["B", "D"],
+    ["C", "F"],
+  ],
+  [
+    ["A", "D"],
+    ["B", "C"],
+  ],
+  [
+    ["E", "F"],
+    ["A", "C"],
+  ],
+  [
+    ["B", "F"],
+    ["D", "E"],
+  ],
+  [
+    ["A", "B"],
+    ["D", "F"],
+  ],
+  [["C", "E"]],
+];
+
+/** The grid for a session of `teams` teams on `courts` courts. */
+export function sessionGrid(
+  teams: number,
+  courts: number,
+): { error: string } | { grid: [string, string][][] } {
+  if (teams === 6 && courts >= 3) return { grid: SCHEDULE_B };
+  if (teams === 6 && courts === 2) return { grid: SCHEDULE_6_TWO_COURTS };
+  if (teams === 5 && courts >= 2) return { grid: SCHEDULE_5_TWO_COURTS };
+  if (teams === 4 && courts >= 2) return { grid: SCHEDULE_4_TWO_COURTS };
+  return { error: `No alignment grid for ${teams} teams on ${courts} courts.` };
+}
+
+/**
+ * A session's games: its grid's rounds on `courts` in order, each round
+ * `gameMinutes` apart after the warm-up. BVL's sheets give 13–15 minute games
+ * on three courts (NS's says 14) and 16 on two.
  */
 export function sessionFixtures(
   opts: {
+    teams?: number;
     gameMinutes?: number;
     warmupMinutes?: number;
     courts?: string[];
@@ -74,7 +173,9 @@ export function sessionFixtures(
   const game = opts.gameMinutes ?? 14;
   const warm = opts.warmupMinutes ?? 5;
   const courts = opts.courts ?? ["a", "b", "c"];
-  return SCHEDULE_B.flatMap((round, r) =>
+  const picked = sessionGrid(opts.teams ?? 6, courts.length);
+  if ("error" in picked) throw new Error(picked.error);
+  return picked.grid.flatMap((round, r) =>
     round.map(([home, away], c) => ({
       home,
       away,

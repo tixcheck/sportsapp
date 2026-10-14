@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SCHEDULE_4_TWO_COURTS,
+  SCHEDULE_6_TWO_COURTS,
   SCHEDULE_B,
   rankSession,
+  sessionGrid,
   seatTiers,
   suggestTierSizes,
   sessionFixtures,
@@ -46,6 +49,89 @@ describe("sessionFixtures", () => {
     expect(f.filter((x) => x.round === 5).map((x) => x.offsetMinutes)).toEqual([
       61, 61, 61,
     ]);
+  });
+});
+
+describe("sessionGrid", () => {
+  const letters = (n: number) => "ABCDEF".slice(0, n).split("");
+  const cases: [number, number, number][] = [
+    // teams, courts, rounds
+    [6, 3, 5],
+    [6, 2, 8],
+    [5, 2, 5],
+    [4, 2, 3],
+  ];
+
+  it.each(cases)(
+    "%i teams on %i courts: a full round robin in %i rounds, nobody twice in a round",
+    (teams, courts, rounds) => {
+      const picked = sessionGrid(teams, courts);
+      if ("error" in picked) throw new Error(picked.error);
+      const grid = picked.grid;
+      expect(grid).toHaveLength(rounds);
+      const pairs = grid.flat().map(([a, b]) => [a, b].sort().join(""));
+      expect(pairs).toHaveLength((teams * (teams - 1)) / 2);
+      expect(new Set(pairs).size).toBe(pairs.length);
+      for (const p of pairs) {
+        for (const l of p) expect(letters(teams)).toContain(l);
+      }
+      for (const round of grid) {
+        expect(round.length).toBeLessThanOrEqual(courts);
+        const playing = round.flat();
+        expect(new Set(playing).size).toBe(playing.length);
+      }
+    },
+  );
+
+  it("five teams: everyone sits out exactly one round", () => {
+    const picked = sessionGrid(5, 2);
+    if ("error" in picked) throw new Error(picked.error);
+    const sitting = picked.grid.map(
+      (round) => letters(5).filter((l) => !round.flat().includes(l))[0],
+    );
+    expect(sitting.sort()).toEqual(letters(5));
+  });
+
+  it("four teams follow BVL's 2-court sheet", () => {
+    expect(SCHEDULE_4_TWO_COURTS).toEqual([
+      [
+        ["A", "B"],
+        ["C", "D"],
+      ],
+      [
+        ["A", "C"],
+        ["B", "D"],
+      ],
+      [
+        ["A", "D"],
+        ["B", "C"],
+      ],
+    ]);
+  });
+
+  it("six on two courts plays Schedule B's games in Schedule B's order", () => {
+    expect(SCHEDULE_6_TWO_COURTS.flat()).toEqual(SCHEDULE_B.flat());
+  });
+
+  it("refuses a session it has no grid for", () => {
+    expect(sessionGrid(3, 2)).toHaveProperty("error");
+    expect(sessionGrid(6, 1)).toHaveProperty("error");
+  });
+
+  it("sessionFixtures puts a 4-team grid on the courts it's given", () => {
+    const f = sessionFixtures({
+      teams: 4,
+      courts: ["A", "B"],
+      warmupMinutes: 10,
+      gameMinutes: 16,
+    });
+    expect(f).toHaveLength(6);
+    expect(f.map((x) => x.court)).toEqual(["A", "B", "A", "B", "A", "B"]);
+    expect(f[f.length - 1].offsetMinutes).toBe(42);
+  });
+
+  it("sessionFixtures throws when there is no grid", () => {
+    expect(() => sessionFixtures({ teams: 6, courts: ["1"] })).toThrow();
   });
 });
 
