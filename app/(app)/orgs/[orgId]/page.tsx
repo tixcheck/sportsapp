@@ -9,7 +9,10 @@ import { getOrgReversePairs } from "@/lib/queries/reverse-pairs";
 import { getOrgWaivers } from "@/lib/queries/waivers";
 import { OrgWaiversCard } from "@/components/waivers/org-waivers-card";
 import { getUserOrgs } from "@/lib/auth/user";
-import { getOrgOrganizers } from "@/lib/queries/organizers";
+import {
+  getMyCompetitionGrants,
+  getOrgOrganizers,
+} from "@/lib/queries/organizers";
 import { getAccessState } from "@/lib/queries/access";
 import { getPaymentAccount } from "@/lib/queries/payments";
 import { paymentAccountStatus } from "@/lib/payments/account-status";
@@ -49,13 +52,14 @@ export default async function OrgPage({
   const org = await getOrg(orgId);
   if (!org) notFound();
   const permits = await getOrgPermits(orgId);
-  const [leagues, tournaments, kotc, reversePairs, orgs] = await Promise.all([
-    getOrgLeagues(orgId),
-    getOrgTournaments(orgId),
-    getOrgKotc(orgId),
-    getOrgReversePairs(orgId),
-    getUserOrgs(),
-  ]);
+  const [allLeagues, allTournaments, allKotc, allReversePairs, orgs] =
+    await Promise.all([
+      getOrgLeagues(orgId),
+      getOrgTournaments(orgId),
+      getOrgKotc(orgId),
+      getOrgReversePairs(orgId),
+      getUserOrgs(),
+    ]);
   const myRole = orgs.find((o) => o.id === orgId)?.role;
   const isOrgAdmin = myRole === "owner" || myRole === "admin";
 
@@ -71,6 +75,22 @@ export default async function OrgPage({
    */
   const access = await getAccessState();
   const canManageOrg = isOrgAdmin || access.isPlatformAdmin;
+  // Creating an event is owner/admin in RLS (competitions_insert_admin), so
+  // the "New …" buttons are too — an organizer's would only fail on save.
+  const canCreate = isOrgAdmin || access.isPlatformAdmin;
+
+  // A league organizer (competition_admins) runs single events, not the org:
+  // they see just those, and may message just those (0170). Everyone else
+  // keeps the full list — the org's public events are public anyway.
+  const grants =
+    myRole || access.isPlatformAdmin ? [] : await getMyCompetitionGrants(orgId);
+  const leagueOnly = grants.length > 0;
+  const mine = <T extends { id: string }>(xs: T[]) =>
+    leagueOnly ? xs.filter((x) => grants.includes(x.id)) : xs;
+  const leagues = mine(allLeagues);
+  const tournaments = mine(allTournaments);
+  const kotc = mine(allKotc);
+  const reversePairs = mine(allReversePairs);
 
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
   const waivers = canManageOrg ? await getOrgWaivers(orgId) : [];
@@ -112,7 +132,7 @@ export default async function OrgPage({
         <h1 className="font-display text-foreground text-2xl font-semibold tracking-tight">
           {org.name}
         </h1>
-        {(isOrgAdmin || myRole === "organizer") && (
+        {(isOrgAdmin || myRole === "organizer" || leagueOnly) && (
           <ComposeMessageDialog orgId={orgId} competitions={messageable} />
         )}
       </div>
@@ -126,7 +146,7 @@ export default async function OrgPage({
 
       <Section
         title="Leagues"
-        newHref={`/orgs/${orgId}/leagues/new`}
+        newHref={canCreate ? `/orgs/${orgId}/leagues/new` : undefined}
         newLabel="New league"
         emptyText="No leagues yet. Create one to add teams and generate a schedule."
         items={leagues}
@@ -135,7 +155,7 @@ export default async function OrgPage({
 
       <Section
         title="Tournaments"
-        newHref={`/orgs/${orgId}/tournaments/new`}
+        newHref={canCreate ? `/orgs/${orgId}/tournaments/new` : undefined}
         newLabel="New tournament"
         emptyText="No tournaments yet. Create one and open registration."
         items={tournaments}
@@ -144,7 +164,7 @@ export default async function OrgPage({
 
       <Section
         title="King of the Court"
-        newHref={`/orgs/${orgId}/kotc/new`}
+        newHref={canCreate ? `/orgs/${orgId}/kotc/new` : undefined}
         newLabel="New KotC"
         emptyText="No King of the Court events yet. Create one to add pairs and seed."
         items={kotc}
@@ -153,7 +173,7 @@ export default async function OrgPage({
 
       <Section
         title="Reverse Pairs"
-        newHref={`/orgs/${orgId}/reverse-pairs/new`}
+        newHref={canCreate ? `/orgs/${orgId}/reverse-pairs/new` : undefined}
         newLabel="New Reverse Pairs"
         emptyText="No Reverse Pairs events yet. Create one, add your pairs, and draw the night."
         items={reversePairs}
@@ -234,6 +254,9 @@ function Section({
   items: CompCard[];
   hrefFor: (c: CompCard) => string;
 }) {
+  // "No tournaments yet. Create one…" is an invitation only someone who can
+  // create should get.
+  if (items.length === 0 && !newHref) return null;
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">

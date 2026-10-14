@@ -45,9 +45,11 @@ import { teamRegistrationStatus } from "@/lib/teams/registration-status";
 import { getTeamRosters } from "@/lib/queries/roster";
 import { getTeamInvites } from "@/lib/queries/team-invites";
 import {
+  canMessageCompetitions,
   getCompetitionAdmins,
   getCompetitionScorekeepers,
 } from "@/lib/queries/organizers";
+import { ComposeMessageDialog } from "@/components/communications/compose-message-dialog";
 import {
   addCompetitionAdminAction,
   addScorekeeperAction,
@@ -176,6 +178,9 @@ export default async function LeaguePage({
     getCompetitionScorekeepers(leagueId),
   ]);
 
+  // Org members message from the org page; this is for anyone who runs this
+  // league, including a league organizer who can't see that page's tools.
+  const canMessage = await canMessageCompetitions(orgId, [leagueId]);
   const sportLabel = SPORTS.find((s) => s.value === league.sport)?.label;
   // Registration pricing. The payouts flag drives a "you can price it, but
   // nobody can pay yet" hint rather than hiding the card — an organizer should
@@ -1123,6 +1128,14 @@ export default async function LeaguePage({
               status={league.status}
               completable={endDatePassed(league.endDate, league.timezone)}
             />
+            {canMessage && (
+              <ComposeMessageDialog
+                orgId={orgId}
+                competitions={[
+                  { id: league.id, name: league.name, type: "league" },
+                ]}
+              />
+            )}
             <Button asChild variant="outline" size="sm">
               <Link href={`/print/qr/${league.id}`} target="_blank">
                 <QrCode className="size-4" />

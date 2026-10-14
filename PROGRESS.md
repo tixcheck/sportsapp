@@ -5,6 +5,38 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — League organizers can message their own league (0170); org page scoped for them
+
+Vince (BVL Thursday convenor, added as a league organizer that night): "Do I
+have email powers … Not showing for me." He couldn't, and neither could
+Natalie (Non-Spiking). Messaging was org members only (0169), and the button
+lives on the org page. That page also listed every BVL league to him, with a
+"New league" button the database refuses.
+
+- **0170 `administers_all_competitions(org, ids)`:** true only when every
+  event is in the org AND the user administers it. It gates the send action
+  and the `org_messages` insert/select policies. A league organizer can't
+  reach another league's players, can't mix one in, and only reads messages
+  that went entirely to events they run.
+- Rehearsed as the real accounts (`apply-0170.ts`, rolled back):
+  - Vince may log a Thursday message. He's refused for Wednesday, for
+    Thursday + Wednesday together, and for an empty list, and he can't log
+    as Natalie.
+  - Natalie can't read his message; an org organizer can.
+- **League page:** "Send a message" for anyone who runs that league, scoped
+  to it.
+- **Org page:**
+  - a league organizer sees only their events;
+  - "New …" buttons show only to owner/admin (the only roles RLS lets
+    create), which also removes the dead buttons org organizers had;
+  - empty sections are hidden for anyone who can't create.
+- **Compose dialog:** a long league name pushed it off a 375px screen,
+  hiding the checkbox (`min-w-0`, wrap instead of truncate).
+- Checked at 375px with the Test Org demo player made a league organizer:
+  1 league, no New buttons, a working dialog. Demo grant removed after.
+
+---
+
 ## 2026-10-14 — BVL Thursday 6s: alignment week 1 loaded (Oct 15), 4- and 5-team sessions
 
 Owner sent BVL's "2026_thursday_alignment_v2.xlsx" and said: "Build the

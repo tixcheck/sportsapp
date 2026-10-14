@@ -86,11 +86,19 @@ export async function sendOrgMessageAction(
     .maybeSingle();
   const role = (membership as { role?: string } | null)?.role;
   // Organizers run the divisions and already have full access to every event
-  // in the org (0029), so they message their players too (0169).
+  // in the org (0029), so they message their players too (0169). A league
+  // organizer (competition_admins) may message only events they run, every
+  // one of them (0170) — the same check RLS makes on the log row.
   if (role !== "owner" && role !== "admin" && role !== "organizer") {
-    return {
-      error: "Only the organization's admins and organizers can send messages.",
-    };
+    const { data: runsAll } = await supabase.rpc(
+      "administers_all_competitions",
+      { _org_id: org.data, _ids: v.competitionIds },
+    );
+    if (runsAll !== true) {
+      return {
+        error: "You can only message the players in leagues you run.",
+      };
+    }
   }
 
   // Every selected competition must belong to THIS org. Without this an admin

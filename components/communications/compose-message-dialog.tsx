@@ -114,7 +114,9 @@ export function ComposeMessageDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {/* min-w-0: a grid item won't shrink below its longest line, so one
+            long league name pushed the whole dialog off a phone screen. */}
+        <div className="min-w-0 space-y-4">
           <div className="space-y-2">
             <Label>Which events?</Label>
             <div className="max-h-48 space-y-1.5 overflow-y-auto">
@@ -132,8 +134,8 @@ export function ComposeMessageDialog({
                         : "border-border bg-surface hover:bg-muted",
                     )}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium break-words">
                         {c.name}
                       </span>
                       <span className="text-muted-foreground text-xs capitalize">

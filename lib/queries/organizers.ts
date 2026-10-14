@@ -60,6 +60,40 @@ export async function getCompetitionAdmins(
   return { canManage: true, admins };
 }
 
+/**
+ * The events in this org the current user runs as a league organizer
+ * (competition_admins) — what an organizer scoped to one league sees on the
+ * org page and may message (0170). Empty for everyone else.
+ */
+export async function getMyCompetitionGrants(orgId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase
+    .from("competition_admins")
+    .select("competition_id, competitions!inner(org_id)")
+    .eq("user_id", user.id)
+    .eq("competitions.org_id", orgId);
+  return ((data ?? []) as { competition_id: string }[]).map(
+    (r) => r.competition_id,
+  );
+}
+
+/** Whether the current user may message every one of these events (0170). */
+export async function canMessageCompetitions(
+  orgId: string,
+  competitionIds: string[],
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("administers_all_competitions", {
+    _org_id: orgId,
+    _ids: competitionIds,
+  });
+  return data === true;
+}
+
 /** A league's scorekeepers (0168) — any league admin may see and manage them. */
 export async function getCompetitionScorekeepers(
   competitionId: string,
