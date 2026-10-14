@@ -34,6 +34,12 @@ export const ladderSettingsSchema = z.object({
 export type LadderSettingsInput = z.infer<typeof ladderSettingsSchema>;
 export type LadderUnit = z.infer<typeof ladderUnitSchema>;
 
+/** Switch the overnight lock-and-draw on or off (0171). */
+export const ladderAutoAdvanceSchema = z.object({
+  competitionId: z.string().uuid(),
+  on: z.boolean(),
+});
+
 /** Draw the next unplayed week's matchups for a ladder league. */
 export const drawLadderWeekSchema = z.object({
   competitionId: z.string().uuid(),

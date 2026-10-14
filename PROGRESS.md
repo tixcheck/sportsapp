@@ -5,6 +5,48 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — Ladder weeks lock and draw themselves overnight (0171)
+
+Owner: "why do an org have to click lock and draw new week? … If all scores
+are entered, just lock and draw the next week's schedule."
+
+- **Nightly job** `app/api/cron/ladder-advance` (vercel.json, 09:00 UTC).
+  For every open ladder league with `ladder_auto_advance` (0171, default
+  on):
+  - it waits until the latest week's last night is over (`nextAdvanceStep`,
+    lib/ladder/auto-advance.ts, tested);
+  - then it runs the SAME lock the button runs, and the draw if the lock
+    takes.
+  - The lock decides readiness: every game scored, or a gym's standings typed
+    in full for SMVA. Anything short is refused and retried the next night,
+    so no second definition of "complete" exists to drift.
+- **Overnight, not on the last score,** so a captain can fix a typo that
+  evening before anyone moves. A late correction is still Undo last lock,
+  which removes the drawn games, and the next run re-locks.
+- **End of season:** the draw counts nights forward forever, so games drawn
+  past `end_date` are removed again; the final week's placements stand.
+- **Refactor:** lock/draw moved from `server/actions/ladder.ts` to the
+  server-only `server/ladder/week.ts`, taking a client. The actions are thin
+  wrappers. A "use server" file can't export a function that takes a client,
+  because it would become a callable action.
+- **Ladder tab:** a "Lock and draw automatically" checkbox
+  (`setLadderAutoAdvanceAction`, RLS decides who may). It updates at once
+  and reverts if refused.
+- **BVL's two round leagues are OFF** (`apply-0171.ts`): Round 2's gym plan
+  isn't in the draw yet, and their tie rule is undecided.
+- **Exercised for real on Roger Test League** (Test Org) through the local
+  route, then restored exactly:
+  - scored week 1 → "locked and drew week 2 (12 games)";
+  - the next run → "not locked: 12 games still need a score";
+  - with the season ending before week 2 → "season over, 12 games past the
+    end removed".
+  - Mango (week 5, Oct 20) and SMVA (week 3) report "wait".
+- **First live runs:** SMVA locks Tue Oct 20 at 5am if every gym's standings
+  are typed. Mango locks Wed Oct 21 once Oct 20's scores are in, drawing
+  Nov 3 swapped (game-night counting, confirmed by the owner).
+
+---
+
 ## 2026-10-14 — League organizers can message their own league (0170); org page scoped for them
 
 Vince (BVL Thursday convenor, added as a league organizer that night): "Do I

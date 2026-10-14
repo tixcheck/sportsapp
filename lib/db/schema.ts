@@ -499,6 +499,8 @@ export const leagueSettings = pgTable("league_settings", {
   gamesPerTeam: integer("games_per_team"),
   // Every N ladder weeks the early and late start times trade places (0150).
   waveSwapWeeks: integer("wave_swap_weeks"),
+  // A finished ladder week locks and the next draws overnight (0171).
+  ladderAutoAdvance: boolean("ladder_auto_advance").notNull().default(true),
   blackoutDates: date("blackout_dates").array(),
   promotionRelegation: boolean("promotion_relegation").notNull().default(false),
   // Standings tiebreaker hierarchy (lib/scheduler/tiebreakers.ts RankMode).

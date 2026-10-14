@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0170`, and every one of `0060`–`0170` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170` on 2026-10-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0171`, and every one of `0060`–`0171` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0171` on 2026-10-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -2188,6 +2188,23 @@ shortening the sets or padding the second wave.**
 
 ## Known quirks
 
+- **Ladder weeks lock and draw themselves overnight (0171).**
+  `app/api/cron/ladder-advance` runs daily at 09:00 UTC (5am Toronto in
+  summer time). For each open ladder league with
+  `league_settings.ladder_auto_advance` it waits until the latest week's
+  last night is over, then runs the same `lockLadderWeek` the button does,
+  then `drawLadderWeek`. The core lives in `server/ladder/week.ts`, which is
+  server-only, because a "use server" export taking a client would be a
+  callable action.
+  - If the lock refuses (a missing score, partial typed standings), the job
+    just retries the next night.
+  - Games drawn past `end_date` are removed again, and the final placements
+    stay.
+  - Week 1 is never automatic.
+  - **Off for BVL's two round leagues:** Round 2 gyms (tier keeps its gym,
+    Big Dig Energy at STA) aren't in the draw, and BVL's tie rule is open.
+    Turn them on from the Ladder tab once both are built.
+  - `?dry=1` reports without acting.
 - **League organizers message only the leagues they run (0170).**
   `administers_all_competitions(org, ids)` must hold for every event in the
   send. It gates the action and the `org_messages` insert/select policies, so

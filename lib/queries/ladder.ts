@@ -50,6 +50,8 @@ export interface LadderState {
   roundWeeks: number[];
   /** 1-based round number of `currentWeek` (round 1 before the start). */
   round: number;
+  /** A finished week locks and the next draws overnight by itself (0171). */
+  autoAdvance: boolean;
 }
 
 const SETTLED = new Set(["completed", "forfeit", "cancelled"]);
@@ -71,7 +73,7 @@ export async function getLadderState(
     supabase
       .from("league_settings")
       .select(
-        "ladder_enabled, ladder_draw, ladder_unit, ladder_target, ladder_swaps, ladder_round_weeks",
+        "ladder_enabled, ladder_draw, ladder_unit, ladder_target, ladder_swaps, ladder_round_weeks, ladder_auto_advance",
       )
       .eq("competition_id", competitionId)
       .maybeSingle(),
@@ -185,6 +187,7 @@ export async function getLadderState(
     currentWeekGames,
     roundWeeks,
     round: Math.ceil(roundWeeks[0] / roundLength),
+    autoAdvance: settings.ladder_auto_advance !== false,
   };
 }
 

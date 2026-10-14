@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Lock, Shuffle, Undo2 } from "lucide-react";
@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp, Lock, Shuffle, Undo2 } from "lucide-react";
 import {
   drawLadderWeekAction,
   lockLadderWeekAction,
+  setLadderAutoAdvanceAction,
   unlockLadderWeekAction,
 } from "@/server/actions/ladder";
 import type { LadderState } from "@/lib/queries/ladder";
@@ -37,6 +38,9 @@ export function LadderPanel({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  // Shown at once rather than after the refresh lands, and put back if the
+  // save is refused.
+  const [auto, setAuto] = useState(state.autoAdvance);
 
   const { currentWeek, currentWeekGames, currentWeekComplete } = state;
   const notStarted = currentWeek === 0;
@@ -84,7 +88,9 @@ export function LadderPanel({
             : drawn && !currentWeekComplete
               ? byStandings
                 ? `Week ${currentWeek} is drawn — ${currentWeekGames} games. Enter each gym's final standings below (${tiersEntered} of ${state.standingsThisWeek.length} done), then lock the week.`
-                : `${span} is drawn — ${currentWeekGames} games. Lock it once every score is in.`
+                : auto
+                  ? `${span} is drawn — ${currentWeekGames} games. Once every score is in, it locks and ${nextUnit} is drawn by itself the morning after the night.`
+                  : `${span} is drawn — ${currentWeekGames} games. Lock it once every score is in.`
               : drawn && currentWeekComplete
                 ? `${span} is complete. Lock it to move teams and draw ${nextUnit}.`
                 : `Teams are placed for ${byRound ? span.toLowerCase() : unit}. Draw it to make the schedule.`}
@@ -167,6 +173,47 @@ export function LadderPanel({
             </Button>
           )}
         </div>
+
+        {!notStarted && (
+          <label className="flex items-start gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              className="accent-primary mt-0.5 size-4 shrink-0"
+              checked={auto}
+              disabled={pending}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setAuto(on);
+                start(async () => {
+                  const res = await setLadderAutoAdvanceAction(
+                    competitionId,
+                    on,
+                  );
+                  if ("error" in res) {
+                    setAuto(!on);
+                    toast.error(res.error);
+                    return;
+                  }
+                  toast.success(
+                    on
+                      ? "Weeks will lock and draw by themselves."
+                      : "Automatic lock and draw is off.",
+                  );
+                  router.refresh();
+                });
+              }}
+            />
+            <span>
+              <span className="font-medium">Lock and draw automatically</span>
+              <span className="text-muted-foreground block">
+                The morning after each night, once every{" "}
+                {byStandings ? "gym's standings are" : "score is"} in, the{" "}
+                {byRound ? "round" : "week"} locks and the next is drawn. Undo
+                last lock still works if a score was wrong.
+              </span>
+            </span>
+          </label>
+        )}
 
         {byStandings && drawn && state.standingsThisWeek.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
