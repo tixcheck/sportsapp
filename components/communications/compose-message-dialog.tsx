@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TeamPicker } from "@/components/communications/team-picker";
+import type { TeamGroup } from "@/lib/email/team-groups";
+import type { MessageTeam } from "@/lib/queries/message-targets";
 
 export type MessageableCompetition = {
   id: string;
@@ -36,21 +39,35 @@ export type MessageableCompetition = {
 export function ComposeMessageDialog({
   orgId,
   competitions,
+  teams,
+  teamGroups = [],
 }: {
   orgId: string;
   competitions: MessageableCompetition[];
+  /**
+   * A league page passes its teams so a message can go to some of them
+   * (0172). Only offered when exactly that one event is being messaged.
+   */
+  teams?: MessageTeam[];
+  teamGroups?: TeamGroup[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
-  const [selected, setSelected] = useState<string[]>([]);
+  // One event on offer (a league page): it's obviously the one meant.
+  const initial = competitions.length === 1 ? [competitions[0].id] : [];
+  const [selected, setSelected] = useState<string[]>(initial);
+  const [pickedTeams, setPickedTeams] = useState<string[] | null>(null);
+  const canPickTeams = !!teams && selected.length === 1;
+  const teamIds = canPickTeams ? pickedTeams : null;
   const [audience, setAudience] = useState<"players" | "captains">("players");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
 
   const canSend =
     selected.length > 0 &&
+    (teamIds === null || teamIds.length > 0) &&
     subject.trim().length >= 3 &&
     body.trim().length >= 10;
 
@@ -67,6 +84,7 @@ export function ComposeMessageDialog({
         subject,
         body,
         audience,
+        teamIds: teamIds ?? undefined,
         test,
       });
       if ("error" in res) {
@@ -87,7 +105,8 @@ export function ComposeMessageDialog({
           : `Sent to ${res.sent} ${res.sent === 1 ? "person" : "people"}.`,
       );
       setOpen(false);
-      setSelected([]);
+      setSelected(initial);
+      setPickedTeams(null);
       setSubject("");
       setBody("");
       router.refresh();
@@ -158,8 +177,19 @@ export function ComposeMessageDialog({
             </div>
           </div>
 
+          {canPickTeams && (
+            <TeamPicker
+              teams={teams ?? []}
+              groups={teamGroups}
+              picked={pickedTeams}
+              onPickedChange={setPickedTeams}
+            />
+          )}
+
           <div className="space-y-2">
-            <Label>Who in those events?</Label>
+            <Label>
+              {teamIds ? "Who on those teams?" : "Who in those events?"}
+            </Label>
             <div className="flex gap-2">
               {(
                 [
@@ -230,10 +260,22 @@ export function ComposeMessageDialog({
           <Button onClick={() => send()} disabled={!canSend || pending}>
             {pending
               ? "Sending…"
-              : `Send to ${selected.length === 0 ? "…" : audience === "captains" ? "captains" : "everyone"}`}
+              : sendLabel(selected.length, teamIds, audience)}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+function sendLabel(
+  events: number,
+  teamIds: string[] | null,
+  audience: "players" | "captains",
+): string {
+  if (events === 0 || teamIds?.length === 0) return "Send to …";
+  const who = audience === "captains" ? "captains" : "everyone";
+  if (!teamIds) return `Send to ${who}`;
+  const n = `${teamIds.length} ${teamIds.length === 1 ? "team" : "teams"}`;
+  return audience === "captains" ? `Send to captains of ${n}` : `Send to ${n}`;
 }

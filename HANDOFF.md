@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0171`, and every one of `0060`–`0171` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0171` on 2026-10-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0172`, and every one of `0060`–`0172` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0172` on 2026-10-14). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -2191,6 +2191,15 @@ shortening the sets or padding the second wave.**
 **No schedule has been generated.**
 
 ## Known quirks
+
+- **League messages can go to chosen teams (0172).** On a league page, the
+  "Send a message" dialog offers All teams / Pick teams, with one-tap "everyone
+  at this gym on this night" for the next 14 days (`lib/queries/message-targets.ts`,
+  pure grouping in `lib/email/team-groups.ts`). The server still derives every
+  address; picked `teamIds` must be active/pending_waiver teams in the selected
+  event, or the send is refused. `org_messages.team_ids` records the pick
+  (NULL = whole events). The org page's dialog has no team picker on purpose,
+  because it covers several events.
 
 - **Ladder weeks lock and draw themselves overnight (0171).**
   `app/api/cron/ladder-advance` runs daily at 09:00 UTC (5am Toronto in

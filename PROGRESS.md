@@ -5,6 +5,25 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — Messages to chosen teams, e.g. everyone at one gym (0172)
+
+BVL moved Terry Miller's Thursday times 30 minutes and wanted to tell only the
+11 teams playing there, not all 55. The league page's message dialog now has
+**Which teams? All teams / Pick teams**:
+- **One-tap gym nights:** each gym and night in the next two weeks is a chip,
+  e.g. "+ Terry Miller · Thu, Oct 15 (11)".
+- **Searchable list:** the full team list can be searched, and a "Picked:"
+  line names who's selected.
+- **Send button:** it shows the team count ("Send to captains of 11 teams").
+- **League pre-selected:** when the dialog only has one league, it starts
+  ticked.
+
+Why it's safe: the client still sends only ids, and the server checks that
+every picked team is a live team in the chosen event before resolving
+addresses. Migration 0172 adds `org_messages.team_ids` so the log shows who a
+message went to. Tested at 375px (6 gym-night chips on the demo league, no
+horizontal scroll); 3 new unit tests.
+
 ## 2026-10-14 — BVL's approved gym permits loaded; Terry Miller Thursday fixed
 
 - **Permits.** The 19 approved PDFs BVL holds were parsed (580 bookings) into

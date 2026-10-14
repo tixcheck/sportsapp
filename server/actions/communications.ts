@@ -34,6 +34,16 @@ const messageSchema = z.object({
     .max(10_000, "That message is too long to email."),
   audience: z.enum(["players", "captains"]),
   /**
+   * Only these teams, all inside the chosen events. BVL, 2026-10-14: one
+   * gym's times moved, so only the teams playing there needed telling.
+   * Omitted = every team in the events.
+   */
+  teamIds: z
+    .array(z.string().uuid())
+    .min(1, "Pick at least one team.")
+    .max(200, "That's too many teams to pick one by one.")
+    .optional(),
+  /**
    * Send only to the organizer, as a preview. Theresa (BVL), 2026-10-10: "can
    * I do a trial email before i send out a mass one? … send one just to
    * myself?" Every check the real send makes still runs, so the test also
@@ -135,7 +145,16 @@ export async function sendOrgMessageAction(
     // rule-change notice is for: "active" alone left out 28 of BVL's 110
     // teams (97 players) on 2026-10-13.
     .in("status", ["active", "pending_waiver"]);
-  const teamIds = (teams ?? []).map((t) => t.id as string);
+  let teamIds = (teams ?? []).map((t) => t.id as string);
+  if (v.teamIds) {
+    // Picked teams must be playing in the chosen events: the client sends ids,
+    // and an id from another org's league must not widen the audience.
+    const inEvents = new Set(teamIds);
+    if (v.teamIds.some((id) => !inEvents.has(id))) {
+      return { error: "One of those teams isn't playing in that event." };
+    }
+    teamIds = [...new Set(v.teamIds)];
+  }
   if (teamIds.length === 0) {
     return { error: "There are no teams in those events yet." };
   }
@@ -257,6 +276,7 @@ export async function sendOrgMessageAction(
     body: v.body,
     competition_ids: validComps.map((c) => c.id),
     audience: v.audience,
+    team_ids: v.teamIds ? teamIds : null,
     recipient_count: sent,
     failed_count: failed,
   });
