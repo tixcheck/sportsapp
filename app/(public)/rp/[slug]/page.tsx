@@ -109,11 +109,21 @@ export default async function PublicReversePairsPage({
     : { data: null };
 
   const played = event.games.filter((g) => g.scoreA !== null).length;
-  const first = event.games.find((g) => g.scheduledAt)?.scheduledAt ?? null;
-  const day = first
-    ? DateTime.fromISO(first, { zone: event.timezone }).toFormat(
-        "cccc d LLLL yyyy",
-      )
+  // The first game once drawn; before that, the event's own day and start
+  // time. Pairs sign up before the draw, and the page used to tell them
+  // neither the day nor when to arrive.
+  const first =
+    event.games.find((g) => g.scheduledAt)?.scheduledAt ??
+    (event.startDate
+      ? DateTime.fromISO(`${event.startDate}T${event.startTime}`, {
+          zone: event.timezone,
+        }).toISO()
+      : null);
+  const firstAt = first
+    ? DateTime.fromISO(first, { zone: event.timezone })
+    : null;
+  const day = firstAt?.isValid
+    ? `${firstAt.toFormat("cccc d LLLL yyyy")}, starts ${firstAt.toFormat("h:mm a")}`
     : null;
 
   return (

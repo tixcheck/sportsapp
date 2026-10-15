@@ -5,6 +5,26 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — Reverse Pairs: start time can be set and seen
+
+Helix couldn't find where to set their event's timings, and there was no
+place to do it. `competitions.start_time` drove the draw but no screen showed
+or edited it (Helix's 2:00 PM had been set behind the scenes).
+- **Organizer:** Settings → Event has a **Start time** next to the date, and
+  so does the new-event form (default 7:00 PM). Once a schedule is drawn, a
+  line below shows the whole night ("8 games of 15 min: 7:00 PM to about
+  9:00 PM").
+- **Saving re-times a drawn schedule.** Changing the date, start time or game
+  length now moves every drawn game to match. Before, a drawn schedule kept
+  its old times after any of those changed.
+- **Public page:** before the draw it now shows the day and start time
+  ("Saturday 24 October 2026, starts 2:00 PM"). It used to show neither until
+  games existed, so pairs signed up without knowing when to arrive.
+
+Game times come from one pure helper, `lib/scheduler/reverse-pairs-times.ts`,
+used by both the draw and the settings save (5 new tests). No migration.
+Checked at 375px.
+
 ## 2026-10-14 — Dashboard promotes tournaments open for registration
 
 A "Tournaments open for registration" strip on the dashboard, up to 3 cards

@@ -17,6 +17,9 @@ const schema = z.object({
   name: z.string().trim().min(2, "Give it a name.").max(100),
   sport: z.enum(["indoor6", "beach2", "coed4"]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Pick a start time."),
   venue: z.string().trim().max(120).optional(),
   courts: z.coerce.number().int().min(1, "At least 1.").max(12),
   minutesPerGame: z.coerce.number().int().min(5).max(120),
@@ -45,6 +48,7 @@ export function NewReversePairsForm({ orgId }: { orgId: string }) {
     resolver: zodResolver(schema),
     defaultValues: {
       sport: "indoor6",
+      startTime: "19:00",
       courts: 2,
       minutesPerGame: 15,
       pointsPerGame: 25,
@@ -94,6 +98,14 @@ export function NewReversePairsForm({ orgId }: { orgId: string }) {
               <Input type="date" {...register("date")} />
             </Field>
           </div>
+
+          <Field
+            label="Start time"
+            error={errors.startTime?.message}
+            hint="When the first game starts."
+          >
+            <Input type="time" {...register("startTime")} />
+          </Field>
 
           <Field label="Venue" error={errors.venue?.message}>
             <Input placeholder="Optional" {...register("venue")} />

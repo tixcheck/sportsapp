@@ -40,6 +40,8 @@ export interface ReversePairsDetail {
   venue: string | null;
   /** "YYYY-MM-DD" — the day it's played. */
   startDate: string | null;
+  /** "HH:mm" at the venue, when game 1 starts. */
+  startTime: string;
   orgId: string;
   settings: {
     courts: number;
@@ -99,7 +101,7 @@ export async function getReversePairs(
   const { data: comp } = await supabase
     .from("competitions")
     .select(
-      "id, name, slug, status, visibility, timezone, venue, start_date, org_id, match_format",
+      "id, name, slug, status, visibility, timezone, venue, start_date, start_time, org_id, match_format",
     )
     .eq("id", competitionId)
     .maybeSingle();
@@ -218,6 +220,8 @@ export async function getReversePairs(
     timezone: (comp.timezone as string | null) ?? "America/Toronto",
     venue: (comp.venue as string | null) ?? null,
     startDate: comp.start_date ? String(comp.start_date).slice(0, 10) : null,
+    // The draw's own fallback, so the form shows the time games would get.
+    startTime: String(comp.start_time ?? "19:00").slice(0, 5),
     orgId: comp.org_id as string,
     settings: {
       courts,

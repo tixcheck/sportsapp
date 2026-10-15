@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { reversePairsWindow } from "@/lib/scheduler/reverse-pairs-times";
 
 /**
  * Everything about the event that isn't the draw.
@@ -30,14 +31,19 @@ export function ReversePairsSettingsCard({
   competitionId,
   timezone,
   pairCount,
+  gamesDrawn,
   initial,
 }: {
   competitionId: string;
   timezone: string;
   pairCount: number;
+  /** Games in the current draw; 0 before one is drawn. */
+  gamesDrawn: number;
   initial: {
     name: string;
     date: string;
+    /** "HH:mm" at the venue. */
+    startTime: string;
     venue: string;
     courts: number;
     minutesPerGame: number;
@@ -65,6 +71,11 @@ export function ReversePairsSettingsCard({
     setV((prev) => ({ ...prev, ...patch }));
 
   const needed = v.courts * 6;
+  const timeWindow = reversePairsWindow({
+    startTime: v.startTime,
+    minutesPerGame: Number(v.minutesPerGame),
+    games: gamesDrawn,
+  });
   const capBelowCourts = v.maxPairs !== null && v.maxPairs < needed;
 
   function save() {
@@ -73,6 +84,7 @@ export function ReversePairsSettingsCard({
         competitionId,
         name: v.name,
         date: v.date,
+        startTime: v.startTime,
         venue: v.venue,
         courts: Number(v.courts),
         minutesPerGame: Number(v.minutesPerGame),
@@ -111,16 +123,32 @@ export function ReversePairsSettingsCard({
               onChange={(e) => set({ name: e.target.value })}
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="rps-date">Date</Label>
-            <Input
-              id="rps-date"
-              type="date"
-              value={v.date}
-              onChange={(e) => set({ date: e.target.value })}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="rps-date">Date</Label>
+              <Input
+                id="rps-date"
+                type="date"
+                value={v.date}
+                onChange={(e) => set({ date: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="rps-start">Start time</Label>
+              <Input
+                id="rps-start"
+                type="time"
+                value={v.startTime}
+                onChange={(e) => set({ startTime: e.target.value })}
+              />
+            </div>
           </div>
         </div>
+        <p className="text-ink-3 -mt-2 text-xs">
+          {timeWindow
+            ? `${gamesDrawn} games of ${v.minutesPerGame} min: ${timeWindow.start} to about ${timeWindow.end}. Saving moves every game to match.`
+            : "Game 1 starts at this time. Game times are set when you draw the schedule."}
+        </p>
 
         <div className="grid gap-1.5">
           <Label htmlFor="rps-venue">Venue</Label>

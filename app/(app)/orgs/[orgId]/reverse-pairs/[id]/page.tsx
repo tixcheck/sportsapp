@@ -202,9 +202,13 @@ export default async function ReversePairsPage({
                         competitionId={detail.competitionId}
                         timezone={detail.timezone}
                         pairCount={detail.pairs.length}
+                        gamesDrawn={
+                          new Set(detail.games.map((g) => g.game)).size
+                        }
                         initial={{
                           name: detail.name,
                           date: detail.startDate ?? "",
+                          startTime: detail.startTime,
                           venue: detail.venue ?? "",
                           courts: detail.settings.courts,
                           minutesPerGame: detail.settings.minutesPerGame,

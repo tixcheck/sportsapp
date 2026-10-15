@@ -13,6 +13,7 @@ import {
   generateReversePairs,
   reversePairsProblem,
 } from "@/lib/scheduler/reverse-pairs";
+import { reversePairsGameStart } from "@/lib/scheduler/reverse-pairs-times";
 
 const DEFAULT_TIMEZONE = "America/Toronto";
 
@@ -132,27 +133,20 @@ export async function generateReversePairsScheduleAction(
     .eq("competition_id", competitionId);
   if (delErr) return { error: delErr.message };
 
-  // Round N starts N game-lengths after the first. Courts inside a round run at
-  // once, which is the whole reason there is more than one.
-  const tz = (comp.timezone as string | null) ?? "America/Toronto";
   // The event's own start time, not a hardcoded 7pm. BVL's night starts at
   // 7:30, and a redraw that silently moved every game half an hour earlier
   // would be discovered by players arriving to an empty gym.
-  const startTime = String(comp.start_time ?? "19:00").slice(0, 5);
-  const start = comp.start_date
-    ? DateTime.fromISO(`${String(comp.start_date).slice(0, 10)}T${startTime}`, {
-        zone: tz,
-      })
-    : null;
-
   const rows = draw.games.map((g) => ({
     competition_id: competitionId,
     game: g.game,
     court: g.court,
-    scheduled_at:
-      start && start.isValid
-        ? start.plus({ minutes: (g.game - 1) * minutesPerGame }).toISO()
-        : null,
+    scheduled_at: reversePairsGameStart({
+      date: comp.start_date ? String(comp.start_date) : null,
+      startTime: String(comp.start_time ?? "19:00").slice(0, 5),
+      timezone: (comp.timezone as string | null) ?? "America/Toronto",
+      minutesPerGame,
+      game: g.game,
+    }),
   }));
 
   const { data: created, error: insErr } = await supabase
@@ -247,6 +241,11 @@ const createSchema = z.object({
   name: z.string().trim().min(2, "Name is too short.").max(100),
   sport: z.enum(["indoor6", "beach2", "coed4"]),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
+  /** "HH:mm" at the venue; when game 1 starts. */
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Pick a start time.")
+    .default("19:00"),
   venue: z.string().trim().max(120).optional(),
   courts: z.number().int().min(1).max(12),
   minutesPerGame: z.number().int().min(5).max(120),
@@ -354,6 +353,7 @@ export async function createReversePairsAction(
       sport: v.sport,
       status: "draft",
       start_date: v.date,
+      start_time: v.startTime,
       end_date: v.date,
       venue: v.venue || null,
       timezone: DEFAULT_TIMEZONE,
@@ -560,6 +560,10 @@ const settingsSchema = z.object({
   competitionId: idSchema,
   name: z.string().trim().min(2, "Name is too short.").max(100),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
+  /** "HH:mm" at the venue; when game 1 starts. */
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Pick a start time."),
   venue: z.string().trim().max(120).optional(),
   courts: z.number().int().min(1).max(12),
   minutesPerGame: z.number().int().min(5).max(120),
@@ -622,6 +626,7 @@ export async function updateReversePairsSettingsAction(
     .update({
       name: v.name,
       start_date: v.date,
+      start_time: v.startTime,
       end_date: v.date,
       venue: v.venue || null,
       match_format: {
@@ -644,6 +649,34 @@ export async function updateReversePairsSettingsAction(
     })
     .eq("competition_id", v.competitionId);
   if (setErr) return { error: setErr.message };
+
+  // A drawn schedule follows the day, start time and game length. Without
+  // this, moving the event left every game at its old time — on the public
+  // page and on the scorekeeper's phone.
+  const { data: drawn } = await supabase
+    .from("reverse_pairs_games")
+    .select("game")
+    .eq("competition_id", v.competitionId);
+  const games = [...new Set((drawn ?? []).map((g) => g.game as number))];
+  for (const game of games) {
+    const { error: timeErr } = await supabase
+      .from("reverse_pairs_games")
+      .update({
+        scheduled_at: reversePairsGameStart({
+          date: v.date,
+          startTime: v.startTime,
+          timezone: tz,
+          minutesPerGame: v.minutesPerGame,
+          game,
+        }),
+      })
+      .eq("competition_id", v.competitionId)
+      .eq("game", game);
+    if (timeErr) {
+      console.error("[reverse-pairs] re-time failed", timeErr.message);
+      return { error: "Saved, but the game times couldn't be updated." };
+    }
+  }
 
   revalidatePath("/orgs");
   return { saved: true };
