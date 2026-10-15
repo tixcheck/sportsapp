@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   pickPromotedTournaments,
+  promoDetailsHref,
+  promoRegisterHref,
   spotsLine,
   type PromoCandidate,
 } from "@/lib/registration/promoted";
@@ -11,6 +13,7 @@ const now = new Date("2026-10-14T16:00:00Z");
 function t(over: Partial<PromoCandidate>): PromoCandidate {
   return {
     id: "x",
+    type: "tournament",
     name: "Cup",
     slug: "cup",
     sport: "indoor_6s",
@@ -87,5 +90,17 @@ describe("spotsLine", () => {
     );
     expect(spotsLine(one({ maxTeams: 16, spotsTaken: 15 }))).toBe("Last spot");
     expect(spotsLine(one({}))).toBeNull();
+  });
+});
+
+describe("promo links", () => {
+  it("sends a tournament to /register and Reverse Pairs to its own page", () => {
+    expect(promoRegisterHref(t({ slug: "cup" }))).toBe(
+      "/register/cup?from=dashboard",
+    );
+    expect(promoDetailsHref(t({ slug: "cup" }))).toBe("/t/cup");
+    const rp = t({ type: "reverse_pairs", slug: "helix" });
+    expect(promoRegisterHref(rp)).toBe("/rp/helix?from=dashboard");
+    expect(promoDetailsHref(rp)).toBe("/rp/helix");
   });
 });

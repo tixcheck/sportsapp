@@ -11,11 +11,17 @@ A "Tournaments open for registration" strip on the dashboard, up to 3 cards
 with a "See all" link to /find. Each card shows the sport, organizer, date,
 venue, "6 of 16 spots left" / "Last spot", "Closes Fri, Oct 31", and a
 Register button.
-- **Only events a player can actually enter:** a tournament is listed when it
-  is public, its status is open (the same rule /register uses), its deadline
-  hasn't passed, it hasn't started, it has room left, and its org isn't hidden
-  from discovery. Spots are counted with `competition_spots_taken`, the same
-  function `register_team` uses, so a held waitlist offer counts too.
+- **Tournaments and Reverse Pairs.** Each uses its own sign-up page's rule
+  for "open": a tournament's status is open (/register), and a Reverse Pairs
+  event's own registration flag is on (/rp, capped in pairs). Reverse Pairs
+  was added the same evening, after the owner pointed out that Helix's live
+  event was missing.
+- **Only events a player can actually enter:** an event is listed when it is
+  public, registration is open as above, its deadline hasn't passed, it
+  hasn't started, it has room left, and its org isn't hidden from discovery.
+  Tournament spots are counted with `competition_spots_taken`, the same
+  function `register_team` uses, so a held waitlist offer counts too. For
+  Reverse Pairs, every pair holding a spot counts, as on /rp.
 - **Not shown to people already involved:** tournaments the user plays in, is
   in the pool for, or helps run are left out.
 - **Order:** soonest deadline first.
@@ -25,9 +31,9 @@ Register button.
 - **Tracking:** Register links carry `?from=dashboard` so sign-ups from the
   strip can be told apart later. Nothing reads it yet.
 
-No migration. On the day it shipped, no live tournament qualified, so the
-strip is invisible until an organizer opens one. It was checked at 375px with
-sample data. 4 new unit tests (`tests/registration/promoted.test.ts`). The
+No migration. Checked at 375px against live data. On the day it shipped
+it showed one card: Helix Reverse Pairs (Oct 24, 13 of 18 spots left, closes
+Fri Oct 23). 5 new unit tests (`tests/registration/promoted.test.ts`). The
 next step, an admin "Featured" switch, is in IDEAS.md.
 
 ## 2026-10-14 — Messages to chosen teams, e.g. everyone at one gym (0172)

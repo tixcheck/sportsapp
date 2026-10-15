@@ -9,6 +9,11 @@
  */
 export type PromoCandidate = {
   id: string;
+  /**
+   * Reverse Pairs counts too: to a player it is a one-day tournament, and
+   * Helix's was the live one the first version of this strip missed.
+   */
+  type: "tournament" | "reverse_pairs";
   name: string;
   slug: string;
   sport: string;
@@ -20,6 +25,7 @@ export type PromoCandidate = {
   deadline: string | null;
   /** The event's IANA zone, for showing the deadline in local time. */
   timezone: string;
+  /** Teams, or pairs for Reverse Pairs. */
   maxTeams: number | null;
   spotsTaken: number;
 };
@@ -66,4 +72,19 @@ export function spotsLine(t: PromotedTournament): string | null {
   if (t.spotsLeft === null || t.maxTeams === null) return null;
   if (t.spotsLeft === 1) return "Last spot";
   return `${t.spotsLeft} of ${t.maxTeams} spots left`;
+}
+
+/** The event's public page. */
+export function promoDetailsHref(t: PromoCandidate): string {
+  return t.type === "reverse_pairs" ? `/rp/${t.slug}` : `/t/${t.slug}`;
+}
+
+/**
+ * Where "Register" goes. Reverse Pairs signs up on its own page; a tournament
+ * on /register. Tagged so dashboard sign-ups can be told apart later.
+ */
+export function promoRegisterHref(t: PromoCandidate): string {
+  const path =
+    t.type === "reverse_pairs" ? `/rp/${t.slug}` : `/register/${t.slug}`;
+  return `${path}?from=dashboard`;
 }

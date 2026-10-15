@@ -4,6 +4,8 @@ import { CalendarDays, MapPin } from "lucide-react";
 
 import { SPORTS } from "@/lib/formats";
 import {
+  promoDetailsHref,
+  promoRegisterHref,
   spotsLine,
   type PromotedTournament,
 } from "@/lib/registration/promoted";
@@ -28,7 +30,7 @@ function closesLine(t: PromotedTournament): string | null {
  *
  * Renders nothing when nothing qualifies: an empty promo box is noise. The
  * Register link carries `from=dashboard` so sign-ups from here can be told
- * apart later; the register page ignores the parameter.
+ * apart later; the sign-up pages ignore the parameter.
  */
 export function OpenTournaments({
   tournaments,
@@ -58,10 +60,13 @@ export function OpenTournaments({
               className="border-rule bg-paper-raised flex flex-col gap-2 rounded-xl border p-4"
             >
               <span className="text-claret text-[0.68rem] font-semibold tracking-[0.12em] uppercase">
-                {SPORT_LABEL.get(t.sport) ?? t.sport} · {t.orgName}
+                {t.type === "reverse_pairs"
+                  ? "Reverse Pairs"
+                  : (SPORT_LABEL.get(t.sport) ?? t.sport)}{" "}
+                · {t.orgName}
               </span>
               <Link
-                href={`/t/${t.slug}`}
+                href={promoDetailsHref(t)}
                 className="font-display text-lg leading-snug font-semibold break-words hover:underline"
               >
                 {t.name}
@@ -84,9 +89,7 @@ export function OpenTournaments({
                 <p className="text-sm font-medium">{urgency.join(" · ")}</p>
               )}
               <Button asChild size="sm" className="mt-auto self-start">
-                <Link href={`/register/${t.slug}?from=dashboard`}>
-                  Register →
-                </Link>
+                <Link href={promoRegisterHref(t)}>Register →</Link>
               </Button>
             </div>
           );
