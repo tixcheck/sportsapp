@@ -268,3 +268,22 @@ key or another org's data.
 
 **Open:** which org pilots it; whether players later get a read-only version
 (their games, waiver, payment); whether it ships in the mobile app too.
+
+## Promoting tournaments — "what can I sign up for?"
+
+Step 1 shipped 2026-10-14 (approved by the owner as an addition beyond v0).
+The dashboard lists public tournaments with open registration
+(`components/dashboard/open-tournaments.tsx`).
+
+Next, in order:
+- **Featured switch (admin only):** a `featured` column (or
+  `promoted_until`) on competitions, set by the platform admin. Once more
+  tournaments qualify than there are slots, featured ones go first, or only
+  featured ones are shown. This needs a migration.
+- **Ordering:** put the player's own sport first.
+- **Measuring:** count sign-ups that arrived with `?from=dashboard`. The links
+  already carry it.
+- **Later:** cover images (needs storage and an upload step), a "not
+  interested" dismiss, and promotion in emails (marketing, so it needs an
+  unsubscribe link).
+

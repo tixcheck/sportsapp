@@ -26,6 +26,8 @@ import {
   getSuggestedPlayerAnswers,
 } from "@/lib/queries/registration-questions";
 import { NextGame } from "@/components/dashboard/next-game";
+import { OpenTournaments } from "@/components/dashboard/open-tournaments";
+import { getPromotedTournaments } from "@/lib/queries/promoted-tournaments";
 import {
   RecentResults,
   UpcomingGames,
@@ -123,8 +125,24 @@ export default async function DashboardPage() {
       missingRequired(d.questions, d.answers).length > 0,
   );
 
+  // Tournaments still taking entries, minus anything this person already
+  // plays in, waits in, or helps run.
+  const promoted = await getPromotedTournaments(
+    new Set([
+      ...comps.map((c) => c.competitionId),
+      ...poolSignups.map((p) => p.competitionId),
+      ...helperComps.map((c) => c.competitionId),
+    ]),
+  );
+  // Somebody with nothing on here yet came looking for something to play, so
+  // the strip leads; everyone else gets their own games first.
+  const nothingYet =
+    comps.length === 0 && poolSignups.length === 0 && invites.length === 0;
+
   return (
     <div className="space-y-10">
+      {nothingYet && <OpenTournaments tournaments={promoted} />}
+
       {/* Scorekeepers (0168) come here at the gym, phone in hand: one tap to
           the night's games. */}
       {scorekeeping.length > 0 && (
@@ -426,6 +444,8 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      {!nothingYet && <OpenTournaments tournaments={promoted} />}
 
       {canCreateOrg ? (
         <section className="space-y-3">

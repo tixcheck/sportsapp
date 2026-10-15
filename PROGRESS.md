@@ -5,6 +5,31 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-14 — Dashboard promotes tournaments open for registration
+
+A "Tournaments open for registration" strip on the dashboard, up to 3 cards
+with a "See all" link to /find. Each card shows the sport, organizer, date,
+venue, "6 of 16 spots left" / "Last spot", "Closes Fri, Oct 31", and a
+Register button.
+- **Only events a player can actually enter:** a tournament is listed when it
+  is public, its status is open (the same rule /register uses), its deadline
+  hasn't passed, it hasn't started, it has room left, and its org isn't hidden
+  from discovery. Spots are counted with `competition_spots_taken`, the same
+  function `register_team` uses, so a held waitlist offer counts too.
+- **Not shown to people already involved:** tournaments the user plays in, is
+  in the pool for, or helps run are left out.
+- **Order:** soonest deadline first.
+- **Placement:** the strip comes first for someone with nothing on the
+  dashboard yet. For everyone else it sits below their own games. With nothing
+  to show it renders nothing at all.
+- **Tracking:** Register links carry `?from=dashboard` so sign-ups from the
+  strip can be told apart later. Nothing reads it yet.
+
+No migration. On the day it shipped, no live tournament qualified, so the
+strip is invisible until an organizer opens one. It was checked at 375px with
+sample data. 4 new unit tests (`tests/registration/promoted.test.ts`). The
+next step, an admin "Featured" switch, is in IDEAS.md.
+
 ## 2026-10-14 — Messages to chosen teams, e.g. everyone at one gym (0172)
 
 BVL moved Terry Miller's Thursday times 30 minutes and wanted to tell only the
