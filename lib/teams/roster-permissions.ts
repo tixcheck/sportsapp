@@ -17,7 +17,9 @@
 export type RosterChange =
   | { kind: "remove_member"; targetRole: "captain" | "player" }
   | { kind: "edit_invite"; targetRole: "captain" | "player" }
-  | { kind: "remove_invite"; targetRole: "captain" | "player" };
+  | { kind: "remove_invite"; targetRole: "captain" | "player" }
+  /** Mark a joined member as a sub, or back to a regular (0173). */
+  | { kind: "mark_sub"; targetRole: "captain" | "player" };
 
 export function rosterChangeRefusal(opts: {
   isAdmin: boolean;
@@ -28,6 +30,16 @@ export function rosterChangeRefusal(opts: {
   const { change } = opts;
   if (change.kind === "remove_member" && change.targetRole === "captain") {
     return "Make someone else captain first — a team can't be left without one.";
+  }
+  // Subs are spares for a side of four or six; a pair has none, and the
+  // captain is the team's regular by definition.
+  if (change.kind === "mark_sub") {
+    if (opts.competitionType === "reverse_pairs") {
+      return "A pair doesn't have subs.";
+    }
+    if (change.targetRole === "captain") {
+      return "The captain can't be a sub.";
+    }
   }
   if (opts.isAdmin) return null;
   if (!opts.isCaptain)

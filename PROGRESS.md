@@ -5,6 +5,28 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-16 — Subs on a team roster (0173)
+
+BVL's rule: "All subs need to be part of the team/roster and have signed
+waivers. But allow captains to mark them as subs." So a sub is an ordinary
+roster member with a label, `team_members.is_sub` (migration 0173, applied
+and verified). Since a sub is a full member, the waiver gate, the
+minimum-roster count, schedules and messages all treat them like anyone
+else, with no second rule to keep in step.
+- **Captain or organizer**, on the team page: **Make sub** / **Make regular**
+  next to each player. Subs show a "Sub" chip and are listed after the
+  regulars. The organizer's Teams list labels them "Sub" instead of
+  "Partner".
+- **Limits** (`rosterChangeRefusal`, 2 more tests): the captain can't be a
+  sub, and Reverse Pairs pairs have no subs.
+- **Kept as a column, not a third role.** `role` decides who captains, and a
+  great many places read it as captain-or-player.
+- Not built: marking someone a sub at invite time. They're marked once they
+  join.
+
+Checked at 375px as a captain on the sandbox team (marked a player as a sub,
+reloaded, set them back to regular), then restored the team.
+
 ## 2026-10-16 — Captains manage their own roster
 
 BVL's captains spent the first week of the season asking the convenor

@@ -411,6 +411,47 @@ export async function removeMemberAction(
 }
 
 /**
+ * Mark a joined member as a sub, or back to a regular (0173). The captain or
+ * organizer. A sub stays on the roster with everything that implies — the
+ * waiver, the schedule, messages — so this only changes the label (BVL:
+ * "all subs need to be part of the team and have signed waivers").
+ */
+export async function setSubAction(
+  teamId: string,
+  userId: string,
+  isSub: boolean,
+): Promise<ActionError | { isSub: boolean }> {
+  const supabase = await createClient();
+  const { data: teamRow } = await supabase
+    .from("teams")
+    .select("captain_user_id")
+    .eq("id", teamId)
+    .single();
+  if (!teamRow) return { error: "Team not found." };
+
+  const guard = await assertRosterChange(supabase, teamId, {
+    kind: "mark_sub",
+    targetRole: teamRow.captain_user_id === userId ? "captain" : "player",
+  });
+  if ("error" in guard) return guard;
+
+  const { data, error } = await supabase
+    .from("team_members")
+    .update({ is_sub: isSub })
+    .eq("team_id", teamId)
+    .eq("user_id", userId)
+    .select("user_id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) {
+    return { error: "That person isn't on the team." };
+  }
+
+  revalidatePath("/orgs");
+  revalidatePath(`/teams/${teamId}`);
+  return { isSub };
+}
+
+/**
  * Make an already-joined member the team captain (organizer only). Promotes the
  * chosen member to captain (they become the scorer/manager) and demotes the
  * previous captain to a regular player. The new captain must already be on the

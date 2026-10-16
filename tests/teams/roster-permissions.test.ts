@@ -73,4 +73,37 @@ describe("rosterChangeRefusal", () => {
       }),
     ).toMatch(/captain or organizer/);
   });
+
+  it("lets the captain or organizer mark a player as a sub", () => {
+    for (const who of [captain, admin]) {
+      expect(
+        rosterChangeRefusal({
+          ...who,
+          change: { kind: "mark_sub", targetRole: "player" },
+        }),
+      ).toBeNull();
+    }
+    expect(
+      rosterChangeRefusal({
+        ...player,
+        change: { kind: "mark_sub", targetRole: "player" },
+      }),
+    ).toMatch(/captain or organizer/);
+  });
+
+  it("never makes the captain a sub, and pairs have none", () => {
+    expect(
+      rosterChangeRefusal({
+        ...admin,
+        change: { kind: "mark_sub", targetRole: "captain" },
+      }),
+    ).toMatch(/captain can't be a sub/);
+    expect(
+      rosterChangeRefusal({
+        ...admin,
+        competitionType: "reverse_pairs",
+        change: { kind: "mark_sub", targetRole: "player" },
+      }),
+    ).toMatch(/pair/);
+  });
 });

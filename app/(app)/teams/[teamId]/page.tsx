@@ -250,6 +250,7 @@ export default async function TeamPage({
             canManage={canInvite}
             // A joined partner IS the pair; changing one stays the organizer's.
             canRemoveMembers={view.isAdmin || !isPairs}
+            subsAllowed={!isPairs}
           />
         </CardContent>
       </Card>

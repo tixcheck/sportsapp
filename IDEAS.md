@@ -288,11 +288,10 @@ Next, in order:
   unsubscribe link).
 
 
-## Subs on a team roster — "a spare who isn't on the team"
+## Subs at invite time
 
-Asked by BVL (2026-10-16) while captains were getting roster controls. Today
-anyone invited becomes a full roster player. A **Sub** role would let a
-captain list spares without them counting toward the minimum roster. Rules
-BVL needs to decide first: does a sub need the waiver (likely yes, since
-they're on court), can one person sub for several teams or tiers, do subs
-see the team's schedule and messages, and do they count toward split fees?
+Subs shipped 2026-10-16 (0173) as a label on a joined member: on the roster,
+waiver required, per BVL. Still open: a "invite as a sub" checkbox, which
+needs the flag carried on `team_invites` through the claim/autolink functions;
+and whether one person may sub for several teams (today they'd simply be on
+each roster).

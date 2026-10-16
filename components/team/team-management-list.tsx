@@ -71,6 +71,8 @@ export interface ManagedTeam {
     role: "captain" | "player";
     email: string;
     userId: string;
+    /** Marked as a sub by the captain or organizer (0173). */
+    isSub?: boolean;
   }[];
   /** Pool matches this team referees (undefined until pools are drawn). */
   refCount?: number;
@@ -389,7 +391,7 @@ function Contacts({ team, onDone }: { team: ManagedTeam; onDone: () => void }) {
       {players.map((m, i) => (
         <ContactLine
           key={`m-${i}`}
-          label="Partner"
+          label={m.isSub ? "Sub" : "Partner"}
           email={m.email}
           name={m.name}
           joined

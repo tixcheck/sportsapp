@@ -795,6 +795,12 @@ export const teamMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: teamMemberRole("role").notNull().default("player"),
+    /**
+     * A sub (migration 0173): on the roster like anyone else — counted, and
+     * held to the waiver — but labelled so the captain and organizer can tell
+     * spares from regulars. Set by the captain or organizer.
+     */
+    isSub: boolean("is_sub").notNull().default(false),
     jerseyNumber: integer("jersey_number"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

@@ -8,6 +8,15 @@ export interface RosterMember {
   /** The member's account email — shown to organizers managing the roster. */
   email: string;
   userId: string;
+  /** Marked as a sub (0173). Still a full member: counted, held to the waiver. */
+  isSub: boolean;
+}
+
+/** Captain first, then regulars, then subs. */
+function rosterOrder(a: RosterMember, b: RosterMember): number {
+  const rank = (m: RosterMember) =>
+    m.role === "captain" ? 0 : m.isSub ? 2 : 1;
+  return rank(a) - rank(b);
 }
 
 /**
@@ -21,7 +30,7 @@ export async function getTeamRoster(teamId: string): Promise<RosterMember[]> {
   const supabase = await createClient();
   const { data: members } = await supabase
     .from("team_members")
-    .select("user_id, role")
+    .select("user_id, role, is_sub")
     .eq("team_id", teamId);
   if (!members || members.length === 0) return [];
 
@@ -47,12 +56,13 @@ export async function getTeamRoster(teamId: string): Promise<RosterMember[]> {
           role: m.role as "captain" | "player",
           email: u?.email ?? "",
           userId: m.user_id as string,
+          isSub: m.is_sub === true,
         };
       })
       // A member with no readable email can't be billed a share — drop rather
       // than show a payer nobody can charge.
       .filter((m) => m.email.length > 0)
-      .sort((a, b) => (a.role === b.role ? 0 : a.role === "captain" ? -1 : 1))
+      .sort(rosterOrder)
   );
 }
 
@@ -73,7 +83,7 @@ export async function getTeamRosters(
 
   const { data: members } = await supabase
     .from("team_members")
-    .select("team_id, user_id, role")
+    .select("team_id, user_id, role, is_sub")
     .in("team_id", teamIds);
   const userIds = [...new Set((members ?? []).map((m) => m.user_id))];
   const { data: users } = userIds.length
@@ -146,14 +156,10 @@ export async function getTeamRosters(
       role: m.role as "captain" | "player",
       email: emailById.get(m.user_id) ?? "",
       userId: m.user_id,
+      isSub: m.is_sub === true,
     });
   }
-  // Captains first, then players.
-  for (const list of Object.values(out)) {
-    list.sort((a, b) =>
-      a.role === b.role ? 0 : a.role === "captain" ? -1 : 1,
-    );
-  }
+  for (const list of Object.values(out)) list.sort(rosterOrder);
   return out;
 }
 
