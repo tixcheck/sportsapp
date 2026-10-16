@@ -202,3 +202,40 @@ export async function getPublicRosterNames(
   }
   return byTeam;
 }
+
+export interface PendingTeamInvite {
+  id: string;
+  email: string;
+  name: string | null;
+  expired: boolean;
+}
+
+/**
+ * A team's player invites nobody has accepted yet, for the captain's roster
+ * (2026-10-16). Before this the captain could send invites but never see one
+ * again, so a mistyped address sat there holding the team at "roster
+ * incomplete" with nobody able to spot it but the organizer. RLS limits this
+ * to the team's captain and the competition's organizers.
+ */
+export async function getPendingTeamInvites(
+  teamId: string,
+): Promise<PendingTeamInvite[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("team_invites")
+    .select("id, email, name, expires_at")
+    .eq("team_id", teamId)
+    .eq("role", "player")
+    .eq("status", "pending")
+    .is("accepted_by_user_id", null)
+    .order("created_at");
+  const now = Date.now();
+  return (data ?? []).map((i) => ({
+    id: i.id as string,
+    email: i.email as string,
+    name: (i.name as string | null) ?? null,
+    expired: i.expires_at
+      ? new Date(i.expires_at as string).getTime() < now
+      : false,
+  }));
+}

@@ -20,6 +20,8 @@ import { ScheduleView } from "@/components/schedule/schedule-view";
 import { EntryGate } from "@/components/team/entry-gate";
 import { getTeamEntryGate } from "@/lib/queries/team-entry";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
+import { CaptainRoster } from "@/components/team/captain-roster";
+import { getPendingTeamInvites } from "@/lib/queries/roster";
 import { MatchSections } from "@/components/scoring/match-sections";
 import {
   StandingsTable,
@@ -87,6 +89,9 @@ export default async function TeamPage({
   const canInvite =
     view.isAdmin ||
     roster.some((m) => m.role === "captain" && m.userId === view.viewerId);
+  // The same people may also remove players and manage invites (2026-10-16).
+  const pendingInvites = canInvite ? await getPendingTeamInvites(team.id) : [];
+  const isPairs = (competition.type as string) === "reverse_pairs";
   // Split shares only when the organizer allows them. planMemberShares reads
   // the roster we already loaded, so this costs no extra query.
   const shares = feeSettings.allowSplitPayment
@@ -238,25 +243,14 @@ export default async function TeamPage({
           </div>
         </CardHeader>
         <CardContent>
-          {roster.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No players have joined yet.
-            </p>
-          ) : (
-            <ul className="divide-border divide-y">
-              {roster.map((m, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between py-2 text-sm"
-                >
-                  <span className="font-medium">{m.name}</span>
-                  <span className="text-muted-foreground text-xs capitalize">
-                    {m.role}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <CaptainRoster
+            teamId={team.id}
+            roster={roster}
+            invites={pendingInvites}
+            canManage={canInvite}
+            // A joined partner IS the pair; changing one stays the organizer's.
+            canRemoveMembers={view.isAdmin || !isPairs}
+          />
         </CardContent>
       </Card>
     </div>

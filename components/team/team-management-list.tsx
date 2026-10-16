@@ -77,7 +77,7 @@ export interface ManagedTeam {
 }
 
 /** Edit the email on a pending invite (captain or partner) by id. */
-function EditEmailDialog({
+export function EditEmailDialog({
   inviteId,
   email,
   label,

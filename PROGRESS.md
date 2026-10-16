@@ -5,6 +5,38 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-16 — Captains manage their own roster
+
+BVL's captains spent the first week of the season asking the convenor
+(Veetun) to remove players and cancel wrong invites. Nothing had changed at
+season start: captains had only ever been able to invite. Now the Roster card
+on the team page (/teams/[id]) gives the captain the organizer's controls for
+their own team:
+- **Remove** a joined player (confirm dialog).
+- **Pending invites are listed** under the joined players, marked "Invited"
+  or "Invite expired", with **Resend**, **Edit** (fix the address; a fresh
+  link goes out) and **Cancel**. Before this a captain never saw an invite
+  again after sending it, so a mistyped address held the team at "roster
+  incomplete" and only the organizer could spot it.
+
+Limits, in one pure rule (`lib/teams/roster-permissions.ts`, 5 tests) shared
+by the three actions (`removeMemberAction`, `removeInviteAction`,
+`editInviteEmailAction`), which now accept the captain as well as the
+organizer:
+- Nobody removes the captain. The organizer hands the captaincy over first,
+  as before.
+- The captain's own invite and the captaincy stay with the organizer.
+- In Reverse Pairs a joined partner can't be removed by the captain, because
+  the partner *is* the pair. An unaccepted partner invite can still be
+  cancelled.
+
+No migration: RLS already let a captain write their own team's members and
+invites (`team_members_manage`, `team_invites_captain_all`); only the app
+checks were organizer-only. **Subs are not built.** BVL hasn't decided the
+rules (see IDEAS.md). Checked at 375px as a captain on a sandbox team in the
+hidden Test Org: cancel and remove both worked and the list updated without a
+reload. The team was put back afterwards.
+
 ## 2026-10-14 — Reverse Pairs: start time can be set and seen
 
 Helix couldn't find where to set their event's timings, and there was no

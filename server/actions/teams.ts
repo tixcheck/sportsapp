@@ -5,6 +5,10 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { teamNameError } from "@/lib/teams/name-errors";
+import {
+  rosterChangeRefusal,
+  type RosterChange,
+} from "@/lib/teams/roster-permissions";
 import { offerNextWaitlistSpot } from "@/server/actions/waitlist";
 import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
@@ -59,6 +63,56 @@ async function assertTeamAdmin(
       captainUserId: team.captain_user_id,
       name: team.name,
       divisionId: (team.division_id as string | null) ?? null,
+    },
+  };
+}
+
+/**
+ * Captain-or-organizer check for roster changes (2026-10-16). What each may
+ * change is `rosterChangeRefusal`'s call; this only gathers who is asking.
+ */
+async function assertRosterChange(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teamId: string,
+  change: RosterChange,
+): Promise<
+  | { error: string }
+  | {
+      team: {
+        competitionId: string;
+        captainUserId: string | null;
+        name: string;
+      };
+    }
+> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+
+  const { data: team } = await supabase
+    .from("teams")
+    .select("name, captain_user_id, competitions!inner(id, type)")
+    .eq("id", teamId)
+    .single();
+  if (!team) return { error: "Team not found." };
+  const comp = team.competitions as unknown as { id: string; type: string };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: comp.id,
+  });
+  const refusal = rosterChangeRefusal({
+    isAdmin: isAdmin === true,
+    isCaptain: team.captain_user_id === user.id,
+    competitionType: comp.type,
+    change,
+  });
+  if (refusal) return { error: refusal };
+  return {
+    team: {
+      competitionId: comp.id,
+      captainUserId: team.captain_user_id,
+      name: team.name,
     },
   };
 }
@@ -182,7 +236,8 @@ export async function editTeamInviteAction(
 
 /**
  * Change the email on a specific pending invite (captain or partner), by id.
- * Organizer only. Regenerates the claim token, re-links if the new email already
+ * The organizer, or the team's captain for a player invite; with the same
+ * address it doubles as "resend". Regenerates the claim token, re-links if the new email already
  * has an account (autolink), and re-sends the right invite email. Fixing a
  * mistyped/wrong address without removing and re-adding the team.
  */
@@ -201,7 +256,10 @@ export async function editInviteEmailAction(
     .single();
   if (!invite) return { error: "Invite not found." };
 
-  const guard = await assertTeamAdmin(supabase, invite.team_id);
+  const guard = await assertRosterChange(supabase, invite.team_id, {
+    kind: "edit_invite",
+    targetRole: invite.role as "captain" | "player",
+  });
   if ("error" in guard) return guard;
   const { team } = guard;
 
@@ -266,22 +324,29 @@ export async function editInviteEmailAction(
         );
 
   revalidatePath("/orgs");
+  revalidatePath(`/teams/${invite.team_id}`);
   return { claimUrl, emailSent: result.sent };
 }
 
-/** Remove a pending invite (organizer only) — e.g. a wrong/duplicate address. */
+/**
+ * Remove a pending invite — e.g. a wrong/duplicate address. The organizer, or
+ * the team's captain for a player invite.
+ */
 export async function removeInviteAction(
   inviteId: string,
 ): Promise<ActionError | { removed: true }> {
   const supabase = await createClient();
   const { data: invite } = await supabase
     .from("team_invites")
-    .select("id, team_id")
+    .select("id, team_id, role")
     .eq("id", inviteId)
     .single();
   if (!invite) return { error: "Invite not found." };
 
-  const guard = await assertTeamAdmin(supabase, invite.team_id);
+  const guard = await assertRosterChange(supabase, invite.team_id, {
+    kind: "remove_invite",
+    targetRole: invite.role as "captain" | "player",
+  });
   if ("error" in guard) return guard;
 
   const { error } = await supabase
@@ -291,33 +356,38 @@ export async function removeInviteAction(
   if (error) return { error: error.message };
 
   revalidatePath("/orgs");
+  revalidatePath(`/teams/${invite.team_id}`);
   return { removed: true };
 }
 
 /**
- * Remove a joined member from a team (organizer only). If they were the captain,
- * the team's captain pointer is cleared so the organizer can promote someone
- * else or re-invite. The accepted invite is dropped too, so the same email can
- * be re-invited cleanly and the roster line disappears.
+ * Remove a joined member from a team — the organizer, or the team's own
+ * captain (2026-10-16; not a joined Reverse Pairs partner, see
+ * `rosterChangeRefusal`). The accepted invite is dropped too, so the same
+ * email can be re-invited cleanly and the roster line disappears.
  */
 export async function removeMemberAction(
   teamId: string,
   userId: string,
 ): Promise<ActionError | { removed: true; wasCaptain: false }> {
   const supabase = await createClient();
-  const guard = await assertTeamAdmin(supabase, teamId);
-  if ("error" in guard) return guard;
+  const { data: teamRow } = await supabase
+    .from("teams")
+    .select("captain_user_id")
+    .eq("id", teamId)
+    .single();
+  if (!teamRow) return { error: "Team not found." };
 
   // Transfer, never delete. A team with no captain has nobody to enter a
   // score, nobody the fee belongs to, and nobody who can invite the rest —
   // and it got into that state through a button labelled "Remove", with the
-  // consequence explained only in a dialog nobody reads twice.
-  if (guard.team.captainUserId === userId) {
-    return {
-      error:
-        "Make someone else captain first — a team can't be left without one.",
-    };
-  }
+  // consequence explained only in a dialog nobody reads twice. The rule
+  // refuses targetRole "captain" for everyone.
+  const guard = await assertRosterChange(supabase, teamId, {
+    kind: "remove_member",
+    targetRole: teamRow.captain_user_id === userId ? "captain" : "player",
+  });
+  if ("error" in guard) return guard;
 
   const { error } = await supabase
     .from("team_members")
@@ -334,6 +404,7 @@ export async function removeMemberAction(
     .eq("accepted_by_user_id", userId);
 
   revalidatePath("/orgs");
+  revalidatePath(`/teams/${teamId}`);
   revalidatePath("/my-matches");
   revalidatePath("/dashboard");
   return { removed: true, wasCaptain: false };
