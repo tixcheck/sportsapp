@@ -1719,7 +1719,22 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 
 ## BVL Non-Spiking (Tuesday) — alignment night in the app (live 2026-10-10)
 
-**Current as of 2026-10-13 (supersedes the seat/INDY details below):**
+**Current as of 2026-10-17 (supersedes everything below):**
+- **The alignment night ran on paper.** None of its 75 games has a score.
+  BVL ranked the teams themselves: Marg's sheet "2026_2027 RANKINGS NON
+  SPIKING ROUND 1 OCT 20TH", forwarded by Indru.
+- **Round 1 tiers are seated from that sheet, not 4-6-6-5-4:** Division A–D
+  = 6/6/6/7 (D = ranks 19–25). Seed = overall rank. Applied by
+  `lib/db/_tmp/seat-ns-round1.mts`, the same writes `seatAlignmentTiersAction`
+  makes. The ladder isn't enabled yet (`ladder_enabled` false, `ladder_draw`
+  'generated').
+- **Round 1 isn't drawn.** The gym plan below was for five tiers. It's
+  waiting on Indru's plan for four, including the 7-team tier's format.
+  Tuesday gyms open to NS: D'Youville 6:15–8 + 8:15–10 (3 courts), North
+  Park 8–10 (3), Jim Archdekin A/B 6–10 + C 8–10.
+- Open: remove the 75 blank alignment games, or leave them?
+
+**As of 2026-10-13:**
 - **25 teams.** INDY 1 and Ball Buster were removed by V.
 - **Alignment night:** D'Youville 6:15 = Top Gun + ranks 21–24 + Energy
   United, places 4–6 → 23–25. 7:30 = 17–19 + the 6:15's top 3
