@@ -11,6 +11,7 @@ import {
   evenSlotTimes,
   planBvlRound,
   roundWeeksOf,
+  gridStyleOf,
   type BvlGridStyle,
   type BvlTierWeek,
 } from "@/lib/scheduler/bvl-round";
@@ -199,7 +200,7 @@ export async function drawLadderWeek(
       minutesPerSlot: (settings.minutes_per_game as number | null) ?? 40,
       blackouts: (settings.blackout_dates as string[] | null) ?? [],
       matchFormat: comp.match_format as MatchFormat,
-      grid: settings.ladder_round_grid === "once" ? "once" : "bvl",
+      grid: gridStyleOf(settings.ladder_round_grid),
     });
   }
 

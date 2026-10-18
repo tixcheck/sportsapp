@@ -5,6 +5,40 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-18 — Non-Spiking Round 1 live: a 4-week round on a "cycle" grid (0174)
+
+BVL Non-Spiking plays a **four-week** ladder round. Each gym gives a tier 2 or
+3 rounds a night, and Round 1 has a 7-team division. Neither of the existing
+two-week grids ('bvl' for Women's, 'once' for Reverse 4s) fits that.
+- **New grid style 'cycle'** (`lib/scheduler/bvl-round.ts`, `bvlCycle`). Each
+  tier walks a fixed rotation straight through the round, playing as many
+  rotation rounds a night as `ladder_tier_nights` gives it slot times, and
+  carrying on where the previous week stopped.
+  - 6 teams: the standard rotation. Every 5 rounds is a full round robin.
+  - 7 teams: Indru's own table, 3 courts, one team sitting out each round.
+  - 6 more scheduler tests.
+  - Migration 0174 widens the `ladder_round_grid` check to allow it (applied
+    and verified).
+  - `gridStyleOf` replaces the two `=== "once" ? … : "bvl"` reads.
+  - A 'cycle' tier has no two-week template, so no net duty is shown.
+- **Round view skips week 0.** Non-Spiking's Oct 13 alignment games are
+  round 0, and they had been showing up as a "Round 0".
+- **Round 1 loaded:** 123 games, Oct 20–Nov 10. Teams come from Marg's
+  ranking (6/6/6/7). Gyms and start times come from Indru's Rev 2 sheet,
+  trimmed only where a session ran past BVL's permit.
+- **Built as a PDF first.** The PDF was checked independently: 656 checks
+  against the raw sheets, the permits and other leagues' games. The live games
+  were then compared to the PDF, 123 of 123 matching. The app's own
+  round-schedule and ladder queries were also run against the live data.
+- **Loaded before Indru confirmed**, at the owner's call. His open questions
+  are in HANDOFF.
+
+Also this session:
+- **All open BVL leagues score win by 1.** Timed games end on the buzzer, so
+  a 27–26 Wednesday game couldn't be recorded.
+- **Wednesday Division D** (5 teams) plays 2 sets to 21 from 4–4, set as a
+  per-game format override.
+
 ## 2026-10-16 — Subs on a team roster (0173)
 
 BVL's rule: "All subs need to be part of the team/roster and have signed

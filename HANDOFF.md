@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0173`, and every one of `0060`–`0173` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0172` on 2026-10-14, `0173` on 2026-10-16). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0174`, and every one of `0060`–`0174` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0172` on 2026-10-14, `0173` on 2026-10-16, `0174` on 2026-10-18). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -1727,20 +1727,48 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 
 ## BVL Non-Spiking (Tuesday) — alignment night in the app (live 2026-10-10)
 
-**Current as of 2026-10-17 (supersedes everything below):**
-- **The alignment night ran on paper.** None of its 75 games has a score.
-  BVL ranked the teams themselves: Marg's sheet "2026_2027 RANKINGS NON
-  SPIKING ROUND 1 OCT 20TH", forwarded by Indru.
-- **Round 1 tiers are seated from that sheet, not 4-6-6-5-4:** Division A–D
-  = 6/6/6/7 (D = ranks 19–25). Seed = overall rank. Applied by
-  `lib/db/_tmp/seat-ns-round1.mts`, the same writes `seatAlignmentTiersAction`
-  makes. The ladder isn't enabled yet (`ladder_enabled` false, `ladder_draw`
-  'generated').
-- **Round 1 isn't drawn.** The gym plan below was for five tiers. It's
-  waiting on Indru's plan for four, including the 7-team tier's format.
-  Tuesday gyms open to NS: D'Youville 6:15–8 + 8:15–10 (3 courts), North
-  Park 8–10 (3), Jim Archdekin A/B 6–10 + C 8–10.
-- Open: remove the 75 blank alignment games, or leave them?
+**Current as of 2026-10-18 (supersedes everything below):**
+- **Round 1 is LIVE in the app: Oct 20, Oct 27, Nov 3, Nov 10, 123 games.**
+  Teams come from Marg's Oct 13 ranking ("2026_2027 RANKINGS NON SPIKING
+  ROUND 1 OCT 20TH"; the alignment night itself ran on paper, so its 75 games
+  have no scores). Division A–D = 6/6/6/7 (D = ranks 19–25), seated by
+  `lib/db/_tmp/seat-ns-round1.mts`. Gyms, divisions and start times come from
+  Indru's "2026 Indoor Tues Round 1 schedules Rev 2", trimmed to the permits.
+  The live games are the same as the owner's Desktop PDF "BVL Non-Spiking
+  Round 1 (Oct 20 - Nov 10) - PROPOSED.pdf" (`lib/db/_tmp/ns-round1-proposal.mts`).
+  `ns-round1-verify.mts` checks that PDF independently (656 checks), and
+  `ns-round1-compare.mts` checks live against PDF (123/123 match).
+- **Settings:**
+  - `ladder_enabled` true, `ladder_draw` 'bvl_round'.
+  - `ladder_round_weeks` **4** (Indru: "2 teams move up and down from each
+    division after four week round").
+  - `ladder_round_grid` **'cycle'** (0174): a rotation walked straight through
+    the round, 6-team standard, 7-team Indru's own table with one team off.
+  - `ladder_swaps` [2,2,2].
+  - `blackout_dates` ['2026-10-13'], so the app's week 1 is Oct 20.
+  - `ladder_tier_nights` weeks 1–4 hold each tier's gym and slot times, and
+    placements are copied to weeks 1–4. Loaded by `lib/db/_tmp/load-ns-round1.mts`.
+- **Sent to Indru to confirm, no answer yet.** The owner had it loaded before
+  he replied. Changes from his sheet:
+  - St. Marguerite 6:15 sessions are 3 × **35 min** (permit ends 8:00).
+  - Nov 3 early session starts 6:15, not 6:30.
+  - North Park has 3 rounds, not 4.
+  - Jim Archdekin Nov 10 has 2 rounds, not 3.
+  - A third row at Notre Dame on Nov 10, in a colour that matches no
+    division, is not scheduled.
+
+  Also asked: is North Park cancelled Nov 10; a set rotation for the 6-team
+  tiers; does a 25–24 lead win at the buzzer. **If he changes anything, edit
+  `ladder_tier_nights` and redraw from week 1.**
+- **Match counts:** A and B 10 each (every pairing twice). C 11 (his extra
+  rows). D 8–9 (byes).
+- **Scoring:** the competition format is win by **1**, cap 27, since
+  2026-10-18. Indru's sheet says win by 2, cap 27. Waiting on the buzzer answer.
+- ⚠️ **Round 2 (Nov 17+) needs `ladder_tier_nights` for weeks 5–8 before the
+  week-4 lock auto-advances.** Without them the draw refuses ("no slot times
+  for this week").
+- The 75 blank round-0 alignment games are still there. The round view now
+  skips week 0. Open: remove them?
 
 **As of 2026-10-13:**
 - **25 teams.** INDY 1 and Ball Buster were removed by V.

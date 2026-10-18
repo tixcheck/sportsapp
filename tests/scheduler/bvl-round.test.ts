@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bvlCycle,
   bvlTemplate,
   combineHalves,
   evenSlotTimes,
+  gridStyleOf,
   planBvlRound,
   roundWeeksOf,
   type BvlTierWeek,
@@ -367,5 +369,124 @@ describe("Reverse 4s grid — 6-team tiers play everyone once (3 slots, then 2)"
     expect(plan.problems).toEqual([]);
     expect(plan.fixtures).toHaveLength(15);
     expect(plan.fixtures.some((f) => f.half)).toBe(false);
+  });
+});
+
+describe("Non-Spiking cycle — a rotation played straight through a 4-week round", () => {
+  const pair = (a: string, b: string) => [a, b].sort().join("-");
+  const tier = (id: string, teams: string[], slots: number): BvlTierWeek => ({
+    divisionId: id,
+    teamIds: teams,
+    venueId: null,
+    slotTimes: Array.from({ length: slots }, (_, i) => `20:${i}0`),
+  });
+  const six = ["t1", "t2", "t3", "t4", "t5", "t6"];
+  const seven = [...six, "t7"];
+  // Indru's Round 1 sheet: Division A gets 3, 2, 3, 2 rounds over the four Tuesdays.
+  const round = (teams: string[], slots: number[]) =>
+    planBvlRound(
+      slots.map((n, i) => ({
+        week: i + 1,
+        date: `2026-1${i}-01`,
+        tiers: [tier("X", teams, n)],
+      })),
+      "cycle",
+    );
+
+  it("both rotations: every team once per round (one sits out of 7), every pairing once a cycle", () => {
+    for (const n of [6, 7]) {
+      const cycle = bvlCycle(n)!;
+      expect(cycle).toHaveLength(n === 6 ? 5 : 7);
+      const pairs = new Set<string>();
+      for (const r of cycle) {
+        const playing = r.flatMap((g) => [g.home, g.away]);
+        expect(r).toHaveLength(3);
+        expect(new Set(playing).size).toBe(6);
+        r.forEach((g) => pairs.add(pair(String(g.home), String(g.away))));
+      }
+      expect(pairs.size).toBe((n * (n - 1)) / 2);
+    }
+    expect(bvlCycle(5)).toBeNull();
+  });
+
+  it("carries on where last week stopped: 3+2+3+2 slots = two full round robins for 6", () => {
+    const plan = round(six, [3, 2, 3, 2]);
+    expect(plan.problems).toEqual([]);
+    expect(plan.fixtures).toHaveLength(30);
+    const n = new Map<string, number>();
+    for (const f of plan.fixtures) {
+      const k = pair(f.homeTeamId, f.awayTeamId);
+      n.set(k, (n.get(k) ?? 0) + 1);
+    }
+    expect(n.size).toBe(15);
+    expect([...n.values()].every((c) => c === 2)).toBe(true);
+    // Week 2 opens on rotation round 4 (1v3), not round 1 again.
+    const wk2 = plan.fixtures.filter((f) => f.week === 2);
+    expect(pair(wk2[0].homeTeamId, wk2[0].awayTeamId)).toBe("t1-t3");
+  });
+
+  it("7 teams: one team off every slot, matches split 9/8 over 10 rounds", () => {
+    const plan = round(seven, [3, 3, 2, 2]);
+    expect(plan.problems).toEqual([]);
+    expect(plan.fixtures).toHaveLength(30);
+    const games = new Map<string, number>();
+    for (const f of plan.fixtures)
+      for (const t of [f.homeTeamId, f.awayTeamId])
+        games.set(t, (games.get(t) ?? 0) + 1);
+    expect([...games.values()].sort()).toEqual([8, 8, 8, 9, 9, 9, 9]);
+  });
+
+  it("each slot takes the gym's time and courts a, b, c; no halves, no nets", () => {
+    const plan = round(six, [3]);
+    expect(plan.fixtures.map((f) => f.time)).toEqual([
+      "20:00",
+      "20:00",
+      "20:00",
+      "20:10",
+      "20:10",
+      "20:10",
+      "20:20",
+      "20:20",
+      "20:20",
+    ]);
+    expect(plan.fixtures.slice(0, 3).map((f) => f.court)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(plan.fixtures.some((f) => f.half)).toBe(false);
+    expect(plan.nets).toEqual([]);
+    expect(bvlTemplate(6, "cycle")).toBeNull();
+  });
+
+  it("reports what it can't bind, never guesses", () => {
+    const five = planBvlRound(
+      [{ week: 1, date: "2026-10-20", tiers: [tier("X", six.slice(0, 5), 2)] }],
+      "cycle",
+    );
+    expect(five.problems[0].reason).toMatch(/6 or 7/);
+    const noTimes = planBvlRound(
+      [{ week: 1, date: "2026-10-20", tiers: [tier("X", six, 0)] }],
+      "cycle",
+    );
+    expect(noTimes.problems[0].reason).toMatch(/no slot times/);
+    const twoCourts = planBvlRound(
+      [
+        {
+          week: 1,
+          date: "2026-10-20",
+          tiers: [{ ...tier("X", six, 2), courtLabels: ["a", "b"] }],
+        },
+      ],
+      "cycle",
+    );
+    expect(twoCourts.problems[0].reason).toMatch(/3 courts/);
+  });
+
+  it("gridStyleOf reads the stored setting; unknown is the Women's grid", () => {
+    expect(gridStyleOf("cycle")).toBe("cycle");
+    expect(gridStyleOf("once")).toBe("once");
+    expect(gridStyleOf(null)).toBe("bvl");
+    expect(gridStyleOf("nonsense")).toBe("bvl");
   });
 });

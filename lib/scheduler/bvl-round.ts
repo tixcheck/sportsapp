@@ -187,15 +187,57 @@ const BVL_6_ONCE: BvlTemplate = {
 /**
  * Which grids a league plays (`league_settings.ladder_round_grid`, 0163):
  * "bvl" — the Women's sheet (6-team tiers play 18 games with red halves);
- * "once" — 6-team tiers play everyone once, 3 slots then 2 (Reverse 4s).
- * 4- and 5-team tiers are the same either way.
+ * "once" — 6-team tiers play everyone once, 3 slots then 2 (Reverse 4s);
+ * "cycle" — Non-Spiking (0174): a fixed rotation played straight through the
+ *   round, as many rotation rounds a night as the gym's slot times allow.
+ * 4- and 5-team tiers are the same for "bvl" and "once".
  */
-export type BvlGridStyle = "bvl" | "once";
+export type BvlGridStyle = "bvl" | "once" | "cycle";
+
+/**
+ * The rotations "cycle" plays, one row per round, one game per court.
+ *
+ * BVL Non-Spiking (Indru, 2026-10-18): a four-week round whose gyms give each
+ * tier 2 or 3 rounds a night, so no two-week grid fits. A 6-team tier plays
+ * the standard rotation (team 1 fixed) — every 5 rounds a full round robin.
+ * A 7-team tier plays Indru's own table from his Round 1 sheet: 3 courts, one
+ * team sitting out each round, every 7 rounds a full round robin.
+ */
+const CYCLES: Record<number, BvlGame[][]> = {
+  6: [
+    row("1v6", "2v5", "3v4"),
+    row("1v5", "4v6", "2v3"),
+    row("1v4", "3v5", "2v6"),
+    row("1v3", "2v4", "5v6"),
+    row("1v2", "3v6", "4v5"),
+  ],
+  7: [
+    row("1v7", "2v6", "3v5"),
+    row("2v1", "3v7", "4v6"),
+    row("3v2", "4v1", "5v7"),
+    row("4v3", "5v2", "6v1"),
+    row("5v4", "6v3", "7v2"),
+    row("6v5", "7v4", "1v3"),
+    row("7v6", "1v5", "2v4"),
+  ],
+};
+
+/** `ladder_round_grid` as stored → the style; anything unknown is "bvl". */
+export function gridStyleOf(value: unknown): BvlGridStyle {
+  return value === "once" || value === "cycle" ? value : "bvl";
+}
+
+/** The rotation a "cycle" tier of this size plays, or null if there is none. */
+export function bvlCycle(teams: number): BvlGame[][] | null {
+  return CYCLES[teams] ?? null;
+}
 
 export function bvlTemplate(
   teams: number,
   style: BvlGridStyle = "bvl",
 ): BvlTemplate | null {
+  // A "cycle" tier has no two-week grid (and no net duty): see bvlCycle.
+  if (style === "cycle") return null;
   if (style === "once" && teams === 6) return BVL_6_ONCE;
   return TEMPLATES.get(teams) ?? null;
 }
@@ -252,6 +294,8 @@ export function planBvlRound(
   const fixtures: BvlFixture[] = [];
   const nets: BvlRoundPlan["nets"] = [];
   const problems: BvlRoundPlan["problems"] = [];
+
+  if (style === "cycle") return planCycleRound(weeks);
 
   weeks.forEach((w, weekIndex) => {
     for (const tier of w.tiers) {
@@ -313,6 +357,69 @@ export function planBvlRound(
     }
   });
   return { fixtures, nets, problems };
+}
+
+/**
+ * "cycle": each tier walks its rotation from round 1, taking one rotation round
+ * per slot time its gym gives it that week, carrying on where the last week
+ * stopped. So a tier with 3 + 2 + 3 + 2 slots over a four-week round plays
+ * rotation rounds 1–3, 4–5, 6–8 (6 = 1 again for 6 teams), 9–10.
+ */
+function planCycleRound(
+  weeks: { week: number; date: string; tiers: BvlTierWeek[] }[],
+): BvlRoundPlan {
+  const fixtures: BvlFixture[] = [];
+  const problems: BvlRoundPlan["problems"] = [];
+  const next = new Map<string, number>();
+  for (const w of weeks) {
+    for (const tier of w.tiers) {
+      const cycle = bvlCycle(tier.teamIds.length);
+      if (!cycle) {
+        problems.push({
+          week: w.week,
+          divisionId: tier.divisionId,
+          reason: `${tier.teamIds.length} teams — the rotations are for 6 or 7`,
+        });
+        continue;
+      }
+      if (tier.slotTimes.length === 0) {
+        problems.push({
+          week: w.week,
+          divisionId: tier.divisionId,
+          reason: "no slot times for this week",
+        });
+        continue;
+      }
+      const courts = tier.courtLabels ?? ["a", "b", "c"];
+      if (courts.length < cycle[0].length) {
+        problems.push({
+          week: w.week,
+          divisionId: tier.divisionId,
+          reason: `needs ${cycle[0].length} courts, has ${courts.length}`,
+        });
+        continue;
+      }
+      tier.slotTimes.forEach((time, slotIndex) => {
+        const i = next.get(tier.divisionId) ?? 0;
+        next.set(tier.divisionId, i + 1);
+        cycle[i % cycle.length].forEach((game, c) =>
+          fixtures.push({
+            divisionId: tier.divisionId,
+            venueId: tier.venueId,
+            week: w.week,
+            date: w.date,
+            homeTeamId: tier.teamIds[game.home - 1],
+            awayTeamId: tier.teamIds[game.away - 1],
+            court: courts[c],
+            slotIndex,
+            time,
+            half: false,
+          }),
+        );
+      });
+    }
+  }
+  return { fixtures, nets: [], problems };
 }
 
 /** Evenly spaced slot times: "18:15", 40, 3 → 18:15, 18:55, 19:35. */

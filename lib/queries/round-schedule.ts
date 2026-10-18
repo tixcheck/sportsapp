@@ -13,7 +13,11 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import { parseSheetNotes, type SheetNote } from "@/lib/competition/sheet-notes";
-import { bvlTemplate, roundWeeksOf } from "@/lib/scheduler/bvl-round";
+import {
+  bvlTemplate,
+  gridStyleOf,
+  roundWeeksOf,
+} from "@/lib/scheduler/bvl-round";
 
 /** Tier colours, top tier first — BVL's sheet uses purple, pink, orange, yellow. */
 const PALETTE = [
@@ -144,9 +148,12 @@ export async function getRoundSchedule(
     match_format: { bestOf?: number } | null;
   }[];
   const roundOf = (week: number) => Math.ceil(week / roundLen);
-  const rounds = [...new Set(matches.map((m) => roundOf(m.round)))].sort(
-    (a, b) => a - b,
-  );
+  // Week 0 is an alignment night (0165) played before the ladder, not a round.
+  const rounds = [
+    ...new Set(
+      matches.filter((m) => m.round >= 1).map((m) => roundOf(m.round)),
+    ),
+  ].sort((a, b) => a - b);
   const round =
     opts.round && rounds.includes(opts.round)
       ? opts.round
@@ -271,7 +278,7 @@ export async function getRoundSchedule(
             const ids = seated.get(d) ?? [];
             const grid = bvlTemplate(
               ids.length,
-              settings.ladder_round_grid === "once" ? "once" : "bvl",
+              gridStyleOf(settings.ladder_round_grid),
             )?.weeks[weekIndex % 2];
             const teams = (grid?.nets ?? []).map(
               (n) => teamName.get(ids[n - 1]) ?? "—",
