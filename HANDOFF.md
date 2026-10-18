@@ -1767,8 +1767,13 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 - ⚠️ **Round 2 (Nov 17+) needs `ladder_tier_nights` for weeks 5–8 before the
   week-4 lock auto-advances.** Without them the draw refuses ("no slot times
   for this week").
-- The 75 blank round-0 alignment games are still there. The round view now
-  skips week 0. Open: remove them?
+- **The Oct 13 alignment night was removed from the app (2026-10-18, owner's
+  call).** Its 75 unscored round-0 games and 5 `alignment_sessions` are gone,
+  so nothing asks for their scores and the organizer's alignment card no
+  longer shows. A `match_audit` 'schedule_erased' row records it. A full
+  backup of every row is in `lib/db/_tmp/backup-ns-alignment-2026-10-13.json`
+  (local, gitignored). The round view skips week 0 for any league that still
+  has an alignment night.
 
 **As of 2026-10-13:**
 - **25 teams.** INDY 1 and Ball Buster were removed by V.
