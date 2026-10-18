@@ -1711,6 +1711,14 @@ Theresa's confirmed Round 1 sheet. Round 1 (Oct 14 + 21, 74 games) drawn by `pla
 **Big Dig Energy stays at St. Thomas Aquinas all season** (its tier plays there; not automated yet).
 Open with BVL: how the red repeat games count; average ranking for April seeding.
 
+**Scoring formats (set 2026-10-18).** All open BVL leagues are **win by 1**: timed games end
+on the buzzer, so a 27–26 game has to record. This applies to the league formats and to every
+per-game override (`lib/db/_tmp/bvl-win-by-1.mts`). **Division D** (5 teams, "yellow" on
+Theresa's sheet) starts each set at 4–4 and plays **2 sets to 21**. The app has no per-division
+format, so it lives as a `match_format` override on each D game (`lib/db/_tmp/wed-div-d-to-21.mts`,
+rounds 1–2). ⚠️ When Round 2+ games are drawn, set the override again on Division D's new games
+(or on whichever tier holds the 5-team group). Scores are entered with the starting 4 included.
+
 ## BVL Reverse 4s (Tuesday) — on the round format (live 2026-10-10)
 
 `bvl_round`, 2-week rounds, swaps `[2,2]`, `ladder_round_grid = 'once'`. Divisions A (4) / B (6) / C (4) seated in Indru's
