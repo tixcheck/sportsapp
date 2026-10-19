@@ -2319,7 +2319,7 @@ shortening the sets or padding the second wave.**
   - It hands off through the `hand_off_to_person` tool, or the user taps "Talk to a person".
   - The admin replies at `/admin/support`. The Admin badge counts organizer requests plus conversations waiting on a reply.
   - There are no notification emails.
-  - With **no `ANTHROPIC_API_KEY` (the state on 2026-10-19), every message goes straight to the admin.** Past 20 AI replies per user per day, the same happens.
+  - **`ANTHROPIC_API_KEY` added by the owner on 2026-10-19** (in `.env.local`, and they say in Vercel). Without it, every message goes straight to the admin; past 20 AI replies per user per day, the same happens. The model thinks before answering, which counts against `max_tokens`: 400 cut a refund answer mid-sentence, so it's now 1500. A reply that stops at `max_tokens` is treated as a failure and goes to a person. Tested live with six questions: answers take 1–2 seconds, use about 1,600 input and 300 output tokens, and hand off correctly on "talk to a person" and "pay button errors".
   - Both tables are read-only over RLS; writes go through the `support_*` functions.
 - **Captains manage their own roster; subs are a label (0173).** On
   `/teams/[id]` the captain can remove players, see pending invites, and

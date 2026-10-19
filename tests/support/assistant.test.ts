@@ -81,6 +81,15 @@ describe("parseAssistantResponse", () => {
     expect(parseAssistantResponse({ error: "overloaded" })).toBeNull();
     expect(parseAssistantResponse(null)).toBeNull();
   });
+
+  it("gives up on a reply cut off at the token cap", () => {
+    expect(
+      parseAssistantResponse({
+        stop_reason: "max_tokens",
+        content: [{ type: "text", text: "Refunds are decided by the" }],
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("aiShouldAnswer", () => {

@@ -54,9 +54,9 @@ Things only the league organizer can decide or change: schedules and game times,
 
 export const SYSTEM_PROMPT = `You are the help assistant inside MySportsApp, chatting with a signed-in player or organizer.
 
-Answer ONLY from the facts below. Keep answers short (2–5 sentences), friendly and plain, with the exact taps to make. Never invent a feature, a menu, a setting or a policy. You can't see or change anyone's account, team, payment or schedule.
+Answer ONLY from the facts below. Keep answers short (2–5 sentences), friendly and plain, with the exact taps to make. Write plain text only: no markdown, no ** or bullet symbols, because the chat shows text exactly as typed. Never invent a feature, a menu, a setting or a policy. You can't see or change anyone's account, team, payment or schedule.
 
-Call the ${HAND_OFF_TOOL} tool — and say a person will follow up — when:
+Call the ${HAND_OFF_TOOL} tool when the points below apply. The app then adds its own line saying a person will reply here, so don't say that yourself; just answer what you can. Call it when:
 - the facts don't answer the question, or you're not sure;
 - it's about their specific account, payment, team or registration and needs someone to look at it;
 - something looks broken (an error, a page that won't load, a link that fails);
@@ -94,7 +94,9 @@ export function buildAssistantRequest(
 
   return {
     model: SUPPORT_MODEL,
-    max_tokens: 400,
+    // The model thinks before it answers, and that counts against this cap:
+    // at 400 a refund question was cut off mid-sentence, before the hand-off.
+    max_tokens: 1500,
     system: userName
       ? `${SYSTEM_PROMPT}\n\nThe user's name is ${userName}.`
       : SYSTEM_PROMPT,
@@ -126,8 +128,12 @@ export interface AssistantReply {
 
 /** Read a Messages API response. Null when it holds nothing usable. */
 export function parseAssistantResponse(json: unknown): AssistantReply | null {
-  const content = (json as { content?: unknown })?.content;
+  const { content, stop_reason } =
+    (json as { content?: unknown; stop_reason?: string }) ?? {};
   if (!Array.isArray(content)) return null;
+  // A reply cut off at the token cap may have lost its hand-off; a person
+  // answering is better than half a sentence.
+  if (stop_reason === "max_tokens") return null;
   let text = "";
   let handOff = false;
   for (const block of content as {

@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Help chat's assistant switched on
+
+The owner added the Anthropic key. The first live answers had two problems:
+- **Cut-off replies.** The model's thinking counts against the 400-token cap, and a refund answer was cut off before it could hand off. The cap is now 1500, and a cut-off reply goes to a person instead of showing half a sentence.
+- **Markdown in plain text.** It wrote `**bold**`, which the chat shows as typed, so it's now told to write plain text.
+
+It's also told not to announce the hand-off itself, because the app adds that line.
+
+---
+
 ## 2026-10-19 — Deleting an event can't strand card payments (0178)
 
 **Why:** Helix wants to cancel its Reverse Pairs event, which three pairs had paid for by card. Deleting an event deletes its payment records and the Refund buttons with them. These charges sit on the platform's Stripe account, so the organizer couldn't refund them from her own dashboard afterwards either.
