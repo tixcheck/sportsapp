@@ -310,9 +310,20 @@ export default async function DashboardPage() {
 
       {activeComps.length > 0 && (
         <section className="space-y-3">
-          <h2 className="font-display text-lg font-semibold">
-            Competitions you play in
-          </h2>
+          {/* A player in one league had no way back to sign up for another
+              (review, 2026-09-16: registered for BVL Tuesdays, couldn't find
+              how to join Thursdays too). */}
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-display text-lg font-semibold">
+              Competitions you play in
+            </h2>
+            <Link
+              href="/find"
+              className="text-muted-foreground text-sm underline-offset-2 hover:underline"
+            >
+              Join another league →
+            </Link>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {activeComps.map((c) => {
               const next = nextMatchLine(c);
