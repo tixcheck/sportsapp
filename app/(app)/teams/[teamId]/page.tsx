@@ -40,10 +40,16 @@ import {
 
 export default async function TeamPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ teamId: string }>;
+  searchParams: Promise<{ paid?: string }>;
 }) {
   const { teamId } = await params;
+  // Stripe sends the payer back here with ?paid=1 or ?paid=0. Nothing read it,
+  // so a payment that failed or was cancelled looked like nothing happened
+  // (a player review: "the payment did not go through").
+  const { paid } = await searchParams;
   const view = await getTeamView(teamId);
   if (!view) notFound(); // not a member or competition admin
 
@@ -127,6 +133,22 @@ export default async function TeamPage({
           {team.name}
         </h1>
       </div>
+
+      {paid === "0" && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-medium">Your payment didn&apos;t go through.</p>
+          <p>
+            Nothing was charged. Use the payment button below to try again —
+            your team&apos;s spot isn&apos;t confirmed until it&apos;s paid.
+          </p>
+        </div>
+      )}
+      {paid === "1" && (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <p className="font-medium">Payment received — thank you.</p>
+          <p>It can take a minute to show as paid below.</p>
+        </div>
+      )}
 
       <TeamPaymentCard
         competitionId={competition.id}
