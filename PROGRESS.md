@@ -5,6 +5,33 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Fixes from the player reviews in the moderation queue
+
+There were 8 pending reviews, 7 of them 1–2★. Each was checked against the code.
+
+**Real bugs, fixed:**
+- **Past games as "upcoming":**
+  - Upcoming meant "not completed", and the oldest such game came first, so an unscored game from a paper night was "Your next game".
+  - Now a game counts only if it is today or later in the venue timezone. This applies to the dashboard, My matches and `my_competitions` (0175).
+  - Tiles also stopped 404ing for tournaments.
+- **Wrong email:** players had no way to change it, and the auth hook sent email-change links to the wrong address. Profile now has an Email card, the hook pairs the tokens correctly, and 0176 syncs `public.users`.
+- **"Claim my team":**
+  - The dashboard invite card said "Claim" for player invites.
+  - The organizer's Add captain action overwrote a teammate's player invite.
+- **Failed payment:** the team page now reads Stripe's `?paid=0/1`.
+
+**Missing basics, added:**
+- **Support email:** shown in the menu, the footers, and the 404 and error pages.
+- **Waiver status:** the roster shows Waiver ✓ / not signed for each player.
+- **Join another league:** a link from the dashboard.
+- **Loading skeletons:** pages show one straight away when a tile is tapped. `getUser` is memoised per request.
+
+**Not changed:**
+- **Invites:** the Sept 10 "invites don't work" bug was the 0055 RLS gap, fixed on Sept 11.
+- **League news:** "No way to see organizer news" went to IDEAS.md as an in-app news list built from organizer broadcasts.
+
+---
+
 ## 2026-10-19 — BVL data: Thursday alignment week 2 live; Non-Spiking 40-minute rounds
 
 No app code changed; these were live-data loads.

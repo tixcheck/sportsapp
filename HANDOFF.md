@@ -12,7 +12,7 @@
 - **Branch:** `main`. **Latest work:** SMVA's weekly loop — typed final standings per gym, lock on them, draw next week on the pinned grids (branch `smva-weekly-loop`, merged). See "Scarborough Men's" below.
 - **GitHub:** `https://github.com/tixcheck/sportsapp.git`
 - **Vercel project:** `my-sports-app/sportsapp` (auto-deploys on push to `main`; the GitHub commit status is the deploy signal).
-- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0174`, and every one of `0060`–`0174` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0172` on 2026-10-14, `0173` on 2026-10-16, `0174` on 2026-10-18). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
+- **Supabase project:** `evngfeuqyllfwkdvsrsb`. **Migrations written through `0176`, and every one of `0060`–`0176` verified as applied against the live database** (`0060`–`0116` audited 2026-09-08 by parsing each migration's DDL and checking the objects exist — not by trusting this file; `0117`–`0118` applied and verified the same way on 2026-09-13, `0119` and `0120` on 2026-09-14, `0121` on 2026-09-15, `0122`, `0123`, `0124` and `0125` on 2026-09-16; `0126` and `0127` on 2026-09-21 — `0127` applied that day, `0126` re-checked against the live column and constraint rather than assumed from the commit; `0128` applied and verified 2026-09-24; `0129`–`0137` all applied and verified 2026-09-25; `0138`–`0142` applied and verified 2026-09-28; `0143`–`0145` on 2026-09-30, `0146`–`0149` on 2026-10-01, `0150` on 2026-10-05, `0151`–`0153` on 2026-10-06, `0154`–`0159` on 2026-10-07, `0160` on 2026-10-08, `0161`–`0165` on 2026-10-10, `0166` on 2026-10-11, `0167`–`0169` on 2026-10-13, `0170`–`0172` on 2026-10-14, `0173` on 2026-10-16, `0174` on 2026-10-18, `0175`–`0176` on 2026-10-19). From `0050` on they are **hand-written SQL** applied with a throwaway node script (drizzle-kit won't run them), so Drizzle's tracking doesn't know about any of them — see Known quirks.
   - **`0074`–`0116` ARE applied** — audited 2026-09-08 against the live
     database. Rather than trusting the record below, a throwaway script parsed
     every migration from `0074` on for the objects it creates (columns, tables,
@@ -2301,6 +2301,23 @@ shortening the sets or padding the second wave.**
 
 ## Known quirks
 
+- **"Upcoming" means scheduled AND today or later (2026-10-19).**
+  - `lib/schedule/upcoming.ts` `isUpcoming` drives the dashboard's next/upcoming games and My matches' "Up next".
+  - `my_competitions`' "Next:" uses the same rule, applied in SQL by 0175.
+  - BVL nights played on paper stay `scheduled` forever. Before this fix, they showed as "Your next game".
+  - On My matches they now sit under "Needs a score".
+- **Email change works through the auth email hook (0176).**
+  - The profile Email card calls `changeEmailAction`, which calls `updateUser({ email })`.
+  - `emailHookRequests` sends `token_hash` to `user.new_email`. With Secure Email Change on, it also sends `token_hash_new` to the current address. Supabase's names are reversed on purpose; don't "fix" them.
+  - 0176 copies a confirmed change into `public.users.email`.
+  - A user who can't receive at the old address (a mistyped one) can't finish a secure change. Support moves them in the Supabase dashboard.
+- **Support address:** `lib/support.ts` (`hello@mysportsapp.ca`) appears in:
+  - the account menu;
+  - the app and auth footers;
+  - the landing footer;
+  - the not-found and error pages.
+
+  Make sure someone reads that inbox.
 - **Captains manage their own roster; subs are a label (0173).** On
   `/teams/[id]` the captain can remove players, see pending invites, and
   resend, fix or cancel them, as well as mark a player as a sub. The same
