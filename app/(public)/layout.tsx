@@ -3,11 +3,14 @@ import { LayoutDashboard } from "lucide-react";
 
 import { getProfile, getUser } from "@/lib/auth/user";
 import { UserMenu } from "@/components/app/user-menu";
+import { SupportChat } from "@/components/support/support-chat";
 
 /**
  * Public pages render their own full-bleed header. For a *logged-in* visitor we
  * add a slim persistent bar on top so they can get back to their dashboard —
  * anonymous visitors see nothing extra and keep the plain public experience.
+ * The Help chat comes too: the menu's "Help & contact" opens it, and on an
+ * event page without it that item did nothing.
  */
 export default async function PublicLayout({
   children,
@@ -38,6 +41,7 @@ export default async function PublicLayout({
         </header>
       )}
       {children}
+      {user && <SupportChat />}
     </>
   );
 }

@@ -32,7 +32,8 @@ describe("buildAssistantRequest", () => {
     expect(req.messages[1].content).toContain(
       "[Reply from the MySportsApp team] I moved your account",
     );
-    expect(req.system).toContain("The user's name is Sam.");
+    expect(req.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(req.system[1].text).toBe("The user's name is Sam.");
     expect(req.tools[0].name).toBe(HAND_OFF_TOOL);
   });
 

@@ -5,6 +5,37 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Help assistant gets a full guide to the app
+
+**What changed:** the owner asked for a document the assistant can answer anything from. `lib/support/knowledge.ts` replaces the 30-line FACTS list. Its sections:
+- Navigation and accounts
+- Joining events, teams, invites and waivers
+- Payments for players
+- Games, scores, standings and formats
+- Reviews
+- An organizer's guide: roles, the creation wizards, publishing, running a league, waivers, messaging, Stripe, payments and refunds, and cancelling an event
+- What the app can't do
+- When to hand off
+
+**How it was written:** four parallel read-only sweeps pulled the exact on-screen labels from the code, so the guide quotes the buttons people actually see.
+
+**Errors the sweep caught in the old facts:**
+- Players never see "Edit score"; only organizers do.
+- The invite button is "Invite teammate".
+
+**Cost:** the guide goes as a cached prompt block. On a live run of 10 questions, the first message wrote 9,731 tokens to the cache and every later one read from it. All 10 answers were correct. Ownership transfer handed off; everything else was answered.
+
+**Bug fixed on the way:** the Help chat wasn't mounted on public event pages, so "Help & contact" in the menu did nothing there.
+
+**Gaps the sweep found, left for later:**
+- No email is sent when an organizer request is approved.
+- The confirm-score email template is never sent.
+- There is no way to set a forfeit.
+- Individual (free-agent) card payments have no refund button, and their receipt links to `/teams/null`.
+- The unsubscribe link always reads "weekly emails".
+
+---
+
 ## 2026-10-19 — Help chat's assistant switched on
 
 The owner added the Anthropic key. The first live answers had two problems:

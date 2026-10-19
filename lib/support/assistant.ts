@@ -3,13 +3,15 @@
  * conversation becomes a Messages API request, and how the reply is read.
  * The network call is in `ask-ai.ts`.
  *
- * It answers only from FACTS below and hands the conversation to the platform
+ * It answers only from the guide in `knowledge.ts` and hands the conversation to the platform
  * admin (a person) the moment it can't — account-specific problems, anything
  * an organizer decides, or a user who asks for a human. It never makes
  * changes; it explains where in the app to do things.
  */
 
 /** Small and cheap: support answers are short lookups, not reasoning. */
+import { KNOWLEDGE } from "./knowledge";
+
 export const SUPPORT_MODEL = "claude-haiku-5-5";
 
 /** Past this many assistant replies to one user in a day, hand off instead. */
@@ -20,49 +22,23 @@ export const HAND_OFF_TOOL = "hand_off_to_person";
 export const HAND_OFF_NOTE =
   "I've passed this to the MySportsApp team — a person will reply right here. You can close this window; you'll see a dot on Help when they answer.";
 
-export const FACTS = `
-MySportsApp (mysportsapp.ca) runs volleyball leagues and tournaments. Organizers (for example Brampton Volleyball League, BVL) run their own leagues; MySportsApp is the app they use.
-
-Getting around
-- The account menu is the round avatar at the TOP RIGHT of every page (there is no bottom menu). It has My matches, Profile, Leave a review, Help & contact, and Sign out.
-- The dashboard lists your teams, your next game, standings and "Competitions you play in". "Join another league →" next to that heading opens the list of leagues and tournaments you can sign up for.
-
-Account
-- Change your email: account menu → Profile → Email card → type the new address → Change email → open the confirmation link sent to the NEW address (if an email also arrives at the old address, approve that too). Until then the old address keeps working.
-- If you can't receive email at your current address (for example it was mistyped), you can't confirm the change yourself — hand off to a person.
-- Forgot password: on the sign-in page tap "Forgot password" and use the link emailed to you.
-
-Waivers
-- If a league has a waiver, it appears on your dashboard to sign. After signing, your team's page shows "Waiver ✓" next to your name on the roster ("Waiver not signed" if not).
-
-Teams and invites
-- A captain invites players from their team's page (Roster → invite). The player gets an email link. Signing up or signing in with the SAME email address the invite went to links them to the team automatically.
-- An invite waiting for you shows on the dashboard as "You've been invited to join <team> … Join team". "Claim team" only appears for someone invited to captain a team.
-- In some leagues (BVL), a team's schedule stays hidden until the roster is complete and every player has signed the waiver. The dashboard card says what's still missing.
-
-Payments
-- A team's registration fee is paid from the team's page (pay by card, or PayPal where the organizer offers it).
-- If a card payment didn't go through, the team page says so — nothing was charged; use the payment button there to try again.
-- Refunds and fee questions are the organizer's decision.
-
-Games and scores
-- My matches (account menu) lists your games: Up next, Needs a score (past games with no score yet), and the rest of the schedule.
-- To enter a score: on the game tap "Enter score" → type both teams' scores → Record → Submit score. A wrong score: tap "Edit score" and submit again.
-
-Things only the league organizer can decide or change: schedules and game times, which division or tier a team is in, rules, refunds, moving a player between teams, cancelling games. For those, tell the user to contact their league organizer (their registration emails come from the organizer), and hand off if they also need the app team.
-`.trim();
+/**
+ * What the assistant knows about the app. Lives in its own file because it's
+ * long; re-exported so tests and callers keep one import.
+ */
+export const FACTS = KNOWLEDGE;
 
 export const SYSTEM_PROMPT = `You are the help assistant inside MySportsApp, chatting with a signed-in player or organizer.
 
-Answer ONLY from the facts below. Keep answers short (2–5 sentences), friendly and plain, with the exact taps to make. Write plain text only: no markdown, no ** or bullet symbols, because the chat shows text exactly as typed. Never invent a feature, a menu, a setting or a policy. You can't see or change anyone's account, team, payment or schedule.
+Answer ONLY from the guide below. The user may be a player or an organizer: answer for whichever they sound like, and ask if it matters and isn't clear. Keep answers short (2–5 sentences), friendly and plain, with the exact taps to make. Write plain text only: no markdown, no ** or bullet symbols, because the chat shows text exactly as typed. Never invent a feature, a menu, a setting or a policy. You can't see or change anyone's account, team, payment or schedule.
 
 Call the ${HAND_OFF_TOOL} tool when the points below apply. The app then adds its own line saying a person will reply here, so don't say that yourself; just answer what you can. Call it when:
-- the facts don't answer the question, or you're not sure;
+- the guide doesn't answer the question, or you're not sure;
 - it's about their specific account, payment, team or registration and needs someone to look at it;
 - something looks broken (an error, a page that won't load, a link that fails);
 - they ask for a person, or they're frustrated after your answer.
 
-FACTS
+GUIDE
 ${FACTS}`;
 
 export type ChatAuthor = "user" | "ai" | "admin";
@@ -97,9 +73,19 @@ export function buildAssistantRequest(
     // The model thinks before it answers, and that counts against this cap:
     // at 400 a refund question was cut off mid-sentence, before the hand-off.
     max_tokens: 1500,
-    system: userName
-      ? `${SYSTEM_PROMPT}\n\nThe user's name is ${userName}.`
-      : SYSTEM_PROMPT,
+    // The guide is the same for everyone, so it's cached and later messages
+    // read it at a fraction of the price; the name comes after the cache
+    // breakpoint so it doesn't split the cache per user.
+    system: [
+      {
+        type: "text" as const,
+        text: SYSTEM_PROMPT,
+        cache_control: { type: "ephemeral" as const },
+      },
+      ...(userName
+        ? [{ type: "text" as const, text: `The user's name is ${userName}.` }]
+        : []),
+    ],
     tools: [
       {
         name: HAND_OFF_TOOL,
