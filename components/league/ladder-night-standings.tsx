@@ -3,7 +3,11 @@ import { DateTime } from "luxon";
 import type { LadderNight } from "@/lib/queries/ladder-standings";
 import type { MatchFormat } from "@/lib/db/schema";
 import type { Sport } from "@/lib/formats";
-import { StandingsTable } from "@/components/standings/standings-table";
+import type { RankMode } from "@/lib/scheduler/tiebreakers";
+import {
+  StandingsLegend,
+  StandingsTable,
+} from "@/components/standings/standings-table";
 
 /**
  * A ladder's standings, one table per night.
@@ -19,12 +23,14 @@ export function LadderNightStandings({
   format,
   sport,
   differential = false,
+  mode,
 }: {
   nights: LadderNight[];
   timezone: string;
   format?: MatchFormat;
   sport?: Sport;
   differential?: boolean;
+  mode?: RankMode;
 }) {
   if (nights.length === 0) {
     return (
@@ -41,6 +47,19 @@ export function LadderNightStandings({
         Tiers are shown as they stood that week, so a team that has since moved
         still appears where it played.
       </p>
+      {/*
+        Above the tables, not below: a ladder runs to many weeks, and a key at
+        the bottom of all of them is a key nobody finds.
+      */}
+      <StandingsLegend
+        format={format}
+        sport={sport}
+        differential={differential}
+        mode={mode}
+        seasonTotal={nights.some((n) =>
+          n.tiers.some((t) => t.rows.some((r) => r.seasonGamesPlayed != null)),
+        )}
+      />
 
       {nights.map((night) => (
         <section key={night.week} className="space-y-4">

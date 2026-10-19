@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-18 — Ladder standings explain their columns
+
+A BVL convenor asked what GP / TOTAL / MW / T / ML / SW / SL / PF / PA / RATIO
+mean. Every other standings view carries the key (`StandingsLegend`), but the
+per-night tables a ladder league shows (`LadderNightStandings`) never rendered
+it, so no BVL league had one. The key now sits **above** the nights, not below:
+a ladder runs many weeks, and a key under all of them is a key nobody finds. It
+also gained the one column it never explained, Total (games played this season,
+beside a night's own GP). The ranking sentence follows the league's tiebreaker
+mode. Covered by `tests/standings/ladder-legend.test.ts`, the first test that
+renders a component to markup, which needed `oxc` JSX compilation in
+`vitest.config.ts` (tsconfig keeps JSX as-is for Next).
+
+Also on 2026-10-18: Non-Spiking Round 1's 123 games were **taken down** (Indru:
+the 7-team tier had one-game nights). See HANDOFF; a v3 redraw is proposed and
+waiting on the owner.
+
 ## 2026-10-18 — Non-Spiking Round 1 live: a 4-week round on a "cycle" grid (0174)
 
 BVL Non-Spiking plays a **four-week** ladder round. Each gym gives a tier 2 or

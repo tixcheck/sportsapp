@@ -323,6 +323,7 @@ export function LeagueTabs({
             format={league.matchFormat}
             sport={league.sport}
             differential={league.tiebreaker === "differential"}
+            mode={league.tiebreaker}
           />
         ) : series ? (
           <SeriesStandings

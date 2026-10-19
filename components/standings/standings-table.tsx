@@ -313,6 +313,7 @@ export function StandingsLegend({
   format,
   differential = false,
   showPoints = false,
+  seasonTotal = false,
   mode,
 }: {
   /**
@@ -335,6 +336,8 @@ export function StandingsLegend({
   differential?: boolean;
   /** Explain the organizer's Pts column. */
   showPoints?: boolean;
+  /** Explain the Total column (a ladder night's table beside the season count). */
+  seasonTotal?: boolean;
 }) {
   const flags = format ? standingsLegendFlags(format) : { singleSet, canTie };
   const single = flags.singleSet;
@@ -373,8 +376,9 @@ export function StandingsLegend({
         </p>
       )}
       <p className="text-ink-3">
-        GP games played / scheduled · MW/ML {unit} won/lost ·
-        {ties ? " T tied ·" : ""}
+        GP games played / scheduled ·
+        {seasonTotal ? " Total games played this season ·" : ""} MW/ML {unit}{" "}
+        won/lost ·{ties ? " T tied ·" : ""}
         {ties && showPoints ? " Pts = MW + ½ T ·" : ""}
         {showSets ? " SW/SL sets ·" : ""} {pts.short[0]}/{pts.short[1]}{" "}
         {pts.unit.toLowerCase()}s ·{" "}

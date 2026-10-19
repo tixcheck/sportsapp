@@ -52,6 +52,7 @@ export default async function EmbedStandingsPage({
             format={league.matchFormat}
             sport={league.sport}
             differential={differential}
+            mode={league.tiebreaker}
           />
         ) : standings.length > 1 ? (
           <StandingsGroups
