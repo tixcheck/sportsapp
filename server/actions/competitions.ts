@@ -131,7 +131,10 @@ export async function deleteCompetitionAction(
     return {
       error: error.message.includes("not authorized")
         ? "Only the organization's owner or admin can delete a competition."
-        : error.message,
+        : error.message.includes("unrefunded card payments")
+          ? // Deleting would take the Refund buttons with it (0178).
+            "Players still have card payments on this event. Refund them on the Payments tab first, then delete it."
+          : error.message,
     };
   }
 

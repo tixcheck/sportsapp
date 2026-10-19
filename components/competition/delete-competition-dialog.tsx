@@ -75,8 +75,10 @@ export function DeleteCompetitionDialog({
           <DialogTitle>Delete “{name}”?</DialogTitle>
           <DialogDescription>
             This permanently deletes the {label} and everything in it — teams,
-            schedule, scores, and standings. This can&apos;t be undone. Type the{" "}
-            {label} name to confirm.
+            schedule, scores, standings, and payment records. This can&apos;t be
+            undone. Refund any card payments on the Payments tab first, and
+            return cash or e-transfers yourself. Type the {label} name to
+            confirm.
           </DialogDescription>
         </DialogHeader>
         <Input

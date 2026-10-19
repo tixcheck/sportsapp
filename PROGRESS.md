@@ -5,6 +5,19 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Deleting an event can't strand card payments (0178)
+
+**Why:** Helix wants to cancel its Reverse Pairs event, which three pairs had paid for by card. Deleting an event deletes its payment records and the Refund buttons with them. These charges sit on the platform's Stripe account, so the organizer couldn't refund them from her own dashboard afterwards either.
+
+**What changed:**
+- **The delete is refused** while any live card payment hasn't been fully refunded. The message tells the organizer to refund on the Payments tab first.
+  - Checked against the real Helix event in a rolled-back transaction: refused with 3 card payments; allowed once they were marked refunded, with the e-transfer row still present.
+  - Test-mode payments don't block, so test events stay deletable.
+- **The Refund button appears only on card payments.** On cash and e-transfer rows it could only ever error, since that money never went through Stripe.
+- **The delete dialog** now says to refund card payments first and to return cash or e-transfers yourself.
+
+---
+
 ## 2026-10-19 — In-app Help chat (0177)
 
 **Why not email:** the help email from the review fixes had no inbox behind it, and the owner didn't want to pay for one. So support became a chat window inside the app.

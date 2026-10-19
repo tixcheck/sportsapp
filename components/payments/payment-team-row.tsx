@@ -83,7 +83,7 @@ export function PaymentTeamRow({
   }
 
   const refundableCount = team.charges.filter(
-    (c) => refundableCents(c) > 0,
+    (c) => c.method === "card" && refundableCents(c) > 0,
   ).length;
 
   function admit() {
@@ -202,7 +202,9 @@ export function PaymentTeamRow({
           ) : (
             <ul className="space-y-1.5">
               {team.charges.map((c) => {
-                const canRefund = refundableCents(c) > 0;
+                // Only a card charge goes back through Stripe; money that
+                // came by cash or e-transfer is the organizer's to return.
+                const canRefund = c.method === "card" && refundableCents(c) > 0;
                 return (
                   <li
                     key={c.id}
