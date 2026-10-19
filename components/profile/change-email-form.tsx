@@ -9,7 +9,7 @@ import {
   changeEmailSchema,
   type ChangeEmailInput,
 } from "@/lib/validations/auth";
-import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
+import { OPEN_SUPPORT_EVENT } from "@/components/support/support-chat";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -95,11 +95,15 @@ export function ChangeEmailForm({
       </Form>
       <p className="text-muted-foreground text-xs">
         Can&apos;t get email at your current address (for example, it was
-        mistyped)? Email{" "}
-        <a href={SUPPORT_MAILTO} className="underline underline-offset-2">
-          {SUPPORT_EMAIL}
-        </a>{" "}
-        from the right address and we&apos;ll move your account.
+        mistyped)?{" "}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(OPEN_SUPPORT_EVENT))}
+          className="underline underline-offset-2"
+        >
+          Open Help
+        </button>{" "}
+        and we&apos;ll move your account.
       </p>
     </div>
   );

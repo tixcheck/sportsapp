@@ -7,6 +7,7 @@ import {
   getAccessState,
   getPendingOrganizerRequestCount,
 } from "@/lib/queries/access";
+import { getSupportUnreadCount } from "@/lib/queries/support";
 import { CURRENT_ORG_COOKIE } from "@/lib/org/cookies";
 import { OrgSwitcher } from "./org-switcher";
 import { UserMenu } from "./user-menu";
@@ -19,9 +20,15 @@ export async function Navbar() {
     getAccessState(),
   ]);
   const currentOrgId = cookieStore.get(CURRENT_ORG_COOKIE)?.value;
-  const pendingRequests = access.isPlatformAdmin
-    ? await getPendingOrganizerRequestCount()
-    : 0;
+  // The admin badge counts organizer requests and support conversations
+  // waiting on a reply (0177: no emails, so this is how the admin finds out).
+  const [pendingRequests, supportWaiting] = access.isPlatformAdmin
+    ? await Promise.all([
+        getPendingOrganizerRequestCount(),
+        getSupportUnreadCount(),
+      ])
+    : [0, 0];
+  const adminBadge = pendingRequests + supportWaiting;
 
   return (
     <header className="border-border bg-card/80 sticky top-0 z-40 border-b backdrop-blur">
@@ -51,9 +58,9 @@ export async function Navbar() {
               className="text-muted-foreground hover:text-foreground relative text-sm font-medium"
             >
               Admin
-              {pendingRequests > 0 && (
+              {adminBadge > 0 && (
                 <span className="bg-claret absolute -top-2 -right-3 grid size-4 place-items-center rounded-full text-[10px] font-semibold text-white tabular-nums">
-                  {pendingRequests}
+                  {adminBadge}
                 </span>
               )}
             </Link>

@@ -1,7 +1,6 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
 
 export default function NotFound() {
   return (
@@ -17,11 +16,7 @@ export default function NotFound() {
         <Link href="/dashboard">Go to my dashboard</Link>
       </Button>
       <p className="text-muted-foreground text-xs">
-        Still stuck? Email{" "}
-        <a href={SUPPORT_MAILTO} className="underline underline-offset-2">
-          {SUPPORT_EMAIL}
-        </a>
-        .
+        Still stuck? Tap Help at the bottom right of your dashboard.
       </p>
     </main>
   );

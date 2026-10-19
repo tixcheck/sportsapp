@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/user";
 import { Navbar } from "@/components/app/navbar";
 import { HelpFooter } from "@/components/app/help-footer";
+import { SupportChat } from "@/components/support/support-chat";
 
 export default async function AppLayout({
   children,
@@ -15,6 +16,7 @@ export default async function AppLayout({
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
       <HelpFooter />
+      <SupportChat />
     </div>
   );
 }

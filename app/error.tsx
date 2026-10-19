@@ -3,7 +3,6 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
 
 export default function ErrorPage({
   error,
@@ -25,10 +24,7 @@ export default function ErrorPage({
         </Button>
       </div>
       <p className="text-muted-foreground text-xs">
-        If it keeps happening, email{" "}
-        <a href={SUPPORT_MAILTO} className="underline underline-offset-2">
-          {SUPPORT_EMAIL}
-        </a>
+        If it keeps happening, tap Help at the bottom right of your dashboard
         {error.digest ? ` and mention code ${error.digest}` : ""}.
       </p>
     </main>

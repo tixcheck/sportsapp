@@ -2312,3 +2312,42 @@ export const ladderTierNights = pgTable(
   },
   (t) => [unique().on(t.divisionId, t.week)],
 );
+
+// ---------------------------------------------------------------------------
+// Support chat (0177) — an AI assistant first, then the platform admin
+// ---------------------------------------------------------------------------
+
+/**
+ * One support conversation. A user has at most one that isn't closed. Status:
+ * `ai` (the assistant is answering), `waiting` (handed to the admin, no reply
+ * yet), `answered` (the admin replied last), `closed`. Read-only over RLS —
+ * every write is a `support_*` SQL function.
+ */
+export const supportThreads = pgTable("support_threads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("ai"),
+  adminUnread: boolean("admin_unread").notNull().default(false),
+  userUnread: boolean("user_unread").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const supportMessages = pgTable("support_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => supportThreads.id, { onDelete: "cascade" }),
+  /** 'user' | 'ai' | 'admin' */
+  author: text("author").notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

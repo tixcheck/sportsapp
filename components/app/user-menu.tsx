@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { signOutAction } from "@/server/actions/auth";
-import { SUPPORT_MAILTO } from "@/lib/support";
+import { OPEN_SUPPORT_EVENT } from "@/components/support/support-chat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -80,11 +80,11 @@ export function UserMenu({
             Leave a review
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a href={SUPPORT_MAILTO}>
-            <LifeBuoy className="size-4" />
-            Help &amp; contact
-          </a>
+        <DropdownMenuItem
+          onSelect={() => window.dispatchEvent(new Event(OPEN_SUPPORT_EVENT))}
+        >
+          <LifeBuoy className="size-4" />
+          Help &amp; contact
         </DropdownMenuItem>
         <DropdownMenuItem
           disabled={pending}

@@ -55,6 +55,12 @@ export default async function AdminOverviewPage() {
             Organizer requests →
           </Link>
           <Link
+            href="/admin/support"
+            className="text-primary inline-block text-sm hover:underline"
+          >
+            Support →
+          </Link>
+          <Link
             href="/admin/reviews"
             className="text-primary inline-block text-sm hover:underline"
           >
