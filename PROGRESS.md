@@ -5,6 +5,22 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — BVL data: Thursday alignment week 2 live; Non-Spiking 40-minute rounds
+
+No app code changed; these were live-data loads.
+
+**Thursday Oct 22** is loaded exactly as Vince's v2 sheet: 16 sessions, 132 games, all 55 teams.
+- **Why his sheet and not mine:** my proposal used fixed groups of six and made teams sit out on 2-court gyms. His puts 4 teams in each 2-court slot, so nobody sits, and climbing does the sorting.
+- **Dog Pound:** his first sheet left Dog Pound (#55) out. v2 shifts ranks 21+ down one gym-slot and gives Gore's 9:00 slot a single climber.
+- **Week 1:** removed after a backup. It had been played on paper.
+
+**Non-Spiking:** the 6:15 d'Youville sessions were moved from 35- to 40-minute rounds, at Indru's request.
+- That runs through the 8:00–8:15 gap between the two permits.
+- Theresa says the Catholic board only books from :15, so the gap is free to use.
+- The buzzer rule is settled: a 1-point lead wins, and a tied game plays one more point. The validator already enforced it.
+
+---
+
 ## 2026-10-18 — Ladder standings explain their columns
 
 A BVL convenor asked what GP / TOTAL / MW / T / ML / SW / SL / PF / PA / RATIO

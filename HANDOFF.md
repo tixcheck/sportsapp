@@ -1682,7 +1682,28 @@ The table's policy is unchanged.
 Rounds (10) and minutes (25) are placeholders; set them at draw time from the
 real field — 15 pairs on 2 courts balances at 5, 10 or 15 rounds.
 
-## BVL Thursday Co-ed 6s — alignment week 1 in the app (loaded 2026-10-14)
+## BVL Thursday Co-ed 6s — alignment week 2 in the app (loaded 2026-10-19)
+
+**Current (supersedes the week 1 notes below):** Oct 22 is live from Vince's
+(convenor) "2026-2027_BVL_Alignment_Week_2_v2.xlsx": 16 `alignment_sessions`,
+132 round-0 games, all 55 teams. Loaded by `lib/db/_tmp/load-thu-week2.mts`, which
+asserts every game start matches his sheet.
+- **Week 1 removed.** It was played on paper; its 156 unscored games and 14
+  sessions are backed up to `lib/db/_tmp/backup-thu-alignment-2026-10-15.json`.
+- **Gyms (ranks):** Notre Dame 6:15 (1–6), Jim Archdekin 6/7/8/9 (7–20), Gore
+  Meadows 8/9 (21–27), Cassie Campbell 6:30/7:30/8:30/9:30 (28–38), St. Thomas
+  Aquinas 8:15 on **3 courts** (39–44), Terry Miller 6/7/8/9 (45–55).
+- **Vince's rules:**
+  - Every 2-court slot has 4 teams, so nobody sits out.
+  - The last slot at Terry Miller, Cassie and Gore takes **1** climber (`climbers = 1`).
+  - Games end about 5 minutes before the booking does.
+  - Notre Dame runs to 7:53 on purpose: Theresa wants 7:50-ish, out by 7:59.
+- **Permit data disagrees on St. Thomas Aquinas courts:** our Thursday permit
+  says 2 courts (from the Oct 7 workbook), but BVL nets 3.
+- **Printout:** `lib/db/_tmp/print-thu-wk2.mts` (live data).
+- **Next:** Round 1 tiers come after Oct 22.
+
+## BVL Thursday Co-ed 6s — alignment week 1 (loaded 2026-10-14, removed 2026-10-19)
 
 Competition `0c1f9215-…`, 55 teams. Oct 15: 14 `alignment_sessions`, 160 round-0
 games, from BVL's "2026_thursday_alignment_v2.xlsx".
