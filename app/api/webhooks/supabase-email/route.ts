@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { verifyWebhook } from "@/lib/auth/verify-webhook";
-import { parseEmailHook, type EmailHookPayload } from "@/lib/auth/email-hook";
+import {
+  emailHookRequests,
+  type EmailHookPayload,
+} from "@/lib/auth/email-hook";
 import { sendAuthAction } from "@/lib/email/send";
 import type { EmailBrand } from "@/lib/email/templates/layout";
 
@@ -62,26 +65,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
 
-  const parsed = parseEmailHook(payload, siteOrigin());
-  if (!parsed) {
+  // Usually one email; an email change can need two (new and current address).
+  const requests = emailHookRequests(payload, siteOrigin());
+  if (requests.length === 0) {
     console.error("[supabase-email] payload had no address or token");
     return NextResponse.json({ error: "unusable payload" }, { status: 400 });
   }
 
-  const context = await lookupBranding(parsed.registrationSlug);
+  const context = await lookupBranding(requests[0].registrationSlug);
 
-  const result = await sendAuthAction(parsed.to, {
-    action: parsed.action,
-    brand: context?.brand,
-    contextName: context?.competitionName ?? null,
-    actionUrl: parsed.actionUrl,
-  });
+  for (const parsed of requests) {
+    const result = await sendAuthAction(parsed.to, {
+      action: parsed.action,
+      brand: context?.brand,
+      contextName: context?.competitionName ?? null,
+      actionUrl: parsed.actionUrl,
+    });
 
-  if (!result.sent) {
-    // Tell Supabase it failed. It surfaces the failure to the user, who can try
-    // again — far better than a silent success and an email that never arrives.
-    console.error("[supabase-email] send failed:", result.reason);
-    return NextResponse.json({ error: "send failed" }, { status: 500 });
+    if (!result.sent) {
+      // Tell Supabase it failed. It surfaces the failure to the user, who can
+      // try again — far better than a silent success and an email that never
+      // arrives.
+      console.error("[supabase-email] send failed:", result.reason);
+      return NextResponse.json({ error: "send failed" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

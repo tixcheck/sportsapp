@@ -580,6 +580,7 @@ const SUBJECTS: Record<AuthActionEmailProps["action"], string> = {
   magiclink: "Your sign-in link",
   recovery: "Reset your password",
   email_change: "Confirm your new email address",
+  email_change_current: "Approve your email change",
 };
 
 /**

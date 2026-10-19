@@ -17,9 +17,11 @@ import { safeNext, DEFAULT_NEXT } from "@/lib/utils/safe-next";
  */
 
 export interface EmailHookPayload {
-  user?: { email?: string | null } | null;
+  user?: { email?: string | null; new_email?: string | null } | null;
   email_data?: {
     token_hash?: string | null;
+    /** Email change only: pairs with the CURRENT address (Supabase's naming is reversed). */
+    token_hash_new?: string | null;
     email_action_type?: string | null;
     redirect_to?: string | null;
   } | null;
@@ -56,35 +58,83 @@ const OTP_TYPES: Record<AuthAction, string> = {
   magiclink: "magiclink",
   recovery: "recovery",
   email_change: "email_change",
+  email_change_current: "email_change",
 };
+
+/**
+ * Every email one hook call must send. Usually one; an email change sends to
+ * the NEW address (with `token_hash`) and, when Secure Email Change is on, also
+ * to the current one (with `token_hash_new`). Supabase's field names are
+ * reversed for backward compatibility — "do not assume the _new suffix refers
+ * to the new email address" — which the first version of this got wrong, so a
+ * player trying to fix a mistyped email was never sent a usable link.
+ */
+export function emailHookRequests(
+  payload: EmailHookPayload,
+  origin: string,
+): EmailHookRequest[] {
+  const first = parseEmailHook(payload, origin);
+  if (!first || first.action !== "email_change") return first ? [first] : [];
+  const current = payload.user?.email?.trim();
+  const hashForCurrent = payload.email_data?.token_hash_new?.trim();
+  if (!current || !hashForCurrent || current === first.to) return [first];
+  return [
+    first,
+    {
+      ...first,
+      to: current,
+      action: "email_change_current",
+      actionUrl: callbackUrl(
+        origin,
+        hashForCurrent,
+        "email_change_current",
+        "/profile",
+      ),
+    },
+  ];
+}
 
 export function parseEmailHook(
   payload: EmailHookPayload,
   origin: string,
 ): EmailHookRequest | null {
-  const to = payload.user?.email?.trim();
-  const tokenHash = payload.email_data?.token_hash?.trim();
-  if (!to || !tokenHash) return null;
-
   const rawType = payload.email_data?.email_action_type?.trim().toLowerCase();
   // An unrecognised action still needs an email — better a generic confirm than
   // a user who is never told anything. Auth emails have no safe silent failure.
   const action = (rawType && ACTIONS[rawType]) || "confirm";
 
+  // An email change's main link goes to the address being moved TO.
+  const to = (
+    action === "email_change"
+      ? payload.user?.new_email || payload.user?.email
+      : payload.user?.email
+  )?.trim();
+  const tokenHash = payload.email_data?.token_hash?.trim();
+  if (!to || !tokenHash) return null;
+
   const next = destinationFrom(payload.email_data?.redirect_to, action);
-  const url = new URL(`${origin.replace(/\/+$/, "")}/auth/callback`);
-  url.searchParams.set("token_hash", tokenHash);
-  url.searchParams.set("type", OTP_TYPES[action]);
-  url.searchParams.set("next", next);
 
   return {
     to,
     action,
-    actionUrl: url.toString(),
+    actionUrl: callbackUrl(origin, tokenHash, action, next),
     registrationSlug: next.startsWith("/register/")
       ? next.slice("/register/".length).split(/[/?#]/)[0] || null
       : null,
   };
+}
+
+function callbackUrl(
+  origin: string,
+  tokenHash: string,
+  action: AuthAction,
+  next: string,
+): string {
+  const url = new URL(`${origin.replace(/\/+$/, "")}/auth/callback`);
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", OTP_TYPES[action]);
+  url.searchParams.set("next", next);
+  return url.toString();
 }
 
 /**

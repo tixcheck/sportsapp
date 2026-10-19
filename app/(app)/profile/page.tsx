@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { getProfile } from "@/lib/auth/user";
+import { getProfile, getUser } from "@/lib/auth/user";
 import { getPlayerProfile } from "@/lib/queries/player-stats";
 import { MyStatsCard } from "@/components/stats/my-stats-card";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ChangeEmailForm } from "@/components/profile/change-email-form";
 import { Button } from "@/components/ui/button";
 import { NotificationPrefsForm } from "@/components/profile/notification-prefs-form";
 import { PlayerDetailsForm } from "@/components/registration/player-details-form";
@@ -21,11 +22,13 @@ import {
 export default async function ProfilePage() {
   const profile = await getProfile();
   if (!profile) redirect("/login");
-  const [stats, leagueDetails, addressAutocomplete] = await Promise.all([
-    getPlayerProfile(profile.id),
-    getMyLeagueDetails(),
-    addressAutocompleteAvailableAction(),
-  ]);
+  const [authUser, stats, leagueDetails, addressAutocomplete] =
+    await Promise.all([
+      getUser(),
+      getPlayerProfile(profile.id),
+      getMyLeagueDetails(),
+      addressAutocompleteAvailableAction(),
+    ]);
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -41,6 +44,21 @@ export default async function ProfilePage() {
               displayName: profile.display_name ?? "",
               avatarUrl: profile.avatar_url ?? "",
             }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Email</CardTitle>
+          <CardDescription>
+            Where your league emails, invites and sign-in links go.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChangeEmailForm
+            email={authUser?.email ?? profile.email}
+            pendingEmail={authUser?.new_email ?? null}
           />
         </CardContent>
       </Card>

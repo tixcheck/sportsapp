@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseEmailHook, type EmailHookPayload } from "@/lib/auth/email-hook";
+import {
+  emailHookRequests,
+  parseEmailHook,
+  type EmailHookPayload,
+} from "@/lib/auth/email-hook";
 
 const ORIGIN = "https://mysportsapp.ca";
 
@@ -127,5 +131,41 @@ describe("parseEmailHook", () => {
     expect(
       r.actionUrl.startsWith("https://mysportsapp.ca/auth/callback?"),
     ).toBe(true);
+  });
+});
+
+describe("emailHookRequests — email change", () => {
+  const change = (secure: boolean): EmailHookPayload => ({
+    user: { email: "typo@gmial.com", new_email: "right@gmail.com" },
+    email_data: {
+      token_hash: "hash-for-new",
+      ...(secure ? { token_hash_new: "hash-for-current" } : {}),
+      email_action_type: "email_change",
+      redirect_to: `${ORIGIN}/auth/callback?next=/profile`,
+    },
+  });
+
+  it("sends the main link to the NEW address with token_hash", () => {
+    const [r, ...rest] = emailHookRequests(change(false), ORIGIN);
+    expect(rest).toHaveLength(0);
+    expect(r.to).toBe("right@gmail.com");
+    const url = new URL(r.actionUrl);
+    expect(url.searchParams.get("token_hash")).toBe("hash-for-new");
+    expect(url.searchParams.get("type")).toBe("email_change");
+    expect(url.searchParams.get("next")).toBe("/profile");
+  });
+
+  it("with secure change on, also asks the current address — with token_hash_new", () => {
+    const rs = emailHookRequests(change(true), ORIGIN);
+    expect(rs.map((r) => r.to)).toEqual(["right@gmail.com", "typo@gmial.com"]);
+    expect(rs[1].action).toBe("email_change_current");
+    expect(new URL(rs[1].actionUrl).searchParams.get("token_hash")).toBe(
+      "hash-for-current",
+    );
+  });
+
+  it("leaves every other action as one email", () => {
+    expect(emailHookRequests(payload(), ORIGIN)).toHaveLength(1);
+    expect(emailHookRequests({}, ORIGIN)).toHaveLength(0);
   });
 });

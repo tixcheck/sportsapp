@@ -9,7 +9,12 @@ import {
   type EmailBrand,
 } from "./layout";
 
-export type AuthAction = "confirm" | "recovery" | "email_change" | "magiclink";
+export type AuthAction =
+  | "confirm"
+  | "recovery"
+  | "email_change"
+  | "email_change_current"
+  | "magiclink";
 
 export interface AuthActionEmailProps {
   action: AuthAction;
@@ -109,5 +114,14 @@ const COPY: Record<
     cta: "Confirm this address",
     footer:
       "If you didn't ask to change your email, ignore this and tell us — your account is unchanged.",
+  },
+  // Secure email change also asks the CURRENT address to approve the move.
+  email_change_current: {
+    preview: "Approve your email change",
+    heading: "Approve your email change",
+    body: "Someone — hopefully you — asked to move your account to a new email address. Approve it here, and confirm the link sent to the new address too.",
+    cta: "Approve the change",
+    footer:
+      "If you didn't ask for this, ignore it and tell us — nothing changes until both addresses confirm.",
   },
 };

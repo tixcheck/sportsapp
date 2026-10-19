@@ -35,3 +35,6 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+export const changeEmailSchema = z.object({ email: emailSchema });
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;

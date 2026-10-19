@@ -14,10 +14,12 @@ import { sendAccountExists } from "@/lib/email/send";
 import { getOrigin } from "@/lib/utils/url";
 import { safeNext } from "@/lib/utils/safe-next";
 import {
+  changeEmailSchema,
   forgotPasswordSchema,
   loginSchema,
   resetPasswordSchema,
   signupSchema,
+  type ChangeEmailInput,
   type ForgotPasswordInput,
   type LoginInput,
   type ResetPasswordInput,
@@ -134,6 +136,40 @@ export async function updatePasswordAction(
   if (error) return { error: error.message };
 
   redirect("/dashboard");
+}
+
+/**
+ * Start moving the signed-in account to a new email address. Supabase emails
+ * a confirmation link to the new address (and, with Secure Email Change on,
+ * one to the current address too — see emailHookRequests); the switch happens
+ * when the link is used, and 0176 copies it into public.users.
+ *
+ * Added for a player who mistyped their email at sign-up and had no way to
+ * fix it (1★ review, 2026-09-19).
+ */
+export async function changeEmailAction(
+  values: ChangeEmailInput,
+): Promise<ActionError | { ok: true; email: string }> {
+  const parsed = changeEmailSchema.safeParse(values);
+  if (!parsed.success) return { error: "Enter a valid email." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+
+  const email = parsed.data.email.toLowerCase();
+  if (email === user.email?.toLowerCase())
+    return { error: "That's already your email." };
+
+  const origin = await getOrigin();
+  const { error } = await supabase.auth.updateUser(
+    { email },
+    { emailRedirectTo: `${origin}/auth/callback?next=/profile` },
+  );
+  if (error) return { error: error.message };
+  return { ok: true, email };
 }
 
 export async function signOutAction(): Promise<void> {
