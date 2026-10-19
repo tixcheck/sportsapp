@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/user";
 import { Navbar } from "@/components/app/navbar";
+import { HelpFooter } from "@/components/app/help-footer";
 
 export default async function AppLayout({
   children,
@@ -13,6 +14,7 @@ export default async function AppLayout({
     <div className="bg-background min-h-svh">
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <HelpFooter />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from "@/lib/support";
+
 export default function AuthLayout({
   children,
 }: {
@@ -17,6 +19,12 @@ export default function AuthLayout({
           />
         </Link>
         {children}
+        <p className="text-muted-foreground mt-8 text-center text-xs">
+          Trouble signing in? Email{" "}
+          <a href={SUPPORT_MAILTO} className="underline underline-offset-2">
+            {SUPPORT_EMAIL}
+          </a>
+        </p>
       </div>
     </div>
   );

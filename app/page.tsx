@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { SUPPORT_MAILTO } from "@/lib/support";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -536,6 +537,9 @@ export default async function HomePage() {
             <Link href="/terms" className="hover:text-ink-2">
               Terms
             </Link>
+            <a href={SUPPORT_MAILTO} className="hover:text-ink-2">
+              Contact
+            </a>
           </nav>
         </div>
       </footer>
