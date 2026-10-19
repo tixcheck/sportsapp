@@ -1727,7 +1727,7 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 
 ## BVL Non-Spiking (Tuesday) — alignment night in the app (live 2026-10-10)
 
-**Current as of 2026-10-18 night (supersedes everything below):**
+**Current as of 2026-10-19 (supersedes everything below):**
 - **Round 1 v3 is LIVE: Oct 20 – Nov 10, 132 games.** Loaded by
   `lib/db/_tmp/load-ns-round1-v3.mts` from Indru's "Rev 2.1" sheet and his
   corrections. `ns-v3-compare.mts` checks live against the v3 plan (132/132).
@@ -1743,8 +1743,15 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
     unused that night.
   - Per team: A, B, D play 10 (2–3 a night); C plays 12 (2–4 a night). Every
     pair meets twice. No one-game nights.
-  - Still open with Indru: the odd-coloured third row at Notre Dame on Nov 10
-    (not scheduled), and win by 1 vs 2 at the buzzer.
+  - **D'Youville (= St. Marguerite d'Youville) 6:15 sessions are 3 × 40**
+    (6:15/6:55/7:35, done 8:15) on Oct 20, Oct 27 and Nov 10, at Indru's request.
+    `lib/db/_tmp/ns-marg-40.mts` retimed 18 games. The permits are 6:15–8:00 +
+    8:15–10:00, but Theresa says the Catholic board only books from :15 and
+    the 8:00–8:15 gap is free to use. Don't flag games that run through it.
+  - Settled by Indru on 2026-10-18: the greyed Notre Dame row on Nov 10 is
+    unused. At the buzzer, a 1-point lead wins in every division, and a tied
+    game plays one more point (26–25). The validator already allows that and
+    rejects tied games. A 1–1 match is still a tie (T).
   - The owner's Desktop has the forwardable PDF, the 16-page score sheets
     (`ns-round1-live-pdf.mts`, `ns-round1-scoresheets.mts`, both read live
     data) and the v3 proposals.
