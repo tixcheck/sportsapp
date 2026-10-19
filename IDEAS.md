@@ -295,3 +295,22 @@ waiver required, per BVL. Still open: a "invite as a sub" checkbox, which
 needs the flag carried on `team_invites` through the claim/autolink functions;
 and whether one person may sub for several teams (today they'd simply be on
 each roster).
+
+## League news in the app — "where do I find what the organizer said?"
+
+From a 1★ player review (2026-10-15): "No communication features to find news
+from the organizers or relay information to teammates."
+
+**What exists:** organizers already email players from the app
+(`server/actions/communications.ts`: whole events, or only some teams, as BVL
+used on 2026-10-14 when one gym's times moved). Those emails go out and are
+gone. Nothing in the app shows them again.
+
+**Smallest useful step:** keep every organizer broadcast and show it as a
+"News" list on the league page and the dashboard card, newest first. That uses
+the same data, needs no new sending path, and gives a player who deleted the
+email somewhere to look.
+
+**Later:** captain-to-team messages through the same path. Real-time team
+chat is a different product (moderation, notifications), and stays out unless
+organizers ask for it. See also the mobile app's "Push an announcement".
