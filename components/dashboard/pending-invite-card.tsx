@@ -36,14 +36,19 @@ export function PendingInviteCard({
     <div className="border-gold-300 bg-gold-300/15 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
       <div className="flex items-start gap-3">
         <Mail className="text-coral-700 mt-0.5 size-5 shrink-0" />
+        {/* "Claim" is only for a captain taking over a team. A player invited
+            onto someone else's team saw "Claim" too and read it as being told
+            to take a team that wasn't theirs (review, 2026-09-14). */}
         <p className="text-sm">
-          You&apos;ve been added as {role} of{" "}
+          {role === "captain"
+            ? "You've been invited to captain "
+            : "You've been invited to join "}
           <span className="font-semibold">{invite.teamName}</span> in{" "}
           <span className="font-semibold">{invite.competitionName}</span>.
         </p>
       </div>
       <Button onClick={claim} disabled={pending} size="sm">
-        {pending ? "Claiming…" : "Claim"}
+        {pending ? "Joining…" : role === "captain" ? "Claim team" : "Join team"}
       </Button>
     </div>
   );

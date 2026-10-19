@@ -168,11 +168,19 @@ export async function editTeamInviteAction(
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Reuse the team's latest invite if one exists, else create a fresh one.
+  // Reuse the team's pending CAPTAIN invite if one exists, else create one.
+  // This used to take the team's latest invite of any kind — usually a
+  // teammate's player invite, often already accepted — and rewrite it: the
+  // teammate's record was lost, and the new person got a "Claim your team"
+  // email but joined only as a player, so the team stayed unclaimed and the
+  // organizer re-sent it again (a player review: "it keeps telling me to claim
+  // my team but I'm on someone else's team").
   const { data: existing } = await supabase
     .from("team_invites")
     .select("id")
     .eq("team_id", teamId)
+    .eq("role", "captain")
+    .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -194,6 +202,7 @@ export async function editTeamInviteAction(
       team_id: teamId,
       email: parsed.data,
       token,
+      role: "captain",
       invited_by_user_id: user?.id ?? null,
       expires_at: expiresAt,
     });
