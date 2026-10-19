@@ -1727,8 +1727,21 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 
 ## BVL Non-Spiking (Tuesday) — alignment night in the app (live 2026-10-10)
 
-**Current as of 2026-10-18 (supersedes everything below):**
-- **Round 1 is LIVE in the app: Oct 20, Oct 27, Nov 3, Nov 10, 123 games.**
+**Current as of 2026-10-18 evening (supersedes everything below):**
+- ⚠️ **Round 1's games are TAKEN DOWN (owner's call, 2026-10-18): the league
+  has 0 games.** Indru: "You have the 7 team tier playing too few games" (the
+  7-team tier had nights with one game) and he is sending a corrected template.
+  Cause: his Rev 2 sheet's legend makes **C** the 7-team tier (ranks 13–19)
+  and gives that colour the long slots (North Park 4 rows on Oct 20/27, 3 rows
+  on Nov 3/10). The ranking file makes **D** the 7-team tier, and the load
+  matched slots by LETTER, so the 7 teams got D's short slots. Redraw by
+  giving the 7-team tier the long slots. The 123 games are backed up in
+  `lib/db/_tmp/backup-ns-round1-2026-10-18.json` (no results existed), with
+  a `match_audit` 'schedule_erased' row. Seating, `ladder_tier_nights` and
+  settings below are unchanged, so the redraw means editing tier nights and
+  re-inserting games, not starting over.
+- ~~Round 1 is LIVE in the app: Oct 20, Oct 27, Nov 3, Nov 10, 123 games.~~
+  The rest of this list describes the draw that was taken down.
   Teams come from Marg's Oct 13 ranking ("2026_2027 RANKINGS NON SPIKING
   ROUND 1 OCT 20TH"; the alignment night itself ran on paper, so its 75 games
   have no scores). Division A–D = 6/6/6/7 (D = ranks 19–25), seated by
