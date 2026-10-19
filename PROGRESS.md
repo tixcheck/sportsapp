@@ -5,6 +5,23 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — In-app Help chat (0177)
+
+**Why not email:** the help email from the review fixes had no inbox behind it, and the owner didn't want to pay for one. So support became a chat window inside the app.
+
+**What the owner chose:**
+- AI first, then them.
+- Signed-in users only.
+- A badge in the app, not email alerts.
+
+**How it works:**
+- **The assistant** runs on Haiku and answers only from a written list of app facts.
+- **Hand-offs:** when it can't answer, it hands the conversation to the owner's Admin → Support inbox. The user can also ask for a person.
+- **Security:** writes go through security-definer functions, so a player can't post as the admin. This was checked as real users in a rolled-back transaction.
+- **No API key yet:** until one is added, every message goes straight to the owner. That costs nothing.
+
+---
+
 ## 2026-10-19 — Fixes from the player reviews in the moderation queue
 
 There were 8 pending reviews, 7 of them 1–2★. Each was checked against the code.
