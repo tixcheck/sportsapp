@@ -140,7 +140,11 @@ export function SignWaiver({
         toast.error(res.error);
         return;
       }
-      toast.success("Thanks — that's recorded.");
+      // The card disappears on refresh, so say where the proof lives.
+      toast.success("Waiver signed.", {
+        description: "Your team roster now shows Waiver ✓ next to your name.",
+        duration: 8000,
+      });
       onSigned?.();
       router.refresh();
     });

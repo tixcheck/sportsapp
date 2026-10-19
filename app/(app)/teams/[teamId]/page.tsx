@@ -18,7 +18,10 @@ import {
 import { TeamPaymentCard } from "@/components/payments/team-payment-card";
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import { EntryGate } from "@/components/team/entry-gate";
-import { getTeamEntryGate } from "@/lib/queries/team-entry";
+import {
+  getTeamEntryGate,
+  getTeamWaiverSigned,
+} from "@/lib/queries/team-entry";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
 import { CaptainRoster } from "@/components/team/captain-roster";
 import { getPendingTeamInvites } from "@/lib/queries/roster";
@@ -67,7 +70,10 @@ export default async function TeamPage({
   // A held team has no fixtures to show, and saying "no matches yet" would
   // send its captain looking for a scheduling fault instead of doing the one
   // thing that would fix it — chasing a signature, or finding a sixth player.
-  const entryGate = await getTeamEntryGate(team.id);
+  const [entryGate, waiverSigned] = await Promise.all([
+    getTeamEntryGate(team.id),
+    getTeamWaiverSigned(team.id, competition.id),
+  ]);
   const payment = teamPaymentState(paymentRows, {
     feeCents: feeSettings.registrationFeeCents,
   });
@@ -251,6 +257,7 @@ export default async function TeamPage({
             // A joined partner IS the pair; changing one stays the organizer's.
             canRemoveMembers={view.isAdmin || !isPairs}
             subsAllowed={!isPairs}
+            waiverSigned={waiverSigned}
           />
         </CardContent>
       </Card>

@@ -38,6 +38,7 @@ export function CaptainRoster({
   canManage,
   canRemoveMembers,
   subsAllowed,
+  waiverSigned = null,
 }: {
   teamId: string;
   roster: Member[];
@@ -46,6 +47,8 @@ export function CaptainRoster({
   canRemoveMembers: boolean;
   /** False for a Reverse Pairs pair, which has no subs. */
   subsAllowed: boolean;
+  /** Who has signed the league's waiver; null when the league has none. */
+  waiverSigned?: string[] | null;
 }) {
   const router = useRouter();
   const refresh = () => router.refresh();
@@ -68,6 +71,13 @@ export function CaptainRoster({
           canManage={canManage}
           canRemove={canRemoveMembers}
           subsAllowed={subsAllowed}
+          waiver={
+            waiverSigned == null
+              ? null
+              : waiverSigned.includes(m.userId)
+                ? "signed"
+                : "unsigned"
+          }
           onDone={refresh}
         />
       ))}
@@ -181,6 +191,7 @@ function MemberLine({
   canManage,
   canRemove,
   subsAllowed,
+  waiver,
   onDone,
 }: {
   teamId: string;
@@ -188,6 +199,7 @@ function MemberLine({
   canManage: boolean;
   canRemove: boolean;
   subsAllowed: boolean;
+  waiver: "signed" | "unsigned" | null;
   onDone: () => void;
 }) {
   const [pending, start] = useTransition();
@@ -211,6 +223,16 @@ function MemberLine({
     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm">
       <span className="min-w-0 font-medium break-words">{m.name}</span>
       <span className="flex shrink-0 items-center gap-1">
+        {waiver === "signed" && (
+          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+            Waiver ✓
+          </span>
+        )}
+        {waiver === "unsigned" && (
+          <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+            Waiver not signed
+          </span>
+        )}
         {m.isSub ? (
           <span className="bg-paper-sunken text-ink-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
             Sub

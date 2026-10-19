@@ -79,3 +79,38 @@ export async function getTeamEntryGate(
     })),
   });
 }
+
+/**
+ * Who on a team has signed its league's waiver, or null when the league has
+ * none. For the roster's per-player badge: a player who signed used to see
+ * nothing at all afterwards — the card just vanished — and one review said
+ * "Can't tell if I've signed the waiver" (2026-09-14).
+ */
+export async function getTeamWaiverSigned(
+  teamId: string,
+  competitionId: string,
+): Promise<string[] | null> {
+  const supabase = await createClient();
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("waiver_id")
+    .eq("id", competitionId)
+    .maybeSingle();
+  const waiverId = (comp as { waiver_id: string | null } | null)?.waiver_id;
+  if (!waiverId) return null;
+
+  const { data: members } = await supabase
+    .from("team_members")
+    .select("user_id")
+    .eq("team_id", teamId);
+  const ids = (members ?? []).map((m) => m.user_id as string);
+  if (ids.length === 0) return [];
+
+  const { data: signatures } = await supabase
+    .from("waiver_acceptances")
+    .select("user_id")
+    // Signed once for the org's waiver counts in all its leagues (0148).
+    .eq("waiver_id", waiverId)
+    .in("user_id", ids);
+  return [...new Set((signatures ?? []).map((a) => a.user_id as string))];
+}
