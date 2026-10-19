@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 
@@ -21,14 +22,18 @@ export type UserOrg = {
   role: "owner" | "admin" | "organizer";
 };
 
-/** The current auth user, or null if signed out. */
-export async function getUser(): Promise<User | null> {
+/**
+ * The current auth user, or null if signed out. Memoised per request:
+ * `auth.getUser()` is a network round trip to Supabase, and the layout, the
+ * navbar and the page each asked for it, which made every navigation slower.
+ */
+export const getUser = cache(async (): Promise<User | null> => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
 /** The current auth user, redirecting to /login if signed out. */
 export async function requireUser(): Promise<User> {
@@ -39,12 +44,10 @@ export async function requireUser(): Promise<User> {
 
 /** The current user's public.users profile row. */
 export async function getProfile(): Promise<Profile | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const { data } = await supabase
     .from("users")
     .select(
@@ -58,11 +61,9 @@ export async function getProfile(): Promise<Profile | null> {
 
 /** Organizations the current user belongs to, with their role in each. */
 export async function getUserOrgs(): Promise<UserOrg[]> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getUser();
   if (!user) return [];
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("org_members")
