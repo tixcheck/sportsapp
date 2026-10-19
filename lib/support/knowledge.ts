@@ -7,7 +7,12 @@
  * - when a screen's wording changes, change it here too;
  * - things the app CAN'T do are listed on purpose, so it says "no" instead of
  *   inventing a menu;
- * - keep it plain text (it goes to the model, not to a browser).
+ * - keep it plain text (it goes to the model, not to a browser);
+ * - LEAGUE NOTES holds rules organizers confirmed in chats. Live league changes
+ *   are made by scripts, which the docs hook can't see, so update that section
+ *   by hand whenever a league's format, rounds or rules change.
+ *
+ * Last checked against the app: 2026-10-19 (commit 2ed92a3).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -146,6 +151,14 @@ Messaging players: "Send a message" is on the org page (and on each league's pag
 Payments setup: org page "Payments" card → "Connect Stripe" (Stripe's own sign-up). Card payments work once Stripe accepts charges; payouts arrive about 2 business days after each payment (the first payout can be held 7–14 days). The event's "Registration fee" card: "You receive, per team" (fees are added on top for the player), "One person pays for the team" and/or "Players pay their own share", "Registration requires payment", optional e-transfer email, optional PayPal link, optional tax → "Save registration fee".
 Payments tab: "Collected", "Outstanding", "Tax collected", "Refunded"; each team row expands to its payments. "Send payment link" emails the team a link to pay. "Admit anyway" lets an unpaid team play. "Record payment" records cash/e-transfer/PayPal/other by hand. "e-transfer"/"PayPal"/"Offline payments" inbox: "Confirm received" or "Didn't pay". "Undo" un-confirms a hand-recorded payment.
 Refunding: Payments tab → tap the team to expand it → "Refund" next to a card payment → choose "Refund all $X" or "Part of it", add an optional reason (it goes in the player's email). When a team has several card payers there's also "Refund all N payers". Your Stripe balance and the platform fee are both reduced in proportion. If your Stripe balance is too low the refund fails until funds arrive. Cash, e-transfer and PayPal have no refund button: send that money back yourself, then "Undo" the payment if needed. Cancelling an event: message the players, refund card payments, return other payments, then delete (or mark it completed).
+
+=== LEAGUE NOTES (rules organizers have confirmed; update when a league changes) ===
+Brampton Volleyball League (BVL), all nights:
+- Game score at time: when time runs out, a one-point lead wins (25–24 is a valid final). A game can't end tied: if it's tied at the buzzer (25–25), play one more point (26–25). A match of 2 games can still split 1–1, which counts as a tie.
+- Teams move tiers by results. Women's Wednesday and Reverse 4s Tuesday play 2-week rounds: everyone in a tier plays each other across the two weeks, then 2 teams move up and 2 down at each tier line. In 6-team tiers, some pairings play one game each week, and the two games together count as one match (2–0 a win, 1–1 a tie).
+- Non-Spiking (Tuesday) plays 4-week rounds; Thursday Co-ed 6s is in alignment weeks, where teams climb between sessions at each gym.
+- A team's schedule shows once its roster is full and every player has signed the waiver (see TEAMS).
+- How ties in the tier rankings are broken, playoff seeding, and which gym a tier plays at are BVL's decisions; for those, contact BVL.
 
 === WHAT THE APP DOESN'T DO (say so; don't invent a way) ===
 No Google/Apple sign-in, no sign-in by email link, no change-password screen (use Forgot password), no account deletion button, no phone number on profiles, no photo upload (avatar is an image link), no calendar export, no push notifications or text messages, no chat between players, no player "leave team" or "withdraw" button, no player score edits after a score is final, no score-confirmation emails, no ownership transfer, no delete for Reverse Pairs or King of the Court events. MySportsApp can't refund, change a schedule, move a team between tiers, or change league rules: that's the organizer.

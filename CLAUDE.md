@@ -20,6 +20,8 @@ A volleyball management web app for organizers and players. Free for organizers;
 6. **Do not add dependencies casually.** Justify any new package in your message.
 7. **`PROGRESS.md` and `HANDOFF.md` are part of the work, not paperwork after it.** A session that ships anything updates `PROGRESS.md` in the same session, and corrects `HANDOFF.md` wherever it now says something untrue — applied migrations, current state, known quirks. Verify before you write: check the repo or query the live database rather than restating what the file already claims. Both files drifted badly once (`PROGRESS.md` by 80 commits, `HANDOFF.md` by 43 migrations), and a stale handoff is worse than no handoff because the next session believes it. A `SessionStart`/`Stop` hook (`scripts/docs-staleness.sh`) reports when either has fallen behind.
 
+8. **The Help assistant's guide (`lib/support/knowledge.ts`) is part of the work too.** The in-app Help chat answers players and organizers ONLY from it, quoting its labels word for word. Any change to what users see or experience (a button label, a flow, a schedule or format rule, a fee, an email, a new feature, or one removed) updates the guide in the same commit, including its "What the app doesn't do" list. Live league changes made by scripts (a new round's format, a confirmed league rule) go in its "LEAGUE NOTES" section; the hook can't see those. If a user-facing change needs nothing in the guide, bump its "Last checked" line so the docs hook stops flagging it. The owner asked for this on 2026-10-19 so the assistant always gives the latest answer.
+
 ---
 
 ## Tech stack
@@ -215,6 +217,7 @@ npm run build
 5. Commit with a descriptive message.
 6. Update `PROGRESS.md` (what shipped, and why the non-obvious calls were made).
 7. Update `HANDOFF.md` if this changed the live state — a migration applied, a new gotcha, anything the "Current state" section now gets wrong.
+8. Update the Help assistant's guide (`lib/support/knowledge.ts`) if users will see or experience anything differently.
 
 ---
 

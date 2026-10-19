@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Keeping the Help guide current is now a rule
+
+The owner asked that every change to schedules, formats or anything else be reflected in the assistant's guide, so it always gives the latest answer.
+
+- **CLAUDE.md:** operating rule 8, plus step 8 of "How to start a feature".
+- **Docs hook:** `scripts/docs-staleness.sh` now also flags commits that touch user-facing paths (`app`, `components`, `server`, email templates, scheduler, formats, migrations) after the guide's last edit. Bumping the guide's "Last checked" line clears the flag when nothing it says changed.
+- **League notes:** the guide gained a "LEAGUE NOTES" section with BVL's confirmed rules: the buzzer rule, 2-week rounds with 2 up and 2 down, two-week red matches, and schedule gating. Live league changes are made by scripts the hook can't see, so this section is updated by hand.
+
+---
+
 ## 2026-10-19 — Help assistant gets a full guide to the app
 
 **What changed:** the owner asked for a document the assistant can answer anything from. `lib/support/knowledge.ts` replaces the 30-line FACTS list. Its sections:
