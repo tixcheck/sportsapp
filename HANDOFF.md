@@ -2317,10 +2317,10 @@ shortening the sets or padding the second wave.**
 - **Support is the in-app Help chat (0177), not email.**
   - The owner has no mysportsapp.ca inbox, so `hello@` bounces. It still appears only on the Terms page, and `privacy@` on the Privacy and Security pages.
   - Help is a button at the bottom right of every signed-in page. The account menu's "Help & contact" opens it by firing `OPEN_SUPPORT_EVENT`.
-  - The assistant (`lib/support/assistant.ts`, `claude-haiku-5-5`, plain `fetch`) answers only from `FACTS`, so update `FACTS` when app flows change.
+  - The assistant (`lib/support/assistant.ts`, `claude-haiku-5-5`, plain `fetch`) answers only from the guide in `lib/support/knowledge.ts` (see below).
   - It hands off through the `hand_off_to_person` tool, or the user taps "Talk to a person".
   - The admin replies at `/admin/support`. The Admin badge counts organizer requests plus conversations waiting on a reply.
-  - There are no notification emails.
+  - **An admin reply is emailed to the user** (`sendSupportReply`, sent from `adminReplyAction`, always sent, best-effort). The email carries the reply and an "Open Help" link to `/dashboard?help=open`, which opens the chat. The dashboard also shows "You have a reply from the MySportsApp team" while `user_unread` is set. Before 2026-10-19 the only sign was a dot on the Help button, and two of the first three replies sat unread. The sign-in redirect keeps only the path, so a signed-out user loses `?help=open`, but the dashboard card still shows. Users who ask for a person get no email when they write; the admin sees them in the inbox.
   - **`ANTHROPIC_API_KEY` added by the owner on 2026-10-19** (in `.env.local`, and they say in Vercel). Without it, every message goes straight to the admin; past 20 AI replies per user per day, the same happens. The model thinks before answering, which counts against `max_tokens`: 400 cut a refund answer mid-sentence, so it's now 1500. A reply that stops at `max_tokens` is treated as a failure and goes to a person. Tested live with six questions: answers take 1–2 seconds, use about 1,600 input and 300 output tokens, and hand off correctly on "talk to a person" and "pay button errors".
   - Both tables are read-only over RLS; writes go through the `support_*` functions.
 - **Captains manage their own roster; subs are a label (0173).** On

@@ -15,6 +15,8 @@ import {
 import { getAccessState } from "@/lib/queries/access";
 import { getPlayerHome } from "@/lib/queries/player-home";
 import { getMyOutstandingWaivers } from "@/lib/queries/waivers";
+import { getMySupportChat } from "@/lib/queries/support";
+import { SupportReplyNotice } from "@/components/dashboard/support-reply-notice";
 import { SignWaiver } from "@/components/waivers/sign-waiver";
 import { PlayerDetailsForm } from "@/components/registration/player-details-form";
 import { missingRequired } from "@/lib/registration/required-answers";
@@ -80,6 +82,7 @@ export default async function DashboardPage() {
     owedWaivers,
     poolSignups,
     scorekeeping,
+    support,
   ] = await Promise.all([
     getUserOrgs(),
     getMyCompetitions(),
@@ -90,7 +93,12 @@ export default async function DashboardPage() {
     getMyOutstandingWaivers(),
     getMyPoolSignups(),
     getMyScorekeeping(),
+    getMySupportChat(),
   ]);
+  // An unread answer from a person in Help (the assistant's are read live).
+  const supportReply = support.userUnread
+    ? support.messages.findLast((m) => m.author === "admin")
+    : undefined;
   // One check for the page: whether address suggestions are configured at all.
   const addressAutocomplete = await addressAutocompleteAvailableAction();
   const canCreateOrg = access.organizerStatus === "approved";
@@ -141,6 +149,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-10">
+      {supportReply && <SupportReplyNotice preview={supportReply.body} />}
+
       {nothingYet && <OpenTournaments tournaments={promoted} />}
 
       {/* Scorekeepers (0168) come here at the gym, phone in hand: one tap to

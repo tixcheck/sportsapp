@@ -62,6 +62,10 @@ import {
   type DetailsRequestEmailProps,
 } from "./templates/details-request";
 import {
+  SupportReplyEmail,
+  type SupportReplyEmailProps,
+} from "./templates/support-reply";
+import {
   PaymentConfirmedEmail,
   type PaymentConfirmedEmailProps,
 } from "./templates/payment-confirmed";
@@ -620,5 +624,20 @@ export function sendPaymentConfirmed(
       ? `Part payment received for ${props.teamName} — ${props.outstanding} to go`
       : `Payment received — ${props.teamName} is confirmed`,
     react: PaymentConfirmedEmail(props),
+  });
+}
+
+/**
+ * A person replied in the Help window. Always sent: it answers a question the
+ * reader asked, so no notification preference covers it.
+ */
+export function sendSupportReply(
+  to: string,
+  props: SupportReplyEmailProps,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: "The MySportsApp team replied to your question",
+    react: SupportReplyEmail(props),
   });
 }

@@ -53,7 +53,7 @@ export function AdminSupportReply({
         return;
       }
       form.reset({ body: "" });
-      toast.success("Sent. They'll see it in their Help window.");
+      toast.success("Sent. They'll get it by email and in their Help window.");
       router.refresh();
     });
   }

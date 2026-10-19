@@ -5,6 +5,17 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Help replies reach people who don't come back
+
+Replies from the admin only showed as a dot on the Help button, so two of the first three (Billie Jo and Monica) sat unread for hours.
+
+- **Email:** each admin reply now emails the user with the full reply and an "Open Help" button (`lib/email/templates/support-reply.tsx`). It's always sent, because it answers their own question. It goes out right away rather than waiting to see if they read it in the app; a delayed check would need a cron and a column for little gain.
+- **Dashboard:** "You have a reply from the MySportsApp team" with "Open Help" sits at the top while the reply is unread.
+- **Link:** `?help=open` on any signed-in page opens the Help chat.
+- Help guide updated (Help line and Notifications).
+
+---
+
 ## 2026-10-19 — Keeping the Help guide current is now a rule
 
 The owner asked that every change to schedules, formats or anything else be reflected in the assistant's guide, so it always gives the latest answer.

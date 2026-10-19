@@ -8,8 +8,11 @@ import { getAccessState } from "@/lib/queries/access";
 import {
   countMyAiRepliesToday,
   getMySupportChat,
+  getSupportThread,
   type SupportChat,
 } from "@/lib/queries/support";
+import { sendSupportReply } from "@/lib/email/send";
+import { getOrigin } from "@/lib/utils/url";
 import { aiShouldAnswer, HAND_OFF_NOTE } from "@/lib/support/assistant";
 import { aiConfigured, askSupportAssistant } from "@/lib/support/ask-ai";
 
@@ -130,6 +133,21 @@ export async function adminReplyAction(
     _body: parsed.data,
   });
   if (error) return { error: error.message };
+  // The dot on Help only reaches people who come back, so the reply goes out
+  // by email too. Best-effort: the reply is saved either way.
+  const thread = await getSupportThread(threadId);
+  if (thread?.userEmail) {
+    // userName falls back to the email or "A user" when there's no name.
+    const name =
+      thread.userName.includes("@") || thread.userName === "A user"
+        ? ""
+        : thread.userName.split(" ")[0];
+    await sendSupportReply(thread.userEmail, {
+      playerName: name,
+      reply: parsed.data,
+      helpUrl: `${await getOrigin()}/dashboard?help=open`,
+    });
+  }
   revalidatePath("/admin/support");
   revalidatePath(`/admin/support/${threadId}`);
   return { ok: true };

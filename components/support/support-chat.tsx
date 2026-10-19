@@ -77,6 +77,16 @@ export function SupportChat() {
     return () => window.removeEventListener(OPEN_SUPPORT_EVENT, show);
   }, []);
 
+  // The reply email's "Open Help" link lands on ?help=open. Drop the param so
+  // a refresh doesn't reopen it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("help") !== "open") return;
+    setOpen(true);
+    url.searchParams.delete("help");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, []);
+
   // While open and a person is involved, look for their reply.
   useEffect(() => {
     if (!open || (chat?.status !== "waiting" && chat?.status !== "answered"))

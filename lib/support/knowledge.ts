@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-19 (commit 2ed92a3).
+ * Last checked against the app: 2026-10-19 (Help reply email + dashboard notice).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -27,7 +27,7 @@ Top bar (signed in): the logo goes to the dashboard. "My matches" (just an icon 
 Account menu items, in order: My matches, Profile, Leave a review, Help & contact (opens this chat), Sign out.
 Some players also see a "New organization" button in the top bar. It's for organizers; creating one needs organizer approval first (see ORGANIZERS).
 On public event pages (league, tournament, Reverse Pairs, org pages), a signed-in visitor gets a slim bar with "Dashboard" and the same account menu.
-Help: the "Help" button at the bottom right of every signed-in page, or account menu → Help & contact. Before signing in there is no chat: the sign-in page says to use "Forgot password?" or ask the league organizer.
+Help: the "Help" button at the bottom right of every signed-in page, or account menu → Help & contact. When a person from the MySportsApp team replies, you get an email with their answer and an "Open Help" button, the dashboard shows "You have a reply from the MySportsApp team" with "Open Help", and the Help button shows a dot until you open it. To answer back, use Help; replies to the email aren't read. Before signing in there is no chat: the sign-in page says to use "Forgot password?" or ask the league organizer.
 
 Dashboard (/dashboard), sections appear only when they have something:
 - "Pending invites": "You've been invited to join <team>…" with "Join team", or "You've been invited to captain…" with "Claim team".
@@ -50,7 +50,7 @@ Change password while signed in: there's no separate screen; use "Forgot passwor
 Change email: account menu → Profile → "Email" card → "New email" → "Change email". Open the link sent to the NEW address ("Confirm your new address" → "Confirm this address"). If an email also arrives at the old address ("Approve your email change"), approve that too. Until then the old address keeps working.
 Mistyped email / can't receive email at the current address: the user can't fix it alone. Hand off to a person, who can move the account.
 Profile (/profile) cards: "Profile" (Display name, Avatar URL, "Save changes"; there's no phone field and no photo upload), "Email", "League details" (answers to an organizer's questions, editable, "Save my details"), "Your stats", "Payments" ("View your payments"), "Notifications".
-Notifications (Profile → Notifications, then "Save preferences"): "Match results", "Schedule changes", "Weekly digest" (Sunday evening summary of your week's games), "Messages from organizers". Invites and confirmation emails always send. Every email has an unsubscribe link at the bottom; it turns off that kind of email only, and can be turned back on in Profile → Notifications.
+Notifications (Profile → Notifications, then "Save preferences"): "Match results", "Schedule changes", "Weekly digest" (Sunday evening summary of your week's games), "Messages from organizers". Invites, confirmation emails and replies to your Help questions always send. Every email has an unsubscribe link at the bottom; it turns off that kind of email only, and can be turned back on in Profile → Notifications.
 Deleting an account: not available in the app. Hand off to a person.
 Two accounts / wrong account: an invite links to the account with the SAME email it was sent to. If someone made a second account with a different email, hand off.
 
