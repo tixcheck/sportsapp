@@ -1727,21 +1727,33 @@ ranking. Round 1 (Oct 13 + 20, 39 games) drawn with his gym plan: 4-team tiers o
 
 ## BVL Non-Spiking (Tuesday) — alignment night in the app (live 2026-10-10)
 
-**Current as of 2026-10-18 evening (supersedes everything below):**
-- ⚠️ **Round 1's games are TAKEN DOWN (owner's call, 2026-10-18): the league
-  has 0 games.** Indru: "You have the 7 team tier playing too few games" (the
-  7-team tier had nights with one game) and he is sending a corrected template.
-  Cause: his Rev 2 sheet's legend makes **C** the 7-team tier (ranks 13–19)
-  and gives that colour the long slots (North Park 4 rows on Oct 20/27, 3 rows
-  on Nov 3/10). The ranking file makes **D** the 7-team tier, and the load
-  matched slots by LETTER, so the 7 teams got D's short slots. Redraw by
-  giving the 7-team tier the long slots. The 123 games are backed up in
-  `lib/db/_tmp/backup-ns-round1-2026-10-18.json` (no results existed), with
-  a `match_audit` 'schedule_erased' row. Seating, `ladder_tier_nights` and
-  settings below are unchanged, so the redraw means editing tier nights and
-  re-inserting games, not starting over.
-- ~~Round 1 is LIVE in the app: Oct 20, Oct 27, Nov 3, Nov 10, 123 games.~~
-  The rest of this list describes the draw that was taken down.
+**Current as of 2026-10-18 night (supersedes everything below):**
+- **Round 1 v3 is LIVE: Oct 20 – Nov 10, 132 games.** Loaded by
+  `lib/db/_tmp/load-ns-round1-v3.mts` from Indru's "Rev 2.1" sheet and his
+  corrections. `ns-v3-compare.mts` checks live against the v3 plan (132/132).
+  - **Division C is the 7-team tier (ranks 13–19).** Top Gun (#19) was moved
+    from D to C (`teams.division_id` and weeks 1–4 placements). D is 20–25.
+    Indru: a 7-team tier in the middle "allows more movement than having it
+    at the bottom". Next round's seating must keep C at 7 unless he says so.
+  - C has the long sessions (North Park 4 rounds Oct 20/27, St. Marguerite
+    6:30 Nov 3, Notre Dame 7:50 Nov 10) and plays **2 games to 21 in
+    30-minute rounds**: each C game carries the override
+    `{bestOf:2, setsToPoints:[21,21], winBy:1}`.
+  - **Nov 10 is at Notre Dame** (D 6:30–7:50, C 7:50–9:20); Jim Archdekin is
+    unused that night.
+  - Per team: A, B, D play 10 (2–3 a night); C plays 12 (2–4 a night). Every
+    pair meets twice. No one-game nights.
+  - Still open with Indru: the odd-coloured third row at Notre Dame on Nov 10
+    (not scheduled), and win by 1 vs 2 at the buzzer.
+  - The owner's Desktop has the forwardable PDF, the 16-page score sheets
+    (`ns-round1-live-pdf.mts`, `ns-round1-scoresheets.mts`, both read live
+    data) and the v3 proposals.
+- **v1 was taken down earlier the same day.** Indru: "You have the 7 team
+  tier playing too few games". His legend made C the 7-team tier but the
+  ranking had D at 7, and v1 matched slots by LETTER, so the 7 teams got the
+  short slots and some had one-game nights. v1's 123 games are backed up in
+  `lib/db/_tmp/backup-ns-round1-2026-10-18.json`.
+- **v1, for history (taken down):** 123 games, D as the 7-team tier.
   Teams come from Marg's Oct 13 ranking ("2026_2027 RANKINGS NON SPIKING
   ROUND 1 OCT 20TH"; the alignment night itself ran on paper, so its 75 games
   have no scores). Division A–D = 6/6/6/7 (D = ranks 19–25), seated by

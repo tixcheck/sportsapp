@@ -18,9 +18,13 @@ mode. Covered by `tests/standings/ladder-legend.test.ts`, the first test that
 renders a component to markup, which needed `oxc` JSX compilation in
 `vitest.config.ts` (tsconfig keeps JSX as-is for Next).
 
-Also on 2026-10-18: Non-Spiking Round 1's 123 games were **taken down** (Indru:
-the 7-team tier had one-game nights). See HANDOFF; a v3 redraw is proposed and
-waiting on the owner.
+Also on 2026-10-18: Non-Spiking Round 1's first draw (123 games) was taken
+down. Indru: the 7-team tier had one-game nights, because v1 matched his slots
+by division letter while his sheet and the ranking disagreed on which division
+had 7. v3 is now live (132 games): C is the 7-team tier (Top Gun moved up from
+D), on the long sessions, playing 2 games to 21 in 30-minute rounds; Nov 10 is
+at Notre Dame. The score-sheet generator now refuses to print a sheet whose
+content would be clipped. That check caught the two 4-round C sheets.
 
 ## 2026-10-18 — Non-Spiking Round 1 live: a 4-week round on a "cycle" grid (0174)
 
