@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import type { MyMatch, PlayoffProjection } from "@/lib/queries/my-matches";
 import { MyMatchCard } from "@/components/scoring/my-match-card";
 import { PotentialPlayoffCard } from "@/components/tournament/potential-playoff-card";
+import { isUpcoming } from "@/lib/schedule/upcoming";
 
 function timeMs(m: MyMatch): number {
   return m.scheduledAt
@@ -61,8 +62,17 @@ export function MatchSections({
   // Up Next: the viewer's games on their next game-day. When that day has more
   // than one game (e.g. two on the same league night), Up next shows them all,
   // in time order — not just the first.
+  // Only games still ahead qualify — an unscored game from a past night (BVL
+  // nights are often played on paper) used to sit here as "Up next". Those go
+  // to "Needs a score" instead.
   const playable = actionable.filter((m) => m.role === "play").sort(byTime);
-  const first = playable[0];
+  const needsScore = playable.filter(
+    (m) =>
+      (m.status === "scheduled" || m.status === "in_progress") &&
+      !isUpcoming(m),
+  );
+  const needsScoreIds = new Set(needsScore.map((m) => m.id));
+  const first = playable.find((m) => isUpcoming(m));
   const firstDay = first ? dayOf(first) : null;
   const upNextGames = first
     ? firstDay
@@ -70,7 +80,9 @@ export function MatchSections({
       : [first]
     : [];
   const upNextIds = new Set(upNextGames.map((m) => m.id));
-  const rest = actionable.filter((m) => !upNextIds.has(m.id));
+  const rest = actionable.filter(
+    (m) => !upNextIds.has(m.id) && !needsScoreIds.has(m.id),
+  );
   const playing = rest.filter((m) => m.role === "play");
   const reffing = rest.filter((m) => m.role === "ref").sort(byTime);
   const roundRobin = playing
@@ -91,6 +103,7 @@ export function MatchSections({
 
   const nothingToShow =
     upNextGames.length === 0 &&
+    needsScore.length === 0 &&
     roundRobin.length === 0 &&
     leagueGames.length === 0 &&
     !hasPlayoff &&
@@ -112,6 +125,14 @@ export function MatchSections({
       {upNextGames.length > 0 && (
         <Section title="Up next">
           {upNextGames.map((m) => (
+            <MyMatchCard key={m.id} match={m} />
+          ))}
+        </Section>
+      )}
+
+      {needsScore.length > 0 && (
+        <Section title="Needs a score">
+          {needsScore.map((m) => (
             <MyMatchCard key={m.id} match={m} />
           ))}
         </Section>

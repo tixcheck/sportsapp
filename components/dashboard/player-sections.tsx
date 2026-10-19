@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { competitionPath } from "@/lib/queries/dashboard";
 import { DateTime } from "luxon";
 
 import type { PlayerMatch, PlayerStandingRow } from "@/lib/queries/player-home";
@@ -126,7 +127,7 @@ export function YourTeams({ rows }: { rows: PlayerStandingRow[] }) {
         {rows.map((r) => (
           <Link
             key={`${r.competitionId}:${r.teamId}`}
-            href={`/l/${r.slug}?tab=standings`}
+            href={`${competitionPath(r.competitionType, r.slug)}?tab=standings`}
             className="border-rule bg-surface hover:bg-paper-sunken block rounded-lg border p-4 transition-colors"
           >
             <p className="truncate text-sm font-semibold">{r.teamName}</p>

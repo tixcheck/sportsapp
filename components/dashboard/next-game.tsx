@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { competitionPath } from "@/lib/queries/dashboard";
 import { DateTime } from "luxon";
 import { CalendarDays, MapPin } from "lucide-react";
 
@@ -36,7 +37,9 @@ export function NextGame({ match }: { match: PlayerMatch }) {
     return `${at.toFormat("ccc d LLL")}, ${time}`;
   })();
 
-  const soon = at && now ? at.diff(now, "hours").hours <= 48 : false;
+  // Within the next two days — not any time in the past.
+  const hoursAway = at && now ? at.diff(now, "hours").hours : null;
+  const soon = hoursAway != null && hoursAway > -3 && hoursAway <= 48;
   const opponent = match.opponentName;
   // Gym first: in a league across several schools, "Court a" alone doesn't say
   // where to drive.
@@ -87,7 +90,9 @@ export function NextGame({ match }: { match: PlayerMatch }) {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button asChild size="sm" variant="outline">
-          <Link href={`/l/${match.slug}`}>Schedule &amp; standings</Link>
+          <Link href={competitionPath(match.competitionType, match.slug)}>
+            Schedule &amp; standings
+          </Link>
         </Button>
         {match.canEnter && (
           <Button asChild size="sm">

@@ -18,6 +18,7 @@ import { DateTime } from "luxon";
 import { createClient } from "@/lib/supabase/server";
 import { loadStandings } from "@/lib/standings/compute";
 import { getSeriesStandings } from "@/lib/queries/series-standings";
+import { isUpcoming } from "@/lib/schedule/upcoming";
 import { getPublicRosterNames } from "@/lib/queries/roster";
 import { getMyMatches, type MyMatch } from "@/lib/queries/my-matches";
 
@@ -163,7 +164,7 @@ export async function getPlayerHome(limit = 6): Promise<PlayerHome> {
     .sort((a, b) => whenKey(b) - whenKey(a))
     .map(mine);
   const ahead = matches
-    .filter((m) => m.status !== "completed")
+    .filter((m) => isUpcoming(m))
     .sort((a, b) => whenKey(a) - whenKey(b))
     .map(mine);
 
