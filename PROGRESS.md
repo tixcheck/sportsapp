@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Tap feedback: loading bar and organizer-page skeletons
+
+- The owner tapped a league on an org page and saw nothing until it opened: only player pages had `loading.tsx`. Added skeletons to the org page, league, lineups, tournament, Reverse Pairs, KOTC, match, scorekeeper, player, admin and draft routes.
+- `components/app/nav-progress.tsx`: a 3px claret bar at the top from any same-site link tap until the URL changes (15s safety timeout), mounted in the root layout so public pages get it too. Buttons that navigate with `router.push` don't trigger it; they have their own pending states.
+
+---
+
 ## 2026-10-20 — Refund failing as "Card payments aren't switched on"
 
 - A Gautam/TBD refund ($84.76, a destination charge from Oct 6) failed with "Card payments aren't switched on for this platform yet". The real cause: the platform's Stripe balance was $0 available (−$2.46 pending) and the organizer's had paid out, so Stripe had nothing to pay the refund from. Stripe sends that as a code-less 400, the same shape `isPlatformSetupError` treats as platform setup, and the action's `includes("insufficient")` check missed Stripe's capitalized "Insufficient funds".

@@ -8,6 +8,9 @@ import {
 } from "next/font/google";
 import "./globals.css";
 
+import { Suspense } from "react";
+
+import { NavProgress } from "@/components/app/nav-progress";
 import { Toaster } from "@/components/ui/sonner";
 
 // Body / UI + data workhorse (DESIGN §3) — a Franklin Gothic revival, the classic
@@ -74,6 +77,9 @@ export default function RootLayout({
       className={`${libreFranklin.variable} ${newsreader.variable} ${dancingScript.variable} ${greatVibes.variable} ${caveat.variable}`}
     >
       <body className="antialiased">
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         {children}
         <Toaster richColors position="top-center" />
       </body>

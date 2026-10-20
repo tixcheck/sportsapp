@@ -190,3 +190,13 @@
     font-variant-numeric: tabular-nums lining-nums;
   }
 }
+
+/* Top-of-page bar while a tapped link loads (components/app/nav-progress.tsx). */
+@keyframes nav-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 85%;
+  }
+}
