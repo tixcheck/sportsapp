@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { getProfile, getUser } from "@/lib/auth/user";
+import { getProfile, getUser, getUserOrgs } from "@/lib/auth/user";
 import { getPlayerProfile } from "@/lib/queries/player-stats";
 import { MyStatsCard } from "@/components/stats/my-stats-card";
 import { ProfileForm } from "@/components/profile/profile-form";
@@ -22,12 +22,13 @@ import {
 export default async function ProfilePage() {
   const profile = await getProfile();
   if (!profile) redirect("/login");
-  const [authUser, stats, leagueDetails, addressAutocomplete] =
+  const [authUser, stats, leagueDetails, addressAutocomplete, orgs] =
     await Promise.all([
       getUser(),
       getPlayerProfile(profile.id),
       getMyLeagueDetails(),
       addressAutocompleteAvailableAction(),
+      getUserOrgs(),
     ]);
 
   return (
@@ -121,7 +122,9 @@ export default async function ProfilePage() {
               notifyScheduleChanges: profile.notify_schedule_changes,
               notifyWeekly: profile.notify_weekly,
               notifyOrgMessages: profile.notify_org_messages,
+              notifyAdminDigest: profile.notify_admin_digest,
             }}
+            isOrganizer={orgs.length > 0}
           />
         </CardContent>
       </Card>

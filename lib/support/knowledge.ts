@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-20 (ladder standings by round; loading bar).
+ * Last checked against the app: 2026-10-20 (organizer to-do email, 0181).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -50,7 +50,7 @@ Change password while signed in: there's no separate screen; use "Forgot passwor
 Change email: account menu → Profile → "Email" card → "New email" → "Change email". Open the link sent to the NEW address ("Confirm your new address" → "Confirm this address"). If an email also arrives at the old address ("Approve your email change"), approve that too. Until then the old address keeps working.
 Mistyped email / can't receive email at the current address: the user can't fix it alone. Hand off to a person, who can move the account.
 Profile (/profile) cards: "Profile" (Display name, Avatar URL, "Save changes"; there's no phone field and no photo upload), "Email", "League details" (answers to an organizer's questions, editable, "Save my details"), "Your stats", "Payments" ("View your payments"), "Notifications".
-Notifications (Profile → Notifications, then "Save preferences"): "Match results", "Schedule changes", "Weekly digest" (Sunday evening summary of your week's games), "Messages from organizers". Invites, confirmation emails and replies to your Help questions always send. Every email has an unsubscribe link at the bottom; it turns off that kind of email only, and can be turned back on in Profile → Notifications.
+Notifications (Profile → Notifications, then "Save preferences"): "Match results", "Schedule changes", "Weekly digest" (Sunday evening summary of your week's games), "Messages from organizers", and for organizers only "Organizer to-do list". Invites, confirmation emails and replies to your Help questions always send. Every email has an unsubscribe link at the bottom; it turns off that kind of email only, and can be turned back on in Profile → Notifications.
 Deleting an account: not available in the app. Hand off to a person.
 Two accounts / wrong account: an invite links to the account with the SAME email it was sent to. If someone made a second account with a different email, hand off.
 
@@ -125,6 +125,7 @@ Account menu → Leave a review (or the dashboard "Review →"). Pick 1–5 star
 Becoming one: dashboard → "Become an organizer" → optional note → "Submit request". The MySportsApp team reviews it (no email is sent when it's approved: the dashboard changes to "Your organizations"). Then "New" (or "New organization") → "Organization name" → "Create organization". You're the owner.
 Org page (/orgs/<org>): "Send a message", "Copy public link" (your /o/ page to share), sections "Leagues", "Tournaments", "King of the Court", "Reverse Pairs" with "New league", "New tournament", "New KotC", "New Reverse Pairs". Cards: "Waiver", "Home town", "Payments" (Stripe), "Logo", "Brand colours", "Venues" ("Add venue"), "Organizers".
 Roles: owner/admin control everything. "Organizers" added on the org page (by email; they need an account first) run every event but can't create or delete events or change the org's logo, colours, venues or organizers. A league-only helper is added in the league's Settings → Admin → "Organizers"; scorekeepers ("Scorekeepers" card) can only enter scores, at their "Scorekeeper page".
+Organizer to-do email: every Sunday evening, owners, admins, organizers and a league's own organizers get "Your organizer to-do list", one block per event, listing only what's waiting: disputed scores, games with no score (played at least 3 hours ago, up to 4 weeks back), ladder tiers with no finishing order entered, e-transfer/PayPal/cash payments to confirm you received, teams not in the standings yet (fee not paid, or players to join or sign the waiver), scores waiting for the other team to confirm, free agents to put on a team, and waitlisted teams with no spot offered. Card payments aren't listed (they confirm themselves). Nothing waiting means no email that week. Turn it off in Profile → Notifications → "Organizer to-do list", or with the unsubscribe link at the bottom of the email.
 Not possible in the app: transferring ownership, making someone an admin, removing an owner or admin. Hand off to a person for these.
 
 Creating a league ("New league"): Sport → Details (name, season dates, venue, courts, rounds, games per week, minutes per game) → Schedule (match day, start time, blackout dates) → Format (match format, e.g. "Best of 3 to 25 (recreational)"; 2-set option) → Scoring (who enters scores, confirmation) → "Create league".

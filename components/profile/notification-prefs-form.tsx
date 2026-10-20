@@ -13,6 +13,7 @@ type Prefs = {
   notifyScheduleChanges: boolean;
   notifyWeekly: boolean;
   notifyOrgMessages: boolean;
+  notifyAdminDigest: boolean;
 };
 
 const TOGGLES: { key: keyof Prefs; label: string; desc: string }[] = [
@@ -37,6 +38,13 @@ const TOGGLES: { key: keyof Prefs; label: string; desc: string }[] = [
     desc: "Announcements your organizer sends to everyone in an event.",
   },
 ];
+
+/** Only shown to people who run an event; players never get this email. */
+const ORGANIZER_TOGGLE = {
+  key: "notifyAdminDigest",
+  label: "Organizer to-do list",
+  desc: "Sunday evening: scores, payments and teams waiting on you in the events you run.",
+} as const;
 
 function Toggle({
   label,
@@ -78,14 +86,22 @@ function Toggle({
   );
 }
 
-export function NotificationPrefsForm({ initial }: { initial: Prefs }) {
+export function NotificationPrefsForm({
+  initial,
+  isOrganizer = false,
+}: {
+  initial: Prefs;
+  isOrganizer?: boolean;
+}) {
+  const toggles = isOrganizer ? [...TOGGLES, ORGANIZER_TOGGLE] : TOGGLES;
   const [prefs, setPrefs] = useState<Prefs>(initial);
   const [pending, start] = useTransition();
   const dirty =
     prefs.notifyResults !== initial.notifyResults ||
     prefs.notifyScheduleChanges !== initial.notifyScheduleChanges ||
     prefs.notifyWeekly !== initial.notifyWeekly ||
-    prefs.notifyOrgMessages !== initial.notifyOrgMessages;
+    prefs.notifyOrgMessages !== initial.notifyOrgMessages ||
+    prefs.notifyAdminDigest !== initial.notifyAdminDigest;
 
   function save() {
     start(async () => {
@@ -101,7 +117,7 @@ export function NotificationPrefsForm({ initial }: { initial: Prefs }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-2">
-        {TOGGLES.map((t) => (
+        {toggles.map((t) => (
           <Toggle
             key={t.key}
             label={t.label}

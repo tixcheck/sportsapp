@@ -26,6 +26,10 @@ import {
   type SchedulePushedEmailProps,
 } from "./templates/schedule-pushed";
 import {
+  AdminDigestEmail,
+  type AdminDigestEmailProps,
+} from "./templates/admin-digest";
+import {
   MissingScoreEmail,
   type MissingScoreEmailProps,
 } from "./templates/missing-score";
@@ -280,6 +284,19 @@ export function sendMatchReminder(
     to,
     subject: "Your matches this week",
     react: MatchReminderEmail(props),
+  });
+}
+
+// --- organizers' Sunday to-do (opt-out-able; carries the unsubscribe link) --
+
+export function sendAdminDigest(
+  to: string,
+  props: AdminDigestEmailProps,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: "Your organizer to-do list this week",
+    react: AdminDigestEmail(props),
   });
 }
 

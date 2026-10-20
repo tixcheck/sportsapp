@@ -5,6 +5,15 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Organizers' Sunday to-do email (0181)
+
+- The owner asked for a weekly reminder of pending admin work after a by-hand BVL check found a PayPal payment nobody had confirmed for a week, a free agent stuck behind theirs, and teams held out of the standings, each on a different tab.
+- `lib/email/admin-digest.ts` (pure, tested) decides the lines per event: disputed scores, games with no score (3h after start, 4 weeks back), ladder tiers with no finishing order (for ladders that type the order instead of scores, one line per tier-night rather than every game, so SMVA reads "8 tiers" not "267 games"), offline payments to confirm, held teams, scores awaiting confirmation, unplaced free agents, waitlist with no offer. Nothing waiting = no email.
+- `lib/email/admin-digest-run.ts` loads it with the secret key and is called at the end of the existing Sunday `weekly-digest` cron, not a new cron entry (Hobby plan). Recipients: org members of any role plus `competition_admins`. Idempotent per (user, ISO week), kind `admin_weekly`. `@example.com` demo organizers skipped. Dry run on 2026-10-20: 9 organizers would get it.
+- 0181: `users.notify_admin_digest` (default on), `unsubscribe(_, 'admin')`, and the profile toggle "Organizer to-do list" (shown only to org members).
+- Found on the way: 0068 never granted UPDATE on `notify_org_messages`, so Profile → Notifications → "Save preferences" failed for everyone. 0181 grants it.
+- Also today: cleared 9 leftover "submitted" confirmations on unscored BVL Wednesday games (Theresa's Oct 18 entries whose sets were later removed outside the app), which showed tomorrow's games as "Needs confirmation" with a Confirm button.
+
 ## 2026-10-20 — Captains saw teammates' waivers as unsigned (0180)
 
 - BVL Women's, ACE 23: the captain's roster showed only herself as signed; the organizers saw all 8 signed. The live data had all 8 signed. `waiver_acceptances` is readable only by the signer and league admins (0100), and the team page read it directly, so a captain only ever got their own row. The "Before you play" entry gate had the same read.

@@ -11,6 +11,7 @@ const KIND_COPY: Record<string, string> = {
   results: "score and result emails",
   schedule: "schedule change emails",
   org_messages: "messages from your organizers",
+  admin: "the organizer to-do email",
   all: "all optional emails",
 };
 

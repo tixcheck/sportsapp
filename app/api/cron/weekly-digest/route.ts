@@ -7,6 +7,7 @@ import { getOrigin } from "@/lib/utils/url";
 import { sendMatchReminder } from "@/lib/email/send";
 import { buildReminderItems, type DigestMatchInput } from "@/lib/email/digest";
 import { loadNetDuty } from "@/lib/queries/net-duty";
+import { runAdminDigest } from "@/lib/email/admin-digest-run";
 import type { ReminderItem } from "@/lib/email/templates/match-reminder";
 
 // Active = anything currently being played or about to be.
@@ -201,5 +202,18 @@ export async function GET(request: Request) {
     sent += 1;
   }
 
-  return NextResponse.json({ sent, skipped, periodKey, dry });
+  // The organizers' to-do email rides on this Sunday run (see
+  // admin-digest-run.ts for why it has no cron entry of its own). A failure
+  // there mustn't hide that the players' digest went out.
+  let organizers:
+    | Awaited<ReturnType<typeof runAdminDigest>>
+    | { error: string };
+  try {
+    organizers = await runAdminDigest(admin, { origin, periodKey, dry });
+  } catch (err) {
+    console.error("[cron] admin digest failed", err);
+    organizers = { error: err instanceof Error ? err.message : "failed" };
+  }
+
+  return NextResponse.json({ sent, skipped, periodKey, dry, organizers });
 }
