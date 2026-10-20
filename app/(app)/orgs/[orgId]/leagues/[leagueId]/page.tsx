@@ -464,7 +464,9 @@ export default async function LeaguePage({
           <CardTitle>Standings</CardTitle>
           <CardDescription>
             {ladderNights.length > 0
-              ? "Each night on its own. A ladder's teams change tiers every week, so a season-long table would rank records built against different opposition."
+              ? ladderNights.some((n) => n.round != null)
+                ? "Each round on its own, both weeks added up. Teams change tiers every round, so a season-long table would rank records built against different opposition."
+                : "Each night on its own. A ladder's teams change tiers every week, so a season-long table would rank records built against different opposition."
               : "Live from confirmed scores — the OVA tiebreaker order."}
           </CardDescription>
         </CardHeader>

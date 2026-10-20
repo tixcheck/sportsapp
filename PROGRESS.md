@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Ladder standings: one table per BVL round, not per week
+
+- A Reverse 4s convenor: "We're running two week rounds which should be cumulative. Not sure why there's separate standings showing for each of the two weeks?" `getLadderNightStandings` ranked each week alone, while the round's lock ranks both weeks together.
+- For `ladder_draw = 'bvl_round'` with `ladder_round_weeks > 1`, each round is now one table over all its weeks, seated by the round's first-week placements, with red-pairing halves joined by `combineHalves` exactly as the lock does. Headed "Round N · Weeks a–b" with each night's date. Weekly ladders are unchanged. Checked against live Reverse 4s and Women's Round 1.
+
+---
+
 ## 2026-10-20 — Tap feedback: loading bar and organizer-page skeletons
 
 - The owner tapped a league on an org page and saw nothing until it opened: only player pages had `loading.tsx`. Added skeletons to the org page, league, lineups, tournament, Reverse Pairs, KOTC, match, scorekeeper, player, admin and draft routes.

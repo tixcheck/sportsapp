@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-20 (loading bar on link taps; refund balance-too-low message).
+ * Last checked against the app: 2026-10-20 (ladder standings by round; loading bar).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -112,7 +112,7 @@ Standings columns: GP games played, MW matches won, T ties (if any), ML matches 
 Default ranking order: matches won (a tie counts as half), then set ratio, then point ratio, then head-to-head among tied teams. Organizers can pick another order (head-to-head first, or point differential); the legend under the table says which.
 League: a round robin; tiered leagues play a round robin per tier. Playoffs show in the "Playoffs" tab.
 Tournament: pools (seeded by snake draft) play a round robin, then a single-elimination bracket ("The playoffs appear after pool play."). Pool winners are seeded first, then runners-up.
-Ladder / tier nights: drawn one week (or round) at a time; after each, teams move up and down between tiers based on results. "Overall standings" are weighted by the tier each week was played in.
+Ladder / tier nights: drawn one week (or round) at a time; after each, teams move up and down between tiers based on results. "Overall standings" are weighted by the tier each week was played in. The Standings tab shows one table per night, or per round in leagues that play rounds of several weeks (BVL's two-week rounds): a round's table adds up all its weeks, and a pairing that plays one game each week counts as one match. Tiers show where teams played that night or round, even if they've moved since.
 BVL rounds: a round is two weeks; teams move tiers after both weeks.
 Alignment night: groups of up to 6 teams play a round robin to set starting tiers; teams are ranked by wins, then head-to-head, then points.
 Reverse Pairs: three pairs form a side of six against three other pairs; partners rotate; everyone plays the same number of games. Only the organizer enters scores. Standings are by point differential (every pair on a side gets that game's margin); W–L is shown but doesn't rank.

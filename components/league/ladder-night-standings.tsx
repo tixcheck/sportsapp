@@ -32,6 +32,7 @@ export function LadderNightStandings({
   differential?: boolean;
   mode?: RankMode;
 }) {
+  const rounds = nights.some((n) => n.round != null);
   if (nights.length === 0) {
     return (
       <p className="text-muted-foreground py-6 text-center text-sm">
@@ -43,9 +44,9 @@ export function LadderNightStandings({
   return (
     <div className="space-y-8">
       <p className="text-muted-foreground text-sm">
-        One table per night — the night is what decides who moves up and down.
-        Tiers are shown as they stood that week, so a team that has since moved
-        still appears where it played.
+        {rounds
+          ? "One table per round, adding up both weeks — the round is what decides who moves up and down. A pairing that plays one game each week counts as one match. Tiers are shown as they stood that round, so a team that has since moved still appears where it played."
+          : "One table per night — the night is what decides who moves up and down. Tiers are shown as they stood that week, so a team that has since moved still appears where it played."}
       </p>
       {/*
         Above the tables, not below: a ladder runs to many weeks, and a key at
@@ -65,13 +66,19 @@ export function LadderNightStandings({
         <section key={night.week} className="space-y-4">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h3 className="font-display text-lg font-semibold">
-              Week {night.week}
+              {night.round != null && night.weeks
+                ? `Round ${night.round} · Weeks ${night.weeks[0]}–${night.weeks[night.weeks.length - 1]}`
+                : `Week ${night.week}`}
             </h3>
-            {night.date && (
+            {(night.dates ?? (night.date ? [night.date] : [])).length > 0 && (
               <span className="text-muted-foreground text-sm">
-                {DateTime.fromISO(night.date, { zone: timezone }).toFormat(
-                  "cccc, LLL d",
-                )}
+                {(night.dates ?? [night.date!])
+                  .map((d, i) =>
+                    DateTime.fromISO(d, { zone: timezone }).toFormat(
+                      i === 0 ? "cccc, LLL d" : "LLL d",
+                    ),
+                  )
+                  .join(" & ")}
               </span>
             )}
             {!night.complete && (

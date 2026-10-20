@@ -19,7 +19,11 @@
 
 import { DateTime } from "luxon";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { createClient } from "@/lib/supabase/server";
+import type { MatchFormat } from "@/lib/db/schema";
+import { combineHalves, roundWeeksOf } from "@/lib/scheduler/bvl-round";
 import {
   parseRankMode,
   rankStandings,
@@ -36,6 +40,14 @@ export type LadderNightTier = {
 
 export type LadderNight = {
   week: number;
+  /**
+   * Set for a BVL round league (0157): this table covers the whole round,
+   * `weeks` are its weeks, and `week` is the first of them.
+   */
+  round?: number;
+  weeks?: number[];
+  /** Each of the round's nights, ISO dates, for the weeks scheduled so far. */
+  dates?: string[];
   /** ISO date of the night, when its games are scheduled. */
   date: string | null;
   /** Whether every game that night has a recorded result. */
@@ -49,6 +61,7 @@ type MatchRow = {
   home_team_id: string | null;
   away_team_id: string | null;
   scheduled_at: string | null;
+  match_format: MatchFormat | null;
 };
 
 /**
@@ -59,8 +72,10 @@ type MatchRow = {
  */
 export async function getLadderNightStandings(
   competitionId: string,
+  /** Scripts pass their own client; pages use the signed-in one. */
+  client?: SupabaseClient,
 ): Promise<LadderNight[]> {
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
 
   const [
     { data: comp },
@@ -75,7 +90,7 @@ export async function getLadderNightStandings(
       .maybeSingle(),
     supabase
       .from("league_settings")
-      .select("ladder_enabled, tiebreaker")
+      .select("ladder_enabled, tiebreaker, ladder_draw, ladder_round_weeks")
       .eq("competition_id", competitionId)
       .maybeSingle(),
     supabase
@@ -125,7 +140,7 @@ export async function getLadderNightStandings(
 
   const { data: matches } = await supabase
     .from("matches")
-    .select("id, round, home_team_id, away_team_id, scheduled_at")
+    .select("id, round, home_team_id, away_team_id, scheduled_at, match_format")
     .eq("competition_id", competitionId)
     .not("round", "is", null);
   const matchRows = (matches ?? []) as MatchRow[];
@@ -191,8 +206,28 @@ export async function getLadderNightStandings(
   // repeat the same number and week 1 would claim games it hadn't reached yet.
   const seasonPlayed = new Map<string, number>();
 
+  // A BVL round of several weeks is ranked as one table, as its lock ranks it
+  // (Sally, BVL Reverse 4s, 2026-10-20: "two week rounds which should be
+  // cumulative"). Any other ladder is a round of one week.
+  const roundSettings = settings as {
+    ladder_draw?: string | null;
+    ladder_round_weeks?: number | null;
+  } | null;
+  const isRound = roundSettings?.ladder_draw === "bvl_round";
+  const roundLen = isRound
+    ? Math.max(1, roundSettings?.ladder_round_weeks ?? 1)
+    : 1;
+
   for (const [week, tiers] of [...byWeek].sort((a, b) => a[0] - b[0])) {
-    const nightMatches = matchRows.filter((m) => m.round === week);
+    const weeks = roundWeeksOf(week, roundLen);
+    // The round is shown once, seated as it was in its first week.
+    if (week !== weeks[0]) continue;
+    const inRound = new Set(weeks);
+    const nightMatches = matchRows
+      .filter((m) => m.round != null && inRound.has(m.round))
+      .sort((a, b) =>
+        (a.scheduled_at ?? "").localeCompare(b.scheduled_at ?? ""),
+      );
     // A week with placements but no games is next week's ladder, already
     // written by the lock but not yet drawn. Nothing to rank.
     if (nightMatches.length === 0) continue;
@@ -219,11 +254,20 @@ export async function getLadderNightStandings(
           inTier.has(m.away_team_id),
       );
 
-      const results: MatchResult[] = own.map((m) => ({
-        matchId: m.id,
-        homeTeamId: m.home_team_id as string,
-        awayTeamId: m.away_team_id as string,
-        sets: setsByMatch.get(m.id) ?? [],
+      // A red pairing's two one-game weeks are one match (combineHalves).
+      const results: MatchResult[] = combineHalves(
+        own.map((m) => ({
+          matchId: m.id,
+          homeTeamId: m.home_team_id as string,
+          awayTeamId: m.away_team_id as string,
+          sets: setsByMatch.get(m.id) ?? [],
+          half: isRound && roundLen > 1 && m.match_format?.bestOf === 1,
+        })),
+      ).map(({ matchId, homeTeamId, awayTeamId, sets }) => ({
+        matchId,
+        homeTeamId,
+        awayTeamId,
+        sets,
       }));
 
       // Scheduled is counted over the SAME set of games that are ranked, so the
@@ -231,9 +275,9 @@ export async function getLadderNightStandings(
       // counted played within the tier but scheduled across the whole league,
       // which is why it showed things like 2/8 that could never reach 8/8.
       const scheduled = new Map<string, number>();
-      for (const m of own) {
-        for (const id of [m.home_team_id, m.away_team_id]) {
-          if (id) scheduled.set(id, (scheduled.get(id) ?? 0) + 1);
+      for (const r of results) {
+        for (const id of [r.homeTeamId, r.awayTeamId]) {
+          scheduled.set(id, (scheduled.get(id) ?? 0) + 1);
         }
       }
 
@@ -266,7 +310,26 @@ export async function getLadderNightStandings(
         (divisionOrder.get(b.divisionId) ?? 0),
     );
 
-    nights.push({ week, date, complete, tiers: tierViews });
+    nights.push({
+      week,
+      date,
+      complete,
+      tiers: tierViews,
+      ...(roundLen > 1
+        ? {
+            round: Math.ceil(week / roundLen),
+            weeks,
+            dates: weeks.flatMap((w) => {
+              const at = nightMatches.find(
+                (m) => m.round === w && m.scheduled_at,
+              )?.scheduled_at;
+              return at
+                ? [DateTime.fromISO(at, { zone: tz }).toFormat("yyyy-MM-dd")]
+                : [];
+            }),
+          }
+        : {}),
+    });
   }
 
   // Newest first: the night everyone is asking about is the one just played.
