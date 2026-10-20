@@ -5,6 +5,10 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — "Below the target of 25" reworded for timed sets
+
+- BVL plays timed sets, so a set ending 22–18 is normal, but the score form flagged it "Below the target of 25." with a warning icon, which read as a mistake. It now says "Under 25: fine if time ran out, otherwise check the score." (and the whole-game check says the same). Still a warning, still recorded: it's the only prompt that catches a 15-for-25 typo, so it wasn't removed.
+
 ## 2026-10-20 — Organizers' Sunday to-do email (0181)
 
 - The owner asked for a weekly reminder of pending admin work after a by-hand BVL check found a PayPal payment nobody had confirmed for a week, a free agent stuck behind theirs, and teams held out of the standings, each on a different tab.

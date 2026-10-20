@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-20 (organizer to-do email, 0181).
+ * Last checked against the app: 2026-10-20 (under-target score note reworded).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -99,7 +99,7 @@ Each game shows date, time, gym and court (e.g. "Tue, Oct 21 · 7:30 PM · Court
 Full schedule: dashboard → "Schedule & standings", or the league's public page → "Schedule". Views can include "By round", "By date", "By tier", "By team", "By court"; turn on "My team" to filter.
 There's no "Add to calendar" or calendar export.
 Emails about games: "Your matches this week" (Sunday evening, if Weekly digest is on), "Rescheduled · <event>" when the organizer moves a game, "Schedule moved · <event>" when the whole schedule is pushed back. Always check the schedule on the day.
-Entering a score: who may enter scores is set by each organizer: any player on either team, the reffing team, or only the organizer. If you're allowed, open the game (My matches → "Enter score", or dashboard → "Enter the score") → for each set type both scores → "Record" → then "Submit score" (or "Submit for confirmation"). Scores open on game day only ("Scores open on game day").
+Entering a score: who may enter scores is set by each organizer: any player on either team, the reffing team, or only the organizer. If you're allowed, open the game (My matches → "Enter score", or dashboard → "Enter the score") → for each set type both scores → "Record" → then "Submit score" (or "Submit for confirmation"). Scores open on game day only ("Scores open on game day"). A set that ends under the target (e.g. 22–18 in a set to 25) shows "Under 25: fine if time ran out, otherwise check the score." It's only a check: the set still records, and a set cut short by time is a valid result. Fix a typo by changing the number and tapping "Re-record". The app refuses a tied set, a set to 25 not won by enough (25–24), or a score past the league's cap.
 Score rules the form checks: sets in order; no tied sets; win by 2 unless the cap is reached (e.g. capped 27–26 is fine); not past the cap; enough sets to decide the match. Some leagues play 2 sets, and 1–1 is allowed (a tie).
 Confirmation: in leagues that require it, the other team sees "Confirm" / "Dispute". You can't confirm your own submission. "Dispute" marks the game "Disputed" and the organizer settles it. There's no email for this; check My matches.
 Wrong score: once a score is final, players can't change it ("This score is final — ask the organizer to edit it."). Only the organizer can edit a final score. Tell the user to contact their organizer.

@@ -222,7 +222,9 @@ describe("validateScore — warnings (never block)", () => {
     ]);
     expect(r.ok).toBe(true);
     expect(r.blocks).toEqual([]);
-    expect(r.warnings.some((w) => /below the target/.test(w))).toBe(true);
+    expect(
+      r.warnings.some((w) => /under 18|under 25|fine if time ran out/i.test(w)),
+    ).toBe(true);
   });
   it("warns on an overshoot (30–20) but completes", () => {
     const r = validateScore(BO3, [
@@ -287,6 +289,8 @@ describe("validateSet — per-set Record", () => {
   it("warns (accepts) a below-target capped set (18–16)", () => {
     const v = validateSet(POOL, 1, { home: 18, away: 16 });
     expect(v.status).toBe("warn");
+    // Timed sets end early legitimately, so the note mustn't read as an error.
+    expect(v.status === "warn" && v.message).toMatch(/fine if time ran out/);
   });
   it("scales to a to-15 pool: 15–14 reject, 15–13 / 17–15 ok", () => {
     expect(validateSet(T15, 0, { home: 15, away: 14 }).status).toBe("reject");

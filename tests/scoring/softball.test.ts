@@ -112,7 +112,7 @@ describe("volleyball is untouched", () => {
       { home: 18, away: 16 },
       { home: 25, away: 20 },
     ]);
-    expect(v.warnings.join(" ")).toMatch(/below the target/i);
+    expect(v.warnings.join(" ")).toMatch(/fine if time ran out/i);
   });
 
   it("still treats a 1-1 two-set game as a valid tie", () => {

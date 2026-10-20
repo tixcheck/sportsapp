@@ -94,7 +94,7 @@ export function validateScore(
     } else if (win < target) {
       // Short of target — only legitimate when time-capped. Allowed, flagged.
       warnings.push(
-        `Set ${n}: winner reached ${win}, below the target of ${target}.`,
+        `Set ${n}: ${win}–${lose} is under ${target}. Fine if time ran out, otherwise check the score.`,
       );
     } else if (margin < format.winBy) {
       // At the cap the win-by rule is waived: 27–26 is exactly how a capped
@@ -212,7 +212,10 @@ export function validateSet(
     return { status: "ok" };
   }
   if (win < target) {
-    return { status: "warn", message: `Below the target of ${target}.` };
+    return {
+      status: "warn",
+      message: `Under ${target}: fine if time ran out, otherwise check the score.`,
+    };
   }
   // A cap finish (27–26) waives the win-by rule; below the cap it doesn't.
   if (margin < format.winBy && !(cap != null && win === cap)) {
