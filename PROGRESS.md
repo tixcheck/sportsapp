@@ -5,6 +5,12 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — BVL rules from Theresa added to the Help guide
+
+LEAGUE NOTES now covers three rules: net setup (every team takes a turn, arrives 10 minutes early, so it doesn't fall on the referee); games end at least 5 minutes before the booking, with everyone out of Notre Dame by 8:00 on Thursdays; and only BVL's organizers enter scores (checked live: player and ref-team entry are off in all four leagues, and none has scorekeepers). Assigning net duty in the app is still only proposed.
+
+---
+
 ## 2026-10-19 — Help replies reach people who don't come back
 
 Replies from the admin only showed as a dot on the Help button, so two of the first three (Billie Jo and Monica) sat unread for hours.

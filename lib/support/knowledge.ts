@@ -158,6 +158,9 @@ Brampton Volleyball League (BVL), all nights:
 - Teams move tiers by results. Women's Wednesday and Reverse 4s Tuesday play 2-week rounds: everyone in a tier plays each other across the two weeks, then 2 teams move up and 2 down at each tier line. In 6-team tiers, some pairings play one game each week, and the two games together count as one match (2–0 a win, 1–1 a tie).
 - Non-Spiking (Tuesday) plays 4-week rounds; Thursday Co-ed 6s is in alignment weeks, where teams climb between sessions at each gym.
 - A team's schedule shows once its roster is full and every player has signed the waiver (see TEAMS).
+- Net setup: every team helps put up the nets during a round, so it doesn't fall on the referee, and no team does it more than others. A team on net duty arrives 10 minutes before its first game. In Women's Wednesday the printed round schedule lists which teams set up each night; in other leagues, ask BVL.
+- Games end at least 5 minutes before the gym booking ends. At Notre Dame on Thursdays everyone has to be out of the gym by 8:00 pm.
+- Scores in BVL leagues are entered by BVL's organizers, not by players or the reffing team. If a score looks wrong, tell BVL.
 - How ties in the tier rankings are broken, playoff seeding, and which gym a tier plays at are BVL's decisions; for those, contact BVL.
 
 === WHAT THE APP DOESN'T DO (say so; don't invent a way) ===
