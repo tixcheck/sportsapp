@@ -9,6 +9,7 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 - The owner tapped a league on an org page and saw nothing until it opened: only player pages had `loading.tsx`. Added skeletons to the org page, league, lineups, tournament, Reverse Pairs, KOTC, match, scorekeeper, player, admin and draft routes.
 - `components/app/nav-progress.tsx`: a 3px claret bar at the top from any same-site link tap until the URL changes (15s safety timeout), mounted in the root layout so public pages get it too. Buttons that navigate with `router.push` don't trigger it; they have their own pending states.
+- The org switcher named the org last picked from its menu (a cookie), so BVL's page, reached by a link, read "Mango Sports". It now names the org in the URL when on an `/orgs/<id>` page.
 
 ---
 

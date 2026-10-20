@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
+import { usePathname } from "next/navigation";
 import { Building2, Check, ChevronsUpDown, Plus } from "lucide-react";
 
 import { setCurrentOrgAction } from "@/server/actions/orgs";
@@ -24,6 +25,10 @@ export function OrgSwitcher({
   currentOrgId?: string;
 }) {
   const [pending, startTransition] = useTransition();
+  // The org whose page is open wins over the remembered one: arriving at
+  // another org by a link kept the old name showing (2026-10-20, BVL's page
+  // labelled "Mango Sports").
+  const urlOrgId = usePathname().match(/^\/orgs\/([0-9a-f-]{36})/)?.[1];
 
   if (orgs.length === 0) {
     return (
@@ -36,7 +41,10 @@ export function OrgSwitcher({
     );
   }
 
-  const current = orgs.find((o) => o.id === currentOrgId) ?? orgs[0];
+  const current =
+    orgs.find((o) => o.id === urlOrgId) ??
+    orgs.find((o) => o.id === currentOrgId) ??
+    orgs[0];
 
   return (
     <DropdownMenu>
