@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Captains saw teammates' waivers as unsigned (0180)
+
+- BVL Women's, ACE 23: the captain's roster showed only herself as signed; the organizers saw all 8 signed. The live data had all 8 signed. `waiver_acceptances` is readable only by the signer and league admins (0100), and the team page read it directly, so a captain only ever got their own row. The "Before you play" entry gate had the same read.
+- `team_waiver_signed(team_id)` (0180, security definer) returns just the user ids of members who signed the team's league waiver, to the team's members, captain, or league admins; never the signature. Checked as the captain: 1 → 8; a stranger gets none. `getTeamWaiverSigned` and `getTeamEntryGate` now use it.
+
+---
+
 ## 2026-10-20 — Ladder standings: one table per BVL round, not per week
 
 - A Reverse 4s convenor: "We're running two week rounds which should be cumulative. Not sure why there's separate standings showing for each of the two weeks?" `getLadderNightStandings` ranked each week alone, while the round's lock ranks both weeks together.

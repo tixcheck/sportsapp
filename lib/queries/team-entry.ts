@@ -54,16 +54,7 @@ export async function getTeamEntryGate(
 
   let signed = new Set<string>();
   if (waiverId && memberRows.length > 0) {
-    const { data: signatures } = await supabase
-      .from("waiver_acceptances")
-      .select("user_id")
-      // Signed once for the org's waiver counts in all its leagues (0148).
-      .eq("waiver_id", waiverId)
-      .in(
-        "user_id",
-        memberRows.map((m) => m.user_id),
-      );
-    signed = new Set((signatures ?? []).map((a) => a.user_id as string));
+    signed = new Set(await teamWaiverSigned(supabase, teamId));
   }
 
   return teamEntryGate({
@@ -106,11 +97,30 @@ export async function getTeamWaiverSigned(
   const ids = (members ?? []).map((m) => m.user_id as string);
   if (ids.length === 0) return [];
 
-  const { data: signatures } = await supabase
-    .from("waiver_acceptances")
-    .select("user_id")
-    // Signed once for the org's waiver counts in all its leagues (0148).
-    .eq("waiver_id", waiverId)
-    .in("user_id", ids);
-  return [...new Set((signatures ?? []).map((a) => a.user_id as string))];
+  return teamWaiverSigned(supabase, teamId);
+}
+
+/**
+ * Team members who signed the team's league waiver, through
+ * `team_waiver_signed` (0180). Reading `waiver_acceptances` directly only
+ * returns the caller's own row unless they're an organizer, so a captain saw
+ * every teammate as unsigned (BVL Women's, ACE 23, 2026-10-20).
+ */
+async function teamWaiverSigned(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  teamId: string,
+): Promise<string[]> {
+  const { data } = await supabase.rpc("team_waiver_signed", {
+    _team_id: teamId,
+  });
+  // A set of scalars comes back as bare values; tolerate the row form too.
+  return [
+    ...new Set(
+      ((data ?? []) as unknown[]).map((v) =>
+        typeof v === "string"
+          ? v
+          : String((v as { team_waiver_signed?: string }).team_waiver_signed),
+      ),
+    ),
+  ];
 }
