@@ -165,7 +165,8 @@ export async function GET(request: Request) {
           court: mt.court,
           round: mt.round,
           sport: comp.sport as Sport,
-          netSetup: netDuty.get(mt.id) === teamId,
+          netSetup: netDuty.setup.get(mt.id) === teamId,
+          netTakedown: netDuty.takedown.get(mt.id) === teamId,
         });
       }
     }

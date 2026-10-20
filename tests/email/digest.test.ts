@@ -116,4 +116,11 @@ describe("buildReminderItems", () => {
       "Court 1 · Round 1 · Your team puts up the net: arrive 10 min early",
     );
   });
+
+  it("tells a take-down team to stay after", () => {
+    const [item] = buildReminderItems([m({ netTakedown: true })]);
+    expect(item.detail).toBe(
+      "Court 1 · Round 1 · Your team takes the net down after this game",
+    );
+  });
 });

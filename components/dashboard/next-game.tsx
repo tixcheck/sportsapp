@@ -84,10 +84,12 @@ export function NextGame({ match }: { match: PlayerMatch }) {
         )}
       </div>
 
-      {match.netSetup && (
+      {(match.netSetup || match.netTakedown) && (
         <NetSetupNote
           court={match.court}
           sport={match.sport}
+          setup={match.netSetup}
+          takedown={match.netTakedown}
           className="mt-3 text-sm"
         />
       )}

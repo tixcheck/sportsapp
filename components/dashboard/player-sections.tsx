@@ -97,9 +97,13 @@ export function UpcomingGames({ matches }: { matches: PlayerMatch[] }) {
                   {where && `${where} · `}
                   {m.competitionName}
                 </span>
-                {m.netSetup && (
+                {(m.netSetup || m.netTakedown) && (
                   <span className="text-claret-deep block text-xs font-medium">
-                    Your team puts up the net
+                    {m.netSetup && m.netTakedown
+                      ? "Your team puts up and takes down the net"
+                      : m.netSetup
+                        ? "Your team puts up the net"
+                        : "Your team takes the net down after"}
                   </span>
                 )}
               </span>

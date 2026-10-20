@@ -1,6 +1,7 @@
 /**
  * Net duty for leagues that turned it on (0179): match id → the team that puts
- * the net up before that game. Worked out from the live schedule on every
+ * the net up before that game, and → the team that takes it down after it
+ * (the last game on the court). Worked out from the live schedule on every
  * read, like standings, so a moved game or a redraw is reflected at once.
  *
  * BVL's 6-team round grids already name a nets team per first game
@@ -17,16 +18,27 @@ import {
   gridStyleOf,
   roundWeeksOf,
 } from "@/lib/scheduler/bvl-round";
-import { assignNetDuty, type NetDutyGame } from "@/lib/scheduler/net-duty";
+import {
+  assignNetDuty,
+  assignNetTakedown,
+  type NetDutyGame,
+} from "@/lib/scheduler/net-duty";
 import { fetchAll } from "@/lib/supabase/fetch-all";
+
+export interface NetDuty {
+  /** Match id → the team that puts its court's net up before it. */
+  setup: Map<string, string>;
+  /** Match id → the team that takes its court's net down after it. */
+  takedown: Map<string, string>;
+}
 
 export async function loadNetDuty(
   supabase: SupabaseClient,
   competitionIds: string[],
   /** Preview leagues that haven't switched it on (scripts, the settings preview). */
   opts: { includeOff?: boolean } = {},
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+): Promise<NetDuty> {
+  const out: NetDuty = { setup: new Map(), takedown: new Map() };
   if (competitionIds.length === 0) return out;
   const { data: settings } = await supabase
     .from("league_settings")
@@ -105,8 +117,10 @@ export async function loadNetDuty(
         )
       : new Map<string, string>();
 
-    for (const [gameId, teamId] of assignNetDuty(games, { fixed }))
-      out.set(gameId, teamId);
+    const setup = assignNetDuty(games, { fixed });
+    for (const [gameId, teamId] of setup) out.setup.set(gameId, teamId);
+    for (const [gameId, teamId] of assignNetTakedown(games, { avoid: setup }))
+      out.takedown.set(gameId, teamId);
   }
   return out;
 }

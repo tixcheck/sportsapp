@@ -127,10 +127,12 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
         </div>
       </div>
 
-      {match.netSetup && match.state !== "final" && (
+      {(match.netSetup || match.netTakedown) && match.state !== "final" && (
         <NetSetupNote
           court={match.court}
           sport={match.sport}
+          setup={match.netSetup}
+          takedown={match.netTakedown}
           className="mt-2"
         />
       )}

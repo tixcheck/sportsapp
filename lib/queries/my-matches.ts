@@ -49,6 +49,8 @@ export interface MyMatch {
   lockedFuture: boolean;
   /** This player's team puts the net up before this game (0179). */
   netSetup: boolean;
+  /** This player's team takes the net down after this game (0179). */
+  netTakedown: boolean;
 }
 
 /**
@@ -256,7 +258,8 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       canEnter,
       canConfirm,
       lockedFuture,
-      netSetup: playTeamIds.has(netDuty.get(m.id) ?? ""),
+      netSetup: playTeamIds.has(netDuty.setup.get(m.id) ?? ""),
+      netTakedown: playTeamIds.has(netDuty.takedown.get(m.id) ?? ""),
     };
   });
 

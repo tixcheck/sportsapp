@@ -5,6 +5,14 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Net take-down, and net duty switched on for all four BVL leagues
+
+- **Take-down:** the last game on each court in each gym each night names one of its two teams to take the net down, balanced the same way as setup but counted separately. On a tie it passes over that game's setup team, so a court with one game doesn't give one team both jobs. Shown as "Your team takes the net down on Court a after this game." on the game and dashboard, in the weekly email, and as "Court A nets: up X, down Y" on the BVL round print.
+- **Switched on** (`net_duty = true`) for Non-Spiking, Reverse 4s, Women's Wednesday and Thursday, on the owner's say-so.
+- **Sheets for BVL** (Desktop, "BVL Sheets with Nets"): a schedule and score sheets for each league's upcoming nights, with UP/DOWN teams per court on every sheet, from `lib/db/_tmp/bvl-nets-sheets.mts` (the three round leagues) and `print-thu-wk2-nets.mts` (Thursday). Five Thursday take-downs depend on which teams climb, so their sheets name the two seats and say the app picks once they're known.
+
+---
+
 ## 2026-10-19 — Net setup duty (0179)
 
 BVL wanted setup off the referees: "everybody has to do Nets, and no team is doing it more than others" (Theresa). Only Women's 6-team tiers had it, as a fixed list on the print.

@@ -53,7 +53,7 @@ export interface RoundGym {
   courts: string[];
   rows: RoundRow[];
   hasOff: boolean;
-  /** Who puts the nets up: per court when the league uses net duty (0179), else the sheet's per-tier list. */
+  /** Nets: per court, who puts it up and takes it down, when the league uses net duty (0179); else the sheet's per-tier setup list. */
   nets: { tier: string; teams: string[] }[];
 }
 export interface RoundNight {
@@ -284,19 +284,18 @@ export async function getRoundSchedule(
         });
         const nets = netDuty
           ? courts.flatMap((c) => {
-              const first = here
+              const onCourt = here
                 .filter((m) => (m.court ?? "") === c)
-                .sort((a, b) =>
-                  a.scheduled_at!.localeCompare(b.scheduled_at!),
-                )[0];
-              const team = first && netDuty.get(first.id);
-              return team
-                ? [
-                    {
-                      tier: `Court ${c.toUpperCase()}`,
-                      teams: [teamName.get(team) ?? "—"],
-                    },
-                  ]
+                .sort((a, b) => a.scheduled_at!.localeCompare(b.scheduled_at!));
+              const up = onCourt[0] && netDuty.setup.get(onCourt[0].id);
+              const last = onCourt[onCourt.length - 1];
+              const down = last && netDuty.takedown.get(last.id);
+              const teams = [
+                up ? `up ${teamName.get(up) ?? "—"}` : null,
+                down ? `down ${teamName.get(down) ?? "—"}` : null,
+              ].filter((x): x is string => !!x);
+              return teams.length
+                ? [{ tier: `Court ${c.toUpperCase()} nets`, teams }]
                 : [];
             })
           : tiersHere

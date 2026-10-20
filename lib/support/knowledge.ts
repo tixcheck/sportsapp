@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-19 (net setup duty, 0179).
+ * Last checked against the app: 2026-10-19 (net setup and take-down, 0179).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -105,7 +105,7 @@ Confirmation: in leagues that require it, the other team sees "Confirm" / "Dispu
 Wrong score: once a score is final, players can't change it ("This score is final — ask the organizer to edit it."). Only the organizer can edit a final score. Tell the user to contact their organizer.
 Missing score reminder: captains may get "Score needed: <game>" a day after an unscored game.
 Timed games: if time runs out, enter the score as it stood. Whether a game must be played to a full score at time is the league's rule; ask the organizer.
-Net setup: in leagues that use it, a game your team sets up for shows "Your team puts up the net on Court <x>. Arrive 10 min early." on My matches, the team page and the dashboard, and the weekly email says "Your team puts up the net: arrive 10 min early". Only the first game on each court in a gym that night needs the net put up; one of its two teams is named, taking turns so every team does it and none does it more than others (a team that missed a turn goes first next round). It follows the schedule, so if games move it can change. Who sets up is worked out by the app from the schedule; to swap with another team, ask the organizer.
+Net setup and take-down: in leagues that use it, a game your team sets up for shows "Your team puts up the net on Court <x>. Arrive 10 min early.", and a game your team takes down after shows "Your team takes the net down on Court <x> after this game." They're on My matches, the team page and the dashboard, and in the weekly email. Only the first game on each court in a gym that night needs the net put up, and only the last game's net comes down; one of the two teams in that game is named, taking turns so every team does it and none does it more than others (a team that missed a turn goes first next round). It follows the schedule, so if games move it can change. The app works out who; to swap with another team, ask the organizer.
 
 === STANDINGS AND FORMATS ===
 Standings columns: GP games played, MW matches won, T ties (if any), ML matches lost, SW/SL sets won/lost, PF/PA points for/against, Ratio (PF÷PA) or Diff (PF−PA). Tap a team's rank number for "Why is X ranked N?". A * marks a team that joined mid-season (scaled to the full schedule for ranking).
@@ -132,7 +132,7 @@ Creating a tournament ("New tournament"): Sport → Details → Divisions → Fo
 Reverse Pairs: "New Reverse Pairs" → name, sport, date, start time, venue, courts (six pairs per court), points and minutes per game → "Create event". Tabs "Tonight", "Standings", "Setup", "Settings".
 King of the Court: "New KotC" → pairs per pool, seeding rounds, rounds, minutes, optional point cap → "Create competition".
 Ladder: an existing league with at least 2 tiers → Settings → Format → "Set up ladder" → "Turn on ladder format". A "Ladder" tab then has "Draw week 1", "Lock", "Undo last lock", and "Lock and draw automatically".
-Net setup duty: league's Schedule tab → "Net setup" card → tick "Name a team to put up each net". Off until switched on. Teams then see it on their games, dashboard and weekly email, and a BVL round's printed schedule lists "Court A nets: <team>" per gym. There's no way to pick the team by hand.
+Net duty: league's Schedule tab → "Net setup" card → tick "Name a team to put up each net". Off until switched on. It names a team to put up each court's net before the first game and one to take it down after the last. Teams see it on their games, dashboard and weekly email, and a BVL round's printed schedule lists "Court A nets: up <team>, down <team>" per gym. There's no way to pick the team by hand.
 
 Publishing: new events start private. League: "Publish" (public page live) / "Unpublish". Registration is separate: "Registration" → "Accept team registrations", optional close date, maximum teams (then a waitlist opens), waitlist claim window → "Copy sign-up link". Players can't reach the form until the league is published. Tournament: "Publish"/"Unpublish" plus "Open registration"/"Close registration". Reverse Pairs: "Publish"/"Take offline" and "Let pairs sign themselves up."
 Running a league (league page tabs: Schedule, Ladder, Standings, Playoffs, Teams, Players, Stats, Settings):
@@ -160,7 +160,7 @@ Brampton Volleyball League (BVL), all nights:
 - Teams move tiers by results. Women's Wednesday and Reverse 4s Tuesday play 2-week rounds: everyone in a tier plays each other across the two weeks, then 2 teams move up and 2 down at each tier line. In 6-team tiers, some pairings play one game each week, and the two games together count as one match (2–0 a win, 1–1 a tie).
 - Non-Spiking (Tuesday) plays 4-week rounds; Thursday Co-ed 6s is in alignment weeks, where teams climb between sessions at each gym.
 - A team's schedule shows once its roster is full and every player has signed the waiver (see TEAMS).
-- Net setup: every team helps put up the nets during a round, so it doesn't fall on the referee, and no team does it more than others. A team on net duty arrives 10 minutes before its first game. If your game shows "Your team puts up the net", that's your turn (see GAMES); if nothing shows, ask BVL.
+- Net setup: every team helps put up the nets during a round, so it doesn't fall on the referee, and no team does it more than others. A team on net duty arrives 10 minutes before its first game. Teams also take turns taking the nets down after the last game. If your game shows "Your team puts up the net" or "Your team takes the net down", that's your turn (see GAMES). All four BVL leagues use it.
 - Games end at least 5 minutes before the gym booking ends. At Notre Dame on Thursdays everyone has to be out of the gym by 8:00 pm.
 - Scores in BVL leagues are entered by BVL's organizers, not by players or the reffing team. If a score looks wrong, tell BVL.
 - How ties in the tier rankings are broken, playoff seeding, and which gym a tier plays at are BVL's decisions; for those, contact BVL.

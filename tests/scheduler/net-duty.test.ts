@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   assignNetDuty,
+  assignNetTakedown,
   netSetupGames,
+  netTakedownGames,
   type NetDutyGame,
 } from "@/lib/scheduler/net-duty";
 
@@ -221,5 +223,47 @@ describe("assignNetDuty", () => {
     const c = counts(assignNetDuty(games));
     const loads = teams.map((t) => c.get(t) ?? 0);
     expect(Math.max(...loads) - Math.min(...loads)).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("take-down", () => {
+  it("takes the last game on each court; an earlier tier in a shared gym leaves the nets up", () => {
+    const early = game({ home: "1", away: "2", startsAt: "T18" });
+    const late = game({ home: "7", away: "8", startsAt: "T20" });
+    expect(netTakedownGames([late, early]).map((g) => g.id)).toEqual([late.id]);
+  });
+
+  it("a court with one game: the other team takes it down", () => {
+    const g = night("2026-10-14", [["1", "6"]], "001");
+    const up = assignNetDuty(g);
+    const down = assignNetTakedown(g, { avoid: up });
+    expect(down.get(g[0].id)).not.toBe(up.get(g[0].id));
+  });
+
+  it("6-team tier over a 2-week round: every team takes down exactly once", () => {
+    // BVL_6's last slot each week.
+    const games = [
+      ...night(
+        "2026-10-14",
+        [
+          ["3", "5"],
+          ["2", "6"],
+          ["1", "4"],
+        ],
+        "001",
+      ),
+      ...night(
+        "2026-10-21",
+        [
+          ["1", "2"],
+          ["3", "4"],
+          ["5", "6"],
+        ],
+        "001",
+      ),
+    ];
+    const c = counts(assignNetTakedown(games));
+    expect([...c.values()].every((v) => v === 1)).toBe(true);
+    expect(c.size).toBe(6);
   });
 });

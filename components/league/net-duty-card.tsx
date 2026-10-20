@@ -63,13 +63,14 @@ export function NetDutyCard({
           <span>
             <span className="font-medium">Name a team to put up each net</span>
             <span className="text-muted-foreground block">
-              The first game on each court in each gym needs its net put up. One
-              of its two teams is named, taking turns so every team does it and
-              none does it more than others. They see &ldquo;Your team puts up
-              the net. Arrive {NET_SETUP_MINUTES} min early.&rdquo; on their
-              game, the dashboard and the weekly email, and it&apos;s on the
-              printed round schedule. It follows the schedule, so a moved game
-              or a redraw updates it.
+              The first game on each court in each gym needs its net put up, and
+              the last game&apos;s net comes down. One of the two teams in each
+              is named, taking turns so every team does it and none does it more
+              than others. They see &ldquo;Your team puts up the net. Arrive{" "}
+              {NET_SETUP_MINUTES} min early.&rdquo; or &ldquo;Your team takes
+              the net down after this game.&rdquo; on their game, the dashboard
+              and the weekly email, and both are on the printed round schedule.
+              It follows the schedule, so a moved game or a redraw updates it.
             </span>
           </span>
         </label>

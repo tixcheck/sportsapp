@@ -70,9 +70,7 @@ function Gym({ gym }: { gym: RoundGym }) {
       </table>
       {gym.nets.length > 0 && (
         <p className="nets">
-          {gym.nets
-            .map((n) => `${n.tier} nets: ${n.teams.join(", ")}`)
-            .join(" · ")}
+          {gym.nets.map((n) => `${n.tier}: ${n.teams.join(", ")}`).join(" · ")}
         </p>
       )}
     </div>

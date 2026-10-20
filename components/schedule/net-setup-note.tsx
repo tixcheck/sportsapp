@@ -11,16 +11,27 @@ export function netSetupText(court: string | null, sport?: Sport): string {
   return `Your team puts up the net${where ? ` on ${where}` : ""}. Arrive ${NET_SETUP_MINUTES} min early.`;
 }
 
-/** "Your team puts up the net on Court B. Arrive 10 min early." on a game the team sets up for. */
+/** The take-down sentence, for the last game on a court. */
+export function netTakedownText(court: string | null, sport?: Sport): string {
+  const where = formatCourtLabel(court, sport);
+  return `Your team takes the net down${where ? ` on ${where}` : ""} after this game.`;
+}
+
+/** "Your team puts up the net on Court B. Arrive 10 min early." and/or the take-down line, on a game the team has net duty for. */
 export function NetSetupNote({
   court,
   sport,
   className,
+  setup = true,
+  takedown = false,
 }: {
   court: string | null;
   sport?: Sport;
   className?: string;
+  setup?: boolean;
+  takedown?: boolean;
 }) {
+  if (!setup && !takedown) return null;
   return (
     <p
       className={cn(
@@ -29,7 +40,14 @@ export function NetSetupNote({
       )}
     >
       <Wrench className="mt-px size-3.5 shrink-0" />
-      {netSetupText(court, sport)}
+      <span>
+        {[
+          setup ? netSetupText(court, sport) : null,
+          takedown ? netTakedownText(court, sport) : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      </span>
     </p>
   );
 }

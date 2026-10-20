@@ -24,6 +24,8 @@ export interface DigestMatchInput {
   sport?: Sport;
   /** This player's team puts up the net before this game (0179). */
   netSetup?: boolean;
+  /** This player's team takes the net down after this game (0179). */
+  netTakedown?: boolean;
 }
 
 /** Sort key: the absolute instant, so games across competitions in different
@@ -67,6 +69,7 @@ export function buildReminderItems(
         m.netSetup
           ? `Your team puts up the net: arrive ${NET_SETUP_MINUTES} min early`
           : null,
+        m.netTakedown ? "Your team takes the net down after this game" : null,
       ]
         .filter(Boolean)
         .join(" · ");

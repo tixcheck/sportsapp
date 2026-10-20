@@ -1,11 +1,12 @@
 /**
- * Net duty: which team puts the net up on each court.
+ * Net duty: which team puts the net up on each court, and which takes it down.
  *
  * BVL's rule (Theresa, 2026-10-19): "everybody has to do Nets, and no team is
  * doing it more than others", so setup "doesn't fall on the referee". A net
  * only needs putting up before the first game on a court in a gym that night;
  * when two tiers share a gym, the late tier plays on nets already up. One of
- * that first game's two teams sets up.
+ * that first game's two teams sets up. Taking down mirrors it: one of the two
+ * teams in the last game on each court (the owner asked for both, 2026-10-19).
  *
  * Who is chosen is balanced over the season, one window (a BVL round, or a
  * night) at a time: within a window the picks are moved around until no team
@@ -38,17 +39,18 @@ export interface NetDutyGame {
 export interface NetDutyOptions {
   /** Picks already published (Theresa's Wednesday sheet): game id → team id. */
   fixed?: Map<string, string>;
+  /**
+   * Game id → a team to pass over on a tie. Take-down passes the setup picks,
+   * so a court with a single game doesn't give one team both jobs.
+   */
+  avoid?: Map<string, string>;
 }
 
-/** The first game on each court in each gym each night: the ones that need a net put up. */
-export function netSetupGames(games: NetDutyGame[]): NetDutyGame[] {
-  const first = new Map<string, NetDutyGame>();
-  for (const g of games) {
-    const key = `${g.gym}|${g.night}|${g.court}`;
-    const cur = first.get(key);
-    if (!cur || g.startsAt < cur.startsAt) first.set(key, g);
-  }
-  return [...first.values()].sort(
+/** Same-gym, same-night, same-court games share one net. */
+const netKey = (g: NetDutyGame) => `${g.gym}|${g.night}|${g.court}`;
+
+function chronological(games: NetDutyGame[]): NetDutyGame[] {
+  return games.sort(
     (a, b) =>
       a.startsAt.localeCompare(b.startsAt) ||
       a.gym.localeCompare(b.gym) ||
@@ -56,13 +58,49 @@ export function netSetupGames(games: NetDutyGame[]): NetDutyGame[] {
   );
 }
 
+/** The first game on each court in each gym each night: the ones that need a net put up. */
+export function netSetupGames(games: NetDutyGame[]): NetDutyGame[] {
+  const first = new Map<string, NetDutyGame>();
+  for (const g of games) {
+    const cur = first.get(netKey(g));
+    if (!cur || g.startsAt < cur.startsAt) first.set(netKey(g), g);
+  }
+  return chronological([...first.values()]);
+}
+
+/** The last game on each court in each gym each night: the ones after which the net comes down. */
+export function netTakedownGames(games: NetDutyGame[]): NetDutyGame[] {
+  const last = new Map<string, NetDutyGame>();
+  for (const g of games) {
+    const cur = last.get(netKey(g));
+    if (!cur || g.startsAt > cur.startsAt) last.set(netKey(g), g);
+  }
+  return chronological([...last.values()]);
+}
+
 /** Game id → the team that sets up its net. Games whose teams aren't known yet get none. */
 export function assignNetDuty(
   games: NetDutyGame[],
   opts: NetDutyOptions = {},
 ): Map<string, string> {
+  return balance(netSetupGames(games), opts);
+}
+
+/** Game id → the team that takes its net down afterwards. Balanced separately from setup. */
+export function assignNetTakedown(
+  games: NetDutyGame[],
+  opts: NetDutyOptions = {},
+): Map<string, string> {
+  return balance(netTakedownGames(games), opts);
+}
+
+function balance(
+  candidates: NetDutyGame[],
+  opts: NetDutyOptions,
+): Map<string, string> {
   const fixed = opts.fixed ?? new Map<string, string>();
-  const slots = netSetupGames(games).filter(
+  const avoid = opts.avoid ?? new Map<string, string>();
+  const slots = candidates.filter(
     (g) => g.homeTeamId && g.awayTeamId && g.homeTeamId !== g.awayTeamId,
   );
   const windows = [...new Set(slots.map((s) => s.window))].sort();
@@ -83,10 +121,12 @@ export function assignNetDuty(
       if (f === home || f === away) {
         team = f;
         locked.add(s.id);
-      } else {
-        // Fewer turns so far goes; a tie goes to the away team, so the
-        // first-listed (home) team isn't always the one let off.
+      } else if (loadOf(home) !== loadOf(away)) {
         team = loadOf(home) < loadOf(away) ? home : away;
+      } else {
+        // A tie goes to the away team, so the first-listed (home) team isn't
+        // always the one let off, unless the away team is the one to avoid.
+        team = avoid.get(s.id) === away ? home : away;
       }
       pick.set(s.id, team);
       load.set(team, loadOf(team) + 1);
