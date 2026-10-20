@@ -164,6 +164,10 @@
     - **Refunds are recorded PRO RATA and only by the webhook.** The organizer's
       action calls Stripe; `charge.refunded` writes the row. `amount_refunded`
       is cumulative, so storing it directly is idempotent.
+    - **Refunds come out of the PLATFORM balance first** (destination charges),
+      then are clawed back from the organizer. With the platform at $0 (as on
+      2026-10-20) Stripe refuses with a code-less 400 "Insufficient funds"; top
+      up the platform balance in the Stripe Dashboard before refunding.
     - **A refund does NOT demote a confirmed team.** Deliberate — mid-season that
       would pull them out of pools, schedules and standings.
     - **Admitting a team unpaid does NOT clear its debt.** The balance keeps

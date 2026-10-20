@@ -306,17 +306,9 @@ export async function refundRegistrationPaymentAction(
       },
     });
   } catch (err) {
-    // "Insufficient funds in the connected account" is the one Stripe message
-    // worth passing through — the organizer can act on it, and unlike a
-    // checkout failure it names no API parameters.
-    const message = err instanceof Error ? err.message : "";
     const failure = describeStripeFailure(err);
     console.error("[payments] refund failed", failure.tag);
-    return {
-      error: message.includes("insufficient")
-        ? "The organizer's Stripe balance is too low to cover this refund right now."
-        : failure.message,
-    };
+    return { error: failure.message };
   }
 
   revalidateCompetition(comp, payment.teamId);
@@ -656,7 +648,7 @@ export async function refundTeamPaymentsAction(
   if (refunded === 0) {
     return {
       error:
-        "None of those refunds went through. The organizer's Stripe balance may be too low.",
+        "None of those refunds went through. The Stripe balance may be too low to cover them; you can refund by e-transfer instead.",
     };
   }
 

@@ -3,6 +3,7 @@ import Stripe from "stripe";
 
 import {
   describeStripeFailure,
+  isInsufficientBalanceError,
   isPlatformSetupError,
   isTransientStripeError,
   stripeErrorTag,
@@ -129,5 +130,38 @@ describe("non-Stripe failures", () => {
   it("still produces a tag rather than throwing", () => {
     expect(stripeErrorTag(new TypeError("nope"))).toBe("TypeError");
     expect(stripeErrorTag("a string")).toBe("unknown");
+  });
+});
+
+describe("a refund with nothing to pay it from", () => {
+  // Code-less 400, the same shape as a platform-setup failure (2026-10-20).
+  const EMPTY = stripeError({
+    type: "invalid_request_error",
+    statusCode: 400,
+    message:
+      "Insufficient funds in Stripe account. In order to refund this charge, you'll need to top up your Stripe balance.",
+  });
+
+  it("is not reported as card payments being switched off", () => {
+    expect(isInsufficientBalanceError(EMPTY)).toBe(true);
+    expect(describeStripeFailure(EMPTY).message).toMatch(
+      /enough in the Stripe balance/,
+    );
+    expect(describeStripeFailure(EMPTY).message).not.toMatch(/switched on/);
+  });
+
+  it("offers e-transfer and does not say to try again right away", () => {
+    const f = describeStripeFailure(EMPTY);
+    expect(f.retryable).toBe(false);
+    expect(f.message).toMatch(/e-transfer/);
+  });
+
+  it("recognizes Stripe's coded form too", () => {
+    const coded = stripeError({
+      type: "invalid_request_error",
+      code: "balance_insufficient",
+      message: "Something else",
+    });
+    expect(isInsufficientBalanceError(coded)).toBe(true);
   });
 });

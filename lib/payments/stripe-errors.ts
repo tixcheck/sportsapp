@@ -62,6 +62,24 @@ export function isPlatformSetupError(err: unknown): boolean {
   );
 }
 
+/**
+ * A refund Stripe turned down because the balance it comes out of is empty.
+ *
+ * A destination-charge refund is paid from the PLATFORM balance first, then
+ * clawed back from the organizer. Once both have been paid out there is
+ * nothing to take it from. Stripe sends this as a code-less 400, the same
+ * shape as a platform-setup failure, so it must be checked first (2026-10-20:
+ * a refund was reported as "Card payments aren't switched on"). Stripe's
+ * prose starts "Insufficient funds", capitalized; newer versions add a code.
+ */
+export function isInsufficientBalanceError(err: unknown): boolean {
+  if (!(err instanceof Stripe.errors.StripeError)) return false;
+  return (
+    err.code === "balance_insufficient" ||
+    /insufficient funds/i.test(err.message ?? "")
+  );
+}
+
 export type StripeFailure = {
   /** Shown to whoever clicked. Never contains Stripe's raw message. */
   message: string;
@@ -86,6 +104,17 @@ export function describeStripeFailure(err: unknown): StripeFailure {
       retryable: true,
       message:
         "Stripe couldn't be reached just now. Please try again in a moment.",
+    };
+  }
+
+  if (isInsufficientBalanceError(err)) {
+    return {
+      tag,
+      retryable: false,
+      message:
+        "There isn't enough in the Stripe balance to cover this refund yet, " +
+        "because the payment has already been paid out. We've been alerted. " +
+        "You can refund them by e-transfer instead, or try again once the balance is topped up.",
     };
   }
 

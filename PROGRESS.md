@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Refund failing as "Card payments aren't switched on"
+
+- A Gautam/TBD refund ($84.76, a destination charge from Oct 6) failed with "Card payments aren't switched on for this platform yet". The real cause: the platform's Stripe balance was $0 available (−$2.46 pending) and the organizer's had paid out, so Stripe had nothing to pay the refund from. Stripe sends that as a code-less 400, the same shape `isPlatformSetupError` treats as platform setup, and the action's `includes("insufficient")` check missed Stripe's capitalized "Insufficient funds".
+- `isInsufficientBalanceError` now catches it first (by `balance_insufficient` or the words, any case) and says there isn't enough in the Stripe balance yet, offering e-transfer. To actually refund: add funds to the platform balance in the Stripe Dashboard (Balances → Add to balance), then retry.
+
+---
+
 ## 2026-10-19 — Net take-down, and net duty switched on for all four BVL leagues
 
 - **Take-down:** the last game on each court in each gym each night names one of its two teams to take the net down, balanced the same way as setup but counted separately. On a tie it passes over that game's setup team, so a court with one game doesn't give one team both jobs. Shown as "Your team takes the net down on Court a after this game." on the game and dashboard, in the weekly email, and as "Court A nets: up X, down Y" on the BVL round print.
