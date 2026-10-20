@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import Stripe from "stripe";
 
 import {
+  describeRefundFailure,
   describeStripeFailure,
   isInsufficientBalanceError,
   isPlatformSetupError,
@@ -163,5 +164,27 @@ describe("a refund with nothing to pay it from", () => {
       message: "Something else",
     });
     expect(isInsufficientBalanceError(coded)).toBe(true);
+  });
+});
+
+describe("refund failures", () => {
+  it("never claims card payments are switched off", () => {
+    const err = stripeError({
+      type: "invalid_request_error",
+      message: "Something specific about this refund.",
+    });
+    const f = describeRefundFailure(err);
+    expect(f.message).not.toMatch(/switched on/);
+    expect(f.message).toMatch(/Something specific about this refund/);
+  });
+
+  it("matches Stripe's other insufficient-balance wording", () => {
+    const err = stripeError({
+      type: "invalid_request_error",
+      message: "You have insufficient available funds in your Stripe account.",
+    });
+    expect(describeRefundFailure(err).message).toMatch(
+      /enough in the Stripe balance/,
+    );
   });
 });

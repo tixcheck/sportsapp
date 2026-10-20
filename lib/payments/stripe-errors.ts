@@ -76,8 +76,28 @@ export function isInsufficientBalanceError(err: unknown): boolean {
   if (!(err instanceof Stripe.errors.StripeError)) return false;
   return (
     err.code === "balance_insufficient" ||
-    /insufficient funds/i.test(err.message ?? "")
+    /insufficient/i.test(err.message ?? "")
   );
+}
+
+/**
+ * What to tell an organizer whose refund Stripe refused. Unlike account
+ * creation, a refund's parameters are only our ids and the reason they typed,
+ * so Stripe's own words are safe to show and are the only way to see what went
+ * wrong: a code-less 400 here is NOT the platform being unset (2026-10-20, a
+ * refund twice reported as "Card payments aren't switched on").
+ */
+export function describeRefundFailure(err: unknown): StripeFailure {
+  const failure = describeStripeFailure(err);
+  if (isInsufficientBalanceError(err) || failure.retryable) return failure;
+  const said =
+    err instanceof Stripe.errors.StripeError && err.message
+      ? ` Stripe said: "${err.message}"`
+      : "";
+  return {
+    ...failure,
+    message: `Stripe didn't accept this refund.${said} We've been alerted.`,
+  };
 }
 
 export type StripeFailure = {

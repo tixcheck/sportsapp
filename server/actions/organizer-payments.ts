@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { currentStripeMode } from "@/lib/payments/stripe-mode";
 import { getStripe } from "@/lib/payments/stripe";
-import { describeStripeFailure } from "@/lib/payments/stripe-errors";
+import { describeRefundFailure } from "@/lib/payments/stripe-errors";
 import {
   getCompetitionPaymentSettings,
   getRefundablePayment,
@@ -306,7 +306,7 @@ export async function refundRegistrationPaymentAction(
       },
     });
   } catch (err) {
-    const failure = describeStripeFailure(err);
+    const failure = describeRefundFailure(err);
     console.error("[payments] refund failed", failure.tag);
     return { error: failure.message };
   }
