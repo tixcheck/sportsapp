@@ -125,6 +125,8 @@ import {
 import { ScoringSettingsCard } from "@/components/scoring/scoring-settings-card";
 import { OrganizerManager } from "@/components/organizers/organizer-manager";
 import { getLadderState } from "@/lib/queries/ladder";
+import { getNetDutyOn } from "@/lib/queries/net-duty";
+import { NetDutyCard } from "@/components/league/net-duty-card";
 import { LadderPanel } from "@/components/league/ladder-panel";
 import { getAlignmentNight } from "@/lib/queries/alignment";
 import { AlignmentCard } from "@/components/alignment/alignment-card";
@@ -161,6 +163,7 @@ export default async function LeaguePage({
     orgWaivers,
     alignment,
     scorekeepers,
+    netDutyOn,
   ] = await Promise.all([
     getLeagueSchedule(leagueId),
     getStandings(leagueId),
@@ -177,6 +180,7 @@ export default async function LeaguePage({
     getOrgWaivers(orgId),
     getAlignmentNight(leagueId),
     getCompetitionScorekeepers(leagueId),
+    getNetDutyOn(leagueId),
   ]);
 
   // Org members message from the org page; this is for anyone who runs this
@@ -446,6 +450,9 @@ export default async function LeaguePage({
           </CardContent>
         ) : null}
       </Card>
+      {league.matchCount > 0 && (
+        <NetDutyCard competitionId={league.id} on={netDutyOn} />
+      )}
     </div>
   );
 

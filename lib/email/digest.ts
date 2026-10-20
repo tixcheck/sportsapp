@@ -8,6 +8,7 @@ import { DateTime } from "luxon";
 import type { Sport } from "@/lib/formats";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import type { ReminderItem } from "./templates/match-reminder";
+import { NET_SETUP_MINUTES } from "@/lib/scheduler/net-duty";
 
 export interface DigestMatchInput {
   competitionName: string;
@@ -21,6 +22,8 @@ export interface DigestMatchInput {
   round: number | null;
   /** Names the surface — a softball player is told a field, not a court. */
   sport?: Sport;
+  /** This player's team puts up the net before this game (0179). */
+  netSetup?: boolean;
 }
 
 /** Sort key: the absolute instant, so games across competitions in different
@@ -61,6 +64,9 @@ export function buildReminderItems(
       const detail = [
         formatCourtLabel(m.court, m.sport),
         m.round ? `Round ${m.round}` : null,
+        m.netSetup
+          ? `Your team puts up the net: arrive ${NET_SETUP_MINUTES} min early`
+          : null,
       ]
         .filter(Boolean)
         .join(" · ");

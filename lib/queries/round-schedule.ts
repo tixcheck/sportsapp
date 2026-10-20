@@ -13,6 +13,7 @@ import { DateTime } from "luxon";
 
 import { createClient } from "@/lib/supabase/server";
 import { parseSheetNotes, type SheetNote } from "@/lib/competition/sheet-notes";
+import { loadNetDuty } from "@/lib/queries/net-duty";
 import {
   bvlTemplate,
   gridStyleOf,
@@ -52,6 +53,7 @@ export interface RoundGym {
   courts: string[];
   rows: RoundRow[];
   hasOff: boolean;
+  /** Who puts the nets up: per court when the league uses net duty (0179), else the sheet's per-tier list. */
   nets: { tier: string; teams: string[] }[];
 }
 export interface RoundNight {
@@ -112,7 +114,9 @@ export async function getRoundSchedule(
       .maybeSingle(),
     supabase
       .from("league_settings")
-      .select("ladder_draw, ladder_round_weeks, ladder_round_grid, sheet_notes")
+      .select(
+        "ladder_draw, ladder_round_weeks, ladder_round_grid, sheet_notes, net_duty",
+      )
       .eq("competition_id", competitionId)
       .maybeSingle(),
     supabase
@@ -123,7 +127,7 @@ export async function getRoundSchedule(
     supabase
       .from("matches")
       .select(
-        "round, division_id, venue_id, home_team_id, away_team_id, court, scheduled_at, match_format",
+        "id, round, division_id, venue_id, home_team_id, away_team_id, court, scheduled_at, match_format",
       )
       .eq("competition_id", competitionId)
       .not("round", "is", null)
@@ -138,6 +142,7 @@ export async function getRoundSchedule(
   const zone = (comp.timezone as string | null) ?? "America/Toronto";
   const roundLen = (settings.ladder_round_weeks as number | null) ?? 2;
   const matches = (matchRows ?? []) as {
+    id: string;
     round: number;
     division_id: string | null;
     venue_id: string | null;
@@ -213,6 +218,10 @@ export async function getRoundSchedule(
     ]),
   );
 
+  const netDuty = settings.net_duty
+    ? await loadNetDuty(supabase, [competitionId])
+    : null;
+
   const local = (iso: string) =>
     DateTime.fromISO(iso, { zone: "utc" }).setZone(zone);
   const ampm = (iso: string) => local(iso).toFormat("h:mm");
@@ -273,21 +282,38 @@ export async function getRoundSchedule(
                 : [],
           };
         });
-        const nets = tiersHere
-          .map((d) => {
-            const ids = seated.get(d) ?? [];
-            const grid = bvlTemplate(
-              ids.length,
-              gridStyleOf(settings.ladder_round_grid),
-            )?.weeks[weekIndex % 2];
-            const teams = (grid?.nets ?? []).map(
-              (n) => teamName.get(ids[n - 1]) ?? "—",
-            );
-            return teams.length
-              ? { tier: divById.get(d)?.name ?? "", teams }
-              : null;
-          })
-          .filter((x): x is { tier: string; teams: string[] } => !!x);
+        const nets = netDuty
+          ? courts.flatMap((c) => {
+              const first = here
+                .filter((m) => (m.court ?? "") === c)
+                .sort((a, b) =>
+                  a.scheduled_at!.localeCompare(b.scheduled_at!),
+                )[0];
+              const team = first && netDuty.get(first.id);
+              return team
+                ? [
+                    {
+                      tier: `Court ${c.toUpperCase()}`,
+                      teams: [teamName.get(team) ?? "—"],
+                    },
+                  ]
+                : [];
+            })
+          : tiersHere
+              .map((d) => {
+                const ids = seated.get(d) ?? [];
+                const grid = bvlTemplate(
+                  ids.length,
+                  gridStyleOf(settings.ladder_round_grid),
+                )?.weeks[weekIndex % 2];
+                const teams = (grid?.nets ?? []).map(
+                  (n) => teamName.get(ids[n - 1]) ?? "—",
+                );
+                return teams.length
+                  ? { tier: divById.get(d)?.name ?? "", teams }
+                  : null;
+              })
+              .filter((x): x is { tier: string; teams: string[] } => !!x);
         const v = venue.get(vid);
         return {
           name: v?.name ?? "Gym TBD",

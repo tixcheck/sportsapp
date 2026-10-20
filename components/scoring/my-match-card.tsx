@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { sportConfig } from "@/lib/sports";
 import { Button } from "@/components/ui/button";
+import { NetSetupNote } from "@/components/schedule/net-setup-note";
 
 /**
  * Shown when a match has no round number (older mid-season games never got
@@ -125,6 +126,14 @@ export function MyMatchCard({ match }: { match: MyMatch }) {
           )}
         </div>
       </div>
+
+      {match.netSetup && match.state !== "final" && (
+        <NetSetupNote
+          court={match.court}
+          sport={match.sport}
+          className="mt-2"
+        />
+      )}
 
       {/* Wraps rather than truncates: on a phone the gym and court are the
           part to keep, and the note or button beside them can drop a line. */}

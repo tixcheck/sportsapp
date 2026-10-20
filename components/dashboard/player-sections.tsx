@@ -97,6 +97,11 @@ export function UpcomingGames({ matches }: { matches: PlayerMatch[] }) {
                   {where && `${where} · `}
                   {m.competitionName}
                 </span>
+                {m.netSetup && (
+                  <span className="text-claret-deep block text-xs font-medium">
+                    Your team puts up the net
+                  </span>
+                )}
               </span>
               <span className="text-ink-2 shrink-0 text-xs whitespace-nowrap">
                 {shortWhen(m)}

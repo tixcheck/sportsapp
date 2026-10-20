@@ -81,3 +81,9 @@ export const ladderNightResultsSchema = z.object({
 });
 
 export type LadderNightResultsInput = z.infer<typeof ladderNightResultsSchema>;
+
+/** Switch net duty on or off (0179). */
+export const netDutySchema = z.object({
+  competitionId: z.string().uuid(),
+  on: z.boolean(),
+});

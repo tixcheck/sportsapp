@@ -6,6 +6,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import type { PlayerMatch } from "@/lib/queries/player-home";
 import { formatPlacement } from "@/lib/venues/resolve";
 import { Button } from "@/components/ui/button";
+import { NetSetupNote } from "@/components/schedule/net-setup-note";
 import { cn } from "@/lib/utils";
 
 /**
@@ -82,6 +83,14 @@ export function NextGame({ match }: { match: PlayerMatch }) {
           </span>
         )}
       </div>
+
+      {match.netSetup && (
+        <NetSetupNote
+          court={match.court}
+          sport={match.sport}
+          className="mt-3 text-sm"
+        />
+      )}
 
       <p className="text-ink-3 mt-2 truncate text-sm">
         {match.competitionName}

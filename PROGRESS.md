@@ -5,6 +5,18 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-19 — Net setup duty (0179)
+
+BVL wanted setup off the referees: "everybody has to do Nets, and no team is doing it more than others" (Theresa). Only Women's 6-team tiers had it, as a fixed list on the print.
+
+- **Rule:** the first game on each court in each gym each night needs the net up; a later tier sharing the gym plays on nets already up. One of the two teams is named, balanced across the round by passing turns along chains of games until no team is two turns ahead of one it could hand a turn to, counting earlier rounds, so a team that sat out goes first next round. Earlier rounds are never reshuffled. Theresa's published Wednesday picks are kept.
+- **Computed on read** (like standings) rather than stored, so moved games and redraws update it with nothing to keep in sync. The cost is that an organizer can't hand-pick a team; nobody has asked to.
+- **Shown:** on the game ("Your team puts up the net on Court a. Arrive 10 min early."), the dashboard, the weekly email and the BVL round print.
+- **Switch:** "Net setup" card on the league's Schedule tab, off by default. Not yet on for any BVL league.
+- One-night windows (Thursday) can drift to two turns apart over a season, because two teams already ahead can meet; round windows don't. Tested.
+
+---
+
 ## 2026-10-19 — BVL rules from Theresa added to the Help guide
 
 LEAGUE NOTES now covers three rules: net setup (every team takes a turn, arrives 10 minutes early, so it doesn't fall on the referee); games end at least 5 minutes before the booking, with everyone out of Notre Dame by 8:00 on Thursdays; and only BVL's organizers enter scores (checked live: player and ref-team entry are off in all four leagues, and none has scorekeepers). Assigning net duty in the app is still only proposed.

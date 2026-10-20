@@ -7,6 +7,7 @@ import { roundWeeksOf } from "@/lib/scheduler/bvl-round";
 import {
   drawLadderWeekSchema,
   ladderAutoAdvanceSchema,
+  netDutySchema,
   ladderSettingsSchema,
   lockLadderWeekSchema,
   type LadderSettingsInput,
@@ -85,6 +86,32 @@ export async function setLadderAutoAdvanceAction(
     return { error: "You can't change this league's settings." };
   }
   revalidatePath("/orgs");
+  return { success: true };
+}
+
+/**
+ * Whether the app names a team to put up each court's net (0179). RLS on
+ * league_settings decides who may.
+ */
+export async function setNetDutyAction(
+  competitionId: string,
+  on: boolean,
+): Promise<ActionError | { success: true }> {
+  const parsed = netDutySchema.safeParse({ competitionId, on });
+  if (!parsed.success) return { error: "Unknown league." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("league_settings")
+    .update({ net_duty: parsed.data.on })
+    .eq("competition_id", parsed.data.competitionId)
+    .select("competition_id");
+  if (error) return { error: error.message };
+  if (!data || data.length === 0) {
+    return { error: "You can't change this league's settings." };
+  }
+  revalidatePath("/orgs");
+  revalidatePath("/dashboard");
+  revalidatePath("/my-matches");
   return { success: true };
 }
 

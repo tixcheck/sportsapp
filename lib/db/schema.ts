@@ -501,6 +501,8 @@ export const leagueSettings = pgTable("league_settings", {
   waveSwapWeeks: integer("wave_swap_weeks"),
   // A finished ladder week locks and the next draws overnight (0171).
   ladderAutoAdvance: boolean("ladder_auto_advance").notNull().default(true),
+  // Name a team to put each court's net up before its first game (0179).
+  netDuty: boolean("net_duty").notNull().default(false),
   blackoutDates: date("blackout_dates").array(),
   promotionRelegation: boolean("promotion_relegation").notNull().default(false),
   // Standings tiebreaker hierarchy (lib/scheduler/tiebreakers.ts RankMode).

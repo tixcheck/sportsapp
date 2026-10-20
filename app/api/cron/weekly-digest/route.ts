@@ -6,6 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getOrigin } from "@/lib/utils/url";
 import { sendMatchReminder } from "@/lib/email/send";
 import { buildReminderItems, type DigestMatchInput } from "@/lib/email/digest";
+import { loadNetDuty } from "@/lib/queries/net-duty";
 import type { ReminderItem } from "@/lib/email/templates/match-reminder";
 
 // Active = anything currently being played or about to be.
@@ -13,6 +14,7 @@ const ACTIVE = ["open", "scheduled", "in_progress"];
 const UPCOMING = ["scheduled", "in_progress"];
 
 type DigestMatch = {
+  id: string;
   competition_id: string;
   home_team_id: string | null;
   away_team_id: string | null;
@@ -85,7 +87,7 @@ export async function GET(request: Request) {
     admin
       .from("matches")
       .select(
-        "competition_id, home_team_id, away_team_id, round, court, scheduled_at, status",
+        "id, competition_id, home_team_id, away_team_id, round, court, scheduled_at, status",
       )
       .in("competition_id", compIds)
       .in("status", UPCOMING)
@@ -95,6 +97,8 @@ export async function GET(request: Request) {
       .gte("scheduled_at", windowStartIso)
       .lt("scheduled_at", windowEndIso),
   ]);
+  // Net duty (0179) is worked out over the whole schedule, not this week's slice.
+  const netDuty = await loadNetDuty(admin, compIds);
   const teamById = new Map((teams ?? []).map((t) => [t.id, t]));
   const teamIds = (teams ?? []).map((t) => t.id);
 
@@ -161,6 +165,7 @@ export async function GET(request: Request) {
           court: mt.court,
           round: mt.round,
           sport: comp.sport as Sport,
+          netSetup: netDuty.get(mt.id) === teamId,
         });
       }
     }

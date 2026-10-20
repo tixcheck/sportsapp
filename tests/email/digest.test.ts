@@ -109,4 +109,11 @@ describe("buildReminderItems", () => {
   it("returns nothing for no matches", () => {
     expect(buildReminderItems([])).toEqual([]);
   });
+
+  it("tells a net-duty team to arrive early", () => {
+    const [item] = buildReminderItems([m({ netSetup: true })]);
+    expect(item.detail).toBe(
+      "Court 1 · Round 1 · Your team puts up the net: arrive 10 min early",
+    );
+  });
 });

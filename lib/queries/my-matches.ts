@@ -9,6 +9,7 @@ import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { getBracketPreview } from "@/lib/queries/bracket";
 import { isFutureMatch } from "@/lib/scoring/lock";
 import type { MatchFormat } from "@/lib/db/schema";
+import { loadNetDuty } from "@/lib/queries/net-duty";
 
 export type ConfirmationState = "none" | "pending" | "disputed" | "final";
 
@@ -46,6 +47,8 @@ export interface MyMatch {
   canConfirm: boolean;
   /** Eligible to score, but the game is in the future — locked until game day. */
   lockedFuture: boolean;
+  /** This player's team puts the net up before this game (0179). */
+  netSetup: boolean;
 }
 
 /**
@@ -146,6 +149,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       .select("competition_id, pool_format")
       .in("competition_id", compIds),
   ]);
+  const netDuty = await loadNetDuty(supabase, compIds);
 
   const compById = new Map((comps ?? []).map((c) => [c.id as string, c]));
   // A competition the organizer marked completed (or cancelled) drops off My
@@ -252,6 +256,7 @@ export async function getMyMatches(): Promise<MyMatch[]> {
       canEnter,
       canConfirm,
       lockedFuture,
+      netSetup: playTeamIds.has(netDuty.get(m.id) ?? ""),
     };
   });
 
