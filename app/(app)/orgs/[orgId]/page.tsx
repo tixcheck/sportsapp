@@ -7,6 +7,8 @@ import { getOrgTournaments } from "@/lib/queries/tournaments";
 import { getOrgKotc } from "@/lib/queries/kotc";
 import { getOrgReversePairs } from "@/lib/queries/reverse-pairs";
 import { getOrgWaivers } from "@/lib/queries/waivers";
+import { getOrgQuestions } from "@/lib/queries/support";
+import { OrgQuestionsCard } from "@/components/support/org-questions-card";
 import { OrgWaiversCard } from "@/components/waivers/org-waivers-card";
 import { getUserOrgs } from "@/lib/auth/user";
 import {
@@ -92,6 +94,17 @@ export default async function OrgPage({
   const kotc = mine(allKotc);
   const reversePairs = mine(allReversePairs);
 
+  // Help questions the platform admin passed to this org (0182). Anyone who
+  // runs one of its events; RLS trims a league-only organizer's to theirs.
+  const runsEvents = !!myRole || leagueOnly || access.isPlatformAdmin;
+  const questions = runsEvents ? await getOrgQuestions(orgId) : [];
+  // Above the leagues while someone is waiting; below them otherwise, so an
+  // empty box doesn't push the leagues down every visit.
+  const questionsFirst = questions.some((q) => q.status === "waiting");
+  const questionsCard = runsEvents && (
+    <OrgQuestionsCard orgId={orgId} questions={questions} />
+  );
+
   const organizers = isOrgAdmin ? await getOrgOrganizers(orgId) : [];
   const waivers = canManageOrg ? await getOrgWaivers(orgId) : [];
   // Venues are org-wide: the same gyms come back season after season.
@@ -144,6 +157,8 @@ export default async function OrgPage({
       */}
       {org.slug && <OrgPublicLink slug={org.slug} />}
 
+      {questionsFirst && questionsCard}
+
       <Section
         title="Leagues"
         newHref={canCreate ? `/orgs/${orgId}/leagues/new` : undefined}
@@ -179,6 +194,8 @@ export default async function OrgPage({
         items={reversePairs}
         hrefFor={(c) => `/orgs/${orgId}/reverse-pairs/${c.id}`}
       />
+
+      {!questionsFirst && questionsCard}
 
       {canManageOrg && <OrgWaiversCard orgId={orgId} waivers={waivers} />}
 

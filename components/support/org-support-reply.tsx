@@ -40,7 +40,7 @@ export function OrgSupportReply({
   backHref,
 }: {
   threadId: string;
-  /** The event's Questions tab, where they land after closing or sending back. */
+  /** The org page's Player questions box, where they land after closing or sending back. */
   backHref: string;
 }) {
   const router = useRouter();

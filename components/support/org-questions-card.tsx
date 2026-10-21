@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DateTime } from "luxon";
-import { ArrowRight, MessageCircleQuestion } from "lucide-react";
+import { MessageCircleQuestion } from "lucide-react";
 
 import type { EventQuestionRow } from "@/lib/queries/support";
 import {
@@ -24,55 +24,38 @@ const STATUS: Record<string, { label: string; className: string }> = {
   ai: { label: "Open", className: "bg-muted text-ink-2" },
 };
 
-/** Waiting conversations, for the tab label: "Questions · 2". */
-export const waitingCount = (rows: EventQuestionRow[]) =>
-  rows.filter((r) => r.status === "waiting").length;
-
 /**
- * Above the tabs, because on a phone the Questions tab is scrolled off the end
- * of the tab bar. A plain <a>, not <Link>: the tabs are uncontrolled, so only a
- * fresh load opens the one named in `?tab=`.
+ * Player questions passed to this org's events from the app's Help window
+ * (0182), on the org's main page: the platform admin answers questions about
+ * the app; ones only the league can answer land here. Amber while one waits,
+ * so it stands out above the leagues.
  */
-export function QuestionsWaitingBanner({ count }: { count: number }) {
-  if (count === 0) return null;
-  return (
-    <a
-      href="?tab=questions"
-      className="flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-200"
-    >
-      <MessageCircleQuestion className="size-4 shrink-0" />
-      {count === 1
-        ? "A player question is waiting for your reply"
-        : `${count} player questions are waiting for your reply`}
-      <ArrowRight className="ml-auto size-4 shrink-0" />
-    </a>
-  );
-}
-
-/**
- * Player questions passed to this event from the app's Help window (0182).
- * The platform admin answers questions about the app; ones only the league
- * can answer land here.
- */
-export function EventQuestionsCard({
+export function OrgQuestionsCard({
   orgId,
   questions,
 }: {
   orgId: string;
   questions: EventQuestionRow[];
 }) {
-  const waiting = waitingCount(questions);
+  const waiting = questions.filter((q) => q.status === "waiting").length;
   return (
-    <Card>
+    <Card
+      id="questions"
+      className={waiting > 0 ? "border-amber-300 bg-amber-50/60" : undefined}
+    >
       <CardHeader>
-        <CardTitle>Player questions</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          Player questions
+          {waiting > 0 && (
+            <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900">
+              {waiting} waiting
+            </span>
+          )}
+        </CardTitle>
         <CardDescription>
           Questions players asked in the app&apos;s Help window that are about
-          your league: schedules, teams, payments, rules. Your reply goes
-          straight to them by email and in the app.{" "}
-          {waiting > 0
-            ? `${waiting} waiting for a reply.`
-            : "Nobody is waiting."}
+          your leagues: schedules, teams, payments, rules. Your reply goes
+          straight to them by email and in the app.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -106,6 +89,9 @@ export function EventQuestionsCard({
                     <span className="text-muted-foreground ml-auto text-xs">
                       {DateTime.fromISO(q.updatedAt).toRelative()}
                     </span>
+                  </span>
+                  <span className="text-muted-foreground text-xs">
+                    {q.competitionName}
                   </span>
                   <span className="text-muted-foreground line-clamp-2 text-sm">
                     {q.lastMessage}

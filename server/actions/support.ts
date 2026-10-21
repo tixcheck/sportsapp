@@ -184,7 +184,7 @@ function firstName(userName: string): string {
 /**
  * Platform admin: pass a conversation to an event's organizers. The player is
  * told in the thread who has it now, and each organizer gets an email, since
- * nothing else would bring them to the Questions tab.
+ * nothing else would bring them to the Player questions box.
  */
 export async function routeSupportAction(
   threadId: string,

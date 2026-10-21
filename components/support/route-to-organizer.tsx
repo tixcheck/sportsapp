@@ -48,8 +48,8 @@ export function RouteToOrganizerCard({
         <p className="text-sm font-medium">Send to organizer</p>
         <p className="text-muted-foreground text-xs">
           For questions only the league can answer: schedules, teams, payments,
-          rules. Its organizers get an email and answer on the league&apos;s
-          Questions tab. The player is told who has it.
+          rules. Its organizers get an email and answer in the Player questions
+          box on their organization page. The player is told who has it.
         </p>
       </div>
       <NativeSelect

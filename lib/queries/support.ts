@@ -307,19 +307,24 @@ export interface EventQuestionRow {
   updatedAt: string;
   userName: string;
   lastMessage: string;
+  competitionName: string;
 }
 
-/** Conversations passed to one event, waiting ones first. RLS-scoped to its organizers. */
-export async function getEventQuestions(
-  competitionId: string,
+/**
+ * Conversations passed to any of this org's events, waiting ones first.
+ * RLS-scoped: an org member sees all of them, a league-only organizer just
+ * their own events'.
+ */
+export async function getOrgQuestions(
+  orgId: string,
 ): Promise<EventQuestionRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("support_threads")
     .select(
-      "id, status, org_unread, updated_at, users(display_name, email), support_messages(author, body, created_at)",
+      "id, status, org_unread, updated_at, users(display_name, email), support_messages(author, body, created_at), competitions!inner(name, org_id)",
     )
-    .eq("competition_id", competitionId)
+    .eq("competitions.org_id", orgId)
     .order("updated_at", { ascending: false })
     .limit(100);
   const rank = (s: string) => (s === "waiting" ? 0 : s === "closed" ? 2 : 1);
@@ -335,6 +340,9 @@ export async function getEventQuestions(
       ).sort((a, b) => a.created_at.localeCompare(b.created_at));
       // The player's own words, not the admin's hand-off note.
       const asked = msgs.filter((m) => m.author === "user").at(-1);
+      const comp = (
+        Array.isArray(t.competitions) ? t.competitions[0] : t.competitions
+      ) as { name: string } | null;
       return {
         id: t.id as string,
         status: t.status as EventQuestionRow["status"],
@@ -342,6 +350,7 @@ export async function getEventQuestions(
         updatedAt: t.updated_at as string,
         userName: u?.display_name?.trim() || u?.email || "A player",
         lastMessage: asked?.body ?? msgs.at(-1)?.body ?? "",
+        competitionName: comp?.name ?? "",
       };
     })
     .sort(

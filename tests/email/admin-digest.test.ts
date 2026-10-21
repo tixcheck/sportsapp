@@ -110,7 +110,7 @@ describe("player questions", () => {
   it("leads with questions players are waiting on", () => {
     const s = digestSection({ ...base, questionsWaiting: 2, waitlisted: 1 })!;
     expect(s.lines[0].text).toBe(
-      "2 player questions waiting for your reply (Questions tab)",
+      "2 player questions waiting for your reply (Player questions, on your organization page)",
     );
   });
 });

@@ -88,13 +88,6 @@ import { PublishToggle } from "@/components/league/publish-toggle";
 import { LeagueRegistrationControls } from "@/components/league/league-registration-controls";
 import { CopyRegistrationLink } from "@/components/competition/copy-registration-link";
 import { OrganizerTabs } from "@/components/competition/organizer-tabs";
-import { getEventQuestions } from "@/lib/queries/support";
-import {
-  EventQuestionsCard,
-  QuestionsWaitingBanner,
-  waitingCount,
-} from "@/components/support/event-questions-card";
-
 import { ScheduleView } from "@/components/schedule/schedule-view";
 import {
   BracketTree,
@@ -148,18 +141,10 @@ import {
 
 export default async function LeaguePage({
   params,
-  searchParams,
 }: {
   params: Promise<{ orgId: string; leagueId: string }>;
-  /** `?tab=questions` from a player-question page's back link. */
-  searchParams: Promise<{ tab?: string }>;
 }) {
-  const [{ orgId, leagueId }, { tab: openTab }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const questions = await getEventQuestions(leagueId);
-  const questionsWaiting = waitingCount(questions);
+  const { orgId, leagueId } = await params;
   const league = await getLeagueDetail(leagueId);
   if (!league || league.orgId !== orgId) notFound();
   const [
@@ -1192,10 +1177,7 @@ export default async function LeaguePage({
         </p>
       </div>
 
-      <QuestionsWaitingBanner count={questionsWaiting} />
-
       <OrganizerTabs
-        defaultValue={openTab}
         tabs={[
           { value: "schedule", label: "Schedule", content: scheduleTab },
           ...(ladderTab
@@ -1222,14 +1204,6 @@ export default async function LeaguePage({
             ),
           },
           { value: "stats", label: "Stats", content: statsTab },
-          {
-            value: "questions",
-            label:
-              questionsWaiting > 0
-                ? `Questions · ${questionsWaiting}`
-                : "Questions",
-            content: <EventQuestionsCard orgId={orgId} questions={questions} />,
-          },
           { value: "settings", label: "Settings", content: settingsTab },
         ]}
       />

@@ -1,20 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getSupportThread } from "@/lib/queries/support";
 import { MarkSupportRead } from "@/components/support/mark-support-read";
 import { OrgSupportReply } from "@/components/support/org-support-reply";
 import { SupportThreadMessages } from "@/components/support/support-thread-messages";
 
 export const metadata = { title: "Player question" };
-
-const SEGMENT: Record<string, string> = {
-  league: "leagues",
-  tournament: "tournaments",
-  kotc: "kotc",
-  reverse_pairs: "reverse-pairs",
-};
 
 /**
  * A player's Help conversation, passed to this org's event by the platform
@@ -31,13 +23,8 @@ export default async function OrgQuestionPage({
   if (!thread?.routed || thread.routed.orgId !== orgId) notFound();
   const routed = thread.routed;
 
-  const supabase = await createClient();
-  const { data: comp } = await supabase
-    .from("competitions")
-    .select("type")
-    .eq("id", routed.competitionId)
-    .maybeSingle();
-  const backHref = `/orgs/${orgId}/${SEGMENT[(comp?.type as string) ?? "league"] ?? "leagues"}/${routed.competitionId}?tab=questions`;
+  // Back to the org's main page, where the Player questions box is.
+  const backHref = `/orgs/${orgId}#questions`;
   const open = thread.status !== "closed";
 
   return (
@@ -48,13 +35,13 @@ export default async function OrgQuestionPage({
           href={backHref}
           className="text-muted-foreground text-sm hover:underline"
         >
-          ← {routed.competitionName}
+          ← Player questions
         </Link>
         <h1 className="font-display mt-1 text-2xl font-semibold tracking-tight">
           {thread.userName}
         </h1>
         <p className="text-muted-foreground text-sm">
-          Asked in the app&apos;s Help window ·{" "}
+          {routed.competitionName} · Asked in the app&apos;s Help window ·{" "}
           {open
             ? thread.status === "waiting"
               ? "Waiting for your reply"

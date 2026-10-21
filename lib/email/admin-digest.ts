@@ -113,7 +113,7 @@ export function digestSection(
 
   if (c.questionsWaiting > 0) {
     lines.push({
-      text: `${plural(c.questionsWaiting, "player question", "player questions")} waiting for your reply (Questions tab)`,
+      text: `${plural(c.questionsWaiting, "player question", "player questions")} waiting for your reply (Player questions, on your organization page)`,
     });
   }
   if (c.disputed.length) {

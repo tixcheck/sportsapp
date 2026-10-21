@@ -22,7 +22,7 @@ export interface SupportRoutedEmailProps {
 /**
  * A Help conversation was passed to this event's organizers (0182). Sent to
  * each of them once, when it's passed: it's the only way they'd know, since
- * nothing else brings them to the Questions tab.
+ * nothing else brings them to the Player questions box.
  */
 export function SupportRoutedEmail({
   competitionName,

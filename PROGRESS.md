@@ -5,6 +5,10 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Player questions live on the organization page
+
+- The owner wanted the organizers' questions on the org's main page (the one listing its leagues), not inside each league. `OrgQuestionsCard` (`components/support/org-questions-card.tsx`) lists every question passed to any of the org's events, with the event name on each; `getOrgQuestions(orgId)` filters `competitions!inner(org_id)` and RLS trims a league-only organizer's list to their own events. It sits at the top in amber with "N waiting" while one waits, below the events otherwise. The league/tournament Questions tab and banner from the previous commit are gone, which also covers KotC and Reverse Pairs. The conversation page's back link returns to `/orgs/<org>#questions`; the Sunday email points there.
+
 ## 2026-10-20 — Admin tabs with counts; Help questions passed to league organizers (0182)
 
 - The owner couldn't tell what the admin badge was for. `app/(app)/admin/layout.tsx` puts a tab bar on every admin page: Overview, Organizer requests, Support, Reviews, each with its own count in words ("3 waiting", "8 to approve"). Support counts only conversations waiting on him (`status = 'waiting'` and not passed to an event).

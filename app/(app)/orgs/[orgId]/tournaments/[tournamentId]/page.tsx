@@ -87,27 +87,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { OrganizerTab } from "@/components/competition/organizer-tabs";
-import { getEventQuestions } from "@/lib/queries/support";
-import {
-  EventQuestionsCard,
-  QuestionsWaitingBanner,
-  waitingCount,
-} from "@/components/support/event-questions-card";
 
 export default async function TournamentPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ orgId: string; tournamentId: string }>;
-  /** `?tab=questions` from a player-question page's back link. */
-  searchParams: Promise<{ tab?: string }>;
 }) {
-  const [{ orgId, tournamentId }, { tab: openTab }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const questions = await getEventQuestions(tournamentId);
-  const questionsWaiting = waitingCount(questions);
+  const { orgId, tournamentId } = await params;
   const t = await getTournamentDetail(tournamentId);
   if (!t || t.orgId !== orgId) notFound();
   const [
@@ -733,12 +719,6 @@ export default async function TournamentPage({
         </div>
       ),
     },
-    {
-      value: "questions",
-      label:
-        questionsWaiting > 0 ? `Questions · ${questionsWaiting}` : "Questions",
-      content: <EventQuestionsCard orgId={orgId} questions={questions} />,
-    },
     { value: "settings", label: "Settings", content: settingsTab },
   ];
 
@@ -814,11 +794,9 @@ export default async function TournamentPage({
         </p>
       </div>
 
-      <QuestionsWaitingBanner count={questionsWaiting} />
-
       <OrganizerTabs
         tabs={tabs}
-        defaultValue={openTab ?? (hasPools ? "schedule" : "setup")}
+        defaultValue={hasPools ? "schedule" : "setup"}
       />
     </div>
   );
