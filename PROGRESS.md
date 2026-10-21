@@ -5,6 +5,11 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-21 — BVL referees as scorekeepers; Now playing per gym
+
+- Marg's referee email (31 addresses): the 16 with accounts are scorekeepers in all four BVL leagues (`lib/db/_tmp/bvl-sk.mts`). Marg and Theresa skipped (org organizer/admin already). Cheryl Lewis matched on her account `cherylsiwel@` (the email had `cherylrsiwel@`). 14 have no account yet; scorekeeper grants need one (0168).
+- "Now playing" keyed courts by label only, so a BVL night (each gym has its own Court a/b) merged every gym's Court a into one line. `currentGames` now keys by gym + court on a multi-gym night and labels "Terry Miller · Court a"; single-gym output unchanged.
+
 ## 2026-10-21 — Big Shoots: stats check, court order, subs linked, L column
 
 - Stats checked against a from-scratch recompute of the raw sets and lineups: every player matched except the split ones below. The "missing Oct 9" was Liam's scores entered on the Oct 23 games (organizers can score future games); cleared at his request with `lib/db/_tmp/bs-clear23.mts`, audit rows with no actor saying support did it.

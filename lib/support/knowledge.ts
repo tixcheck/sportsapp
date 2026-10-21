@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked to accounts; L column in player stats).
+ * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked; L column; Now playing per gym).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -149,6 +149,7 @@ Running a league (league page tabs: Schedule, Ladder, Standings, Playoffs, Teams
 - Organizers can edit or clear any score from the schedule ("Edit score"), record an abnormal result, and record defaults (see GAMES).
 - On the organizer's schedule, "Enter score" / "Edit score" opens the score form in a pop-up over the schedule: type the sets, "Submit score", and it closes with the game showing its result, still on the same spot of the schedule, so a whole night can be scored without leaving the page. To clear a result or record "Both teams defaulted", use "Open the game page" in that pop-up.
 - Schedule cards for games at the same time are in court order: Court 1 first (on the left on a wide screen), then Court 2, and so on.
+- "Now playing" at the top of the schedule (organizer and team views): from 30 minutes before the night's first game until its last game is scored, one line per court with the game on it now: the game being scored ("Live"), otherwise the earliest game on that court without a final score, with its start time. It moves on as scores are entered. On a night across several gyms each line names the gym, e.g. "Terry Miller · Court a".
 - Player stats (leagues that record who played): columns Days, Missed, PO W, GP (sets played), W (sets won), L (sets lost), F/A, Avg, Win%, Pts, P/G, CW, CL, Net, Clutch%. A sub typed in with "Add a sub" is counted under their account when their name matches exactly one person signed up for the league (by the name they signed up with or their account name), so someone who was drafted one session and subs the next stays one row.
 - Undo: Settings → Admin → "Restore points" → "Restore". Saved automatically before anything that deletes games or results.
 - "Mark completed" after the last date: drops the event off players' dashboards. "Reopen" undoes it.

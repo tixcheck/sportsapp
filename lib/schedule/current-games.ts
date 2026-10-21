@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 
 import type { ScheduleMatch } from "@/lib/queries/leagues";
+import { formatCourtLabel } from "@/lib/scheduler/court-label";
 
 /** Statuses that mean a game is done — it can't be the "current" game. */
 const FINAL = new Set(["completed", "forfeit", "cancelled"]);
@@ -20,6 +21,7 @@ function courtRank(court: string): number {
 }
 
 export interface CourtGame {
+  /** "Court 2", or "Terry Miller · Court a" when the night spans gyms. */
   court: string;
   match: ScheduleMatch;
 }
@@ -59,19 +61,41 @@ export function currentGames(
     .reduce((min, d) => (d < min ? d : min));
   if (nowDt < firstStart.minus({ minutes: leadMinutes })) return [];
 
-  const byCourt = new Map<string, ScheduleMatch[]>();
+  // A court is a court IN A GYM. BVL plays three or four gyms a night, each
+  // with its own Court a and b; keyed by label alone they merged into one
+  // "Court a" showing whichever gym's game sorted first.
+  const multiGym = new Set(todays.map((m) => m.venueName ?? "")).size > 1;
+  const byCourt = new Map<
+    string,
+    { venue: string; court: string; games: ScheduleMatch[] }
+  >();
   for (const m of todays) {
-    const arr = byCourt.get(m.court as string);
-    if (arr) arr.push(m);
-    else byCourt.set(m.court as string, [m]);
+    const venue = multiGym ? (m.venueName ?? "") : "";
+    const key = `${venue}|${m.court}`;
+    const entry = byCourt.get(key);
+    if (entry) entry.games.push(m);
+    else byCourt.set(key, { venue, court: m.court as string, games: [m] });
   }
 
-  const out: CourtGame[] = [];
-  for (const [court, games] of byCourt) {
+  const out: (CourtGame & { venue: string; rank: number })[] = [];
+  for (const { venue, court, games } of byCourt.values()) {
     const sorted = [...games].sort(byStart);
     const live = sorted.find((g) => g.status === "in_progress");
     const current = live ?? sorted.find((g) => !FINAL.has(g.status));
-    if (current) out.push({ court, match: current });
+    if (!current) continue;
+    out.push({
+      court: venue ? `${venue} · ${formatCourtLabel(court) ?? court}` : court,
+      match: current,
+      venue,
+      rank: courtRank(court),
+    });
   }
-  return out.sort((a, b) => courtRank(a.court) - courtRank(b.court));
+  return out
+    .sort(
+      (a, b) =>
+        a.venue.localeCompare(b.venue) ||
+        a.rank - b.rank ||
+        a.court.localeCompare(b.court),
+    )
+    .map(({ court, match }) => ({ court, match }));
 }

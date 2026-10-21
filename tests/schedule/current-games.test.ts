@@ -138,4 +138,25 @@ describe("currentGames (time-gated)", () => {
     const bye = mk("Court 1", T(18, 30), "scheduled", "Raj", null);
     expect(currentGames([noCourt, bye], NOW(18, 15), TZ)).toEqual([]);
   });
+
+  it("keeps each gym's courts apart on a multi-gym night", () => {
+    const at = (venueName: string, court: string, home: string) => ({
+      ...mk(court, T(18, 30), "scheduled", home, home + "2"),
+      venueName,
+    });
+    const games = currentGames(
+      [
+        at("Terry Miller", "a", "A"),
+        at("Terry Miller", "b", "B"),
+        at("St. Thomas Aquinas", "a", "C"),
+      ],
+      NOW(18, 30),
+      TZ,
+    );
+    expect(games.map((g) => [g.court, g.match.homeTeamName])).toEqual([
+      ["St. Thomas Aquinas · Court a", "C"],
+      ["Terry Miller · Court a", "A"],
+      ["Terry Miller · Court b", "B"],
+    ]);
+  });
 });
