@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-21 (record an individual's payment, 0185).
+ * Last checked against the app: 2026-10-21 (score pop-up on the organizer schedule).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -147,6 +147,7 @@ Running a league (league page tabs: Schedule, Ladder, Standings, Playoffs, Teams
 - Teams tab: "Tiers" (manage tiers), tier dropdown per team, "Edit name", "Make captain", "Remove" (only before any game is played), "Withdraw" (after play starts; keeps results).
 - Playoffs tab: "Draw the playoff" / "Generate playoffs"; in the bracket "Enter score" / "Edit score".
 - Organizers can edit or clear any score from the schedule ("Edit score"), record an abnormal result, and record defaults (see GAMES).
+- On the organizer's schedule, "Enter score" / "Edit score" opens the score form in a pop-up over the schedule: type the sets, "Submit score", and it closes with the game showing its result, still on the same spot of the schedule, so a whole night can be scored without leaving the page. To clear a result or record "Both teams defaulted", use "Open the game page" in that pop-up.
 - Undo: Settings → Admin → "Restore points" → "Restore". Saved automatically before anything that deletes games or results.
 - "Mark completed" after the last date: drops the event off players' dashboards. "Reopen" undoes it.
 - Delete: Settings → Admin → Danger zone → "Delete league" / "Delete tournament" (type the name). It's blocked while players have card payments that aren't refunded: refund them first. Reverse Pairs and King of the Court events have no delete button; hand off to a person.

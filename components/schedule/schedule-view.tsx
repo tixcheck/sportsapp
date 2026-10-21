@@ -30,6 +30,7 @@ import {
 } from "@/lib/schedule/schedule-views";
 import { MatchupMatrix } from "./matchup-matrix";
 import { NowPlaying } from "./now-playing";
+import { QuickScoreDialog } from "./quick-score-dialog";
 import { RescheduleDialog } from "./reschedule-dialog";
 import {
   ActivityStrip,
@@ -510,10 +511,16 @@ export function ScheduleView({
 
   const renderTrailing = (m: ScheduleMatch) => {
     if (editable) {
-      // Organizer view: score entry on every match, plus reschedule.
+      // Organizer view: score entry on every match, in a pop-up so scoring a
+      // night never leaves the schedule; plus reschedule.
       return (
         <span className="flex items-center gap-3">
-          {scoreLink(m)}
+          {m.homeTeamId && m.awayTeamId && (
+            <QuickScoreDialog
+              matchId={m.id}
+              completed={m.status === "completed"}
+            />
+          )}
           <RescheduleDialog
             match={m}
             allMatches={matches}

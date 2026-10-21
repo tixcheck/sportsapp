@@ -95,6 +95,7 @@ export function ScoreEntryForm({
   isAdmin,
   canDefault,
   sport,
+  onSaved,
 }: {
   matchId: string;
   homeTeamName: string;
@@ -107,6 +108,11 @@ export function ScoreEntryForm({
   canDefault: boolean;
   /** Names each scored period. Defaults to volleyball's "Set". */
   sport?: Sport;
+  /**
+   * Called after a save instead of leaving the page: the schedule's score
+   * pop-up closes and the card updates where it is.
+   */
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -264,7 +270,8 @@ export function ScoreEntryForm({
             ? "Result submitted — waiting for confirmation."
             : "Result recorded.",
       );
-      router.push(result.redirectTo);
+      if (onSaved) onSaved();
+      else router.push(result.redirectTo);
       router.refresh();
     });
   }

@@ -1,9 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { scorekeeperReturnUrl } from "@/lib/scoring/return-url";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  getMatchForEntry,
+  type MatchEntryData,
+} from "@/lib/queries/my-matches";
 import { formatSets, recordMatchAudit } from "@/lib/audit/match-audit";
 import { captureRestorePoint } from "@/server/actions/restore-points";
 import {
@@ -141,6 +146,24 @@ async function latestSubmitterId(
     .limit(1)
     .maybeSingle();
   return (data?.captain_user_id as string | null) ?? null;
+}
+
+/**
+ * One game for the organizer schedule's score pop-up, so scoring a night is
+ * tap, type, save on the same page (Big Shoots, 2026-10-21: "every time I
+ * record one game it sends me back to the schedule home page"). Organizers
+ * and scorekeepers only; anyone else keeps the full game page.
+ */
+export async function loadQuickScoreAction(
+  matchId: string,
+): Promise<ActionError | { match: MatchEntryData }> {
+  const parsed = z.string().uuid().safeParse(matchId);
+  if (!parsed.success) return { error: "Unknown game." };
+  const match = await getMatchForEntry(parsed.data);
+  if (!match || (match.role !== "admin" && match.role !== "scorekeeper")) {
+    return { error: "You can't enter this score here." };
+  }
+  return { match };
 }
 
 export async function submitScoreAction(

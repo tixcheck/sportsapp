@@ -5,6 +5,12 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-21 — Score a night from the organizer schedule, without leaving it
+
+- Big Shoots' owner: "every time I record one game it sends me back to the schedule home page… is it possible to just enter them on this page?" Organizers were sent to the league page `#schedule`, i.e. the top of a 196-game schedule, after every save (only scorekeepers returned to the game itself).
+- "Enter score" / "Edit score" on the organizer schedule (`schedule-view.tsx`, editable) now opens `QuickScoreDialog`: it loads the game with `loadQuickScoreAction` (organizers and scorekeepers only, the same `getMatchForEntry` the game page uses) and renders the same `ScoreEntryForm`, so validation, defaults and drafts are unchanged. The form's new `onSaved` closes the pop-up instead of navigating; `router.refresh()` updates the card in place. Clear result and double default stay on the game page (linked from the pop-up).
+- Checked at 375px on the demo league: scroll position the same before and after Submit, card shows Final.
+
 ## 2026-10-21 — Helix "Novembro" Reverse Pairs set up (private draft)
 
 - From Helix's poster: Sat Nov 21, 2–8pm, St Mary's, $60 a pair / $30 each, prizes for 1st and 2nd. Created by `lib/db/setup-helix-novembro.ts` as a private draft with registration closed, settings the poster doesn't give copied from the cancelled Oct 24 event. See HANDOFF.
