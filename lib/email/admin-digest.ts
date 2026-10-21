@@ -51,6 +51,8 @@ export type AdminDigestCompetition = {
   heldTeams: DigestHeldTeam[];
   freeAgentsToPlace: number;
   waitlisted: number;
+  /** Help conversations passed to this event and waiting on a reply (0182). */
+  questionsWaiting: number;
 };
 
 export type AdminDigestSection = {
@@ -109,6 +111,11 @@ export function digestSection(
     `${day(g.scheduledAt, c.timezone)} · ${g.summary}`;
   const byDate = (g: DigestGame) => g.scheduledAt;
 
+  if (c.questionsWaiting > 0) {
+    lines.push({
+      text: `${plural(c.questionsWaiting, "player question", "player questions")} waiting for your reply (Questions tab)`,
+    });
+  }
   if (c.disputed.length) {
     lines.push({
       text: `${plural(c.disputed.length, "disputed score", "disputed scores")} to settle`,

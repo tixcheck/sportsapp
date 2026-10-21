@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Admin tabs with counts; Help questions passed to league organizers (0182)
+
+- The owner couldn't tell what the admin badge was for. `app/(app)/admin/layout.tsx` puts a tab bar on every admin page: Overview, Organizer requests, Support, Reviews, each with its own count in words ("3 waiting", "8 to approve"). Support counts only conversations waiting on him (`status = 'waiting'` and not passed to an event).
+- He also asked that league questions go to the league. 0182: `support_threads.competition_id` + `org_unread`, `support_messages.author_user_id`, author `organizer`; RLS lets an event's organizers (`is_competition_admin`) read conversations passed to it; functions `support_route_to_competition` (platform admin), `support_post_org_reply`, `support_return_to_platform`, and `support_close_thread`/`support_mark_read` now also work for those organizers. A player's follow-up flags whoever has the thread.
+- Admin conversation page: "Send to organizer" with the asker's own events first. It posts a note to the player naming the org, and emails every org member and league co-organizer ("Player question: <league>", new `support-routed` template). Organizer replies email the player as "<org> replied".
+- League and tournament pages: a "Questions" tab ("Questions · N" while waiting) and an amber banner above the tabs, since on a phone that tab is off the end of the bar. The banner is a plain `<a href="?tab=questions">` because the tabs are uncontrolled; both pages now honour `?tab=`. Conversation page: `/orgs/<org>/questions/<thread>` with "Send reply", "Mark as done", "Send back to MySportsApp".
+- The Sunday to-do email leads with "N player questions waiting for your reply".
+- Verified: a rolled-back transaction ran the whole flow as the real roles (13 checks: an organizer can't see a thread before it's passed or route one; another org's organizer can't read it; follow-ups go to the organizer; sending back hides it again). Screenshots as the demo organizer on the hidden demo league, test thread deleted after and the demo organizer's password re-randomised. Not seen in a browser: the admin tab bar and Send to organizer card (needs the owner's login).
+- Reverse Pairs and KotC pages have no Questions tab yet; a question passed to one is reachable from the email link.
+
 ## 2026-10-20 — Scorekeepers return to the game they just left
 
 - Vincent (BVL scorekeeper) asked: with ~15 games a night, the scorekeeper list reopened at the top after every score, so he scrolled back down each time. Submit and "← Back to all games" now go to `/score/<league>?day=<that night>#game-<id>` (`lib/scoring/return-url.ts`, tested), and `ScrollToGame` scrolls there and flashes the card for 2s. A client component rather than the browser's hash scroll, because a router.push is a pushState: no :target, and the list streams in after navigation.

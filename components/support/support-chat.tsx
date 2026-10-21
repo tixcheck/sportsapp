@@ -44,6 +44,7 @@ const STARTERS = [
 const WHO: Record<string, string> = {
   ai: "Assistant",
   admin: "MySportsApp team",
+  organizer: "Your organizer",
 };
 
 /**
@@ -204,7 +205,9 @@ export function SupportChat() {
                 >
                   {m.author !== "user" && (
                     <p className="text-muted-foreground mb-0.5 text-[10px] font-semibold tracking-wide uppercase">
-                      {WHO[m.author]}
+                      {m.author === "organizer" && chat?.organizerName
+                        ? chat.organizerName
+                        : WHO[m.author]}
                     </p>
                   )}
                   {m.body}

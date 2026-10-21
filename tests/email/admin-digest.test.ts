@@ -22,6 +22,7 @@ const base: AdminDigestCompetition = {
   heldTeams: [],
   freeAgentsToPlace: 0,
   waitlisted: 0,
+  questionsWaiting: 0,
 };
 
 describe("digestSection", () => {
@@ -102,6 +103,15 @@ describe("digestSection", () => {
       "Blackipino · fee not paid",
       "Senders · players to join or sign the waiver",
     ]);
+  });
+});
+
+describe("player questions", () => {
+  it("leads with questions players are waiting on", () => {
+    const s = digestSection({ ...base, questionsWaiting: 2, waitlisted: 1 })!;
+    expect(s.lines[0].text).toBe(
+      "2 player questions waiting for your reply (Questions tab)",
+    );
   });
 });
 

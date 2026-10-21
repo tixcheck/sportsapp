@@ -74,7 +74,7 @@ export async function runAdminDigest(
   const compIds = comps.map((c) => c.id);
 
   const since = now.minus({ days: UNSCORED_LOOKBACK_DAYS }).toISO()!;
-  const [matches, heldTeams, payments, freeAgents, waitlist] =
+  const [matches, heldTeams, payments, freeAgents, waitlist, questions] =
     await Promise.all([
       inChunks(compIds, (ids) =>
         admin
@@ -120,6 +120,13 @@ export async function runAdminDigest(
           .in("competition_id", ids)
           .eq("status", "waiting")
           .is("offered_at", null),
+      ),
+      inChunks(compIds, (ids) =>
+        admin
+          .from("support_threads")
+          .select("competition_id")
+          .in("competition_id", ids)
+          .eq("status", "waiting"),
       ),
     ]);
 
@@ -233,6 +240,7 @@ export async function runAdminDigest(
       heldTeams: [],
       freeAgentsToPlace: 0,
       waitlisted: 0,
+      questionsWaiting: 0,
     });
   }
 
@@ -310,6 +318,10 @@ export async function runAdminDigest(
   for (const w of waitlist as { competition_id: string }[]) {
     const c = byComp.get(w.competition_id);
     if (c) c.waitlisted += 1;
+  }
+  for (const q of questions as { competition_id: string }[]) {
+    const c = byComp.get(q.competition_id);
+    if (c) c.questionsWaiting += 1;
   }
 
   // Who runs what: everyone on the org, plus per-event co-organizers.

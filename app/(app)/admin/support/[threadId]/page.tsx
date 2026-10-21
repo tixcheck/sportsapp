@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DateTime } from "luxon";
 
 import { getAccessState } from "@/lib/queries/access";
-import { getSupportThread } from "@/lib/queries/support";
+import { getRoutingOptions, getSupportThread } from "@/lib/queries/support";
 import { AdminSupportReply } from "@/components/support/admin-support-reply";
 import { MarkSupportRead } from "@/components/support/mark-support-read";
-import { cn } from "@/lib/utils";
+import { RouteToOrganizerCard } from "@/components/support/route-to-organizer";
+import { SupportThreadMessages } from "@/components/support/support-thread-messages";
 
 export default async function AdminSupportThreadPage({
   params,
@@ -18,13 +18,9 @@ export default async function AdminSupportThreadPage({
   const { threadId } = await params;
   const thread = await getSupportThread(threadId);
   if (!thread) notFound();
-
-  const who = (author: string) =>
-    author === "admin"
-      ? "You"
-      : author === "ai"
-        ? "Assistant"
-        : thread.userName;
+  const open = thread.status !== "closed";
+  const options =
+    open && !thread.routed ? await getRoutingOptions(thread.userId) : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -40,45 +36,33 @@ export default async function AdminSupportThreadPage({
           {thread.userName}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {thread.userEmail} · {thread.status === "closed" ? "Closed" : "Open"}
+          {thread.userEmail} · {open ? "Open" : "Closed"}
         </p>
       </div>
 
-      <div className="space-y-3">
-        {thread.messages.map((m) => (
-          <div
-            key={m.id}
-            className={cn(
-              "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-              m.author === "admin"
-                ? "bg-claret ml-auto text-white"
-                : m.author === "ai"
-                  ? "bg-muted ml-auto"
-                  : "border-border border",
-            )}
-          >
-            <p
-              className={cn(
-                "mb-0.5 text-[10px] font-semibold tracking-wide uppercase",
-                m.author === "admin"
-                  ? "text-white/80"
-                  : "text-muted-foreground",
-              )}
-            >
-              {who(m.author)} ·{" "}
-              {DateTime.fromISO(m.createdAt)
-                .setZone("America/Toronto")
-                .toFormat("LLL d, h:mm a")}
-            </p>
-            {m.body}
-          </div>
-        ))}
-      </div>
+      {thread.routed && open && (
+        <p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          Passed to <strong>{thread.routed.orgName}</strong> (
+          {thread.routed.competitionName}).{" "}
+          {thread.status === "waiting"
+            ? "Waiting for their reply."
+            : "They've replied."}{" "}
+          You can still reply here.
+        </p>
+      )}
 
-      <AdminSupportReply
-        threadId={thread.id}
-        closed={thread.status === "closed"}
+      <SupportThreadMessages
+        messages={thread.messages}
+        userName={thread.userName}
+        orgName={thread.routed?.orgName ?? null}
+        viewer="admin"
       />
+
+      <AdminSupportReply threadId={thread.id} closed={!open} />
+
+      {open && !thread.routed && options.length > 0 && (
+        <RouteToOrganizerCard threadId={thread.id} options={options} />
+      )}
     </div>
   );
 }

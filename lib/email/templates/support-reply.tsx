@@ -14,6 +14,8 @@ export interface SupportReplyEmailProps {
   reply: string;
   /** Opens the Help window on arrival. */
   helpUrl: string;
+  /** Who answered, when it's an event's organizers (0182). Default: the team. */
+  from?: string;
 }
 
 /**
@@ -26,11 +28,12 @@ export function SupportReplyEmail({
   playerName,
   reply,
   helpUrl,
+  from,
 }: SupportReplyEmailProps) {
   return (
     <EmailLayout
       preview={reply.slice(0, 120)}
-      heading="The MySportsApp team replied"
+      heading={`${from ?? "The MySportsApp team"} replied`}
     >
       <Text style={emailText}>
         {playerName ? `Hi ${playerName}, here's` : "Here's"} the answer to the

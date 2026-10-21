@@ -66,6 +66,10 @@ import {
   type DetailsRequestEmailProps,
 } from "./templates/details-request";
 import {
+  SupportRoutedEmail,
+  type SupportRoutedEmailProps,
+} from "./templates/support-routed";
+import {
   SupportReplyEmail,
   type SupportReplyEmailProps,
 } from "./templates/support-reply";
@@ -654,7 +658,19 @@ export function sendSupportReply(
 ): Promise<SendResult> {
   return dispatch({
     to,
-    subject: "The MySportsApp team replied to your question",
+    subject: `${props.from ?? "The MySportsApp team"} replied to your question`,
     react: SupportReplyEmail(props),
+  });
+}
+
+/** A Help conversation was passed to an event's organizers (0182). */
+export function sendSupportRouted(
+  to: string,
+  props: SupportRoutedEmailProps,
+): Promise<SendResult> {
+  return dispatch({
+    to,
+    subject: `Player question: ${props.competitionName}`,
+    react: SupportRoutedEmail(props),
   });
 }

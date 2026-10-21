@@ -47,26 +47,6 @@ export default async function AdminOverviewPage() {
           {orgs.length === 1 ? "" : "s"} · {totalComps} competition
           {totalComps === 1 ? "" : "s"}.
         </p>
-        <div className="mt-1 flex flex-wrap gap-4">
-          <Link
-            href="/admin/organizer-requests"
-            className="text-primary inline-block text-sm hover:underline"
-          >
-            Organizer requests →
-          </Link>
-          <Link
-            href="/admin/support"
-            className="text-primary inline-block text-sm hover:underline"
-          >
-            Support →
-          </Link>
-          <Link
-            href="/admin/reviews"
-            className="text-primary inline-block text-sm hover:underline"
-          >
-            Reviews →
-          </Link>
-        </div>
       </div>
 
       {orgs.length === 0 ? (

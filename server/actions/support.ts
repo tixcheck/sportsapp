@@ -11,7 +11,7 @@ import {
   getSupportThread,
   type SupportChat,
 } from "@/lib/queries/support";
-import { sendSupportReply } from "@/lib/email/send";
+import { sendSupportReply, sendSupportRouted } from "@/lib/email/send";
 import { getOrigin } from "@/lib/utils/url";
 import { aiShouldAnswer, HAND_OFF_NOTE } from "@/lib/support/assistant";
 import { aiConfigured, askSupportAssistant } from "@/lib/support/ask-ai";
@@ -153,12 +153,14 @@ export async function adminReplyAction(
   return { ok: true };
 }
 
-/** Platform admin: close a conversation (the user's next message starts a new one). */
+/**
+ * Close a conversation (the user's next message starts a new one). The
+ * platform admin, or an organizer of the event it was passed to: the
+ * function checks which.
+ */
 export async function closeSupportThreadAction(
   threadId: string,
 ): Promise<ActionError | { ok: true }> {
-  const denied = await requireAdmin();
-  if (denied) return denied;
   if (!idSchema.safeParse(threadId).success)
     return { error: "Unknown conversation." };
   const supabase = await createClient();
@@ -166,6 +168,132 @@ export async function closeSupportThreadAction(
     _thread: threadId,
   });
   if (error) return { error: error.message };
+  revalidatePath("/admin/support");
+  return { ok: true };
+}
+
+// --- Passing a conversation to an event's organizers (0182) -----------------
+
+/** First name for an email greeting, or "" when all we have is an address. */
+function firstName(userName: string): string {
+  return userName.includes("@") || userName === "A user"
+    ? ""
+    : userName.split(" ")[0];
+}
+
+/**
+ * Platform admin: pass a conversation to an event's organizers. The player is
+ * told in the thread who has it now, and each organizer gets an email, since
+ * nothing else would bring them to the Questions tab.
+ */
+export async function routeSupportAction(
+  threadId: string,
+  competitionId: string,
+): Promise<ActionError | { ok: true }> {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+  if (
+    !idSchema.safeParse(threadId).success ||
+    !idSchema.safeParse(competitionId).success
+  )
+    return { error: "Pick an event." };
+  const supabase = await createClient();
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("id, name, org_id, type, organizations(name)")
+    .eq("id", competitionId)
+    .maybeSingle();
+  if (!comp) return { error: "That event no longer exists." };
+  const org = (
+    Array.isArray(comp.organizations)
+      ? comp.organizations[0]
+      : comp.organizations
+  ) as { name: string } | null;
+  const orgName = org?.name ?? "your organizer";
+
+  const { error } = await supabase.rpc("support_route_to_competition", {
+    _thread: threadId,
+    _competition: competitionId,
+    _note: `This one is for ${orgName}, who run ${comp.name as string}, so I've passed it to them. They'll reply right here.`,
+  });
+  if (error) return { error: error.message };
+
+  const thread = await getSupportThread(threadId);
+  const question =
+    [...(thread?.messages ?? [])].reverse().find((m) => m.author === "user")
+      ?.body ?? "";
+  const [{ data: members }, { data: coAdmins }] = await Promise.all([
+    supabase.from("org_members").select("user_id").eq("org_id", comp.org_id),
+    supabase
+      .from("competition_admins")
+      .select("user_id")
+      .eq("competition_id", competitionId),
+  ]);
+  const ids = [
+    ...new Set(
+      [...(members ?? []), ...(coAdmins ?? [])].map((r) => r.user_id as string),
+    ),
+  ];
+  const { data: people } = ids.length
+    ? await supabase.from("users").select("email").in("id", ids)
+    : { data: [] as { email: string }[] };
+  const answerUrl = `${await getOrigin()}/orgs/${comp.org_id as string}/questions/${threadId}`;
+  for (const p of people ?? []) {
+    if (!p.email || /@example\.(com|org|net)$/i.test(p.email)) continue;
+    await sendSupportRouted(p.email, {
+      competitionName: comp.name as string,
+      askerName: firstName(thread?.userName ?? "") || "A player",
+      question,
+      answerUrl,
+    });
+  }
+
+  revalidatePath("/admin/support");
+  revalidatePath(`/admin/support/${threadId}`);
+  return { ok: true };
+}
+
+/** An event organizer replies to a conversation passed to their event. */
+export async function orgReplyAction(
+  threadId: string,
+  body: string,
+): Promise<ActionError | { ok: true }> {
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!idSchema.safeParse(threadId).success)
+    return { error: "Unknown conversation." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("support_post_org_reply", {
+    _thread: threadId,
+    _body: parsed.data,
+  });
+  if (error) return { error: "You can't reply to this conversation." };
+  const thread = await getSupportThread(threadId);
+  if (thread?.userEmail) {
+    await sendSupportReply(thread.userEmail, {
+      playerName: firstName(thread.userName),
+      reply: parsed.data,
+      helpUrl: `${await getOrigin()}/dashboard?help=open`,
+      from: thread.routed?.orgName,
+    });
+  }
+  if (thread?.routed) {
+    revalidatePath(`/orgs/${thread.routed.orgId}/questions/${threadId}`);
+  }
+  return { ok: true };
+}
+
+/** An event organizer hands a conversation back: it's about the app. */
+export async function returnSupportToPlatformAction(
+  threadId: string,
+): Promise<ActionError | { ok: true }> {
+  if (!idSchema.safeParse(threadId).success)
+    return { error: "Unknown conversation." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("support_return_to_platform", {
+    _thread: threadId,
+  });
+  if (error) return { error: "You can't change this conversation." };
   revalidatePath("/admin/support");
   return { ok: true };
 }

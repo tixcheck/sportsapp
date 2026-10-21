@@ -2335,6 +2335,12 @@ export const supportThreads = pgTable("support_threads", {
   status: text("status").notNull().default("ai"),
   adminUnread: boolean("admin_unread").notNull().default(false),
   userUnread: boolean("user_unread").notNull().default(false),
+  /** Passed to this event's organizers (0182); null = the platform admin has it. */
+  competitionId: uuid("competition_id").references(() => competitions.id, {
+    onDelete: "set null",
+  }),
+  /** Waiting on the event's organizers (0182). */
+  orgUnread: boolean("org_unread").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -2348,8 +2354,12 @@ export const supportMessages = pgTable("support_messages", {
   threadId: uuid("thread_id")
     .notNull()
     .references(() => supportThreads.id, { onDelete: "cascade" }),
-  /** 'user' | 'ai' | 'admin' */
+  /** 'user' | 'ai' | 'admin' | 'organizer' (0182) */
   author: text("author").notNull(),
+  /** Which admin or organizer wrote it (0182); null for the user and the AI. */
+  authorUserId: uuid("author_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

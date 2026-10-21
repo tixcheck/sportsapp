@@ -37,6 +37,20 @@ describe("buildAssistantRequest", () => {
     expect(req.tools[0].name).toBe(HAND_OFF_TOOL);
   });
 
+  it("labels an organizer's reply as the league's, not the team's", () => {
+    const req = buildAssistantRequest(
+      [
+        { author: "user", body: "When is my game?" },
+        { author: "organizer", body: "Wednesday at 7" },
+        { author: "user", body: "Thanks" },
+      ],
+      null,
+    );
+    expect(req.messages[1].content).toBe(
+      "[Reply from the league's organizer] Wednesday at 7",
+    );
+  });
+
   it("never starts with an assistant turn", () => {
     const req = buildAssistantRequest(
       [

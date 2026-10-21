@@ -41,7 +41,7 @@ Call the ${HAND_OFF_TOOL} tool when the points below apply. The app then adds it
 GUIDE
 ${FACTS}`;
 
-export type ChatAuthor = "user" | "ai" | "admin";
+export type ChatAuthor = "user" | "ai" | "admin" | "organizer";
 export interface ChatLine {
   author: ChatAuthor;
   body: string;
@@ -61,7 +61,9 @@ export function buildAssistantRequest(
     const text =
       line.author === "admin"
         ? `[Reply from the MySportsApp team] ${line.body}`
-        : line.body;
+        : line.author === "organizer"
+          ? `[Reply from the league's organizer] ${line.body}`
+          : line.body;
     const last = turns[turns.length - 1];
     if (last && last.role === role) last.content += `\n\n${text}`;
     else turns.push({ role, content: text });

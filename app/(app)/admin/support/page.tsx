@@ -25,13 +25,18 @@ const STATUS: Record<string, { label: string; className: string }> = {
   closed: { label: "Closed", className: "bg-muted text-muted-foreground" },
 };
 
+/** A conversation passed to an event (0182) is the organizers' to answer. */
+const ROUTED = { className: "bg-sky-50 text-sky-900" };
+
 export default async function AdminSupportPage() {
   // Platform-admin only; RLS also scopes the read.
   const access = await getAccessState();
   if (!access.isPlatformAdmin) notFound();
 
   const threads = await getSupportInbox();
-  const waiting = threads.filter((t) => t.status === "waiting").length;
+  const waiting = threads.filter(
+    (t) => t.status === "waiting" && !t.routed,
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -42,6 +47,8 @@ export default async function AdminSupportPage() {
         <p className="text-muted-foreground mt-1 text-sm">
           Conversations from the Help window. The assistant answers first and
           hands over when it can&apos;t help or someone asks for a person.
+          Questions about a league go to its organizers with &ldquo;Send to
+          organizer&rdquo; on the conversation.
         </p>
       </div>
 
@@ -69,11 +76,21 @@ export default async function AdminSupportPage() {
                   >
                     <span className="flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium">{t.userName}</span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS[t.status].className}`}
-                      >
-                        {STATUS[t.status].label}
-                      </span>
+                      {t.routed && t.status !== "closed" ? (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ROUTED.className}`}
+                        >
+                          {t.status === "waiting"
+                            ? `With ${t.routed.orgName}`
+                            : `${t.routed.orgName} replied`}
+                        </span>
+                      ) : (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS[t.status].className}`}
+                        >
+                          {STATUS[t.status].label}
+                        </span>
+                      )}
                       {t.adminUnread && (
                         <span
                           className="bg-claret size-2 rounded-full"
