@@ -92,7 +92,7 @@ function groupByRound(matches: ScheduleMatch[], tz: string): Group[] {
         sub: date
           ? DateTime.fromISO(date, { zone: tz }).toFormat("cccc, LLL d")
           : undefined,
-        matches: ms,
+        matches: [...ms].sort(byTimeThenCourt),
       };
     });
 }
@@ -164,7 +164,7 @@ function groupByDate(matches: ScheduleMatch[], tz: string): Group[] {
         key === "tbd"
           ? "Date TBD"
           : DateTime.fromISO(key, { zone: tz }).toFormat("cccc, LLLL d"),
-      matches: ms,
+      matches: [...ms].sort(byTimeThenCourt),
     }));
 }
 
@@ -206,6 +206,23 @@ function courtRank(court: string): number {
   if (court === "tbd") return Number.MAX_SAFE_INTEGER;
   const m = court.match(/\d+/);
   return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER - 1;
+}
+
+/**
+ * Games at the same time in court order, so Court 1 is always the first card
+ * (the left one on a wide screen). The query orders by time only, and ties
+ * came back in whatever order the database liked: Court 2 on the left one
+ * round, Court 1 the next (Big Shoots, 2026-10-21).
+ */
+function byTimeThenCourt(a: ScheduleMatch, b: ScheduleMatch): number {
+  const ca = normalizeCourtLabel(a.court) ?? "tbd";
+  const cb = normalizeCourtLabel(b.court) ?? "tbd";
+  return (
+    startMillis(a) - startMillis(b) ||
+    (a.venueName ?? "").localeCompare(b.venueName ?? "") ||
+    courtRank(ca) - courtRank(cb) ||
+    ca.localeCompare(cb, undefined, { numeric: true, sensitivity: "base" })
+  );
 }
 
 function startMillis(m: ScheduleMatch): number {

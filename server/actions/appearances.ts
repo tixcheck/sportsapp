@@ -9,6 +9,7 @@ import {
   type NightMatch,
 } from "@/lib/stats/night-lineup";
 import { identityKey } from "@/lib/stats/attribution";
+import { linkSubsToAccounts, type KnownAccount } from "@/lib/stats/link-subs";
 
 type ActionError = { error: string };
 
@@ -257,6 +258,13 @@ async function writeLineup(
   // nobody has filled in.
   if (players.length === 0) return null;
 
+  // A typed-in sub who has an account in this league is saved under it, so
+  // their stats stay one row whichever way they were added.
+  players = linkSubsToAccounts(
+    players,
+    await knownAccounts(supabase, competitionId),
+  );
+
   const { error: insErr } = await supabase.from("match_appearances").insert(
     players.map((p) => ({
       competition_id: competitionId,
@@ -274,6 +282,53 @@ async function writeLineup(
 
   await recordAbsences(supabase, competitionId, matchId, teamId, players);
   return null;
+}
+
+/** Everyone in the league with an account, under each name they go by. */
+async function knownAccounts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  competitionId: string,
+): Promise<KnownAccount[]> {
+  const [{ data: signups }, { data: teams }] = await Promise.all([
+    supabase
+      .from("free_agents")
+      .select("user_id, name")
+      .eq("competition_id", competitionId)
+      .not("user_id", "is", null),
+    supabase.from("teams").select("id").eq("competition_id", competitionId),
+  ]);
+  const teamIds = ((teams ?? []) as { id: string }[]).map((t) => t.id);
+  const { data: members } = teamIds.length
+    ? await supabase
+        .from("team_members")
+        .select("user_id")
+        .in("team_id", teamIds)
+    : { data: [] };
+
+  const names = new Map<string, Set<string>>();
+  const add = (userId: string, name: string | null | undefined) => {
+    const set = names.get(userId) ?? new Set<string>();
+    if (name) set.add(name);
+    names.set(userId, set);
+  };
+  for (const f of (signups ?? []) as { user_id: string; name: string }[]) {
+    add(f.user_id, f.name);
+  }
+  for (const m of (members ?? []) as { user_id: string }[])
+    add(m.user_id, null);
+  if (names.size === 0) return [];
+
+  const { data: users } = await supabase
+    .from("users")
+    .select("id, display_name")
+    .in("id", [...names.keys()]);
+  for (const u of (users ?? []) as {
+    id: string;
+    display_name: string | null;
+  }[]) {
+    add(u.id, u.display_name);
+  }
+  return [...names].map(([userId, set]) => ({ userId, names: [...set] }));
 }
 
 /**

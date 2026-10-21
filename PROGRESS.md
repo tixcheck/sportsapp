@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-21 — Big Shoots: stats check, court order, subs linked, L column
+
+- Stats checked against a from-scratch recompute of the raw sets and lineups: every player matched except the split ones below. The "missing Oct 9" was Liam's scores entered on the Oct 23 games (organizers can score future games); cleared at his request with `lib/db/_tmp/bs-clear23.mts`, audit rows with no actor saying support did it.
+- "Two David Aitkens" (and two Sean Gades): "Add a sub" is a name box, so a sub was always saved without an account, and stats key by account if any, else name. `linkSubsToAccounts` (`lib/stats/link-subs.ts`, tested) now runs in `writeLineup`: an accountless player whose name matches exactly one account in the league (sign-up name, or account display name, so "David Aitken" finds "Dave A") is saved under it. Ambiguous names and an account already in the lineup are left alone.
+- Court 1 first: the schedule query orders by time only, so same-time games came back in any order. `byTimeThenCourt` sorts each round/day group by time, venue, then court number.
+- Player stats get an L (sets lost) column after W, at Liam's request.
+
 ## 2026-10-21 — Score a night from the organizer schedule, without leaving it
 
 - Big Shoots' owner: "every time I record one game it sends me back to the schedule home page… is it possible to just enter them on this page?" Organizers were sent to the league page `#schedule`, i.e. the top of a 196-game schedule, after every save (only scorekeepers returned to the game itself).

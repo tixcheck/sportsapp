@@ -17,6 +17,7 @@ type Key =
   | "name"
   | "gamesPlayed"
   | "wins"
+  | "losses"
   | "forAgainstRatio"
   | "avgPointsFor"
   | "winPct"
@@ -85,6 +86,13 @@ const COLUMNS: Column[] = [
     label: "W",
     hint: "Sets won",
     render: (s) => String(s.wins),
+    numeric: true,
+  },
+  {
+    key: "losses",
+    label: "L",
+    hint: "Sets lost",
+    render: (s) => String(s.losses),
     numeric: true,
   },
   {
