@@ -68,7 +68,7 @@ type MatchRow = {
         set_number: number;
         home_score: number | null;
         away_score: number | null;
-        defaulted_by: "home" | "away" | null;
+        defaulted_by: "home" | "away" | "both" | null;
       }[]
     | null;
 };

@@ -12,6 +12,7 @@ import {
   type SetScoreInput,
 } from "@/lib/scoring/validation";
 import {
+  allSetsDoubleDefaulted,
   defaultProblem,
   describeDefaults,
   isDefaultedBy,
@@ -332,8 +333,9 @@ export async function submitScoreAction(
     .update({
       status: requiresConfirmation ? "in_progress" : "completed",
       is_abnormal: isAbnormal,
-      // A score replaces a double default.
-      double_default: false,
+      // Every set defaulted by both teams is a double default (a loss each);
+      // anything else replaces one.
+      double_default: allSetsDoubleDefaulted(sets),
     })
     .eq("id", matchId);
 

@@ -61,6 +61,14 @@ export function validateScore(
       errors.push(`Set ${n}: scores must be whole numbers of 0 or more.`);
       return;
     }
+    // Both teams defaulted this set (0184): a 0–0 nobody wins, not a tie to
+    // refuse. The set still counts toward the sets a game must have.
+    if ((s as { defaultedBy?: unknown }).defaultedBy === "both") {
+      if (s.home !== 0 || s.away !== 0) {
+        errors.push(`Set ${n}: both teams defaulted, so it must be 0–0.`);
+      }
+      return;
+    }
     if (s.home === s.away) {
       if (!format.allowTie) {
         errors.push(`Set ${n}: a set can't end tied (${s.home}–${s.away}).`);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MatchFormat } from "@/lib/db/schema";
 import {
+  allSetsDoubleDefaulted,
   defaultProblem,
   defaultedSetScore,
   describeDefaults,
@@ -45,7 +46,7 @@ describe("defaultProblem", () => {
     expect(
       defaultProblem(BVL, [
         // @ts-expect-error: a forged request
-        { home: 0, away: 25, defaultedBy: "both" },
+        { home: 0, away: 25, defaultedBy: "neither" },
       ]),
     ).toBe("Set 1: unknown default.");
   });
@@ -63,5 +64,35 @@ describe("describeDefaults", () => {
         "Tigers",
       ),
     ).toEqual(["Set 2: Tigers defaulted"]);
+  });
+});
+
+describe("both teams default a set (0184)", () => {
+  it("is 0–0, nobody wins it, and the other set decides the game", () => {
+    const sets = [
+      { home: 0, away: 0, defaultedBy: "both" as const },
+      { home: 25, away: 20 },
+    ];
+    expect(defaultedSetScore(BVL, 0, "both")).toEqual({ home: 0, away: 0 });
+    expect(defaultProblem(BVL, sets)).toBeNull();
+    const v = validateScore(BVL, sets);
+    expect(v.ok).toBe(true);
+    expect(v.winner).toBe("home");
+    expect(allSetsDoubleDefaulted(sets)).toBe(false);
+  });
+
+  it("a plain 0–0 is still refused: only a default can be level", () => {
+    expect(
+      validateScore(BVL, [
+        { home: 0, away: 0 },
+        { home: 25, away: 20 },
+      ]).ok,
+    ).toBe(false);
+  });
+
+  it("every set defaulted by both teams is a double default", () => {
+    const both = { home: 0, away: 0, defaultedBy: "both" as const };
+    expect(allSetsDoubleDefaulted([both, both])).toBe(true);
+    expect(validateScore(BVL, [both, both]).ok).toBe(true);
   });
 });

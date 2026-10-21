@@ -19,6 +19,7 @@ import {
 } from "@/lib/scoring/validation";
 import type { SetScoreInput } from "@/lib/scoring/validation";
 import {
+  defaultedLabel,
   defaultedSetScore,
   type DefaultedBy,
   type EnteredSet,
@@ -219,7 +220,7 @@ export function ScoreEntryForm({
     });
   }
 
-  /** Mark set i as defaulted by `side` (fills 25–0 and records it), or unmark it. */
+  /** Mark set i as defaulted by `side` (fills 25–0, or 0–0 for both, and records it), or unmark it. */
   function markDefault(i: number, side: DefaultedBy | null) {
     const next = sets.map((s, j) => {
       if (j !== i) return s;
@@ -300,7 +301,11 @@ export function ScoreEntryForm({
                   <span className="text-ink-2 inline-flex items-center gap-1 text-xs font-medium">
                     <Check className="size-3.5" />
                     {s.defaultedBy
-                      ? `${s.defaultedBy === "home" ? homeTeamName : awayTeamName} defaulted`
+                      ? defaultedLabel(
+                          s.defaultedBy,
+                          homeTeamName,
+                          awayTeamName,
+                        )
                       : "Recorded"}
                   </span>
                 )}

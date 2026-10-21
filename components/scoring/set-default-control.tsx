@@ -14,8 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /**
- * "Default" on one set (0183): pick the team that didn't play it. The form
- * fills the set as the other team winning it to the target, 0 to them.
+ * "Default" on one set (0183): pick the team that didn't play it, and the form
+ * fills the set as the other team winning it to the target, 0 to them. Or
+ * "Both teams" (0184): 0–0, nobody wins the set.
  */
 export function SetDefaultControl({
   homeTeamName,
@@ -48,6 +49,9 @@ export function SetDefaultControl({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onChange("away")}>
           {awayTeamName}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onChange("both")}>
+          Both teams
         </DropdownMenuItem>
         {defaultedBy && (
           <>

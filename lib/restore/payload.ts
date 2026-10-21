@@ -17,7 +17,7 @@ export interface SnapshotSet {
   h: number | null;
   a: number | null;
   /** The side that defaulted this set (0183). */
-  d?: "home" | "away";
+  d?: "home" | "away" | "both";
 }
 
 export interface SnapshotMatch {

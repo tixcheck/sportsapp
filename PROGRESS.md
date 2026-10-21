@@ -5,6 +5,11 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Both teams can default one set (0184)
+
+- The owner: "both teams came 15 mins late and defaulted the 1st set but completed the 2nd", or finished set 1 and ran out of time for set 2. 0184 widens `sets.defaulted_by` to `'both'`: stored 0–0, no set or points for either, so the other set decides the game (a scoring call made here by extension of BVL's whole-game rule, not one BVL stated). `validateScore` lets a `'both'` set be level and refuses one that isn't 0–0; a plain 0–0 is still refused. When every set is `'both'`, `submitScoreAction` also sets `matches.double_default`, so it's a loss each rather than a 0–0 tie.
+- The Default menu gains "Both teams"; the game-level button is now "Both teams defaulted the game" so the two read differently.
+
 ## 2026-10-20 — Defaults: per set, and both teams (0183)
 
 - BVL asked how to record a double default; the owner asked for a forfeit button on each set. BVL's rules, confirmed in their convenor chat: the defaulting team gets 0 and the other 25 for the set; a double default is a loss for both and 0 points for either.

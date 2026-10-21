@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { getMatchForEntry } from "@/lib/queries/my-matches";
 import { canClearResult } from "@/lib/scoring/lock";
+import { defaultedLabel } from "@/lib/scoring/defaults";
 import { scorekeeperReturnUrl } from "@/lib/scoring/return-url";
 import { ScoreEntryForm } from "@/components/scoring/score-entry-form";
 import { ClearResultButton } from "@/components/scoring/clear-result-button";
@@ -39,8 +40,6 @@ export default async function MatchEntryPage({
   const hasResult = match.sets.length > 0 || match.status !== "scheduled";
   // Both teams defaulting has no winner, so a playoff game can't end that way.
   const showDoubleDefault = match.isAdmin && match.bracketPosition === null;
-  const teamName = (side: "home" | "away") =>
-    side === "home" ? match.homeTeamName : match.awayTeamName;
   const showClear =
     hasResult &&
     canClearResult({
@@ -127,7 +126,11 @@ export default async function MatchEntryPage({
                         {s.home}–{s.away}
                         {s.defaultedBy && (
                           <span className="text-muted-foreground ml-2 font-sans text-xs">
-                            {teamName(s.defaultedBy)} defaulted
+                            {defaultedLabel(
+                              s.defaultedBy,
+                              match.homeTeamName,
+                              match.awayTeamName,
+                            )}
                           </span>
                         )}
                       </span>

@@ -946,10 +946,11 @@ export const sets = pgTable(
     homeScore: integer("home_score").notNull().default(0),
     awayScore: integer("away_score").notNull().default(0),
     /**
-     * The side that defaulted this set (0183); the score is still stored, as
-     * the other side winning it to the target and 0 for the defaulter.
+     * Who defaulted this set (0183): one side = stored as the other side
+     * winning it to the target, 0 for the defaulter; "both" (0184) = 0–0, no
+     * set or points for either.
      */
-    defaultedBy: text("defaulted_by").$type<"home" | "away">(),
+    defaultedBy: text("defaulted_by").$type<"home" | "away" | "both">(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

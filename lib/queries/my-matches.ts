@@ -290,7 +290,7 @@ export interface MatchEntryData {
     home: number;
     away: number;
     /** The side that defaulted this set (0183). */
-    defaultedBy: "home" | "away" | null;
+    defaultedBy: "home" | "away" | "both" | null;
   }[];
   status: string;
   /** Both teams defaulted the game (0183). */
@@ -446,7 +446,7 @@ export async function getMatchForEntry(
     sets: (sets ?? []).map((s) => ({
       home: s.home_score,
       away: s.away_score,
-      defaultedBy: (s.defaulted_by as "home" | "away" | null) ?? null,
+      defaultedBy: (s.defaulted_by as "home" | "away" | "both" | null) ?? null,
     })),
     doubleDefault: m.double_default === true,
     status: m.status,

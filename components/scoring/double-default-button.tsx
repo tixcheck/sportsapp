@@ -40,10 +40,10 @@ export function DoubleDefaultButton({
     <ConfirmDialog
       trigger={
         <Button type="button" variant="outline" className="w-full">
-          {on ? "Undo double default" : "Both teams defaulted"}
+          {on ? "Undo double default" : "Both teams defaulted the game"}
         </Button>
       }
-      title={on ? "Undo the double default?" : "Both teams defaulted?"}
+      title={on ? "Undo the double default?" : "Both teams defaulted the game?"}
       description={
         on
           ? "The game goes back to not played yet, and the standings update."
