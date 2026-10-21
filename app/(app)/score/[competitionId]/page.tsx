@@ -5,6 +5,8 @@ import { SquarePen } from "lucide-react";
 import { getScorekeeperNight, type ScoreGame } from "@/lib/queries/scorekeeper";
 import { formatCourtLabel } from "@/lib/scheduler/court-label";
 import { Button } from "@/components/ui/button";
+import { ScrollToGame } from "@/components/scoring/scroll-to-game";
+import { gameAnchor } from "@/lib/scoring/return-url";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Enter scores" };
@@ -52,6 +54,7 @@ export default async function ScorekeeperPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
+      <ScrollToGame />
       <div>
         <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {night.role === "scorekeeper" ? "Scorekeeper" : "Organizer"}
@@ -112,7 +115,10 @@ function GameRow({ game: g }: { game: ScoreGame }) {
   const ready = g.home && g.away;
   const final = g.status === "completed";
   return (
-    <li className="border-border bg-surface flex items-center justify-between gap-3 rounded-lg border p-3">
+    <li
+      id={gameAnchor(g.id)}
+      className="border-border bg-surface flex scroll-mt-20 items-center justify-between gap-3 rounded-lg border p-3"
+    >
       <div className="min-w-0">
         <p className="text-muted-foreground truncate text-xs">
           {[g.venue, formatCourtLabel(g.court)].filter(Boolean).join(" · ")}

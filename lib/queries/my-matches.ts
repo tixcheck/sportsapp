@@ -280,6 +280,8 @@ export interface MatchEntryData {
   sport: Sport;
   orgId: string;
   timezone: string;
+  /** ISO, UTC. Pins the scorekeeper's return link to the game's night. */
+  scheduledAt: string | null;
   homeTeamName: string;
   awayTeamName: string;
   refTeamName: string | null;
@@ -419,6 +421,7 @@ export async function getMatchForEntry(
     sport: comp.sport as Sport,
     orgId: comp.org_id,
     timezone: comp.timezone,
+    scheduledAt: m.scheduled_at ?? null,
     homeTeamName: m.home_team_id
       ? (teamName.get(m.home_team_id) ?? "TBD")
       : "TBD",

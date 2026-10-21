@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 
 import { getMatchForEntry } from "@/lib/queries/my-matches";
 import { canClearResult } from "@/lib/scoring/lock";
+import { scorekeeperReturnUrl } from "@/lib/scoring/return-url";
 import { ScoreEntryForm } from "@/components/scoring/score-entry-form";
 import { ClearResultButton } from "@/components/scoring/clear-result-button";
 import { ConfirmBar } from "@/components/scoring/confirm-bar";
@@ -55,7 +56,11 @@ export default async function MatchEntryPage({
         )}
         {match.role === "scorekeeper" && (
           <Link
-            href={`/score/${match.competitionId}`}
+            href={scorekeeperReturnUrl(
+              match.competitionId,
+              match,
+              match.timezone,
+            )}
             className="text-muted-foreground hover:underline"
           >
             ← Back to all games

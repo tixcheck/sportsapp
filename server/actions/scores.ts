@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { scorekeeperReturnUrl } from "@/lib/scoring/return-url";
 
 import { createClient } from "@/lib/supabase/server";
 import { formatSets, recordMatchAudit } from "@/lib/audit/match-audit";
@@ -101,9 +102,13 @@ async function redirectAfterScore(
   competitionId: string,
   isAdmin: boolean,
   isScorekeeper = false,
+  game?: { id: string; scheduledAt: string | null; timezone: string },
 ): Promise<string> {
-  // A scorekeeper goes back to the league's games, ready for the next one.
-  if (!isAdmin && isScorekeeper) return `/score/${competitionId}`;
+  // A scorekeeper goes back to the league's games, at the one just scored.
+  if (!isAdmin && isScorekeeper)
+    return game
+      ? scorekeeperReturnUrl(competitionId, game, game.timezone)
+      : `/score/${competitionId}`;
   if (!isAdmin) return "/my-matches";
   const { data: comp } = await supabase
     .from("competitions")
@@ -326,6 +331,11 @@ export async function submitScoreAction(
     match.competition_id,
     isAdmin,
     isScorekeeper,
+    {
+      id: matchId,
+      scheduledAt: match.scheduled_at,
+      timezone: comp.timezone ?? "America/Toronto",
+    },
   );
   return { success: true, requiresConfirmation, redirectTo };
 }

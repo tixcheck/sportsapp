@@ -191,6 +191,19 @@
   }
 }
 
+/* The game a scorekeeper just came back from (components/scoring/scroll-to-game.tsx). */
+@keyframes game-flash {
+  from {
+    box-shadow: 0 0 0 3px var(--color-primary);
+  }
+  to {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+.game-flash {
+  animation: game-flash 2s ease-out;
+}
+
 /* Top-of-page bar while a tapped link loads (components/app/nav-progress.tsx). */
 @keyframes nav-progress {
   from {

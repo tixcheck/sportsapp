@@ -5,6 +5,12 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Scorekeepers return to the game they just left
+
+- Vincent (BVL scorekeeper) asked: with ~15 games a night, the scorekeeper list reopened at the top after every score, so he scrolled back down each time. Submit and "← Back to all games" now go to `/score/<league>?day=<that night>#game-<id>` (`lib/scoring/return-url.ts`, tested), and `ScrollToGame` scrolls there and flashes the card for 2s. A client component rather than the browser's hash scroll, because a router.push is a pushState: no :target, and the list streams in after navigation.
+- Verified end-to-end on the hidden BVL demo league with a temporary scorekeeper (deleted after): from game 38 of 38, Back landed with that game in view and highlighted.
+- Organizers' "← Back to schedule" still goes to `#schedule`: the organizer schedule has day tabs and views, so a game's card isn't always on the page to scroll to.
+
 ## 2026-10-20 — "Below the target of 25" reworded for timed sets
 
 - BVL plays timed sets, so a set ending 22–18 is normal, but the score form flagged it "Below the target of 25." with a warning icon, which read as a mistake. It now says "Under 25: fine if time ran out, otherwise check the score." (and the whole-game check says the same). Still a warning, still recorded: it's the only prompt that catches a 15-for-25 typo, so it wasn't removed.
