@@ -108,6 +108,7 @@ import { RegistrationFeeCard } from "@/components/payments/registration-fee-card
 import { PaymentsDashboard } from "@/components/payments/payments-dashboard";
 import { OfflinePaymentsInbox } from "@/components/payments/offline-payments-inbox";
 import { IndividualPaymentsCard } from "@/components/payments/individual-payments-card";
+import { individualsToRecord } from "@/lib/payments/individual-ledger";
 import { getWaitlist } from "@/lib/queries/waitlist";
 import { WaitlistCard } from "@/components/registration/waitlist-card";
 import {
@@ -872,6 +873,7 @@ export default async function LeaguePage({
           <OfflinePaymentsInbox
             pending={pendingEtransfers}
             feesOwed={etransferFeesOwed}
+            unpaidIndividuals={individualsToRecord(individualPayments)}
           />
           <PaymentsDashboard
             competitionId={league.id}

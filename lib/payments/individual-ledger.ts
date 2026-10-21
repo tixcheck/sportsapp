@@ -182,3 +182,21 @@ export function individualLedger({
 
   return { feeCents, signups: sorted, totals };
 }
+
+/**
+ * People who owe their fee and have NOT said they've paid (0185). BVL adds
+ * INDY players by hand and is paid outside the app, so these have nothing in
+ * the offline inbox to confirm; the inbox lists them so the organizer can
+ * record the payment in the same place. Someone with an open request is
+ * already in the inbox's own list, and the withdrawn owe nothing.
+ */
+export function individualsToRecord(
+  ledger: IndividualLedger,
+): IndividualLedgerRow[] {
+  return ledger.signups.filter(
+    (r) =>
+      r.status !== "withdrawn" &&
+      r.outstandingPriceCents > 0 &&
+      r.pendingCharges === 0,
+  );
+}

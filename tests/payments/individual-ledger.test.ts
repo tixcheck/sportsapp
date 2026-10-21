@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   individualLedger,
   individualLedgerRow,
+  individualsToRecord,
   type IndividualCharge,
   type IndividualSignup,
   type IndividualSignupStatus,
@@ -176,5 +177,34 @@ describe("individualLedger", () => {
     expect(table.totals.unpaid).toBe(1);
     expect(table.totals.collectedPriceCents).toBe(6 * FEE);
     expect(table.totals.outstandingPriceCents).toBe(FEE);
+  });
+});
+
+describe("individualsToRecord", () => {
+  it("lists who owes and hasn't said they paid: added by hand, or part paid", () => {
+    const ledger = individualLedger({
+      feeCents: FEE,
+      signups: [
+        signup("Adam", "placed"),
+        signup("Andy", "pending_payment", [charge({ status: "pending" })]),
+        signup("Bea", "placed", [charge({ status: "paid" })]),
+        signup("Cal", "placed", [
+          charge({ status: "paid", priceCents: 10000 }),
+        ]),
+        signup("Dee", "withdrawn"),
+      ],
+    });
+    expect(individualsToRecord(ledger).map((r) => r.name)).toEqual([
+      "Adam",
+      "Cal",
+    ]);
+  });
+
+  it("is empty for a free event", () => {
+    const ledger = individualLedger({
+      feeCents: 0,
+      signups: [signup("Adam", "placed")],
+    });
+    expect(individualsToRecord(ledger)).toEqual([]);
   });
 });

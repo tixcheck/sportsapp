@@ -13,7 +13,9 @@ import type {
   OfflineFeesOwed,
   PendingOfflinePayment,
 } from "@/lib/queries/payments";
+import type { IndividualLedgerRow } from "@/lib/payments/individual-ledger";
 import { formatCents } from "@/lib/payments/format";
+import { RecordPaymentDialog } from "@/components/payments/record-payment-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,15 +44,27 @@ const METHOD_LABEL: Record<PendingOfflinePayment["method"], string> = {
  * ordinary, and recording "they paid" when $50 of $350 arrived would admit a
  * team that hasn't paid. The amount is pre-filled with what was asked for,
  * because that is right most of the time.
+ *
+ * Below them, individuals who owe and never started a payment (0185): BVL adds
+ * INDY players by hand and is paid outside the app, so there was nothing here
+ * to confirm and they sat at "Unpaid". "Record payment" settles them here.
  */
 export function OfflinePaymentsInbox({
   pending,
   feesOwed,
+  unpaidIndividuals = [],
 }: {
   pending: PendingOfflinePayment[];
   feesOwed: OfflineFeesOwed;
+  unpaidIndividuals?: IndividualLedgerRow[];
 }) {
-  if (pending.length === 0 && feesOwed.payments === 0) return null;
+  if (
+    pending.length === 0 &&
+    feesOwed.payments === 0 &&
+    unpaidIndividuals.length === 0
+  ) {
+    return null;
+  }
 
   const methods = [...new Set(pending.map((p) => p.method))];
   const title =
@@ -62,7 +76,7 @@ export function OfflinePaymentsInbox({
         <CardTitle className="capitalize">{title}</CardTitle>
         <CardDescription>
           {pending.length > 0
-            ? `${pending.length} team${pending.length === 1 ? "" : "s"} said they've paid. Check your own account and confirm what actually arrived — the team isn't confirmed until you do.`
+            ? `${pending.length} ${pending.length === 1 ? "payer" : "payers"} said they've paid. Check your own account and confirm what actually arrived — they aren't confirmed until you do.`
             : "Nothing waiting to be confirmed."}
         </CardDescription>
       </CardHeader>
@@ -74,6 +88,39 @@ export function OfflinePaymentsInbox({
               <OfflineRow key={p.paymentId} row={p} />
             ))}
           </ul>
+        )}
+
+        {unpaidIndividuals.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">
+              Individuals not paid yet ({unpaidIndividuals.length})
+            </p>
+            <p className="text-muted-foreground text-xs">
+              They haven&apos;t told the app they&apos;ve paid. If you got their
+              fee another way, record it here.
+            </p>
+            <ul className="divide-rule divide-y">
+              {unpaidIndividuals.map((r) => (
+                <li
+                  key={r.freeAgentId}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{r.name}</p>
+                    <p className="text-xs text-amber-700 tabular-nums">
+                      {r.state === "partial" ? "Part paid" : "Unpaid"} ·{" "}
+                      {formatCents(r.outstandingPriceCents)} owing
+                    </p>
+                  </div>
+                  <RecordPaymentDialog
+                    freeAgentId={r.freeAgentId}
+                    teamName={r.name}
+                    outstandingCents={r.outstandingPriceCents}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         {feesOwed.payments > 0 && (

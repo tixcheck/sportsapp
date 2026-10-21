@@ -4,6 +4,8 @@ import type {
 } from "@/lib/payments/individual-ledger";
 import { formatCents } from "@/lib/payments/format";
 import { cn } from "@/lib/utils";
+import { RecordPaymentDialog } from "@/components/payments/record-payment-dialog";
+import { UndoOfflinePayment } from "@/components/payments/undo-offline-payment";
 import {
   Card,
   CardContent,
@@ -92,6 +94,27 @@ function SignupRow({
           {row.refundedCents > 0 &&
             ` · ${formatCents(row.refundedCents, currency)} back`}
         </p>
+        {/* Recorded or confirmed by hand, so it can be undone by hand. A card
+            charge is Stripe's, and a refunded one is money that went back. */}
+        {row.charges
+          .filter(
+            (c) =>
+              c.status === "paid" &&
+              c.method !== "card" &&
+              c.refundedCents === 0,
+          )
+          .map((c) => (
+            <UndoOfflinePayment key={c.id} paymentId={c.id} />
+          ))}
+        {!withdrawn && row.outstandingPriceCents > 0 && (
+          <div className="mt-1.5">
+            <RecordPaymentDialog
+              freeAgentId={row.freeAgentId}
+              teamName={row.name}
+              outstandingCents={row.outstandingPriceCents}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

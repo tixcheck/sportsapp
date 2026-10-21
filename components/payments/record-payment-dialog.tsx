@@ -8,7 +8,10 @@ import { z } from "zod";
 import { Banknote } from "lucide-react";
 import { toast } from "sonner";
 
-import { recordOfflinePaymentAction } from "@/server/actions/organizer-payments";
+import {
+  recordIndividualPaymentAction,
+  recordOfflinePaymentAction,
+} from "@/server/actions/organizer-payments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,17 +51,22 @@ type Values = z.infer<typeof schema>;
  * on the organizer's Payments tab, and the database refuses anyone else.
  *
  * The amount defaults to what's still owed, so the common case is: pick the
- * method, maybe add a note, save.
+ * method, maybe add a note, save. Pass `freeAgentId` instead of `teamId` for
+ * someone who signed up without a team (0185).
  */
 export function RecordPaymentDialog({
   teamId,
+  freeAgentId,
   teamName,
   outstandingCents,
 }: {
-  teamId: string;
   teamName: string;
   outstandingCents: number;
-}) {
+} & (
+  | { teamId: string; freeAgentId?: never }
+  | { freeAgentId: string; teamId?: never }
+)) {
+  const payerId = (teamId ?? freeAgentId)!;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -74,19 +82,23 @@ export function RecordPaymentDialog({
 
   function save(v: Values) {
     start(async () => {
-      const res = await recordOfflinePaymentAction({
-        teamId,
+      const payment = {
         method: v.method,
         amountCents: Math.round(Number(v.amount) * 100),
         note: v.note || undefined,
-      });
+      };
+      const res = freeAgentId
+        ? await recordIndividualPaymentAction({ freeAgentId, ...payment })
+        : await recordOfflinePaymentAction({ teamId: teamId!, ...payment });
       if ("error" in res) {
         toast.error(res.error);
         return;
       }
       toast.success(
         res.covered
-          ? `${teamName} is paid and in.`
+          ? freeAgentId
+            ? `${teamName} is paid.`
+            : `${teamName} is paid and in.`
           : "Payment recorded — part of the fee is still owing.",
       );
       setOpen(false);
@@ -119,9 +131,9 @@ export function RecordPaymentDialog({
         <form onSubmit={form.handleSubmit(save)} className="grid gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
-              <Label htmlFor={`rp-method-${teamId}`}>How they paid</Label>
+              <Label htmlFor={`rp-method-${payerId}`}>How they paid</Label>
               <NativeSelect
-                id={`rp-method-${teamId}`}
+                id={`rp-method-${payerId}`}
                 {...form.register("method")}
               >
                 {METHODS.map((m) => (
@@ -132,9 +144,11 @@ export function RecordPaymentDialog({
               </NativeSelect>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor={`rp-amount-${teamId}`}>Amount received ($)</Label>
+              <Label htmlFor={`rp-amount-${payerId}`}>
+                Amount received ($)
+              </Label>
               <Input
-                id={`rp-amount-${teamId}`}
+                id={`rp-amount-${payerId}`}
                 inputMode="decimal"
                 aria-invalid={!!errors.amount}
                 {...form.register("amount")}
@@ -147,9 +161,9 @@ export function RecordPaymentDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`rp-note-${teamId}`}>Note (optional)</Label>
+            <Label htmlFor={`rp-note-${payerId}`}>Note (optional)</Label>
             <Input
-              id={`rp-note-${teamId}`}
+              id={`rp-note-${payerId}`}
               placeholder="e.g. Cash at the door, e-transfer ref 1234"
               maxLength={280}
               aria-invalid={!!errors.note}

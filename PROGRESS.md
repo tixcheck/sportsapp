@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-21 — Record a payment for an individual (0185)
+
+- BVL: INDY players added by hand and paid outside the app sat at "Unpaid" and never appeared in the PayPal/e-transfer inbox, because they had no payment row to confirm (Thursday: 2 such people). Teams already had "Record payment" (0152); individuals had nothing.
+- 0185 `record_individual_payment(free_agent, method, amount, note, livemode)`: `record_offline_payment` for a free agent. Settles the open offline request if there is one, else inserts a paid `individual` row; lifts `pending_payment` to `available` once the individual fee is covered. Organizer-only in SQL; `recordIndividualPaymentAction` mirrors it.
+- The inbox (`OfflinePaymentsInbox`) gets an "Individuals not paid yet" list (`individualsToRecord`: owes, not withdrawn, no open request; someone with an open request is already in the inbox's confirm list). `RecordPaymentDialog` takes `freeAgentId` or `teamId`. The Individual payments card gets "Record payment" per owing row and "Undo" (existing `unconfirm_offline_payment`, which already handled free agents) per hand-recorded charge.
+- Teams were left out of the new list on purpose: the team table right below already has "Record payment" on each unpaid team.
+
 ## 2026-10-20 — Both teams can default one set (0184)
 
 - The owner: "both teams came 15 mins late and defaulted the 1st set but completed the 2nd", or finished set 1 and ran out of time for set 2. 0184 widens `sets.defaulted_by` to `'both'`: stored 0–0, no set or points for either, so the other set decides the game (a scoring call made here by extension of BVL's whole-game rule, not one BVL stated). `validateScore` lets a `'both'` set be level and refuses one that isn't 0–0; a plain 0–0 is still refused. When every set is `'both'`, `submitScoreAction` also sets `matches.double_default`, so it's a loss each rather than a 0–0 tie.

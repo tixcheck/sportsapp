@@ -215,6 +215,59 @@ export async function recordOfflinePaymentAction(
   return { ok: true, covered: data === true };
 }
 
+const recordIndividualSchema = recordSchema
+  .omit({ teamId: true })
+  .extend({ freeAgentId: idSchema });
+
+/**
+ * Record a payment for someone who signed up WITHOUT a team (0185).
+ *
+ * BVL: INDY players added by hand and paid outside the app "do not appear in
+ * the verify payment section and are sitting there marked as Unpaid." They had
+ * no payment row to confirm. The database checks the organizer too
+ * (`record_individual_payment`).
+ */
+export async function recordIndividualPaymentAction(
+  input: z.input<typeof recordIndividualSchema>,
+): Promise<ActionError | { ok: true; covered: boolean }> {
+  const parsed = recordIndividualSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the payment." };
+  }
+  const v = parsed.data;
+
+  const supabase = await createClient();
+  const { data: agent } = await supabase
+    .from("free_agents")
+    .select("competition_id")
+    .eq("id", v.freeAgentId)
+    .maybeSingle();
+  if (!agent) return { error: "Unknown sign-up." };
+
+  const comp = await requireCompetitionAdmin(
+    (agent as { competition_id: string }).competition_id,
+  );
+  if ("error" in comp) return comp;
+
+  const { data, error } = await supabase.rpc("record_individual_payment", {
+    _free_agent_id: v.freeAgentId,
+    _method: v.method,
+    _amount_cents: v.amountCents,
+    _note: v.note ?? null,
+    _livemode: currentStripeMode().livemode ?? true,
+  });
+  if (error) {
+    if (error.message.includes("already paid in full")) {
+      return { error: "This person has already paid in full." };
+    }
+    console.error("[payments] record_individual_payment failed");
+    return { error: "That payment couldn't be recorded. Please try again." };
+  }
+
+  revalidateCompetition(comp);
+  return { ok: true, covered: data === true };
+}
+
 // ---------------------------------------------------------------------------
 // Refunds
 // ---------------------------------------------------------------------------
