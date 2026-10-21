@@ -322,6 +322,25 @@ describe("combineHalves", () => {
   it("week 1's half alone stays a single game until week 2 is played", () => {
     expect(combineHalves([r("w1", "A", "B", 25, 20)])[0].sets).toHaveLength(1);
   });
+
+  it("a double-defaulted half adds nothing; the played half decides the match", () => {
+    const dd = { ...r("w1", "A", "B", 0, 0), sets: [], doubleDefault: true };
+    const out = combineHalves([dd, r("w2", "B", "A", 25, 22)]);
+    expect(out).toHaveLength(1);
+    expect(out[0].doubleDefault).toBe(false);
+    expect(out[0].sets).toEqual([{ home: 22, away: 25 }]);
+  });
+
+  it("both halves double-defaulted is still a double default", () => {
+    const dd = (id: string) => ({
+      ...r(id, "A", "B", 0, 0),
+      sets: [],
+      doubleDefault: true,
+    });
+    const out = combineHalves([dd("w1"), dd("w2")]);
+    expect(out[0].doubleDefault).toBe(true);
+    expect(out[0].sets).toEqual([]);
+  });
 });
 
 describe("Reverse 4s grid — 6-team tiers play everyone once (3 slots, then 2)", () => {

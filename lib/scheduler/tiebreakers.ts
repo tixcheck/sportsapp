@@ -33,7 +33,20 @@ export interface MatchResult {
   sets: SetScore[];
   /** If set, this team forfeited; the opponent is awarded the match win. */
   forfeitedBy?: TeamId | null;
+  /**
+   * Both teams defaulted (0183): no sets, a loss for each, no points either
+   * way (BVL, 2026-10-20). A single default needs no flag: it's stored as
+   * real sets.
+   */
+  doubleDefault?: boolean;
 }
+
+/**
+ * Whether a match has a result to rank on: a score, or a double default,
+ * which has no sets but is still a decided game.
+ */
+export const hasResult = (m: MatchResult): boolean =>
+  m.sets.length > 0 || m.doubleDefault === true;
 
 /**
  * The "drop a game" rule (v1): a team → the one match id it excludes from ITS
@@ -244,6 +257,12 @@ export function computeStats(
       away.sl += homeSets;
       away.pf += awayPoints;
       away.pa += homePoints;
+    }
+
+    if (match.doubleDefault) {
+      if (!homeOut) home.ml += 1;
+      if (!awayOut) away.ml += 1;
+      continue;
     }
 
     const winner = matchWinner(match);

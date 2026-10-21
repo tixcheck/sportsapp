@@ -18,6 +18,12 @@ import {
   validateSet,
 } from "@/lib/scoring/validation";
 import type { SetScoreInput } from "@/lib/scoring/validation";
+import {
+  defaultedSetScore,
+  type DefaultedBy,
+  type EnteredSet,
+} from "@/lib/scoring/defaults";
+import { SetDefaultControl } from "@/components/scoring/set-default-control";
 import type { MatchFormat } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,6 +45,8 @@ type SetRow = {
   /** The last value the user explicitly Recorded; null once edited. */
   recorded: SetScoreInput | null;
   note: Note | null;
+  /** This set was a default (0183), not played. */
+  defaultedBy: DefaultedBy | null;
 };
 
 function parse(v: string): number {
@@ -84,15 +92,18 @@ export function ScoreEntryForm({
   initialSets,
   requireConfirmation,
   isAdmin,
+  canDefault,
   sport,
 }: {
   matchId: string;
   homeTeamName: string;
   awayTeamName: string;
   matchFormat: MatchFormat;
-  initialSets: { home: number; away: number }[];
+  initialSets: EnteredSet[];
   requireConfirmation: boolean;
   isAdmin: boolean;
+  /** Organizers and scorekeepers can mark a set as a default (0183). */
+  canDefault: boolean;
   /** Names each scored period. Defaults to volleyball's "Set". */
   sport?: Sport;
 }) {
@@ -114,12 +125,16 @@ export function ScoreEntryForm({
         away: s ? String(s.away) : "",
         recorded: s ? { home: s.home, away: s.away } : null,
         note: null,
+        defaultedBy: s?.defaultedBy ?? null,
       };
     }),
   );
 
-  const recorded = useMemo(
-    () => sets.filter((s) => s.recorded).map((s) => s.recorded!),
+  const recorded: EnteredSet[] = useMemo(
+    () =>
+      sets
+        .filter((s) => s.recorded)
+        .map((s) => ({ ...s.recorded!, defaultedBy: s.defaultedBy })),
     [sets],
   );
   const decision = recordedDecision(recorded, matchFormat.bestOf);
@@ -158,7 +173,9 @@ export function ScoreEntryForm({
   function update(i: number, side: "home" | "away", v: string) {
     setSets((prev) =>
       prev.map((s, j) =>
-        j === i ? { ...s, [side]: v, recorded: null, note: null } : s,
+        j === i
+          ? { ...s, [side]: v, recorded: null, note: null, defaultedBy: null }
+          : s,
       ),
     );
   }
@@ -185,14 +202,47 @@ export function ScoreEntryForm({
       ),
     );
     if (v.status !== "reject") {
-      const next = sets.map((s, j) =>
-        j === i ? { ...s, recorded: parsed } : s,
+      saveDraft(
+        sets.map((s, j) =>
+          j === i ? { ...s, recorded: parsed, defaultedBy: null } : s,
+        ),
       );
-      const toSave = next.filter((s) => s.recorded).map((s) => s.recorded!);
-      void saveDraftSetsAction(matchId, toSave).then((res) => {
-        if (res && "error" in res) toast.error(res.error);
-      });
     }
+  }
+
+  function saveDraft(next: SetRow[]) {
+    const toSave = next
+      .filter((s) => s.recorded)
+      .map((s) => ({ ...s.recorded!, defaultedBy: s.defaultedBy }));
+    void saveDraftSetsAction(matchId, toSave).then((res) => {
+      if (res && "error" in res) toast.error(res.error);
+    });
+  }
+
+  /** Mark set i as defaulted by `side` (fills 25–0 and records it), or unmark it. */
+  function markDefault(i: number, side: DefaultedBy | null) {
+    const next = sets.map((s, j) => {
+      if (j !== i) return s;
+      if (!side)
+        return {
+          ...s,
+          home: "",
+          away: "",
+          recorded: null,
+          note: null,
+          defaultedBy: null,
+        };
+      const score = defaultedSetScore(matchFormat, i, side);
+      return {
+        home: String(score.home),
+        away: String(score.away),
+        recorded: score,
+        note: null,
+        defaultedBy: side,
+      };
+    });
+    setSets(next);
+    saveDraft(next);
   }
 
   function submit(override: boolean) {
@@ -249,7 +299,9 @@ export function ScoreEntryForm({
                 {isRecorded && (
                   <span className="text-ink-2 inline-flex items-center gap-1 text-xs font-medium">
                     <Check className="size-3.5" />
-                    Recorded
+                    {s.defaultedBy
+                      ? `${s.defaultedBy === "home" ? homeTeamName : awayTeamName} defaulted`
+                      : "Recorded"}
                   </span>
                 )}
               </div>
@@ -294,15 +346,25 @@ export function ScoreEntryForm({
                     </span>
                   )}
                 </span>
-                <Button
-                  type="button"
-                  variant={isRecorded ? "outline" : "default"}
-                  size="sm"
-                  disabled={greyed || orderLocked || !entered}
-                  onClick={() => record(i)}
-                >
-                  {isRecorded ? "Re-record" : "Record"}
-                </Button>
+                <span className="flex items-center gap-2">
+                  {canDefault && !greyed && !orderLocked && (
+                    <SetDefaultControl
+                      homeTeamName={homeTeamName}
+                      awayTeamName={awayTeamName}
+                      defaultedBy={s.defaultedBy}
+                      onChange={(side) => markDefault(i, side)}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant={isRecorded ? "outline" : "default"}
+                    size="sm"
+                    disabled={greyed || orderLocked || !entered}
+                    onClick={() => record(i)}
+                  >
+                    {isRecorded ? "Re-record" : "Record"}
+                  </Button>
+                </span>
               </div>
             </div>
           );

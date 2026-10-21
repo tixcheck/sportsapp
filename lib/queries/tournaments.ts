@@ -391,7 +391,7 @@ export async function getPoolsView(
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal",
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, pool_id, is_abnormal, double_default",
     )
     .eq("competition_id", competitionId)
     .not("pool_id", "is", null)
@@ -444,6 +444,7 @@ export async function getPoolsView(
     ref_team_id: string | null;
     pool_id?: string | null;
     is_abnormal?: boolean;
+    double_default?: boolean;
   }): ScheduleMatch => {
     const divisionId = m.pool_id
       ? (divisionByPool.get(m.pool_id) ?? null)
@@ -466,6 +467,7 @@ export async function getPoolsView(
       refTeamId: m.ref_team_id,
       refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
       isAbnormal: m.is_abnormal === true,
+      doubleDefault: m.double_default === true,
       sets: setsByMatch.get(m.id) ?? [],
       divisionId,
       divisionName: division?.name ?? null,

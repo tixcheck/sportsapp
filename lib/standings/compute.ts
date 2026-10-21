@@ -169,6 +169,7 @@ type MatchRow = {
   away_team_id: string | null;
   scheduled_at: string | null;
   bracket_position: number | null;
+  double_default: boolean | null;
 };
 type ScheduledRow = {
   pool_id: string | null;
@@ -240,7 +241,7 @@ export async function loadStandings(
   const { data: matchesData } = await supabase
     .from("matches")
     .select(
-      "id, pool_id, home_team_id, away_team_id, scheduled_at, bracket_position",
+      "id, pool_id, home_team_id, away_team_id, scheduled_at, bracket_position, double_default",
     )
     .eq("competition_id", competitionId)
     .eq("status", "completed");
@@ -313,6 +314,7 @@ export async function loadStandings(
           homeTeamId: m.home_team_id,
           awayTeamId: m.away_team_id,
           sets: setsByMatch.get(m.id) ?? [],
+          doubleDefault: m.double_default === true,
         }
       : null;
 

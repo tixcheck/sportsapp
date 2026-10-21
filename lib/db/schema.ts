@@ -916,6 +916,8 @@ export const matches = pgTable(
     // failed the normal completion checks (abandoned/injury). Audit/display
     // marker ONLY — standings ignore it and read the real sets.
     isAbnormal: boolean("is_abnormal").notNull().default(false),
+    /** Both teams defaulted (0183): no sets, a loss for each, no points. */
+    doubleDefault: boolean("double_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -943,6 +945,11 @@ export const sets = pgTable(
     setNumber: integer("set_number").notNull(),
     homeScore: integer("home_score").notNull().default(0),
     awayScore: integer("away_score").notNull().default(0),
+    /**
+     * The side that defaulted this set (0183); the score is still stored, as
+     * the other side winning it to the target and 0 for the defaulter.
+     */
+    defaultedBy: text("defaulted_by").$type<"home" | "away">(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

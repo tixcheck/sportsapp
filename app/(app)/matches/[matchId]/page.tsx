@@ -7,6 +7,7 @@ import { canClearResult } from "@/lib/scoring/lock";
 import { scorekeeperReturnUrl } from "@/lib/scoring/return-url";
 import { ScoreEntryForm } from "@/components/scoring/score-entry-form";
 import { ClearResultButton } from "@/components/scoring/clear-result-button";
+import { DoubleDefaultButton } from "@/components/scoring/double-default-button";
 import { ConfirmBar } from "@/components/scoring/confirm-bar";
 import {
   Card,
@@ -36,6 +37,10 @@ export default async function MatchEntryPage({
   // Organizers can undo a result that's been entered (or a match left mid-entry)
   // — but not for playoff matches, where it would desync the bracket.
   const hasResult = match.sets.length > 0 || match.status !== "scheduled";
+  // Both teams defaulting has no winner, so a playoff game can't end that way.
+  const showDoubleDefault = match.isAdmin && match.bracketPosition === null;
+  const teamName = (side: "home" | "away") =>
+    side === "home" ? match.homeTeamName : match.awayTeamName;
   const showClear =
     hasResult &&
     canClearResult({
@@ -89,7 +94,11 @@ export default async function MatchEntryPage({
               Abnormal result
             </span>
           )}
-          {showEntry ? (
+          {match.doubleDefault ? (
+            <p className="bg-muted rounded-lg px-3 py-2 text-sm">
+              Both teams defaulted: a loss for each, no points either way.
+            </p>
+          ) : showEntry ? (
             <ScoreEntryForm
               matchId={match.id}
               homeTeamName={match.homeTeamName}
@@ -98,6 +107,7 @@ export default async function MatchEntryPage({
               initialSets={match.sets}
               requireConfirmation={match.requireConfirmation}
               isAdmin={match.isAdmin}
+              canDefault={match.role !== "player"}
               sport={match.sport}
             />
           ) : (
@@ -115,6 +125,11 @@ export default async function MatchEntryPage({
                       <span className="text-muted-foreground">Set {i + 1}</span>
                       <span className="font-display tabular-nums">
                         {s.home}–{s.away}
+                        {s.defaultedBy && (
+                          <span className="text-muted-foreground ml-2 font-sans text-xs">
+                            {teamName(s.defaultedBy)} defaulted
+                          </span>
+                        )}
                       </span>
                     </li>
                   ))}
@@ -140,9 +155,17 @@ export default async function MatchEntryPage({
               )}
             </>
           )}
-          {showClear && (
-            <div className="border-border border-t pt-4">
-              <ClearResultButton matchId={match.id} />
+          {(showDoubleDefault || showClear) && (
+            <div className="border-border space-y-2 border-t pt-4">
+              {showDoubleDefault && (
+                <DoubleDefaultButton
+                  matchId={match.id}
+                  on={match.doubleDefault}
+                />
+              )}
+              {showClear && !match.doubleDefault && (
+                <ClearResultButton matchId={match.id} />
+              )}
             </div>
           )}
         </CardContent>

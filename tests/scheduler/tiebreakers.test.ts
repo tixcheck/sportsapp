@@ -472,3 +472,46 @@ describe("ties in single-period sports", () => {
     expect(s.get("a")!.sl).toBe(1);
   });
 });
+
+describe("double default (0183)", () => {
+  const dd: MatchResult = {
+    homeTeamId: "A",
+    awayTeamId: "B",
+    sets: [],
+    doubleDefault: true,
+  };
+
+  it("is a loss for both teams and no points or sets either way", () => {
+    const stats = computeStats(["A", "B"], [dd]);
+    for (const id of ["A", "B"]) {
+      expect(stats.get(id)).toMatchObject({
+        mw: 0,
+        ml: 1,
+        mt: 0,
+        sw: 0,
+        sl: 0,
+        pf: 0,
+        pa: 0,
+      });
+    }
+  });
+
+  it("ranks both below a team that won a game", () => {
+    const ranked = rankStandings(
+      ["A", "B", "C"],
+      [
+        dd,
+        m("C", "A", [
+          [25, 20],
+          [25, 18],
+        ]),
+      ],
+    );
+    expect(ranked[0].teamId).toBe("C");
+  });
+
+  it("counts as a played game with no winner in head-to-head", () => {
+    const h2h = headToHeadTable(["A", "B"], [dd]);
+    expect(h2h.every((e) => e.wins === 0 && e.played === 1)).toBe(true);
+  });
+});

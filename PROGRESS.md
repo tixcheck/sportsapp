@@ -5,6 +5,14 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-20 — Defaults: per set, and both teams (0183)
+
+- BVL asked how to record a double default; the owner asked for a forfeit button on each set. BVL's rules, confirmed in their convenor chat: the defaulting team gets 0 and the other 25 for the set; a double default is a loss for both and 0 points for either.
+- 0183: `sets.defaulted_by` ('home'|'away') and `matches.double_default`. A defaulted set is STORED as its score (target–0), so every standings, ladder and stats path reads it with no change; the column only labels it. `defaultProblem` (server) refuses a set marked defaulted that doesn't carry exactly that score, and players can't record one (organizers and scorekeepers can).
+- A double default has no sets, so readers had to learn it: `MatchResult.doubleDefault` makes `computeStats` give each team a loss and nothing else; `hasResult` replaces "sets.length > 0" as "was this game decided" in the ladder tables; `combineHalves` keeps a BVL two-week pairing a double default only if both halves were (otherwise the played half decides). Loaded in `standings/compute.ts`, `ladder-standings.ts` and the ladder lock. Playoff games refuse it (no winner to advance).
+- UI: a "Default" menu on each set row (`set-default-control.tsx`); "Both teams defaulted" / "Undo double default" on the game page for organizers (`double-default-button.tsx`); schedule cards say "Both teams defaulted". Restore points carry both columns. Status stays `completed`, which ~50 places already test.
+- A first draft of 0183 put a `default_side` column on matches; it was applied, never used, and the final 0183 drops it.
+
 ## 2026-10-20 — Player questions live on the organization page
 
 - The owner wanted the organizers' questions on the org's main page (the one listing its leagues), not inside each league. `OrgQuestionsCard` (`components/support/org-questions-card.tsx`) lists every question passed to any of the org's events, with the event name on each; `getOrgQuestions(orgId)` filters `competitions!inner(org_id)` and RLS trims a league-only organizer's list to their own events. It sits at the top in amber with "N waiting" while one waits, below the events otherwise. The league/tournament Questions tab and banner from the previous commit are gone, which also covers KotC and Reverse Pairs. The conversation page's back link returns to `/orgs/<org>#questions`; the Sunday email points there.

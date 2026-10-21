@@ -16,6 +16,8 @@ export interface SnapshotSet {
   n: number;
   h: number | null;
   a: number | null;
+  /** The side that defaulted this set (0183). */
+  d?: "home" | "away";
 }
 
 export interface SnapshotMatch {
@@ -34,6 +36,8 @@ export interface SnapshotMatch {
   bracketPosition: number | null;
   bracketTrack: string | null;
   isAbnormal: boolean;
+  /** 0183. Optional: snapshots taken before it have none. */
+  doubleDefault?: boolean;
   matchFormat: unknown;
   venueId: string | null;
   sets: SnapshotSet[];

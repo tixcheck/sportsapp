@@ -154,6 +154,8 @@ export interface ScheduleMatch {
   refTeamId: string | null;
   refTeamName: string | null;
   isAbnormal: boolean;
+  /** Both teams defaulted (0183): completed with no sets, a loss each. */
+  doubleDefault?: boolean;
   /**
    * The tier this game was PLAYED in: the game's own tier, else its teams'
    * ladder placement that week, else (an ordinary tiered league) the home
@@ -427,7 +429,7 @@ async function loadSchedule(
   const { data: matches } = await supabase
     .from("matches")
     .select(
-      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, venue_id, division_id, bracket_track, bracket_position, venues(name)",
+      "id, round, scheduled_at, court, status, home_team_id, away_team_id, ref_team_id, is_abnormal, double_default, venue_id, division_id, bracket_track, bracket_position, venues(name)",
     )
     .eq("competition_id", leagueId)
     .order("scheduled_at", { ascending: true })
@@ -495,6 +497,7 @@ async function loadSchedule(
       refTeamId: m.ref_team_id,
       refTeamName: m.ref_team_id ? (nameById.get(m.ref_team_id) ?? null) : null,
       isAbnormal: m.is_abnormal === true,
+      doubleDefault: m.double_default === true,
       sets: setsByMatch.get(m.id) ?? [],
     };
   });

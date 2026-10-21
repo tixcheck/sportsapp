@@ -286,8 +286,15 @@ export interface MatchEntryData {
   awayTeamName: string;
   refTeamName: string | null;
   matchFormat: MatchFormat;
-  sets: { home: number; away: number }[];
+  sets: {
+    home: number;
+    away: number;
+    /** The side that defaulted this set (0183). */
+    defaultedBy: "home" | "away" | null;
+  }[];
   status: string;
+  /** Both teams defaulted the game (0183). */
+  doubleDefault: boolean;
   state: ConfirmationState;
   requireConfirmation: boolean;
   canEnter: boolean;
@@ -317,7 +324,7 @@ export async function getMatchForEntry(
   const { data: m } = await supabase
     .from("matches")
     .select(
-      "id, competition_id, status, scheduled_at, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position, is_abnormal, match_format",
+      "id, competition_id, status, scheduled_at, home_team_id, away_team_id, ref_team_id, pool_id, bracket_position, is_abnormal, match_format, double_default",
     )
     .eq("id", matchId)
     .single();
@@ -355,7 +362,7 @@ export async function getMatchForEntry(
       ),
     supabase
       .from("sets")
-      .select("set_number, home_score, away_score")
+      .select("set_number, home_score, away_score, defaulted_by")
       .eq("match_id", matchId)
       .order("set_number", { ascending: true }),
     supabase
@@ -436,7 +443,12 @@ export async function getMatchForEntry(
         poolDefault,
         comp.match_format as MatchFormat,
       ),
-    sets: (sets ?? []).map((s) => ({ home: s.home_score, away: s.away_score })),
+    sets: (sets ?? []).map((s) => ({
+      home: s.home_score,
+      away: s.away_score,
+      defaultedBy: (s.defaulted_by as "home" | "away" | null) ?? null,
+    })),
+    doubleDefault: m.double_default === true,
     status: m.status,
     state,
     requireConfirmation,

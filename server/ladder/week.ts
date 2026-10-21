@@ -809,7 +809,7 @@ export async function lockLadderWeek(
     const { data: allMatches } = await supabase
       .from("matches")
       .select(
-        "id, status, division_id, home_team_id, away_team_id, match_format",
+        "id, status, division_id, home_team_id, away_team_id, match_format, double_default",
       )
       .eq("competition_id", competitionId)
       .in("round", roundWeeks);
@@ -862,12 +862,14 @@ export async function lockLadderWeek(
           awayTeamId: m.away_team_id as string,
           sets: setsByMatch.get(m.id as string) ?? [],
           half: isRound && (m.match_format as MatchFormat | null)?.bestOf === 1,
+          doubleDefault: m.double_default === true,
         })),
     ).map((r) => ({
       matchId: r.matchId,
       homeTeamId: r.homeTeamId,
       awayTeamId: r.awayTeamId,
       sets: r.sets,
+      doubleDefault: r.doubleDefault,
     }));
   }
 

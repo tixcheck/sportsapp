@@ -11,6 +11,12 @@ import {
   validateScore,
   type SetScoreInput,
 } from "@/lib/scoring/validation";
+import {
+  defaultProblem,
+  describeDefaults,
+  isDefaultedBy,
+  type EnteredSet,
+} from "@/lib/scoring/defaults";
 import { resolveMatchFormat } from "@/lib/scheduler/pools";
 import { recomputeStandings } from "@/lib/standings/compute";
 import { canClearResult, isFutureMatch } from "@/lib/scoring/lock";
@@ -138,7 +144,7 @@ async function latestSubmitterId(
 
 export async function submitScoreAction(
   matchId: string,
-  sets: SetScoreInput[],
+  sets: EnteredSet[],
   override = false,
 ): Promise<
   | ActionError
@@ -222,6 +228,17 @@ export async function submitScoreAction(
       comp.match_format as MatchFormat,
     );
 
+  // A default is a ruling about who showed up, not a score anyone can type:
+  // organizers and scorekeepers only, and it must carry the default score.
+  const hasDefault = sets.some((s) => s.defaultedBy != null);
+  if (hasDefault && role === "player") {
+    return {
+      error: "Only the organizer or a scorekeeper can record a default.",
+    };
+  }
+  const defaultError = defaultProblem(format, sets);
+  if (defaultError) return { error: defaultError };
+
   const result = validateScore(format, sets);
   if (result.errors.length > 0) return { error: result.errors[0] };
   // Blocks (illegal set / incomplete match) finalize only via an admin override.
@@ -260,6 +277,7 @@ export async function submitScoreAction(
     set_number: i + 1,
     home_score: s.home,
     away_score: s.away,
+    defaulted_by: isDefaultedBy(s.defaultedBy) ? s.defaultedBy : null,
   }));
   if (rows.length) {
     const { error: setErr } = await supabase.from("sets").insert(rows);
@@ -278,6 +296,12 @@ export async function submitScoreAction(
     match.away_team_id,
   );
   const entered = sets.map((x) => [x.home, x.away] as [number, number]);
+  const defaults = describeDefaults(
+    sets,
+    names.home ?? "Home",
+    names.away ?? "Away",
+  );
+  const defaultNote = defaults.length ? ` (${defaults.join("; ")})` : "";
   const priorSets = (previous ?? []).map(
     (x) => [x.home_score, x.away_score] as [number, number],
   );
@@ -287,8 +311,8 @@ export async function submitScoreAction(
     actorUserId: user.id,
     action: "score_submitted",
     summary: priorSets.length
-      ? `Score changed from ${formatSets(priorSets)} to ${formatSets(entered)}${isAbnormal ? " (organizer override)" : ""}`
-      : `Score entered: ${formatSets(entered)}${isAbnormal ? " (organizer override)" : ""}`,
+      ? `Score changed from ${formatSets(priorSets)} to ${formatSets(entered)}${defaultNote}${isAbnormal ? " (organizer override)" : ""}`
+      : `Score entered: ${formatSets(entered)}${defaultNote}${isAbnormal ? " (organizer override)" : ""}`,
     detail: {
       homeTeam: names.home,
       awayTeam: names.away,
@@ -308,6 +332,8 @@ export async function submitScoreAction(
     .update({
       status: requiresConfirmation ? "in_progress" : "completed",
       is_abnormal: isAbnormal,
+      // A score replaces a double default.
+      double_default: false,
     })
     .eq("id", matchId);
 
@@ -350,7 +376,7 @@ export async function submitScoreAction(
  */
 export async function saveDraftSetsAction(
   matchId: string,
-  sets: SetScoreInput[],
+  sets: EnteredSet[],
 ): Promise<ActionError | { success: true }> {
   const supabase = await createClient();
   const {
@@ -389,6 +415,7 @@ export async function saveDraftSetsAction(
       set_number: i + 1,
       home_score: s.home,
       away_score: s.away,
+      defaulted_by: isDefaultedBy(s.defaultedBy) ? s.defaultedBy : null,
     }));
   if (rows.length) {
     const { error } = await supabase.from("sets").insert(rows);
@@ -450,7 +477,7 @@ export async function clearScoreAction(
   await supabase.from("match_confirmations").delete().eq("match_id", matchId);
   const { error: updErr } = await supabase
     .from("matches")
-    .update({ status: "scheduled", is_abnormal: false })
+    .update({ status: "scheduled", is_abnormal: false, double_default: false })
     .eq("id", matchId);
   if (updErr) return { error: updErr.message };
 
@@ -613,4 +640,115 @@ async function teamNames(
     home: homeId ? by.get(homeId) : undefined,
     away: awayId ? by.get(awayId) : undefined,
   };
+}
+
+/**
+ * Organizer-only: both teams defaulted the game (0183), or undo that. No sets,
+ * a loss for each team and no points either way (BVL, 2026-10-20). Undoing
+ * returns the game to "not played yet".
+ */
+export async function recordDoubleDefaultAction(
+  matchId: string,
+  on: boolean,
+): Promise<ActionError | { success: true; redirectTo: string }> {
+  if (typeof on !== "boolean") return { error: "Invalid request." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be signed in." };
+
+  const { data: match } = await supabase
+    .from("matches")
+    .select(
+      "competition_id, scheduled_at, home_team_id, away_team_id, bracket_position, double_default",
+    )
+    .eq("id", matchId)
+    .single();
+  if (!match) return { error: "Match not found." };
+  const { data: isAdminData } = await supabase.rpc("is_competition_admin", {
+    _competition_id: match.competition_id,
+  });
+  if (isAdminData !== true) {
+    return { error: "Only the organizer can record a double default." };
+  }
+  // A playoff game needs a winner to advance; there isn't one.
+  if (match.bracket_position !== null) {
+    return {
+      error: "A playoff game needs a winner, so it can't be a double default.",
+    };
+  }
+
+  const { data: previous } = await supabase
+    .from("sets")
+    .select("set_number, home_score, away_score")
+    .eq("match_id", matchId)
+    .order("set_number");
+  if ((previous ?? []).length > 0 || match.double_default) {
+    await captureRestorePoint(supabase, {
+      competitionId: match.competition_id,
+      matchId,
+      reason: "score_edited",
+      label: on
+        ? "Before recording a double default"
+        : "Before undoing a double default",
+    });
+  }
+
+  await supabase.from("sets").delete().eq("match_id", matchId);
+  await supabase.from("match_confirmations").delete().eq("match_id", matchId);
+  const { error: updErr } = await supabase
+    .from("matches")
+    .update({
+      status: on ? "completed" : "scheduled",
+      double_default: on,
+      is_abnormal: false,
+    })
+    .eq("id", matchId);
+  if (updErr) return { error: updErr.message };
+
+  const names = await teamNames(
+    supabase,
+    match.home_team_id,
+    match.away_team_id,
+  );
+  const priorSets = (previous ?? []).map(
+    (x) => [x.home_score, x.away_score] as [number, number],
+  );
+  await recordMatchAudit(supabase, {
+    competitionId: match.competition_id,
+    matchId,
+    actorUserId: user.id,
+    action: on ? "score_submitted" : "score_cleared",
+    summary: on
+      ? `Both teams defaulted${priorSets.length ? ` (replaced ${formatSets(priorSets)})` : ""}`
+      : "Double default undone",
+    detail: {
+      homeTeam: names.home,
+      awayTeam: names.away,
+      sets: [],
+      ...(priorSets.length ? { previousSets: priorSets } : {}),
+    },
+  });
+
+  await recomputeStandings(supabase, match.competition_id);
+  const { data: comp } = await supabase
+    .from("competitions")
+    .select("slug, timezone")
+    .eq("id", match.competition_id)
+    .single();
+  revalidatePath("/my-matches");
+  if (comp?.slug) revalidatePath(`/l/${comp.slug}`);
+  const redirectTo = await redirectAfterScore(
+    supabase,
+    match.competition_id,
+    true,
+    false,
+    {
+      id: matchId,
+      scheduledAt: match.scheduled_at,
+      timezone: comp?.timezone ?? "America/Toronto",
+    },
+  );
+  return { success: true, redirectTo };
 }

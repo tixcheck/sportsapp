@@ -443,6 +443,8 @@ export interface RoundResult {
   sets: { home: number; away: number }[];
   /** One game of a two-week match. */
   half: boolean;
+  /** Both teams defaulted this game (0183). */
+  doubleDefault?: boolean;
 }
 
 /**
@@ -474,6 +476,9 @@ export function combineHalves(results: RoundResult[]): RoundResult[] {
       continue;
     }
     const flipped = first.homeTeamId !== r.homeTeamId;
+    // A double-defaulted half adds no sets; the match is a double default only
+    // if both halves were, otherwise the half that was played decides it.
+    first.doubleDefault = !!first.doubleDefault && !!r.doubleDefault;
     first.sets.push(
       ...r.sets.map((x) => (flipped ? { home: x.away, away: x.home } : x)),
     );

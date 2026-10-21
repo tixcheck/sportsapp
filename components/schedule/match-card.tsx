@@ -168,7 +168,11 @@ export function MatchCard({
               Abnormal
             </span>
           )}
-          {final ? (
+          {match.doubleDefault ? (
+            <p className="text-muted-foreground mt-1 text-xs">
+              Both teams defaulted
+            </p>
+          ) : final ? (
             <p className="text-muted-foreground mt-1 text-xs tabular-nums">
               {match.sets.map((s) => `${s.home}–${s.away}`).join(", ")}
             </p>

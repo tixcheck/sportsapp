@@ -44,8 +44,8 @@ export type RestoreReason =
 
 const MATCH_COLUMNS =
   "id, round, court, scheduled_at, status, home_team_id, away_team_id, " +
-  "ref_team_id, pool_id, bracket_position, bracket_track, is_abnormal, " +
-  "match_format, venue_id, sets(set_number, home_score, away_score)";
+  "ref_team_id, pool_id, bracket_position, bracket_track, is_abnormal, double_default, " +
+  "match_format, venue_id, sets(set_number, home_score, away_score, defaulted_by)";
 
 type MatchRow = {
   id: string;
@@ -60,6 +60,7 @@ type MatchRow = {
   bracket_position: number | null;
   bracket_track: string | null;
   is_abnormal: boolean | null;
+  double_default: boolean | null;
   match_format: unknown;
   venue_id: string | null;
   sets:
@@ -67,6 +68,7 @@ type MatchRow = {
         set_number: number;
         home_score: number | null;
         away_score: number | null;
+        defaulted_by: "home" | "away" | null;
       }[]
     | null;
 };
@@ -94,12 +96,18 @@ function toSnapshotMatch(
     bracketPosition: m.bracket_position,
     bracketTrack: m.bracket_track,
     isAbnormal: m.is_abnormal === true,
+    doubleDefault: m.double_default === true,
     matchFormat: m.match_format ?? null,
     venueId: m.venue_id,
     sets: (m.sets ?? [])
       .slice()
       .sort((a, b) => a.set_number - b.set_number)
-      .map((s) => ({ n: s.set_number, h: s.home_score, a: s.away_score })),
+      .map((s) => ({
+        n: s.set_number,
+        h: s.home_score,
+        a: s.away_score,
+        ...(s.defaulted_by ? { d: s.defaulted_by } : {}),
+      })),
   };
 }
 
@@ -355,6 +363,7 @@ export async function restoreFromPointAction(
     bracket_position: m.bracketPosition,
     bracket_track: m.bracketTrack,
     is_abnormal: m.isAbnormal,
+    double_default: m.doubleDefault === true,
     match_format: m.matchFormat ?? null,
     venue_id: m.venueId,
   }));
@@ -371,6 +380,7 @@ export async function restoreFromPointAction(
       match_id: row.id as string,
       set_number: s.n,
       home_score: s.h,
+      defaulted_by: s.d ?? null,
       away_score: s.a,
     })),
   );

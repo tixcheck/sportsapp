@@ -28,6 +28,7 @@ import {
   parseRankMode,
   rankStandings,
   type MatchResult,
+  hasResult,
 } from "@/lib/scheduler/tiebreakers";
 import type { StandingsRowView } from "@/lib/standings/compute";
 import { buildStandingsExplainer } from "@/lib/standings/compute";
@@ -62,6 +63,7 @@ type MatchRow = {
   away_team_id: string | null;
   scheduled_at: string | null;
   match_format: MatchFormat | null;
+  double_default: boolean | null;
 };
 
 /**
@@ -140,7 +142,9 @@ export async function getLadderNightStandings(
 
   const { data: matches } = await supabase
     .from("matches")
-    .select("id, round, home_team_id, away_team_id, scheduled_at, match_format")
+    .select(
+      "id, round, home_team_id, away_team_id, scheduled_at, match_format, double_default",
+    )
     .eq("competition_id", competitionId)
     .not("round", "is", null);
   const matchRows = (matches ?? []) as MatchRow[];
@@ -233,7 +237,8 @@ export async function getLadderNightStandings(
     if (nightMatches.length === 0) continue;
 
     const complete = nightMatches.every(
-      (m) => (setsByMatch.get(m.id) ?? []).length > 0,
+      (m) =>
+        (setsByMatch.get(m.id) ?? []).length > 0 || m.double_default === true,
     );
     // The night's date in the LEAGUE's timezone, not UTC. Slicing the ISO
     // string looks equivalent and isn't: a Tuesday 8pm game in Toronto is
@@ -262,12 +267,14 @@ export async function getLadderNightStandings(
           awayTeamId: m.away_team_id as string,
           sets: setsByMatch.get(m.id) ?? [],
           half: isRound && roundLen > 1 && m.match_format?.bestOf === 1,
+          doubleDefault: m.double_default === true,
         })),
-      ).map(({ matchId, homeTeamId, awayTeamId, sets }) => ({
+      ).map(({ matchId, homeTeamId, awayTeamId, sets, doubleDefault }) => ({
         matchId,
         homeTeamId,
         awayTeamId,
         sets,
+        doubleDefault,
       }));
 
       // Scheduled is counted over the SAME set of games that are ranked, so the
@@ -281,7 +288,7 @@ export async function getLadderNightStandings(
         }
       }
 
-      const played = results.filter((r) => r.sets.length > 0);
+      const played = results.filter(hasResult);
       for (const r of played) {
         for (const id of [r.homeTeamId, r.awayTeamId]) {
           seasonPlayed.set(id, (seasonPlayed.get(id) ?? 0) + 1);
