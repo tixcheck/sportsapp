@@ -5,6 +5,10 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-21 — Helix "Novembro" Reverse Pairs set up (private draft)
+
+- From Helix's poster: Sat Nov 21, 2–8pm, St Mary's, $60 a pair / $30 each, prizes for 1st and 2nd. Created by `lib/db/setup-helix-novembro.ts` as a private draft with registration closed, settings the poster doesn't give copied from the cancelled Oct 24 event. See HANDOFF.
+
 ## 2026-10-21 — Record a payment for an individual (0185)
 
 - BVL: INDY players added by hand and paid outside the app sat at "Unpaid" and never appeared in the PayPal/e-transfer inbox, because they had no payment row to confirm (Thursday: 2 such people). Teams already had "Record payment" (0152); individuals had nothing.

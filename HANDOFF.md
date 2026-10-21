@@ -1565,6 +1565,18 @@ the opposite of what "bottom seed" intuitively suggests.
 `playoff_teams` is no longer on this list: saving the format sets it, so the
 owner can do it from the UI rather than needing a DB write.
 
+## Helix "Novembro" Reverse Pairs — Sat 21 Nov 2026 (set up 2026-10-21)
+
+`df3551c4-228b-4a13-b1cd-323315888bf2`, slug `helix-novembro-2026-11-21`, by
+`lib/db/setup-helix-novembro.ts`: a **private draft, registration closed**, for Helix to
+check and publish. From the poster: "in celebration of Andy!", 2–8pm, St Mary's Catholic
+Academy, $60 a pair or $30 each (split payment), cash prizes and swag for 1st and 2nd; the
+poster is the banner. Not on the poster, copied from the Oct 24 event as it last stood:
+2 courts, up to 18 pairs, 20-minute games to 25 win by 1, card payment. Registration
+deadline Fri Nov 20 11:59pm. Rounds (12) are a placeholder until the draw.
+**The Oct 24 event below is `cancelled`**, with 4 paid pairs and 3 pending on it as of
+2026-10-21; whether those payments were refunded or carried over to Novembro is Helix's call.
+
 ## Helix Reverse Pairs Tournament — Sat 24 Oct 2026 (set up 2026-09-28)
 
 Org **Helix Volleyball** (`helix-volleyball`). **Owned by Dani Farrugia
