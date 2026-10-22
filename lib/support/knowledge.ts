@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked; L column; Now playing per gym).
+ * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -109,7 +109,7 @@ Timed games: if time runs out, enter the score as it stood. Whether a game must 
 Net setup and take-down: in leagues that use it, a game your team sets up for shows "Your team puts up the net on Court <x>. Arrive 10 min early.", and a game your team takes down after shows "Your team takes the net down on Court <x> after this game." They're on My matches, the team page and the dashboard, and in the weekly email. Only the first game on each court in a gym that night needs the net put up, and only the last game's net comes down; one of the two teams in that game is named, taking turns so every team does it and none does it more than others (a team that missed a turn goes first next round). It follows the schedule, so if games move it can change. The app works out who; to swap with another team, ask the organizer.
 
 === STANDINGS AND FORMATS ===
-Standings columns: GP games played, MW matches won, T ties (if any), ML matches lost, SW/SL sets won/lost, PF/PA points for/against, Ratio (PF÷PA) or Diff (PF−PA). Tap a team's rank number for "Why is X ranked N?". A * marks a team that joined mid-season (scaled to the full schedule for ranking).
+Standings columns: GP games played, MW matches won, T ties (if any), ML matches lost, SW/SL sets won/lost, PF/PA points for/against, Ratio (PF÷PA) or Diff (PF−PA). Tap a team's rank number for "Why is X ranked N?". A * marks a team that joined mid-season (scaled to the full schedule for ranking). Some leagues (BVL) show simpler standings: just #, Team, SW sets won, SL sets lost, +/- (points for minus points against) and Ratio (points for ÷ points against). The order is the same full ranking; only the columns are fewer. Organizers can't switch this themselves yet; ask MySportsApp.
 Default ranking order: matches won (a tie counts as half), then set ratio, then point ratio, then head-to-head among tied teams. Organizers can pick another order (head-to-head first, or point differential); the legend under the table says which.
 League: a round robin; tiered leagues play a round robin per tier. Playoffs show in the "Playoffs" tab.
 Tournament: pools (seeded by snake draft) play a round robin, then a single-elimination bracket ("The playoffs appear after pool play."). Pool winners are seeded first, then runners-up.
@@ -169,6 +169,7 @@ Brampton Volleyball League (BVL), all nights:
 - A team's schedule shows once its roster is full and every player has signed the waiver (see TEAMS).
 - Net setup: every team helps put up the nets during a round, so it doesn't fall on the referee, and no team does it more than others. A team on net duty arrives 10 minutes before its first game. Teams also take turns taking the nets down after the last game. If your game shows "Your team puts up the net" or "Your team takes the net down", that's your turn (see GAMES). All four BVL leagues use it.
 - Games end at least 5 minutes before the gym booking ends. At Notre Dame on Thursdays everyone has to be out of the gym by 8:00 pm.
+- Standings show only SW (sets won), SL (sets lost), +/- (points for minus points against) and Ratio (points for ÷ points against), at BVL's request.
 - Scores in BVL leagues are entered by BVL's organizers, not by players or the reffing team. If a score looks wrong, tell BVL.
 - Defaults (confirmed by BVL 2026-10-20): a team that defaults a set scores 0 and the other team 25 for that set. If both teams default one set (both late, or out of time), that set is 0–0 for nobody and the other set decides the game. If both teams default the whole game, it's a loss for both and 0 points for either. Every set needs a winner: a game can't end with a set left unscored or tied.
 - How ties in the tier rankings are broken, playoff seeding, and which gym a tier plays at are BVL's decisions; for those, contact BVL.

@@ -52,6 +52,7 @@ export default async function EmbedStandingsPage({
             format={league.matchFormat}
             sport={league.sport}
             differential={differential}
+            simple={league.simpleStandings}
             mode={league.tiebreaker}
           />
         ) : standings.length > 1 ? (
@@ -61,6 +62,7 @@ export default async function EmbedStandingsPage({
             format={league.matchFormat}
             sport={league.sport}
             differential={differential}
+            simple={league.simpleStandings}
           />
         ) : (
           <div className="space-y-3">
@@ -69,12 +71,14 @@ export default async function EmbedStandingsPage({
               format={league.matchFormat}
               sport={league.sport}
               differential={differential}
+              simple={league.simpleStandings}
             />
             {(standings[0]?.rows.length ?? 0) > 0 && (
               <StandingsLegend
                 format={league.matchFormat}
                 sport={league.sport}
                 differential={differential}
+                simple={league.simpleStandings}
               />
             )}
           </div>

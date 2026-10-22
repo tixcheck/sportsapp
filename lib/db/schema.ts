@@ -519,6 +519,10 @@ export const leagueSettings = pgTable("league_settings", {
   // May carry a "_projected" suffix (see projectShortTeams) — parse with
   // startsWith/replace, never ===.
   tiebreaker: text("tiebreaker").notNull().default("ova"),
+  // Standings columns (0186): 'full' = every column; 'simple' = rank, team,
+  // SW, SL, +/- and ratio only (BVL, 2026-10-21). Display only: the ranking
+  // is the same either way.
+  standingsColumns: text("standings_columns").notNull().default("full"),
   // Fixture ordering within a round (migration 0092). "circle" is the Berger
   // method with rotating courts — correct where courts differ and the printed
   // order carries no meaning. "sequential" fixes the first team and pins courts

@@ -62,6 +62,7 @@ export default async function TeamPage({
     teamSchedule,
     standingsGroup,
     differential,
+    simpleStandings,
     roster,
   } = view;
 
@@ -240,10 +241,12 @@ export default async function TeamPage({
                     myTeamIds={[team.id]}
                     sport={competition.sport}
                     differential={differential}
+                    simple={simpleStandings}
                   />
                   <StandingsLegend
                     sport={competition.sport}
                     differential={differential}
+                    simple={simpleStandings}
                   />
                 </div>
               ) : (

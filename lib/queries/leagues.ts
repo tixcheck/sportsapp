@@ -95,6 +95,8 @@ export interface LeagueDetail {
   minutesPerGame: number;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: RankMode;
+  /** Pared-down standings columns: SW, SL, +/-, Ratio (0186). */
+  simpleStandings: boolean;
   /** Schedule views offered, first = default; null = all that apply (0158). */
   scheduleViews: string[] | null;
   /** Fixture order within a round — see league_settings.pairing_order. */
@@ -183,6 +185,8 @@ export interface PublicLeague {
   matchFormat: MatchFormat;
   /** Standings tiebreaker hierarchy — "ova" ratios or point "differential". */
   tiebreaker: RankMode;
+  /** Pared-down standings columns: SW, SL, +/-, Ratio (0186). */
+  simpleStandings: boolean;
   /** Skill tiers (divisions) teams can register into. Empty = untiered. */
   tiers: LeagueTier[];
   /** Whether self-registration is currently accepting teams (open + in window). */
@@ -253,7 +257,9 @@ export async function getLeagueDetail(
   // lands — a missing-column error can't blank out the core settings above.
   const { data: regRow } = await supabase
     .from("league_settings")
-    .select("registration_open, registration_deadline, max_teams")
+    .select(
+      "registration_open, registration_deadline, max_teams, standings_columns",
+    )
     .eq("competition_id", leagueId)
     .maybeSingle();
 
@@ -358,6 +364,7 @@ export async function getLeagueDetail(
       weightPerSetWin: (d.weight_per_set_win as number | null) ?? null,
     })),
     maxTeams: (regRow?.max_teams as number | null) ?? null,
+    simpleStandings: regRow?.standings_columns === "simple",
     registrationOpen: (regRow?.registration_open as boolean | null) === true,
     registrationDeadline:
       (regRow?.registration_deadline as string | null) ?? null,
@@ -551,7 +558,7 @@ export async function getPublicLeague(
   const { data: regRow } = await supabase
     .from("league_settings")
     .select(
-      "registration_open, registration_deadline, session_nights, schedule_views",
+      "registration_open, registration_deadline, session_nights, schedule_views, standings_columns",
     )
     .eq("competition_id", league.id)
     .maybeSingle();
@@ -578,6 +585,7 @@ export async function getPublicLeague(
       id: d.id as string,
       name: d.name as string,
     })),
+    simpleStandings: regRow?.standings_columns === "simple",
     registrationOpen,
     registrationDeadline: deadline,
     sessionNights: (regRow?.session_nights as number | null) ?? null,

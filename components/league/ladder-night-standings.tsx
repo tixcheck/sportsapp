@@ -23,6 +23,7 @@ export function LadderNightStandings({
   format,
   sport,
   differential = false,
+  simple = false,
   mode,
 }: {
   nights: LadderNight[];
@@ -30,6 +31,8 @@ export function LadderNightStandings({
   format?: MatchFormat;
   sport?: Sport;
   differential?: boolean;
+  /** The league's pared-down columns (0186). */
+  simple?: boolean;
   mode?: RankMode;
 }) {
   const rounds = nights.some((n) => n.round != null);
@@ -57,6 +60,7 @@ export function LadderNightStandings({
         sport={sport}
         differential={differential}
         mode={mode}
+        simple={simple}
         seasonTotal={nights.some((n) =>
           n.tiers.some((t) => t.rows.some((r) => r.seasonGamesPlayed != null)),
         )}
@@ -98,6 +102,7 @@ export function LadderNightStandings({
                 format={format}
                 sport={sport}
                 differential={differential}
+                simple={simple}
               />
             </div>
           ))}

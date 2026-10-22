@@ -5,6 +5,13 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-21 — Simple standings for BVL (0186)
+
+- BVL wanted standings "dumbed down a lot more": Sets won, Sets lost, +/-, Ratio only. New `league_settings.standings_columns` ('full' default, 'simple'); `apply-0186.ts` adds it and sets BVL's four running leagues (and the BVL demo league, by hand) to 'simple'.
+- `SimpleStandingsTable` shows #, Team, SW, SL, +/- (PF − PA) and Ratio (PF / PA); the legend keys just those. A `simple` prop threads through StandingsTable, StandingsGroups, LadderNightStandings, SeriesStandings and the team page, so the org, public, embed and team views all follow the setting.
+- Display only: ranking is unchanged (BVL is still on 'ova'; the +/- tiebreak switch is a separate, unapplied change). "Ratio" is the points ratio, as in the full table. No organizer toggle yet: set by script.
+- Checked at 390px on the demo league: no sideways scroll.
+
 ## 2026-10-21 — BVL referees as scorekeepers; Now playing per gym
 
 - Marg's referee email (31 addresses): the 16 with accounts are scorekeepers in all four BVL leagues (`lib/db/_tmp/bvl-sk.mts`). Marg and Theresa skipped (org organizer/admin already). Cheryl Lewis matched on her account `cherylsiwel@` (the email had `cherylrsiwel@`). 14 have no account yet; scorekeeper grants need one (0168).

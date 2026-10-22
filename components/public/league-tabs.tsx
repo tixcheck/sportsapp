@@ -323,6 +323,7 @@ export function LeagueTabs({
             format={league.matchFormat}
             sport={league.sport}
             differential={league.tiebreaker === "differential"}
+            simple={league.simpleStandings}
             mode={league.tiebreaker}
           />
         ) : series ? (
@@ -334,6 +335,7 @@ export function LeagueTabs({
             format={league.matchFormat}
             sport={league.sport}
             differential={league.tiebreaker === "differential"}
+            simple={league.simpleStandings}
             mode={league.tiebreaker}
           />
         ) : standings.length > 1 ? (
@@ -344,6 +346,7 @@ export function LeagueTabs({
             format={league.matchFormat}
             sport={league.sport}
             differential={league.tiebreaker === "differential"}
+            simple={league.simpleStandings}
           />
         ) : (
           <>
@@ -353,12 +356,14 @@ export function LeagueTabs({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+              simple={league.simpleStandings}
             />
             {(standings[0]?.rows.length ?? 0) > 0 && (
               <StandingsLegend
                 format={league.matchFormat}
                 sport={league.sport}
                 differential={league.tiebreaker === "differential"}
+                simple={league.simpleStandings}
                 mode={league.tiebreaker}
               />
             )}

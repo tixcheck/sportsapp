@@ -15,6 +15,7 @@ import { rankingOrderSteps, type RankMode } from "@/lib/scheduler/tiebreakers";
 import { MyTeamBadge } from "@/components/team/my-team-badge";
 
 import { PositionPill } from "./position-pill";
+import { SimpleStandingsTable } from "./simple-standings-table";
 
 function fmt(value: number): string {
   return Number.isFinite(value) ? value.toFixed(3) : "∞";
@@ -72,6 +73,7 @@ export function StandingsTable({
   sport,
   differential = false,
   showPoints = false,
+  simple = false,
 }: {
   rows: StandingsRowView[];
   myTeamIds?: string[];
@@ -84,12 +86,19 @@ export function StandingsTable({
   differential?: boolean;
   /** A Pts column (1 per win, ½ per tie) — the organizer's view only. */
   showPoints?: boolean;
+  /** The league's pared-down columns: SW, SL, +/-, Ratio (0186). */
+  simple?: boolean;
 }) {
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground py-6 text-center text-sm">
         No results yet — standings appear once scores are confirmed.
       </p>
+    );
+  }
+  if (simple) {
+    return (
+      <SimpleStandingsTable rows={rows} myTeamIds={myTeamIds} sport={sport} />
     );
   }
 
@@ -314,6 +323,7 @@ export function StandingsLegend({
   differential = false,
   showPoints = false,
   seasonTotal = false,
+  simple = false,
   mode,
 }: {
   /**
@@ -338,6 +348,8 @@ export function StandingsLegend({
   showPoints?: boolean;
   /** Explain the Total column (a ladder night's table beside the season count). */
   seasonTotal?: boolean;
+  /** Key the pared-down columns (SimpleStandingsTable) instead. */
+  simple?: boolean;
 }) {
   const flags = format ? standingsLegendFlags(format) : { singleSet, canTie };
   const single = flags.singleSet;
@@ -375,17 +387,25 @@ export function StandingsLegend({
           then head-to-head among teams still tied.
         </p>
       )}
-      <p className="text-ink-3">
-        GP games played / scheduled ·
-        {seasonTotal ? " Total games played this season ·" : ""} MW/ML {unit}{" "}
-        won/lost ·{ties ? " T tied ·" : ""}
-        {ties && showPoints ? " Pts = MW + ½ T ·" : ""}
-        {showSets ? " SW/SL sets ·" : ""} {pts.short[0]}/{pts.short[1]}{" "}
-        {pts.unit.toLowerCase()}s ·{" "}
-        {differential
-          ? `Diff = ${pts.short[0]} − ${pts.short[1]}`
-          : `Ratio = ${pts.short[0]} / ${pts.short[1]}`}
-      </p>
+      {simple ? (
+        <p className="text-ink-3">
+          SW/SL sets won/lost · +/- = {pts.unit.toLowerCase()}s for minus{" "}
+          {pts.unit.toLowerCase()}s against · Ratio = {pts.short[0]} /{" "}
+          {pts.short[1]}
+        </p>
+      ) : (
+        <p className="text-ink-3">
+          GP games played / scheduled ·
+          {seasonTotal ? " Total games played this season ·" : ""} MW/ML {unit}{" "}
+          won/lost ·{ties ? " T tied ·" : ""}
+          {ties && showPoints ? " Pts = MW + ½ T ·" : ""}
+          {showSets ? " SW/SL sets ·" : ""} {pts.short[0]}/{pts.short[1]}{" "}
+          {pts.unit.toLowerCase()}s ·{" "}
+          {differential
+            ? `Diff = ${pts.short[0]} − ${pts.short[1]}`
+            : `Ratio = ${pts.short[0]} / ${pts.short[1]}`}
+        </p>
+      )}
     </div>
   );
 }
@@ -404,6 +424,7 @@ export function StandingsGroups({
   sport,
   differential = false,
   showPoints = false,
+  simple = false,
 }: {
   groups: StandingsGroup[];
   showDivision: boolean;
@@ -416,6 +437,8 @@ export function StandingsGroups({
   differential?: boolean;
   /** The organizer's Pts column — passed to each group's table. */
   showPoints?: boolean;
+  /** The league's pared-down columns (0186). */
+  simple?: boolean;
 }) {
   // Division names in the order the groups arrive — i.e. seeded order.
   const divisions = [
@@ -510,6 +533,7 @@ export function StandingsGroups({
             sport={sport}
             differential={differential}
             showPoints={showPoints}
+            simple={simple}
           />
         </section>
       ) : (
@@ -533,6 +557,7 @@ export function StandingsGroups({
               sport={sport}
               differential={differential}
               showPoints={showPoints}
+              simple={simple}
             />
           </section>
         ))
@@ -543,6 +568,7 @@ export function StandingsGroups({
         sport={sport}
         differential={differential}
         showPoints={showPoints}
+        simple={simple}
       />
     </div>
   );

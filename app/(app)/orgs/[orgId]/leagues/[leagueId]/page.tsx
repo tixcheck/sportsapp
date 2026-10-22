@@ -479,6 +479,7 @@ export default async function LeaguePage({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+              simple={league.simpleStandings}
               mode={league.tiebreaker}
             />
           ) : series ? (
@@ -489,6 +490,7 @@ export default async function LeaguePage({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+              simple={league.simpleStandings}
               mode={league.tiebreaker}
               showPoints
             />
@@ -499,6 +501,7 @@ export default async function LeaguePage({
               format={league.matchFormat}
               sport={league.sport}
               differential={league.tiebreaker === "differential"}
+              simple={league.simpleStandings}
               showPoints
             />
           ) : (
@@ -508,6 +511,7 @@ export default async function LeaguePage({
                 format={league.matchFormat}
                 sport={league.sport}
                 differential={league.tiebreaker === "differential"}
+                simple={league.simpleStandings}
                 showPoints
               />
               {(standings[0]?.rows.length ?? 0) > 0 && (
@@ -515,6 +519,7 @@ export default async function LeaguePage({
                   format={league.matchFormat}
                   sport={league.sport}
                   differential={league.tiebreaker === "differential"}
+                  simple={league.simpleStandings}
                   mode={league.tiebreaker}
                   showPoints
                 />

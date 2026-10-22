@@ -32,6 +32,7 @@ export function SeriesStandings({
   sport,
   differential = false,
   showPoints = false,
+  simple = false,
   mode,
 }: {
   /** The league's ranking mode, for the legend's sentence. */
@@ -45,6 +46,8 @@ export function SeriesStandings({
   sport?: Sport;
   differential?: boolean;
   showPoints?: boolean;
+  /** The league's pared-down columns (0186). */
+  simple?: boolean;
 }) {
   const [picked, setPicked] = useState<number | "season">(current);
   const chosen =
@@ -89,6 +92,7 @@ export function SeriesStandings({
           sport={sport}
           differential={differential}
           showPoints={showPoints}
+          simple={simple}
         />
       ) : (
         <>
@@ -99,6 +103,7 @@ export function SeriesStandings({
             sport={sport}
             differential={differential}
             showPoints={showPoints}
+            simple={simple}
           />
           {(groups[0]?.rows.length ?? 0) > 0 && (
             <StandingsLegend
@@ -106,6 +111,7 @@ export function SeriesStandings({
               sport={sport}
               differential={differential}
               showPoints={showPoints}
+              simple={simple}
               mode={mode}
             />
           )}

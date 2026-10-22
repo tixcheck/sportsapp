@@ -41,6 +41,8 @@ export interface TeamView {
   standingsGroup: StandingsGroup | null;
   /** League with the point-differential tiebreaker — mode-aware standings. */
   differential: boolean;
+  /** Pared-down standings columns (0186). */
+  simpleStandings: boolean;
   roster: RosterMember[];
 }
 
@@ -96,16 +98,18 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
   // League standings may rank by point differential — surface it so the table
   // and legend match the organizer's setting (tournaments are always OVA).
   let differential = false;
+  let simpleStandings = false;
   if (comp.type === "league") {
     const { data: ls } = await supabase
       .from("league_settings")
-      .select("tiebreaker")
+      .select("tiebreaker, standings_columns")
       .eq("competition_id", comp.id)
       .single();
     // Through the decoder: `=== "differential"` missed `differential_projected`
     // entirely, so a league using the projection showed ratio columns while
     // ranking on differential.
     differential = parseRankMode(ls?.tiebreaker) === "differential";
+    simpleStandings = ls?.standings_columns === "simple";
   }
 
   let myMatches: MyMatch[] = [];
@@ -157,6 +161,7 @@ export async function getTeamView(teamId: string): Promise<TeamView | null> {
     teamSchedule,
     standingsGroup,
     differential,
+    simpleStandings,
     roster,
   };
 }
