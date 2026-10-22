@@ -8,9 +8,9 @@ import { PositionPill } from "./position-pill";
 
 /**
  * The pared-down standings a league can choose (league_settings
- * .standings_columns = 'simple'): rank, team, sets won, sets lost, points
- * +/- and points ratio, nothing else. BVL asked for exactly these four
- * columns (2026-10-21); the order is still the league's full ranking.
+ * .standings_columns = 'simple'): rank, team, sets won, sets lost and points
+ * +/-, nothing else. BVL asked for exactly these, headers spelled out and no
+ * ratio (2026-10-21); the order is still the league's full ranking.
  */
 export function SimpleStandingsTable({
   rows,
@@ -22,31 +22,24 @@ export function SimpleStandingsTable({
   sport?: Sport;
 }) {
   const pts = sportConfig(sport ?? "indoor6").points;
-  const th = "px-2 pb-2 text-center font-bold";
+  // Two-line headers sit on the bottom rule with the one-line ones.
+  const th = "px-2 pb-2 text-center align-bottom leading-tight font-bold";
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm tabular-nums">
         <thead>
           <tr className="text-ink-2 border-ink border-b-[1.5px] text-[0.66rem] tracking-[0.1em] uppercase">
-            <th className="w-10 px-2 pb-2 text-center font-bold">#</th>
-            <th className="px-3 pb-2 text-left font-bold">Team</th>
-            <th title="Sets won" className={th}>
-              SW
+            <th className="w-10 px-2 pb-2 text-center align-bottom font-bold">
+              #
             </th>
-            <th title="Sets lost" className={th}>
-              SL
-            </th>
+            <th className="px-3 pb-2 text-left align-bottom font-bold">Team</th>
+            <th className={th}>Sets won</th>
+            <th className={th}>Sets lost</th>
             <th
-              title={`${pts.unit}s for minus ${pts.unit.toLowerCase()}s against`}
+              title={`${pts.unit}s scored minus ${pts.unit.toLowerCase()}s against`}
               className={th}
             >
               +/-
-            </th>
-            <th
-              title={`${pts.unit} ratio (${pts.short[0]} / ${pts.short[1]})`}
-              className="px-3 pb-2 text-right font-bold"
-            >
-              Ratio
             </th>
           </tr>
         </thead>
@@ -90,13 +83,8 @@ export function SimpleStandingsTable({
                 </td>
                 <td className="text-ink px-2 text-center font-bold">{r.sw}</td>
                 <td className="text-ink-3 px-2 text-center">{r.sl}</td>
-                <td className="px-2 text-center">
+                <td className="text-ink px-2 text-center font-semibold">
                   {diff > 0 ? `+${diff}` : diff}
-                </td>
-                <td className="text-ink px-3 text-right font-semibold">
-                  {Number.isFinite(r.pointRatio)
-                    ? r.pointRatio.toFixed(3)
-                    : "∞"}
                 </td>
               </tr>
             );

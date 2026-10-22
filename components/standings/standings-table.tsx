@@ -360,38 +360,39 @@ export function StandingsLegend({
   const pts = sportConfig(sport ?? "indoor6").points;
   // In differential mode set ratio is not a tiebreaker — hide the SW/SL step.
   const showSets = !single && !differential;
+  const tie = ties ? " (a tied game counts as ½ a win)" : "";
+  const steps = mode
+    ? rankingOrderSteps(mode, {
+        unit,
+        points: pts.unit.toLowerCase(),
+        sets: !single,
+      })
+    : [
+        `${unit} won`,
+        ...(differential
+          ? [
+              `${pts.unit.toLowerCase()} differential (${pts.short[0]} − ${pts.short[1]})`,
+            ]
+          : [
+              ...(showSets ? ["set ratio (SW / SL)"] : []),
+              `${pts.unit.toLowerCase()} ratio (${pts.short[0]} / ${pts.short[1]})`,
+            ]),
+        "head-to-head among teams still tied",
+      ];
+  const ranking = `by ${steps[0]}${tie}${steps
+    .slice(1)
+    .map((x) => `, then ${x}`)
+    .join("")}.`;
   return (
     <div className={cn("text-ink-2 space-y-1 text-[0.7rem]", className)}>
-      {mode ? (
-        <p>
-          <span className="font-semibold">How rankings are calculated:</span>{" "}
-          {(() => {
-            const steps = rankingOrderSteps(mode, {
-              unit,
-              points: pts.unit.toLowerCase(),
-              sets: !single,
-            });
-            return `by ${steps[0]}${ties ? " (a tied game counts as ½ a win)" : ""}${steps
-              .slice(1)
-              .map((s) => `, then ${s}`)
-              .join("")}.`;
-          })()}
-        </p>
-      ) : (
-        <p>
-          <span className="font-semibold">How rankings are calculated:</span> by{" "}
-          {unit} won{ties ? " (a tied game counts as ½ a win)" : ""},
-          {differential
-            ? ` then ${pts.unit.toLowerCase()} differential (${pts.short[0]} − ${pts.short[1]}),`
-            : `${showSets ? " then set ratio (SW / SL)," : ""} then ${pts.unit.toLowerCase()} ratio (${pts.short[0]} / ${pts.short[1]}),`}{" "}
-          then head-to-head among teams still tied.
-        </p>
-      )}
+      <p>
+        <span className="font-semibold">How rankings are calculated:</span>{" "}
+        {simple ? spellOut(ranking, pts) : ranking}
+      </p>
       {simple ? (
         <p className="text-ink-3">
-          SW/SL sets won/lost · +/- = {pts.unit.toLowerCase()}s for minus{" "}
-          {pts.unit.toLowerCase()}s against · Ratio = {pts.short[0]} /{" "}
-          {pts.short[1]}
+          +/- = {pts.unit.toLowerCase()}s scored minus {pts.unit.toLowerCase()}s
+          against
         </p>
       ) : (
         <p className="text-ink-3">
@@ -408,6 +409,23 @@ export function StandingsLegend({
       )}
     </div>
   );
+}
+
+/**
+ * The ranking sentence without column abbreviations, for the simple table:
+ * its headers are spelled out (BVL, 2026-10-21), so "SW / SL" and "PF / PA"
+ * would name columns the reader can't see.
+ */
+function spellOut(
+  text: string,
+  pts: { unit: string; short: readonly string[] },
+): string {
+  const scored = `${pts.unit.toLowerCase()}s scored`;
+  const against = `${pts.unit.toLowerCase()}s against`;
+  return text
+    .replaceAll("SW / SL", "sets won ÷ sets lost")
+    .replaceAll(`${pts.short[0]} / ${pts.short[1]}`, `${scored} ÷ ${against}`)
+    .replaceAll(`${pts.short[0]} − ${pts.short[1]}`, `${scored} − ${against}`);
 }
 
 /**

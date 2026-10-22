@@ -11,6 +11,7 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 - `SimpleStandingsTable` shows #, Team, SW, SL, +/- (PF − PA) and Ratio (PF / PA); the legend keys just those. A `simple` prop threads through StandingsTable, StandingsGroups, LadderNightStandings, SeriesStandings and the team page, so the org, public, embed and team views all follow the setting.
 - Display only: ranking is unchanged (BVL is still on 'ova'; the +/- tiebreak switch is a separate, unapplied change). "Ratio" is the points ratio, as in the full table. No organizer toggle yet: set by script.
 - Checked at 390px on the demo league: no sideways scroll.
+- Follow-up the same day: headers spelled out ("Sets won", "Sets lost") and Ratio dropped. BVL: "they dont care about Ratio. Just +- is good."
 
 ## 2026-10-21 — BVL referees as scorekeepers; Now playing per gym
 
