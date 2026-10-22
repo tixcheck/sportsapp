@@ -422,7 +422,13 @@ function spellOut(
 ): string {
   const scored = `${pts.unit.toLowerCase()}s scored`;
   const against = `${pts.unit.toLowerCase()}s against`;
+  // Differential first: the simple table's column for it is headed "+/-".
+  const diff = new RegExp(
+    `${pts.unit.toLowerCase()} differential( \([^)]*\))?`,
+    "g",
+  );
   return text
+    .replace(diff, "+/-")
     .replaceAll("SW / SL", "sets won ÷ sets lost")
     .replaceAll(`${pts.short[0]} / ${pts.short[1]}`, `${scored} ÷ ${against}`)
     .replaceAll(`${pts.short[0]} − ${pts.short[1]}`, `${scored} − ${against}`);

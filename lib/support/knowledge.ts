@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings).
+ * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -169,10 +169,10 @@ Brampton Volleyball League (BVL), all nights:
 - A team's schedule shows once its roster is full and every player has signed the waiver (see TEAMS).
 - Net setup: every team helps put up the nets during a round, so it doesn't fall on the referee, and no team does it more than others. A team on net duty arrives 10 minutes before its first game. Teams also take turns taking the nets down after the last game. If your game shows "Your team puts up the net" or "Your team takes the net down", that's your turn (see GAMES). All four BVL leagues use it.
 - Games end at least 5 minutes before the gym booking ends. At Notre Dame on Thursdays everyone has to be out of the gym by 8:00 pm.
-- Standings show only "Sets won", "Sets lost" and +/- (points scored minus points against), at BVL's request.
+- Standings show only "Sets won", "Sets lost" and +/- (points scored minus points against), at BVL's request. Teams are ranked by matches won (a tied match counts as ½ a win), then by +/-, then head-to-head among teams still tied (BVL, 2026-10-21). Tier moves follow that order.
 - Scores in BVL leagues are entered by BVL's organizers, not by players or the reffing team. If a score looks wrong, tell BVL.
 - Defaults (confirmed by BVL 2026-10-20): a team that defaults a set scores 0 and the other team 25 for that set. If both teams default one set (both late, or out of time), that set is 0–0 for nobody and the other set decides the game. If both teams default the whole game, it's a loss for both and 0 points for either. Every set needs a winner: a game can't end with a set left unscored or tied.
-- How ties in the tier rankings are broken, playoff seeding, and which gym a tier plays at are BVL's decisions; for those, contact BVL.
+- Playoff seeding and which gym a tier plays at are BVL's decisions; for those, contact BVL.
 
 === WHAT THE APP DOESN'T DO (say so; don't invent a way) ===
 No Google/Apple sign-in, no sign-in by email link, no change-password screen (use Forgot password), no account deletion button, no phone number on profiles, no photo upload (avatar is an image link), no calendar export, no push notifications or text messages, no chat between players, no player "leave team" or "withdraw" button, no player score edits after a score is final, no score-confirmation emails, no ownership transfer, no delete for Reverse Pairs or King of the Court events. MySportsApp can't refund, change a schedule, move a team between tiers, or change league rules: that's the organizer.
