@@ -26,3 +26,25 @@ export function pairName(
     "Player";
   return `${me}/${firstNameOf(partnerName) ?? PARTNER_PLACEHOLDER}`;
 }
+
+/**
+ * The draw-at-the-door label in a pair's name: "J" from "Pair J" or from
+ * "J · Sarah & Dylan". Null for an ordinary name.
+ */
+export function doorLabelOf(name: string): string | null {
+  const m =
+    /^Pair (\S{1,3})$/.exec(name.trim()) ?? /^(\S{1,3}) · /.exec(name.trim());
+  return m ? m[1] : null;
+}
+
+/**
+ * The name to store when an organizer renames a pair. A pair set up as a
+ * placeholder ("Pair J") keeps its letter in front — "J · Sarah & Dylan" — so
+ * the printed sheet, which only knows "J", still matches the app.
+ */
+export function renamedPairName(current: string, typed: string): string {
+  const name = typed.trim();
+  const label = doorLabelOf(current);
+  if (!label || name === "" || doorLabelOf(name) === label) return name;
+  return `${label} · ${name}`;
+}

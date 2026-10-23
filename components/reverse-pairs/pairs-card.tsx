@@ -2,14 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ReversePairsPair } from "@/lib/queries/reverse-pairs";
-import {
-  addReversePairsAction,
-  removeReversePairAction,
-} from "@/server/actions/reverse-pairs";
+import { addReversePairsAction } from "@/server/actions/reverse-pairs";
+import { PairChip } from "@/components/reverse-pairs/pair-chip";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -71,18 +69,6 @@ export function ReversePairsPairsCard({
     });
   }
 
-  function remove(teamId: string, name: string) {
-    start(async () => {
-      const res = await removeReversePairAction(teamId);
-      if ("error" in res) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(`${name} removed.`);
-      router.refresh();
-    });
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -113,23 +99,7 @@ export function ReversePairsPairsCard({
         {pairs.length > 0 && (
           <ul className="flex flex-wrap gap-1.5">
             {pairs.map((p) => (
-              <li
-                key={p.id}
-                className="border-rule bg-paper-raised flex items-center gap-1 rounded-md border py-1 pr-1 pl-2 text-sm"
-              >
-                {p.name}
-                {!locked && (
-                  <button
-                    type="button"
-                    onClick={() => remove(p.id, p.name)}
-                    disabled={pending}
-                    aria-label={`Remove ${p.name}`}
-                    className="text-ink-3 hover:text-claret rounded p-0.5"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </li>
+              <PairChip key={p.id} pair={p} locked={locked} />
             ))}
           </ul>
         )}
@@ -158,7 +128,8 @@ export function ReversePairsPairsCard({
         {locked && pairs.length > 0 && (
           <p className="text-ink-3 text-xs">
             A schedule is drawn, so pairs can&rsquo;t be removed without
-            redrawing it.
+            redrawing it. Edit a name any time with the pencil: games and
+            standings update with it.
           </p>
         )}
       </CardContent>

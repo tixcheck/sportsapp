@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-21 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-).
+ * Last checked against the app: 2026-10-23 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -132,7 +132,7 @@ Not possible in the app: transferring ownership, making someone an admin, removi
 
 Creating a league ("New league"): Sport → Details (name, season dates, venue, courts, rounds, games per week, minutes per game) → Schedule (match day, start time, blackout dates) → Format (match format, e.g. "Best of 3 to 25 (recreational)"; 2-set option) → Scoring (who enters scores, confirmation) → "Create league".
 Creating a tournament ("New tournament"): Sport → Details → Divisions → Format ("Pools → Single bracket", "Pools → Championship + Consolation", "Custom") → Schedule (courts, games per team, max teams) → Match format and registration deadline → Payment → Scoring → "Create tournament".
-Reverse Pairs: "New Reverse Pairs" → name, sport, date, start time, venue, courts (six pairs per court), points and minutes per game → "Create event". Tabs "Tonight", "Standings", "Setup", "Settings".
+Reverse Pairs: "New Reverse Pairs" → name, sport, date, start time, venue, courts (six pairs per court), points and minutes per game → "Create event". Tabs "Tonight", "Standings", "Setup", "Settings". Any pair's name can be edited at any time, even after the draw, with the pencil next to it under "Pairs"; games and standings show the new name. A pair named like "Pair J" keeps its letter in front: "J · Sarah & Dylan".
 King of the Court: "New KotC" → pairs per pool, seeding rounds, rounds, minutes, optional point cap → "Create competition".
 Ladder: an existing league with at least 2 tiers → Settings → Format → "Set up ladder" → "Turn on ladder format". A "Ladder" tab then has "Draw week 1", "Lock", "Undo last lock", and "Lock and draw automatically".
 Net duty: league's Schedule tab → "Net setup" card → tick "Name a team to put up each net". Off until switched on. It names a team to put up each court's net before the first game and one to take it down after the last. Teams see it on their games, dashboard and weekly email, and a BVL round's printed schedule lists "Court A nets: up <team>, down <team>" per gym. There's no way to pick the team by hand.
@@ -173,6 +173,7 @@ Brampton Volleyball League (BVL), all nights:
 - Scores in BVL leagues are entered by BVL's organizers, not by players or the reffing team. If a score looks wrong, tell BVL.
 - Defaults (confirmed by BVL 2026-10-20): a team that defaults a set scores 0 and the other team 25 for that set. If both teams default one set (both late, or out of time), that set is 0–0 for nobody and the other set decides the game. If both teams default the whole game, it's a loss for both and 0 points for either. Every set needs a winner: a game can't end with a set left unscored or tied.
 - Playoff seeding and which gym a tier plays at are BVL's decisions; for those, contact BVL.
+- BVL Reverse Pairs, Fri Oct 23 2026, Notre Dame, 7:30 pm: 21 pairs on 3 courts (Courts A, B, C on the printed sheet are Court 1, 2, 3 in the app), 7 rounds 20 minutes apart (17 minutes of play, 3 minutes break), every pair plays 6 games and sits out once, no one partners the same pair twice. Pairs pick a number or letter (2–10, 12–19, J, Q, K, A) when they arrive; the organizer then puts their names on that pair, so the schedule is set before anyone knows their spot.
 
 === WHAT THE APP DOESN'T DO (say so; don't invent a way) ===
 No Google/Apple sign-in, no sign-in by email link, no change-password screen (use Forgot password), no account deletion button, no phone number on profiles, no photo upload (avatar is an image link), no calendar export, no push notifications or text messages, no chat between players, no player "leave team" or "withdraw" button, no player score edits after a score is final, no score-confirmation emails, no ownership transfer, no delete for Reverse Pairs or King of the Court events. MySportsApp can't refund, change a schedule, move a team between tiers, or change league rules: that's the organizer.
