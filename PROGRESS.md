@@ -10,6 +10,7 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 - Theresa's festival tonight (Fri Oct 23, Notre Dame, 3 gyms on the Friday permit, 7:30): created as a private draft (`lib/db/_tmp/rp21-setup.mts <date> apply`, id f5d48297). The schedule is the proposed one from the comparison PDF, not `generateReversePairs`: 6 games and one sit each, 0 repeat partners, opponents spread far better than her previous sheet. The app's draw optimizes partners only, so it would have done worse.
 - Pairs draw a number/letter at the door, so the field is placeholders "Pair 2" … "Pair A" (her labels; there is no 11). New pencil on each pair under "Pairs" renames it any time, including after the draw. Uses the existing `renameTeamAction`; games and standings resolve names by id, so nothing is redrawn. A placeholder keeps its label in front ("J · Sarah & Dylan", `renamedPairName`) so the printed sheet still matches.
 - Courts A/B/C on her sheet are Court 1/2/3 in the app.
+- Then renumbered to "Pair 1" … "Pair 21" at the owner's request (her labels in order, `_tmp/rp21-renumber.mts`); the numbered print sheet is `_tmp/rp21-sheet.mts`.
 
 ## 2026-10-21 — Simple standings for BVL (0186)
 
