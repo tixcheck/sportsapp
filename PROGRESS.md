@@ -5,6 +5,10 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-23 — Admin overview: Open and Completed apart
+
+- Platform overview (/admin) now shows each org as a heading with two cards, "Open" (anything not completed, drafts included) and "Completed", so finished events stop burying the running ones. Row extracted to `components/admin/competition-row.tsx`.
+
 ## 2026-10-23 — BVL Reverse Pairs (21 pairs, 3 courts) + rename a pair
 
 - Theresa's festival tonight (Fri Oct 23, Notre Dame, 3 gyms on the Friday permit, 7:30): created as a private draft (`lib/db/_tmp/rp21-setup.mts <date> apply`, id f5d48297). The schedule is the proposed one from the comparison PDF, not `generateReversePairs`: 6 games and one sit each, 0 repeat partners, opponents spread far better than her previous sheet. The app's draw optimizes partners only, so it would have done worse.
