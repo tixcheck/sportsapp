@@ -17,6 +17,7 @@ import {
   date,
   index,
   integer,
+  smallint,
   jsonb,
   numeric,
   pgEnum,
@@ -751,6 +752,10 @@ export const teams = pgTable(
     // Reverse Pairs: the name is generated ("Dani/Mel", "Dani/TBD") and the DB
     // keeps it in step with the roster. Any other rename clears it (0145).
     nameIsAuto: boolean("name_is_auto").notNull().default(false),
+    // Reverse Pairs drawn at the door (0187): the pair's place in the schedule
+    // ("number 7"), and whether the organizer has entered the number they drew.
+    drawNumber: smallint("draw_number"),
+    drawNumberSet: boolean("draw_number_set").notNull().default(false),
     // KotC: the two participants' first names, e.g. "Sam/Riley" (nullable; other
     // competition types don't use it).
     players: text("players"),

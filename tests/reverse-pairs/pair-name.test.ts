@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  doorLabelOf,
-  firstNameOf,
-  pairName,
-  renamedPairName,
-} from "@/lib/reverse-pairs/pair-name";
+import { firstNameOf, pairName } from "@/lib/reverse-pairs/pair-name";
 
 describe("firstNameOf", () => {
   it("takes the first word", () => {
@@ -34,40 +29,5 @@ describe("pairName", () => {
       pairName({ displayName: null, email: "helix.volley@gmail.com" }),
     ).toBe("helix.volley/TBD");
     expect(pairName({})).toBe("Player/TBD");
-  });
-});
-
-describe("doorLabelOf", () => {
-  it("reads the label from a placeholder or a named pair", () => {
-    expect(doorLabelOf("Pair J")).toBe("J");
-    expect(doorLabelOf("Pair 10")).toBe("10");
-    expect(doorLabelOf("J · Sarah & Dylan")).toBe("J");
-  });
-
-  it("is null for an ordinary name", () => {
-    expect(doorLabelOf("Sarah & Dylan")).toBeNull();
-    expect(doorLabelOf("Dani/TBD")).toBeNull();
-  });
-});
-
-describe("renamedPairName", () => {
-  it("keeps the door label in front of the typed names", () => {
-    expect(renamedPairName("Pair J", "Sarah & Dylan")).toBe(
-      "J · Sarah & Dylan",
-    );
-    expect(renamedPairName("J · Sarah & Dylan", "Sarah & Mike")).toBe(
-      "J · Sarah & Mike",
-    );
-  });
-
-  it("does not double the label when it was typed", () => {
-    expect(renamedPairName("Pair J", "J · Sarah & Dylan")).toBe(
-      "J · Sarah & Dylan",
-    );
-    expect(renamedPairName("J · Sarah", "Pair J")).toBe("Pair J");
-  });
-
-  it("leaves ordinary pairs alone", () => {
-    expect(renamedPairName("Sam & Mel", " Sam & Pris ")).toBe("Sam & Pris");
   });
 });

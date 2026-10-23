@@ -13,10 +13,17 @@ import {
   type ReversePairsStanding,
 } from "@/lib/stats/reverse-pairs";
 import { suggestRounds } from "@/lib/scheduler/reverse-pairs";
+import { displayPairName } from "@/lib/reverse-pairs/draw-number";
 
 export interface ReversePairsPair {
   id: string;
+  /** What the schedule and standings show: "Pair 7" until a drawn number is entered. */
   name: string;
+  /** The pair's own name, as entered. */
+  entryName: string;
+  /** Drawn-at-the-door events only (0187): the pair's place in the schedule. */
+  drawNumber: number | null;
+  drawNumberSet: boolean;
 }
 
 export interface ReversePairsGameRow {
@@ -60,6 +67,8 @@ export interface ReversePairsDetail {
   /** Whether a pair may sign up right now: open, in time, and not full. */
   registrationLive: boolean;
   pairs: ReversePairsPair[];
+  /** Pairs pick a number at the door, and the organizer enters it (0187). */
+  drawNumbers: boolean;
   games: ReversePairsGameRow[];
   /** Who sat out each round, in round order. */
   byes: ReversePairsPair[][];
@@ -118,7 +127,7 @@ export async function getReversePairs(
         .maybeSingle(),
       supabase
         .from("teams")
-        .select("id, name")
+        .select("id, name, draw_number, draw_number_set")
         .eq("competition_id", competitionId)
         // Unpaid teams are not entrants — they must never reach a schedule or
         // the standings (migration 0066).
@@ -132,10 +141,24 @@ export async function getReversePairs(
         .order("court"),
     ]);
 
-  const pairs: ReversePairsPair[] = (teams ?? []).map((t) => ({
-    id: t.id as string,
-    name: t.name as string,
-  }));
+  const pairs: ReversePairsPair[] = (teams ?? []).map((t) => {
+    const p = {
+      name: t.name as string,
+      drawNumber: (t.draw_number as number | null) ?? null,
+      drawNumberSet: (t.draw_number_set as boolean | null) ?? false,
+    };
+    return {
+      ...p,
+      id: t.id as string,
+      entryName: p.name,
+      name: displayPairName(p),
+    };
+  });
+  const drawNumbers = pairs.some((p) => p.drawNumber !== null);
+  // By number, so "Pair 1 … Pair 21" reads in order rather than as text.
+  if (drawNumbers) {
+    pairs.sort((a, b) => (a.drawNumber ?? 999) - (b.drawNumber ?? 999));
+  }
   const byId = new Map(pairs.map((p) => [p.id, p]));
 
   const gameIds = (games ?? []).map((g) => g.id as string);
@@ -240,6 +263,7 @@ export async function getReversePairs(
         ?.setsToPoints?.[0] ?? 25,
     registrationLive,
     pairs,
+    drawNumbers,
     games: rows,
     byes,
     standings: reversePairsStandings(

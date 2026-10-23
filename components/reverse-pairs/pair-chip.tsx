@@ -6,7 +6,6 @@ import { Check, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ReversePairsPair } from "@/lib/queries/reverse-pairs";
-import { doorLabelOf, renamedPairName } from "@/lib/reverse-pairs/pair-name";
 import { renameTeamAction } from "@/server/actions/teams";
 import { removeReversePairAction } from "@/server/actions/reverse-pairs";
 import { Input } from "@/components/ui/input";
@@ -14,10 +13,8 @@ import { Input } from "@/components/ui/input";
 /**
  * One pair in the field, renamable at any time — including after the draw.
  *
- * Renaming is what makes a draw-at-the-door night work: the schedule is drawn
- * against placeholders ("Pair J"), and when a pair picks J the organizer types
- * their names here. Games and standings resolve names by id, so the new name
- * appears everywhere and nothing is redrawn.
+ * Games and standings resolve names by id, so a fixed typo or a changed
+ * partner shows everywhere and nothing is redrawn.
  */
 export function PairChip({
   pair,
@@ -30,22 +27,16 @@ export function PairChip({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(false);
-  const label = doorLabelOf(pair.name);
   const [text, setText] = useState("");
 
   function open() {
-    // A placeholder starts empty; a named pair starts with its names, minus
-    // the label the save puts back.
-    const shown = label
-      ? pair.name.replace(/^Pair \S+$|^\S+ · /, "")
-      : pair.name;
-    setText(shown);
+    setText(pair.entryName);
     setEditing(true);
   }
 
   function save() {
-    const name = renamedPairName(pair.name, text);
-    if (!text.trim() || name === pair.name) {
+    const name = text.trim();
+    if (!name || name === pair.entryName) {
       setEditing(false);
       return;
     }
@@ -68,7 +59,7 @@ export function PairChip({
         toast.error(res.error);
         return;
       }
-      toast.success(`${pair.name} removed.`);
+      toast.success(`${pair.entryName} removed.`);
       router.refresh();
     });
   }
@@ -76,7 +67,6 @@ export function PairChip({
   if (editing) {
     return (
       <li className="border-rule bg-paper-raised flex w-full items-center gap-1.5 rounded-md border py-1 pr-1 pl-2 text-sm sm:w-auto">
-        {label && <span className="font-medium tabular-nums">{label}</span>}
         <Input
           autoFocus
           value={text}
@@ -86,7 +76,7 @@ export function PairChip({
             if (e.key === "Escape") setEditing(false);
           }}
           placeholder="Sarah & Dylan"
-          aria-label={`Names for ${pair.name}`}
+          aria-label={`Names for ${pair.entryName}`}
           className="h-7 min-w-0 flex-1 sm:w-48"
           disabled={pending}
         />
@@ -114,12 +104,12 @@ export function PairChip({
 
   return (
     <li className="border-rule bg-paper-raised flex items-center gap-1 rounded-md border py-1 pr-1 pl-2 text-sm">
-      {pair.name}
+      {pair.entryName}
       <button
         type="button"
         onClick={open}
         disabled={pending}
-        aria-label={`Edit name of ${pair.name}`}
+        aria-label={`Edit name of ${pair.entryName}`}
         className="text-ink-3 hover:text-ink rounded p-0.5"
       >
         <Pencil className="size-3.5" />
@@ -129,7 +119,7 @@ export function PairChip({
           type="button"
           onClick={remove}
           disabled={pending}
-          aria-label={`Remove ${pair.name}`}
+          aria-label={`Remove ${pair.entryName}`}
           className="text-ink-3 hover:text-claret rounded p-0.5"
         >
           <X className="size-3.5" />

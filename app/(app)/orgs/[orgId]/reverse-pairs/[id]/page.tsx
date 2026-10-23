@@ -16,6 +16,7 @@ import { paymentAccountStatus } from "@/lib/payments/account-status";
 import { RegistrationFeeCard } from "@/components/payments/registration-fee-card";
 import { GenerateReversePairsPanel } from "@/components/reverse-pairs/generate-panel";
 import { PartnerMatrixCard } from "@/components/reverse-pairs/partner-matrix";
+import { DrawNumbersCard } from "@/components/reverse-pairs/draw-numbers-card";
 import { ReversePairsPairsCard } from "@/components/reverse-pairs/pairs-card";
 import { ReversePairsPublishCard } from "@/components/reverse-pairs/publish-card";
 import { ReversePairsSettingsCard } from "@/components/reverse-pairs/settings-card";
@@ -124,8 +125,14 @@ export default async function ReversePairsPage({
         </TabsList>
 
         <TabsContent value="tonight" className="space-y-6">
-          {/* Before the whistle, so above the scores it would otherwise lock. */}
-          {isAdmin && detail.games.length > 0 && (
+          {/* Pairs pick numbers at the door, so this is the first job of the night. */}
+          {isAdmin && detail.drawNumbers && (
+            <DrawNumbersCard pairs={detail.pairs} />
+          )}
+
+          {/* Before the whistle, so above the scores it would otherwise lock.
+              Not on a numbers night: entering a number already moves a pair. */}
+          {isAdmin && detail.games.length > 0 && !detail.drawNumbers && (
             <ReversePairsSwapCard
               competitionId={detail.competitionId}
               pairs={detail.pairs}

@@ -7,7 +7,13 @@ import type {
 } from "@/lib/queries/reverse-pairs";
 
 const TZ = "America/Toronto";
-const pair = (name: string): ReversePairsPair => ({ id: name, name });
+const pair = (name: string): ReversePairsPair => ({
+  id: name,
+  name,
+  entryName: name,
+  drawNumber: null,
+  drawNumberSet: false,
+});
 
 // Three 20-minute rounds on two courts, Sat 24 Oct 2026 from 2:00pm Toronto.
 const STARTS = ["14:00", "14:20", "14:40"];

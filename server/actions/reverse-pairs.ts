@@ -497,6 +497,41 @@ export async function removeReversePairAction(
   return { removed: true };
 }
 
+const drawNumberSchema = z.object({
+  teamId: idSchema,
+  /** Null clears it. The database re-checks the range against the field. */
+  number: z.number().int().min(1).max(200).nullable(),
+});
+
+export type SetReversePairNumberInput = z.input<typeof drawNumberSchema>;
+
+/**
+ * Enter the number a pair drew at the door (0187). The pair takes over that
+ * number's games; the not-yet-numbered pair holding them takes the old ones.
+ * The rules (organizer only, a number can't be given twice) live in
+ * `set_reverse_pair_number`, whose messages are written for an organizer.
+ */
+export async function setReversePairNumberAction(
+  input: SetReversePairNumberInput,
+): Promise<ActionError | { ok: true }> {
+  const parsed = drawNumberSchema.safeParse(input);
+  if (!parsed.success) return { error: "Enter a number." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_reverse_pair_number", {
+    _team_id: parsed.data.teamId,
+    _number: parsed.data.number,
+  });
+  if (error) {
+    console.error("[reverse-pairs] set number failed", error.message);
+    return { error: error.message || "That number couldn't be saved." };
+  }
+
+  revalidatePath("/orgs");
+  revalidatePath("/rp/[slug]", "page");
+  return { ok: true };
+}
+
 /**
  * Publish: make the /rp/[slug] page live.
  *
