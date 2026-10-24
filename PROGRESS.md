@@ -12,6 +12,7 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
   - "Add a player" (the existing invite dialog, with a new `label` prop);
   - the team page's own roster controls (`CaptainRoster`: "Remove", "Make sub", and "Resend"/"Edit"/"Cancel" on invites).
 - What counts as pending is pure and tested (`lib/teams/captain-todos.ts`, 7 tests): fee unpaid (team status), players short of `min_roster_for_entry`, unsigned waivers named per player (`team_waiver_signed`, 0180, so a captain sees teammates' signatures), expired invites, and invites not joined yet. `getManagedTeams` reuses the dashboard's competition list, so players who captain nothing pay no extra queries.
+- Same day, owner: a tab per team instead of stacked cards, so a captain of several teams switches rather than scrolls. The tab shows the team name and its to-do count, and the section opens on the first team with something to do. Many tabs scroll inside the strip (checked at 375px with three teams). A captain of one team gets the card with no tabs.
 - Placed above "Your next game": an incomplete team has no games to show until it's sorted. Checked at 375px with sample data (no sideways scroll). No demo account captains a team, so it hasn't been seen with a real login yet.
 
 ## 2026-10-24 — BVL Reverse 4s Round 2 loaded from Indru's sheet

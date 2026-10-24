@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * "Manage my teams" on the dashboard (2026-10-24): for each team the viewer
@@ -28,11 +29,50 @@ export function ManageTeams({ teams }: { teams: ManagedTeam[] }) {
           Add or remove players, and see what&apos;s left to do.
         </p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        {teams.map((t) => (
-          <ManagedTeamCard key={t.teamId} team={t} />
-        ))}
-      </div>
+      {teams.length === 1 ? (
+        <div className="max-w-2xl">
+          <ManagedTeamCard team={teams[0]} />
+        </div>
+      ) : (
+        // A tab per team, so a captain of two or three teams switches instead
+        // of scrolling past whole rosters. Opens on the first team with
+        // something to do.
+        <Tabs
+          defaultValue={
+            (teams.find((t) => t.todos.length > 0) ?? teams[0]).teamId
+          }
+          className="max-w-2xl"
+        >
+          {/* Many teams scroll sideways inside the strip, not the page. */}
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <TabsList className="h-auto w-max">
+              {teams.map((t) => (
+                <TabsTrigger
+                  key={t.teamId}
+                  value={t.teamId}
+                  title={t.competitionName}
+                  className="max-w-[14rem] flex-none px-3 py-1.5"
+                >
+                  <span className="truncate">{t.teamName}</span>
+                  {t.todos.length > 0 && (
+                    <span
+                      aria-label={`${t.todos.length} to do`}
+                      className="rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-900 tabular-nums dark:bg-amber-950 dark:text-amber-200"
+                    >
+                      {t.todos.length}
+                    </span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {teams.map((t) => (
+            <TabsContent key={t.teamId} value={t.teamId}>
+              <ManagedTeamCard team={t} />
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
     </section>
   );
 }
