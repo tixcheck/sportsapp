@@ -45,6 +45,8 @@ import { Button } from "@/components/ui/button";
 import { PendingInviteCard } from "@/components/dashboard/pending-invite-card";
 import { InviteTeammateDialog } from "@/components/team/invite-teammate-dialog";
 import { BecomeOrganizer } from "@/components/dashboard/become-organizer";
+import { ManageTeams } from "@/components/dashboard/manage-teams";
+import { getManagedTeams } from "@/lib/queries/manage-teams";
 import {
   Card,
   CardContent,
@@ -105,6 +107,7 @@ export default async function DashboardPage() {
   // A finished competition (team's run over) drops off the active "you play in"
   // list — the full record still lives on the competition's own pages.
   const activeComps = comps.filter((c) => !isCompetitionDone(c));
+  const managed = await getManagedTeams(comps);
 
   // The organizer's own questions, for each competition whose waiver is owed.
   // Answering comes FIRST: the waiver is held until the details are in, so the
@@ -309,6 +312,10 @@ export default async function DashboardPage() {
           </div>
         );
       })}
+
+      {/* Captains: add, remove, and what's still owed. Above the games, since
+          an incomplete team has no games to show until it's sorted. */}
+      <ManageTeams teams={managed} />
 
       {home.next && <NextGame match={home.next} />}
 

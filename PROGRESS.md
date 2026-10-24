@@ -5,6 +5,15 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-24 — Dashboard: "Manage my teams" for captains
+
+- The questions Help hears most from captains are how to add a player, how to remove one, and why the team can't see its schedule. All three answers were one page deeper, on the team page. The dashboard now has a "Manage my teams" section (`components/dashboard/manage-teams.tsx`), with one card per team the viewer captains in a running competition. Each card has:
+  - "Pending actions (N)" and an "N to do" / "All set" badge;
+  - "Add a player" (the existing invite dialog, with a new `label` prop);
+  - the team page's own roster controls (`CaptainRoster`: "Remove", "Make sub", and "Resend"/"Edit"/"Cancel" on invites).
+- What counts as pending is pure and tested (`lib/teams/captain-todos.ts`, 7 tests): fee unpaid (team status), players short of `min_roster_for_entry`, unsigned waivers named per player (`team_waiver_signed`, 0180, so a captain sees teammates' signatures), expired invites, and invites not joined yet. `getManagedTeams` reuses the dashboard's competition list, so players who captain nothing pay no extra queries.
+- Placed above "Your next game": an incomplete team has no games to show until it's sorted. Checked at 375px with sample data (no sideways scroll). No demo account captains a team, so it hasn't been seen with a real login yet.
+
 ## 2026-10-24 — BVL Reverse 4s Round 2 loaded from Indru's sheet
 
 - Indru approved Round 2 (Oct 27 + Nov 3) and wants the same layout for later rounds. Loaded with `lib/db/_tmp/load-r4s-round2.mts --apply`: the 39 auto-drawn games (no gyms, 40 minutes for everyone, unscored) were replaced with his 47.

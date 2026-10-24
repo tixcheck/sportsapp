@@ -27,6 +27,7 @@ export function InviteTeammateDialog({
   variant = "outline",
   size = "sm",
   pair = false,
+  label,
 }: {
   teamId: string;
   teamName: string;
@@ -37,6 +38,8 @@ export function InviteTeammateDialog({
   pair?: boolean;
   variant?: "outline" | "ghost";
   size?: "sm" | "default";
+  /** The button's words, where "Invite teammate" isn't what people look for. */
+  label?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -79,7 +82,7 @@ export function InviteTeammateDialog({
       <DialogTrigger asChild>
         <Button type="button" variant={variant} size={size}>
           <UserPlus />
-          {pair ? "Invite partner" : "Invite teammate"}
+          {label ?? (pair ? "Invite partner" : "Invite teammate")}
         </Button>
       </DialogTrigger>
       <DialogContent>

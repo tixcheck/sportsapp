@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-24 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2).
+ * Last checked against the app: 2026-10-24 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -33,6 +33,7 @@ Dashboard (/dashboard), sections appear only when they have something:
 - "Pending invites": "You've been invited to join <team>…" with "Join team", or "You've been invited to captain…" with "Claim team".
 - "Waiting to be placed" (individual sign-ups): "In the pool" or "Fee outstanding".
 - "Before you play": a league's waiver to sign, or "<Org> needs a few details" with "Save my details".
+- "Manage my teams" (captains only, one card per team you captain): "Pending actions (N)" lists what's still owed, with names: registration fee not paid, more players needed ("2 more players needed (4 of 6 joined)"), players who haven't signed the waiver (they sign it on their own dashboard), invites that expired ("Resend"), and invites not joined yet. "All set" / "Nothing waiting on you." when there's nothing. "Add a player" sends an invite by email (same as "Invite teammate"). Under "Players (N)" each player has "Remove" (and "Make sub"/"Make regular"); pending invites have "Resend", "Edit" and "Cancel". A Reverse Pairs pair shows "Invite partner" and no "Remove".
 - "Your next game" (or "You're reffing next"): opponent, day and time, gym and court. Buttons "Schedule & standings" and "Enter the score" ("Scoring opens on game day." before then).
 - "Your teams", "Recent results", "Also coming up".
 - "Competitions you play in": each card has the team, your role (captain/player), "Next: vs …", and buttons "My team", "Standings", and for captains "Invite teammate". "Join another league →" next to the heading opens the list of events you can sign up for.
