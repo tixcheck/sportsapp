@@ -5,6 +5,15 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-24 — BVL Reverse 4s Round 2 loaded from Indru's sheet
+
+- Indru approved Round 2 (Oct 27 + Nov 3) and wants the same layout for later rounds. Loaded with `lib/db/_tmp/load-r4s-round2.mts --apply`: the 39 auto-drawn games (no gyms, 40 minutes for everyone, unscored) were replaced with his 47.
+- Divisions: Blackipino (new, no Round 1 games) joins B as #6, and Blockin' That Thang drops to C as #3, so the sizes are A 4, B 6, C 5. He keeps the 6-team pool in the middle so movement between divisions stays fair.
+- Slot length by pool size, to keep time on court level: A plays 2 sets to 21 in 30 minutes, B 2 to 25 in 40, C 2 to 15 (cap 17) in 25. A and C carry per-match `match_format`, and B uses the league default. The sheet notes were rewritten to match.
+- Gyms: A and B at Notre Dame, swapping early and late starts each night. C is at Archdekin courts A/B, before Non-Spiking. Weeks 3–4 `ladder_tier_nights` are written too.
+- Still open with Indru: Non-Spiking at Archdekin on Oct 27 starts at 8:05 (not changed in the app, at his request), so its last 40-minute match ends at 10:05, past the booking. At Notre Dame on Oct 27, B ends at 8:15, the minute A starts.
+- `ladder_auto_advance` is on, so Round 3 will auto-draw with default times and no gyms (which is how this Round 2 got its old draw) unless weeks 5–6 tier nights are set first.
+
 ## 2026-10-23 — Admin overview: Open and Completed apart
 
 - Platform overview (/admin) now shows each org as a heading with two cards, "Open" (anything not completed, drafts included) and "Completed", so finished events stop burying the running ones. Row extracted to `components/admin/competition-row.tsx`.

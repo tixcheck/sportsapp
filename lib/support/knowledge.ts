@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-23 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename).
+ * Last checked against the app: 2026-10-24 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -165,6 +165,7 @@ Refunding: Payments tab → tap the team to expand it → "Refund" next to a car
 Brampton Volleyball League (BVL), all nights:
 - Game score at time: when time runs out, a one-point lead wins (25–24 is a valid final). A game can't end tied: if it's tied at the buzzer (25–25), play one more point (26–25). A match of 2 games can still split 1–1, which counts as a tie.
 - Teams move tiers by results. Women's Wednesday and Reverse 4s Tuesday play 2-week rounds: everyone in a tier plays each other across the two weeks, then 2 teams move up and 2 down at each tier line. In 6-team tiers, some pairings play one game each week, and the two games together count as one match (2–0 a win, 1–1 a tie).
+- Reverse 4s (Tuesday), from Round 2 (Oct 27 + Nov 3) on: Division A has 4 teams at Notre Dame and plays 2 sets to 21 in 30-minute slots. Division B has 6 teams at Notre Dame, plays 2 games to 25 in 40-minute slots and meets everyone once over the two weeks. Division C has 5 teams at Jim Archdekin, plays 2 games to 15 (cap 17) in 25-minute slots, and one team sits out each slot. A and C play everyone each night. Over a round every team gets about the same time on court. On Oct 27, Non-Spiking at Jim Archdekin starts 5 minutes later than the app shows (8:05); BVL tells those teams directly.
 - Non-Spiking (Tuesday) plays 4-week rounds; Thursday Co-ed 6s is in alignment weeks, where teams climb between sessions at each gym.
 - A team's schedule shows once its roster is full and every player has signed the waiver (see TEAMS).
 - Net setup: every team helps put up the nets during a round, so it doesn't fall on the referee, and no team does it more than others. A team on net duty arrives 10 minutes before its first game. Teams also take turns taking the nets down after the last game. If your game shows "Your team puts up the net" or "Your team takes the net down", that's your turn (see GAMES). All four BVL leagues use it.
