@@ -44,10 +44,19 @@ export interface NetDutyOptions {
    * so a court with a single game doesn't give one team both jobs.
    */
   avoid?: Map<string, string>;
+  /**
+   * Another league's games in the same gyms. A net another league uses right
+   * before this one is already up, and one it uses right after stays up, so
+   * those courts need no setup / take-down from this league (Archdekin on
+   * Tuesdays: Reverse 4s then Non-Spiking on the same courts; owner,
+   * 2026-10-24: "Dont need a take down").
+   */
+  others?: Pick<NetDutyGame, "gym" | "night" | "court" | "startsAt">[];
 }
 
 /** Same-gym, same-night, same-court games share one net. */
-const netKey = (g: NetDutyGame) => `${g.gym}|${g.night}|${g.court}`;
+const netKey = (g: Pick<NetDutyGame, "gym" | "night" | "court">) =>
+  `${g.gym}|${g.night}|${g.court}`;
 
 function chronological(games: NetDutyGame[]): NetDutyGame[] {
   return games.sort(
@@ -83,7 +92,14 @@ export function assignNetDuty(
   games: NetDutyGame[],
   opts: NetDutyOptions = {},
 ): Map<string, string> {
-  return balance(netSetupGames(games), opts);
+  const others = opts.others ?? [];
+  return balance(
+    netSetupGames(games).filter(
+      (g) =>
+        !others.some((o) => netKey(o) === netKey(g) && o.startsAt < g.startsAt),
+    ),
+    opts,
+  );
 }
 
 /** Game id → the team that takes its net down afterwards. Balanced separately from setup. */
@@ -91,7 +107,14 @@ export function assignNetTakedown(
   games: NetDutyGame[],
   opts: NetDutyOptions = {},
 ): Map<string, string> {
-  return balance(netTakedownGames(games), opts);
+  const others = opts.others ?? [];
+  return balance(
+    netTakedownGames(games).filter(
+      (g) =>
+        !others.some((o) => netKey(o) === netKey(g) && o.startsAt > g.startsAt),
+    ),
+    opts,
+  );
 }
 
 function balance(

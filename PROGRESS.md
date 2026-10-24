@@ -5,6 +5,12 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-25 — Nets shared between leagues; Non-Spiking at Archdekin 8:05
+
+- Net duty now looks at other leagues in the same gym. When another league plays a court right after ours, nobody takes that net down; when one played it right before, nobody puts it up. Before this, Reverse 4s Division C was told to take down the Archdekin nets that Non-Spiking uses straight after (owner: "Dont need a take down"). It's in `assignNetDuty`/`assignNetTakedown` (`others` option, with tests), and `loadNetDuty` reads the other leagues' games, so games, dashboards, the weekly email and printed sheets all agree.
+- Non-Spiking's Oct 27 games at Jim Archdekin moved 5 minutes later (8:05, 8:45, 9:25), as Indru asked, so Reverse 4s C finishes first. The last game runs past the 10:00 booking, which the owner accepted. Nov 3 already starts at 8:30. Applied by `lib/db/_tmp/ns-arch-805.mts`, with an audit row.
+- On Oct 27, Reverse 4s Division B finishing at 8:15, the minute Division A starts at Notre Dame, is fine: same org, so A waits.
+
 ## 2026-10-25 — Reverse Pairs: "Mark completed"
 
 - Leagues and tournaments had "Mark completed"; Reverse Pairs never got it (the owner found no button for BVL's Oct 23 night, which was closed by script). `ReversePairsCompleteCard` wraps the existing `CompleteToggle` and shows in two places: Settings → Event, and the bottom of "Tonight" once every game is scored. Same gate as leagues: available after the event's date.

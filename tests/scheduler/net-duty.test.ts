@@ -233,6 +233,46 @@ describe("take-down", () => {
     expect(netTakedownGames([late, early]).map((g) => g.id)).toEqual([late.id]);
   });
 
+  it("another league playing the court right after: no take-down, and that league needs no setup", () => {
+    // Archdekin Tuesdays: Reverse 4s on a/b, then Non-Spiking on a/b/c.
+    const r4s = [
+      game({ home: "1", away: "2", gym: "ARCH", court: "a", startsAt: "T18" }),
+      game({ home: "3", away: "4", gym: "ARCH", court: "b", startsAt: "T18" }),
+    ];
+    const ns = ["a", "b", "c"].map((court, i) =>
+      game({
+        home: `n${i}`,
+        away: `m${i}`,
+        gym: "ARCH",
+        court,
+        startsAt: "T20",
+      }),
+    );
+    const where = (g: NetDutyGame) => ({
+      gym: g.gym,
+      night: g.night,
+      court: g.court,
+      startsAt: g.startsAt,
+    });
+
+    expect(assignNetTakedown(r4s, { others: ns.map(where) }).size).toBe(0);
+    expect(assignNetDuty(r4s, { others: ns.map(where) }).size).toBe(2);
+
+    const nsUp = assignNetDuty(ns, { others: r4s.map(where) });
+    expect([...nsUp.keys()]).toEqual([ns[2].id]);
+    expect(assignNetTakedown(ns, { others: r4s.map(where) }).size).toBe(3);
+  });
+
+  it("another league in a different gym or on another court changes nothing", () => {
+    const g = [game({ home: "1", away: "2", court: "a", startsAt: "T18" })];
+    const others = [
+      { gym: "OTHER", night: g[0].night, court: "a", startsAt: "T20" },
+      { gym: g[0].gym, night: g[0].night, court: "b", startsAt: "T20" },
+    ];
+    expect(assignNetTakedown(g, { others }).size).toBe(1);
+    expect(assignNetDuty(g, { others }).size).toBe(1);
+  });
+
   it("a court with one game: the other team takes it down", () => {
     const g = night("2026-10-14", [["1", "6"]], "001");
     const up = assignNetDuty(g);

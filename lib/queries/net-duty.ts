@@ -72,6 +72,27 @@ export async function loadNetDuty(
         .range(from, to),
     ),
   ]);
+  // Other leagues in the same gyms (0179 follow-up, 2026-10-24): a net they
+  // use right before or after one of ours is shared, not put up or taken down.
+  const gyms = [
+    ...new Set(matches.map((m) => m.venue_id as string | null)),
+  ].filter((v): v is string => !!v);
+  const times = matches.map((m) => m.scheduled_at as string).sort();
+  const neighbours =
+    gyms.length === 0
+      ? []
+      : await fetchAll<Record<string, unknown>>((from, to) =>
+          supabase
+            .from("matches")
+            .select("id, competition_id, venue_id, court, scheduled_at")
+            .in("venue_id", gyms)
+            .not("competition_id", "in", `(${ids.join(",")})`)
+            .gte("scheduled_at", times[0])
+            .lte("scheduled_at", times[times.length - 1])
+            .order("id")
+            .range(from, to),
+        );
+
   const zoneOf = new Map(
     (comps ?? []).map((c) => [
       c.id as string,
@@ -108,6 +129,19 @@ export async function loadNetDuty(
       };
     });
 
+    const others = [
+      ...neighbours,
+      ...matches.filter((m) => m.competition_id !== cid && m.venue_id),
+    ].map((m) => ({
+      gym: m.venue_id as string,
+      night:
+        DateTime.fromISO(m.scheduled_at as string, { zone: "utc" })
+          .setZone(zone)
+          .toISODate() ?? "",
+      court: (m.court as string | null) ?? "",
+      startsAt: m.scheduled_at as string,
+    }));
+
     const fixed = isRound
       ? publishedPicks(
           mine,
@@ -117,9 +151,12 @@ export async function loadNetDuty(
         )
       : new Map<string, string>();
 
-    const setup = assignNetDuty(games, { fixed });
+    const setup = assignNetDuty(games, { fixed, others });
     for (const [gameId, teamId] of setup) out.setup.set(gameId, teamId);
-    for (const [gameId, teamId] of assignNetTakedown(games, { avoid: setup }))
+    for (const [gameId, teamId] of assignNetTakedown(games, {
+      avoid: setup,
+      others,
+    }))
       out.takedown.set(gameId, teamId);
   }
   return out;
