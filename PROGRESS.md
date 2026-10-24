@@ -5,6 +5,12 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-25 — Reverse Pairs: "Mark completed"
+
+- Leagues and tournaments had "Mark completed"; Reverse Pairs never got it (the owner found no button for BVL's Oct 23 night, which was closed by script). `ReversePairsCompleteCard` wraps the existing `CompleteToggle` and shows in two places: Settings → Event, and the bottom of "Tonight" once every game is scored. Same gate as leagues: available after the event's date.
+- `publishReversePairsAction` used to set status "open" on every publish, so publishing a finished night to share the results would quietly reopen it. A completed event now stays completed. KotC already completes itself.
+- BVL Reverse Pairs Oct 23 (21 of 21 scored) marked completed by script on 2026-10-25. It is private: someone took it offline after the night.
+
 ## 2026-10-24 — Dashboard: "Manage my teams" for captains
 
 - The questions Help hears most from captains are how to add a player, how to remove one, and why the team can't see its schedule. All three answers were one page deeper, on the team page. The dashboard now has a "Manage my teams" section (`components/dashboard/manage-teams.tsx`), with one card per team the viewer captains in a running competition. Each card has:

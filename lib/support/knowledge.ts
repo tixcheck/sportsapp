@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-24 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams).
+ * Last checked against the app: 2026-10-25 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -153,7 +153,7 @@ Running a league (league page tabs: Schedule, Ladder, Standings, Playoffs, Teams
 - "Now playing" at the top of the schedule (organizer and team views): from 30 minutes before the night's first game until its last game is scored, one line per court with the game on it now: the game being scored ("Live"), otherwise the earliest game on that court without a final score, with its start time. It moves on as scores are entered. On a night across several gyms each line names the gym, e.g. "Terry Miller · Court a".
 - Player stats (leagues that record who played): columns Days, Missed, PO W, GP (sets played), W (sets won), L (sets lost), F/A, Avg, Win%, Pts, P/G, CW, CL, Net, Clutch%. A sub typed in with "Add a sub" is counted under their account when their name matches exactly one person signed up for the league (by the name they signed up with or their account name), so someone who was drafted one session and subs the next stays one row.
 - Undo: Settings → Admin → "Restore points" → "Restore". Saved automatically before anything that deletes games or results.
-- "Mark completed" after the last date: drops the event off players' dashboards. "Reopen" undoes it.
+- "Mark completed" after the last date: drops the event off players' dashboards. "Reopen" undoes it. Reverse Pairs: it's under Settings → Event, and on "Tonight" once every game has a score. Publishing a completed Reverse Pairs event afterwards keeps it completed.
 - Delete: Settings → Admin → Danger zone → "Delete league" / "Delete tournament" (type the name). It's blocked while players have card payments that aren't refunded: refund them first. Reverse Pairs and King of the Court events have no delete button; hand off to a person.
 Players and sign-ups: "Add team" on the Teams tab (the captain is emailed); "Free agents" card to place individuals ("Create team" / "Add to team"); Players tab → "Ask N for missing details", "Invite N not joined".
 Waivers: org page "Waiver" card → "Write your waiver" → "Save as draft" → "Approve" (approved wording locks; "Write a new version" to change it). Then in the event's Settings → Registration → "Waivers" choose it as "Waiver required" and "Save". Teams wait until everyone signs; reminders go out automatically, weekly at most.

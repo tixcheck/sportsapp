@@ -19,6 +19,7 @@ import { PartnerMatrixCard } from "@/components/reverse-pairs/partner-matrix";
 import { DrawNumbersCard } from "@/components/reverse-pairs/draw-numbers-card";
 import { ReversePairsPairsCard } from "@/components/reverse-pairs/pairs-card";
 import { ReversePairsPublishCard } from "@/components/reverse-pairs/publish-card";
+import { ReversePairsCompleteCard } from "@/components/reverse-pairs/complete-card";
 import { ReversePairsSettingsCard } from "@/components/reverse-pairs/settings-card";
 import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
 import { ReversePairsNowPlaying } from "@/components/reverse-pairs/now-playing";
@@ -152,6 +153,16 @@ export default async function ReversePairsPage({
             byes={detail.byes}
             canEnterScores={isAdmin}
           />
+
+          {/* Where the organizer is when the last score goes in. */}
+          {isAdmin && played > 0 && played === detail.games.length && (
+            <ReversePairsCompleteCard
+              competitionId={detail.competitionId}
+              status={detail.status}
+              date={detail.startDate}
+              timezone={detail.timezone}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="standings" className="space-y-6">
@@ -204,6 +215,12 @@ export default async function ReversePairsPage({
                         competitionId={detail.competitionId}
                         slug={detail.slug}
                         isPublic={detail.visibility === "public"}
+                      />
+                      <ReversePairsCompleteCard
+                        competitionId={detail.competitionId}
+                        status={detail.status}
+                        date={detail.startDate}
+                        timezone={detail.timezone}
                       />
                       <ReversePairsSettingsCard
                         competitionId={detail.competitionId}

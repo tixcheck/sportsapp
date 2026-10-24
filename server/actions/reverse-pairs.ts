@@ -551,9 +551,18 @@ export async function publishReversePairsAction(
   });
   if (isAdmin !== true) return { error: "Only the organizer can publish." };
 
+  // A finished event stays finished: publishing it afterwards (to share the
+  // results) only makes the page public. Setting "open" here used to reopen
+  // it, putting a past night back on everyone's dashboard.
+  const { data: current } = await supabase
+    .from("competitions")
+    .select("status")
+    .eq("id", competitionId)
+    .single();
+  const status = current?.status === "completed" ? "completed" : "open";
   const { data, error } = await supabase
     .from("competitions")
-    .update({ status: "open", visibility: "public" })
+    .update({ status, visibility: "public" })
     .eq("id", competitionId)
     .select("slug")
     .single();
