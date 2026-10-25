@@ -5,6 +5,12 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-25 — BVL Women's Round 2 loaded (Oct 28 + Nov 4)
+
+- Theresa approved the Round 2 schedule, so its gyms and times went onto the 74 auto-drawn games. The match-ups and courts already matched her sheet. The load also wrote the weeks 3–4 tier nights. Script: `lib/db/_tmp/load-w-round2.mts --apply`, with an audit row.
+- Gym anchors: Big Dig Energy's Division B stays at St. Thomas Aquinas (the VP plays on that team). Theresa then asked for Division A at D'Youville (the head of phys ed plays in A), so C goes to Campion on Oct 28 and to Aquinas, after B, on Nov 4. Every game fits the permits, ending at least 5 minutes before the booking ends.
+- Division D now starts every game at 4–4 and plays to 25 (the players voted). Score entry is unchanged: the league's 2-to-25 format already fits. The rule is in a "Matches" note at the top of the printed sheets and in the Help guide.
+
 ## 2026-10-25 — Nets shared between leagues; Non-Spiking at Archdekin 8:05
 
 - Net duty now looks at other leagues in the same gym. When another league plays a court right after ours, nobody takes that net down; when one played it right before, nobody puts it up. Before this, Reverse 4s Division C was told to take down the Archdekin nets that Non-Spiking uses straight after (owner: "Dont need a take down"). It's in `assignNetDuty`/`assignNetTakedown` (`others` option, with tests), and `loadNetDuty` reads the other leagues' games, so games, dashboards, the weekly email and printed sheets all agree.
