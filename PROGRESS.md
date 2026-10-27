@@ -5,6 +5,15 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-27 — BVL Thursday Round 1 loaded (Oct 29 + Nov 5)
+
+- Vince's "THURSDAY R1 V2" sheet is live: divisions C1–C3 and D1–D7 (seed = his 1–55 rank), 149 games. The script is `lib/db/_tmp/load-thu-round1.mts --apply`, which writes an audit row. A 6-team division plays its round robin once over the two nights, and 4- and 5-team divisions play theirs each night. Games to 21 and 1-set games carry a `match_format` override.
+- One change from the sheet: at Chinguacousy on Oct 29, D5 (7:20) and D6 (8:00) were on the same courts. Following Vince's email ("some games will be to 21"), that gym plays 2 to 21 in 35-minute rounds (D4 6:00, D5 7:10, D6 8:20).
+- Oct 29 cancellations are recorded on the permits: Notre Dame (Theresa), and Terry Miller and Cassie Campbell (Halloween events). The audit and permit checks see them.
+- Standings now skip alignment-night games (`alignment_session_id` set). Before this, the 10 scored Oct 22 alignment games would have counted in the Round 1 division tables. Alignment results still show on the alignment card.
+- Thursday isn't a `bvl_round` league, so the app's round print doesn't apply. The shareable PDF comes from `lib/db/_tmp/thu-r1-print.mts`.
+- Still open with BVL: on Nov 5, D4 plays 3 courts at St. Thomas Aquinas, but our permit says 2 (Vince also used a third court there on Oct 22). Several 9:20 rounds also run to 10:00, against the rule that games end 5 minutes before the booking does.
+
 ## 2026-10-25 — BVL Women's Round 2 loaded (Oct 28 + Nov 4)
 
 - Theresa approved the Round 2 schedule, so its gyms and times went onto the 74 auto-drawn games. The match-ups and courts already matched her sheet. The load also wrote the weeks 3–4 tier nights. Script: `lib/db/_tmp/load-w-round2.mts --apply`, with an audit row.

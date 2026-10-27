@@ -244,7 +244,10 @@ export async function loadStandings(
       "id, pool_id, home_team_id, away_team_id, scheduled_at, bracket_position, double_default",
     )
     .eq("competition_id", competitionId)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    // An alignment night (0165) only seeds the tiers; its results live on the
+    // alignment card, not in the season table.
+    .is("alignment_session_id", null);
   const matches = (matchesData ?? []) as MatchRow[];
 
   // Every scheduled match (any status) to count each team's total games. Scoped
@@ -255,7 +258,8 @@ export async function loadStandings(
     .select(
       "pool_id, bracket_position, home_team_id, away_team_id, scheduled_at",
     )
-    .eq("competition_id", competitionId);
+    .eq("competition_id", competitionId)
+    .is("alignment_session_id", null);
   const allMatches = (allMatchesData ?? []) as (ScheduledRow & {
     scheduled_at: string | null;
   })[];
