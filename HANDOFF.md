@@ -1883,8 +1883,10 @@ unpermitted), Chinguacousy Thu Oct 22 is cancelled. Court counts and labels
 aren't on the permits; the loader keeps them from the workbook rows.
 How the loader reads a permit: weeks inside a permit's range that the PDF
 doesn't book, or marks Cancelled, become `cancelled`. Back-to-back bookings are
-merged (Chinguacousy 6–8 + 8–10). Jim Archdekin Court C is two permits, 8–10
-until mid-March and 6–10 after. The document for BVL is generated from the same
+merged (Chinguacousy 6–8 + 8–10). Updated city permits (Oct 28, FA-157252 and
+FA-157255): Jim Archdekin Court C is 8–10 all season (the 6–10 block from
+mid-March is gone), A/B were 8–10 on Oct 15 and 20, and Gore Meadows dropped
+Oct 27, Nov 3 and Nov 5 (no games were booked there). The document for BVL is generated from the same
 data (Desktop "BVL Gym Permits 2026-27.pdf").
 **Open:** (1) Women's Wed Oct 21 has 8:10 starts at Campion, Marguerite and
 St. Thomas Aquinas, but the permits start at 8:15. (2) Thursday alignment week 2
