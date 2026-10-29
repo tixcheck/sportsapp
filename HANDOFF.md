@@ -982,7 +982,8 @@ only (`seedingNights`), never the season, because Team 1 is re-drafted.
   the same day, so its final counts as a series too.
 
 - **Org:** Big Shoots Men's Volleyball (`7ba804ce-a223-475a-80dd-48f7492f6078`),
-  owned by Liam Johnson (liamjohnson934@gmail.com).
+  owned by Liam Johnson (liamjohnson934@gmail.com). Co-convenor Stefan Salo
+  (ssalo@live.ca) is an `organizer` since 2026-10-29.
 - **League:** Big Shoots Volleyball 2026-2027 (`be28ffa8-7994-486b-8d75-99e0d54cdcf1`),
   `/l/big-shoots-volleyball-2026-2027-2`, **status `scheduled`, public**. Published and scheduled by the organizer after verification on 2026-09-15.
 - Fridays 18:45 at Holody Centre (Guelph), 2 courts, **Sep 18 2026 → May 14
@@ -1116,7 +1117,13 @@ only (`seedingNights`), never the season, because Team 1 is re-drafted.
 - **Verify roster changes with `npx tsx lib/db/verify-roster-split.ts`**, which
   runs the real `rosterKeys`/`isFullTime` over live rows. An earlier diagnostic
   re-implemented the keying rule in SQL and would have passed a fix that never
-  reached the page. Big Shoots should read **full-time 24, subs 11**.
+  reached the page. Big Shoots read **full-time 24, subs 24** on 2026-10-29
+  (more one-night subs since the first check).
+- **Split players: run `npm run check:players`** (also in `check:all`). It
+  lists name-only lineup rows that belong to one account in the league
+  (`SPLIT`, `--fix` links them) and near-miss names (`NEAR`, organizer's call).
+  Save-time linking (`linkSubsToAccounts`, Oct 21) never touched older rows;
+  Sean Gade and David Aitken stayed split until 2026-10-29.
 - **⚠️ It used to read `free_agents` directly, and that was a live bug on the
   public page** (fixed 2026-09-25). `free_agents_select` (0076) admits only
   competition admins and your own row, so a PLAYER rebuilt the roster from

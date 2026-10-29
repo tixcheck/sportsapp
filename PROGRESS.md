@@ -5,6 +5,14 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-29 — Big Shoots: split players fixed, `check:players`; BVL data changes
+
+- Liam: Sean Gade showed as two players (15-3 and 7-10). The Oct 21 save-time rule (`linkSubsToAccounts`) only links lineups saved after it shipped, and nobody back-filled the older ones, so 8 of Sean's and 3 of David Aitken's games stayed name-only. Linked to their accounts (`lib/db/_tmp/bs-fix-oct29.mts`, owner-approved).
+- **Guard rail:** `npm run check:players` (`lib/db/check-players.ts`, in `check:all`) finds name-only lineup rows whose name is exactly one account in that league (`SPLIT`; `--fix` links them, the same rule as saving) and near matches by surname and first initial (`NEAR`, reported only; the organizer decides). The pure rule is `findSplitPlayers` (`lib/stats/split-players.ts`, tested). A name two accounts share is never flagged: Big Shoots has two real "Sean Gade" accounts. Live run: no split players in any league.
+- Checked Liam's spreadsheet against the app: the other gaps came from Oct 16 6:45 Team 1 v Team 2, entered 15-25 20-25 where the sheet has 21-25 25-20 (Liam confirmed the split; corrected), and the Oct 2 third sets his sheet can't hold.
+- Stefan Salo (co-convenor) is an organizer of the Big Shoots org.
+- BVL: sdavidso@ is a scorekeeper in all four open leagues; Women's Nov 4 times moved to Theresa's sheet (Aquinas 6:40/7:20, D'Youville 8:15/8:40/9:20); Gore Meadows and Jim Archdekin permits updated from the city's revised contracts (see HANDOFF).
+
 ## 2026-10-27 — BVL Thursday Round 1 loaded (Oct 29 + Nov 5)
 
 - Vince's "THURSDAY R1 V2" sheet is live: divisions C1–C3 and D1–D7 (seed = his 1–55 rank), 149 games. The script is `lib/db/_tmp/load-thu-round1.mts --apply`, which writes an audit row. A 6-team division plays its round robin once over the two nights, and 4- and 5-team divisions play theirs each night. Games to 21 and 1-set games carry a `match_format` override.

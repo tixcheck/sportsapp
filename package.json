@@ -21,7 +21,8 @@
     "check:policies": "tsx lib/db/audit-policies.ts",
     "check:integrity": "tsx lib/db/audit-integrity.ts",
     "check:rls": "tsx lib/db/audit-rls.ts",
-    "check:all": "npm run check:policies && npm run check:integrity && npm run check:rls && npm run check:courts"
+    "check:players": "tsx lib/db/check-players.ts",
+    "check:all": "npm run check:policies && npm run check:integrity && npm run check:rls && npm run check:courts && npm run check:players"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,css,json}": "prettier --write",
