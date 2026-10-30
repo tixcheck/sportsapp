@@ -5,6 +5,15 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-30 — Offlimits Sports: Halloween Reverse Pairs, ranking choice, bonus points (0192)
+
+- **New org Offlimits Sports** (script `_tmp/os-setup.mts`, through `create_organization` as the owner so the membership row is made the app's way). Ownership then moved to Eric De Guia (eric@offlimitsports.com, signed up that afternoon; `_tmp/os-owner.mts`); the owner stays as admin. His organizer request is still pending: he doesn't need it to run this org, only to create another.
+- **Offlimits Halloween Reverse Pairs** (Sat Oct 31, private draft, no start time or venue yet): 15 pairs, 2 courts, the "draft v4" schedule from 2026-10-27 (scratchpad `rp15_v4.json`; 8 rounds, Round 1 one game on Court 1, 6 games each, no repeat partners). Numbers drawn at the door as Theresa's (0187): slot n holds `draw_number` n, entries are "Pair A"–"Pair O" until Eric's list arrives. Printable sheet `_tmp/os-print.mts` (schedule by number, games per number, door sheet with costume ticks), read from the live event.
+- **Ranking choice** (0192 `reverse_pairs_settings.ranking`): `differential` (unchanged) or `wins_pct`, games won then (points for + bonus) / (for + bonus + against). That orders exactly as point ratio would, so "point ratio" and "points scored %" are the same ranking; the table shows the percentage. A new event copies the org's last event's ranking. Ties share a rank on exact values.
+- **Bonus points** (0192 `bonus_items` + `reverse_pairs_bonuses`): the organizer defines items (Settings → Event → "Standings and bonuses") and taps them per pair on Tonight. Awards copy the points, so editing the list later doesn't rewrite a finished night. Once per night, stacking: the owner's rule read literally (+2 one in costume, +2 both, +2 matching). In the differential order a bonus adds to the total. A trigger refuses a bonus on another event's team. Verified as Eric, a stranger and anon in rolled-back transactions; the card at 375px with a signed-in local build.
+- The bonus card never disables its buttons: on the first try every chip stayed disabled while one save and the page refresh ran.
+- The pair name on the bonus card is the entry name (costumes are judged before numbers are drawn); standings still show "Pair N" until a number is entered, and a bonus follows the pair, not the slot.
+
 ## 2026-10-30 — Security audit, batch 3 (0191)
 
 - **`users` column grants** (0191): `anon`/`authenticated` may now SELECT only id, email, display_name, avatar_url, created_at, the notify_* flags, organizer_status and is_platform_admin. `phone` and `unsubscribe_token` are out: RLS let teammates read each other's rows, and a token switches off someone's emails through the public `unsubscribe` RPC. Organizer messages get tokens from the new definer `unsubscribe_tokens(uuid[])` (self, platform admin, or players in competitions the caller runs). Crons use the secret key, so they're unaffected. **A new `users` column is not readable through the API until it's added to that grant.**

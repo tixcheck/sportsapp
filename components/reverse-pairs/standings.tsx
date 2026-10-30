@@ -1,5 +1,8 @@
 import type { ReversePairsPair } from "@/lib/queries/reverse-pairs";
-import type { ReversePairsStanding } from "@/lib/stats/reverse-pairs";
+import type {
+  ReversePairsRanking,
+  ReversePairsStanding,
+} from "@/lib/stats/reverse-pairs";
 import {
   Card,
   CardContent,
@@ -19,6 +22,11 @@ function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n);
 }
 
+/** 0.5234 → "52.3%". One decimal: whole percents tie far too often. */
+function percent(p: number | null): string {
+  return p === null ? "—" : `${(p * 100).toFixed(1)}%`;
+}
+
 /**
  * The night's standings, a column per game.
  *
@@ -34,10 +42,15 @@ function signed(n: number): string {
 export function ReversePairsStandingsCard({
   pairs,
   standings,
+  ranking = "differential",
 }: {
   pairs: ReversePairsPair[];
   standings: ReversePairsStanding[];
+  ranking?: ReversePairsRanking;
 }) {
+  const byWins = ranking === "wins_pct";
+  // Only when something was awarded: a column of zeros is noise.
+  const showBonus = standings.some((s) => s.bonus !== 0);
   const byId = new Map(pairs.map((p) => [p.id, p]));
   const mostGames = standings.reduce(
     (n, s) => Math.max(n, s.perGame.length),
@@ -50,9 +63,19 @@ export function ReversePairsStandingsCard({
       <CardHeader>
         <CardTitle className="text-base">Standings</CardTitle>
         <CardDescription>
-          Every pair on a side takes the game&rsquo;s margin, and the totals
-          decide the order — so a 25&ndash;23 loss costs far less than a
-          25&ndash;12 one.
+          {byWins ? (
+            <>
+              Ranked by games won, then by Pts %: the share of all the points in
+              a pair&rsquo;s games that their side scored
+              {showBonus ? ", with bonus points added to their side" : ""}.
+            </>
+          ) : (
+            <>
+              Every pair on a side takes the game&rsquo;s margin, and the totals
+              decide the order — so a 25&ndash;23 loss costs far less than a
+              25&ndash;12 one.
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -71,7 +94,12 @@ export function ReversePairsStandingsCard({
                   </th>
                 ))}
                 <th className="p-2 text-right font-medium">W&ndash;L</th>
-                <th className="p-2 text-right font-medium">Total</th>
+                {showBonus && (
+                  <th className="p-2 text-right font-medium">Bonus</th>
+                )}
+                <th className="p-2 text-right font-medium">
+                  {byWins ? "Pts %" : "Total"}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -102,25 +130,41 @@ export function ReversePairsStandingsCard({
                       </td>
                     );
                   })}
-                  <td className="text-ink-3 p-2 text-right whitespace-nowrap">
-                    {s.won}&ndash;{s.lost}
-                  </td>
                   <td
                     className={cn(
-                      "p-2 text-right font-semibold",
-                      diffClass(s.differential),
+                      "p-2 text-right whitespace-nowrap",
+                      byWins ? "font-semibold" : "text-ink-3",
                     )}
                   >
-                    {signed(s.differential)}
+                    {s.won}&ndash;{s.lost}
                   </td>
+                  {showBonus && (
+                    <td className="text-ink-2 p-2 text-right">
+                      {s.bonus ? signed(s.bonus) : ""}
+                    </td>
+                  )}
+                  {byWins ? (
+                    <td className="p-2 text-right font-semibold whitespace-nowrap">
+                      {percent(s.pointPct)}
+                    </td>
+                  ) : (
+                    <td
+                      className={cn(
+                        "p-2 text-right font-semibold",
+                        diffClass(s.differential),
+                      )}
+                    >
+                      {signed(s.differential)}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="text-ink-3 mt-3 text-xs">
-          Numbered columns are each pair&rsquo;s own games in order. A dot is a
-          game drawn but not yet scored.
+          Numbered columns are each pair&rsquo;s own games in order, by the
+          margin. A dot is a game drawn but not yet scored.
         </p>
       </CardContent>
     </Card>

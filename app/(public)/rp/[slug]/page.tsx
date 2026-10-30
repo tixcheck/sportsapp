@@ -273,6 +273,7 @@ export default async function PublicReversePairsPage({
             <ReversePairsStandingsCard
               pairs={event.pairs}
               standings={event.standings}
+              ranking={event.settings.ranking}
             />
           )}
 

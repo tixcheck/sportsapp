@@ -372,6 +372,21 @@ export async function createReversePairsAction(
     return { error: error?.message ?? "Could not create the event." };
   }
 
+  // An org ranks its nights one way (Offlimits: wins, then points %), so a new
+  // event starts with the org's last choice rather than making them redo it.
+  const { data: last } = await supabase
+    .from("competitions")
+    .select("reverse_pairs_settings(ranking)")
+    .eq("org_id", orgId)
+    .eq("type", "reverse_pairs")
+    .neq("id", comp.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const lastRanking = (
+    last as { reverse_pairs_settings?: { ranking?: string } | null } | null
+  )?.reverse_pairs_settings?.ranking;
+
   // Rounds get a placeholder until there is a field to draw. The draw panel
   // overwrites it, and nothing reads it before then.
   const { error: setErr } = await supabase
@@ -382,6 +397,7 @@ export async function createReversePairsAction(
       rounds: 8,
       seed: 1,
       minutes_per_game: v.minutesPerGame,
+      ranking: lastRanking === "wins_pct" ? "wins_pct" : "differential",
     });
   if (setErr) return { error: setErr.message };
 

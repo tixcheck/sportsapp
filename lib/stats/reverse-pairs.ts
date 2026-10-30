@@ -7,6 +7,12 @@
  * teammates you did not choose — losing 25-23 with a weak draw says more about
  * you than winning 25-12 with a strong one.
  *
+ * Some organizers rank differently. Offlimits Sports (2026-10-30) ranks by
+ * games WON first, then by the share of the points a pair's sides scored
+ * ("wins_pct"). Bonus points (a Halloween costume, say) are added to a pair's
+ * points FOR once for the night: they feed the percentage in that order and
+ * the total in the differential order.
+ *
  * The matrix is the thing the organizer currently keeps by hand: an n x n grid
  * of how many times each pair has been teamed with each other pair. It is what
  * tells him the draw is doing its job, and what he checks before running the
@@ -32,7 +38,13 @@ export interface ReversePairsStandingOptions {
    * Capped at 10, that 35-20 is worth +10 and a 25-15 is worth the same.
    */
   pointCap?: number | null;
+  /** What orders the table. Default: differential. */
+  ranking?: ReversePairsRanking;
+  /** Bonus points per pair id, awarded once for the night. */
+  bonus?: Record<string, number>;
 }
+
+export type ReversePairsRanking = "differential" | "wins_pct";
 
 export interface ReversePairsStanding {
   teamId: string;
@@ -43,6 +55,14 @@ export interface ReversePairsStanding {
   /** Points scored by, and against, the sides this pair played on. */
   pointsFor: number;
   pointsAgainst: number;
+  /** Bonus points awarded to this pair (0 when none). */
+  bonus: number;
+  /**
+   * (points for + bonus) / (points for + bonus + points against), 0-1. Null
+   * before there is anything to divide. Ranks the "wins_pct" order, and orders
+   * exactly as points for / points against would: one rises with the other.
+   */
+  pointPct: number | null;
   /** Games their side won, lost and drew. Shown, but never the ranking. */
   won: number;
   lost: number;
@@ -88,6 +108,8 @@ export function reversePairsStandings(
     played: 0,
     pointsFor: 0,
     pointsAgainst: 0,
+    bonus: 0,
+    pointPct: null,
     won: 0,
     lost: 0,
     rank: 0,
@@ -128,15 +150,33 @@ export function reversePairsStandings(
     }
   }
 
+  // Bonuses go only to pairs in the event: an id the caller doesn't list has
+  // no row to put them on, and inventing one would show a stranger.
+  for (const [id, points] of Object.entries(options.bonus ?? {})) {
+    const row = rows.get(id);
+    if (row) row.bonus += points;
+  }
+  const ranking = options.ranking ?? "differential";
+  for (const row of rows.values()) {
+    if (ranking === "differential") row.differential += row.bonus;
+    const scored = row.pointsFor + row.bonus;
+    const total = scored + row.pointsAgainst;
+    row.pointPct = total > 0 ? scored / total : null;
+  }
+
+  // Compared exactly, so two pairs on 3 wins and 52.0% share a rank rather
+  // than one edging the other on a rounding the table never shows.
+  const pct = (r: ReversePairsStanding) => r.pointPct ?? -1;
+  const order = (a: ReversePairsStanding, b: ReversePairsStanding) =>
+    ranking === "wins_pct"
+      ? b.won - a.won || pct(b) - pct(a)
+      : b.differential - a.differential;
+
   const out = [...rows.values()].sort(
-    (a, b) =>
-      b.differential - a.differential || a.teamId.localeCompare(b.teamId),
+    (a, b) => order(a, b) || a.teamId.localeCompare(b.teamId),
   );
   out.forEach((row, i) => {
-    row.rank =
-      i > 0 && row.differential === out[i - 1].differential
-        ? out[i - 1].rank
-        : i + 1;
+    row.rank = i > 0 && order(row, out[i - 1]) === 0 ? out[i - 1].rank : i + 1;
   });
   return out;
 }

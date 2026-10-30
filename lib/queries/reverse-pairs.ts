@@ -10,8 +10,10 @@ import {
   partnerMatrix,
   reversePairsStandings,
   type PartnerMatrix,
+  type ReversePairsRanking,
   type ReversePairsStanding,
 } from "@/lib/stats/reverse-pairs";
+import { parseBonusItems, type BonusItem } from "@/lib/reverse-pairs/bonus";
 import { suggestRounds } from "@/lib/scheduler/reverse-pairs";
 import { displayPairName } from "@/lib/reverse-pairs/draw-number";
 
@@ -61,7 +63,13 @@ export interface ReversePairsDetail {
     maxPairs: number | null;
     /** Most one game may swing the standings. Null = uncapped (0133). */
     pointCap: number | null;
+    /** What orders the standings (0192). */
+    ranking: ReversePairsRanking;
+    /** What the organizer can award, e.g. costume bonuses. Empty = none. */
+    bonusItems: BonusItem[];
   };
+  /** Items awarded to each pair, by pair id (0192). */
+  bonusAwards: Map<string, Set<string>>;
   /** Points a game is played to — the target, not a best-of. */
   pointsPerGame: number;
   /** Whether a pair may sign up right now: open, in time, and not full. */
@@ -116,30 +124,38 @@ export async function getReversePairs(
     .maybeSingle();
   if (!comp) return null;
 
-  const [{ data: settings }, { data: teams }, { data: games }] =
-    await Promise.all([
-      supabase
-        .from("reverse_pairs_settings")
-        .select(
-          "courts, rounds, seed, minutes_per_game, registration_open, registration_deadline, max_pairs, point_cap",
-        )
-        .eq("competition_id", competitionId)
-        .maybeSingle(),
-      supabase
-        .from("teams")
-        .select("id, name, draw_number, draw_number_set")
-        .eq("competition_id", competitionId)
-        // Unpaid teams are not entrants — they must never reach a schedule or
-        // the standings (migration 0066).
-        .eq("status", "active")
-        .order("name"),
-      supabase
-        .from("reverse_pairs_games")
-        .select("id, game, court, scheduled_at, score_a, score_b")
-        .eq("competition_id", competitionId)
-        .order("game")
-        .order("court"),
-    ]);
+  const [
+    { data: settings },
+    { data: teams },
+    { data: games },
+    { data: bonusRows },
+  ] = await Promise.all([
+    supabase
+      .from("reverse_pairs_settings")
+      .select(
+        "courts, rounds, seed, minutes_per_game, registration_open, registration_deadline, max_pairs, point_cap, ranking, bonus_items",
+      )
+      .eq("competition_id", competitionId)
+      .maybeSingle(),
+    supabase
+      .from("teams")
+      .select("id, name, draw_number, draw_number_set")
+      .eq("competition_id", competitionId)
+      // Unpaid teams are not entrants — they must never reach a schedule or
+      // the standings (migration 0066).
+      .eq("status", "active")
+      .order("name"),
+    supabase
+      .from("reverse_pairs_games")
+      .select("id, game, court, scheduled_at, score_a, score_b")
+      .eq("competition_id", competitionId)
+      .order("game")
+      .order("court"),
+    supabase
+      .from("reverse_pairs_bonuses")
+      .select("team_id, item, points")
+      .eq("competition_id", competitionId),
+  ]);
 
   const pairs: ReversePairsPair[] = (teams ?? []).map((t) => {
     const p = {
@@ -223,6 +239,19 @@ export async function getReversePairs(
   }
 
   const courts = (settings?.courts as number | undefined) ?? 2;
+  const ranking: ReversePairsRanking =
+    settings?.ranking === "wins_pct" ? "wins_pct" : "differential";
+
+  const bonus: Record<string, number> = {};
+  const bonusAwards = new Map<string, Set<string>>();
+  for (const b of bonusRows ?? []) {
+    const id = b.team_id as string;
+    bonus[id] = (bonus[id] ?? 0) + (b.points as number);
+    bonusAwards.set(
+      id,
+      (bonusAwards.get(id) ?? new Set()).add(b.item as string),
+    );
+  }
 
   // Whether a pair could actually sign up this second. The same three rules the
   // register function enforces, so the form matches what pressing it would do.
@@ -257,7 +286,10 @@ export async function getReversePairs(
         (settings?.registration_deadline as string | null) ?? null,
       maxPairs: (settings?.max_pairs as number | null) ?? null,
       pointCap: (settings?.point_cap as number | null) ?? null,
+      ranking,
+      bonusItems: parseBonusItems(settings?.bonus_items),
     },
+    bonusAwards,
     pointsPerGame:
       (comp.match_format as { setsToPoints?: number[] } | null)
         ?.setsToPoints?.[0] ?? 25,
@@ -269,7 +301,11 @@ export async function getReversePairs(
     standings: reversePairsStandings(
       pairs.map((p) => p.id),
       results,
-      { pointCap: (settings?.point_cap as number | null) ?? null },
+      {
+        pointCap: (settings?.point_cap as number | null) ?? null,
+        ranking,
+        bonus,
+      },
     ),
     matrix: partnerMatrix(
       pairs.map((p) => p.id),

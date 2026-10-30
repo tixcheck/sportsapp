@@ -284,6 +284,79 @@ describe("reversePairsStandings with a point cap", () => {
   });
 });
 
+describe("reversePairsStandings ranked by wins, then points %", () => {
+  it("puts more wins above a better percentage", () => {
+    // a: 2 wins, both by a point, and a heavy loss: 60 for, 73 against.
+    // b: 1 win, a blowout: 49 for, 35 against. c: 1 win: 59 for, 60 against.
+    const rows = reversePairsStandings(
+      ["a", "b", "c"],
+      [
+        game(["a"], 25, 24, ["b"]),
+        game(["a"], 25, 24, ["c"]),
+        game(["b"], 25, 10, ["c"]),
+        game(["c"], 25, 10, ["a"]),
+      ],
+      { ranking: "wins_pct" },
+    );
+    expect(rows.map((r) => r.teamId)).toEqual(["a", "b", "c"]);
+    expect(rows.map((r) => r.rank)).toEqual([1, 2, 3]);
+    expect(rows[0].pointPct).toBeCloseTo(60 / 133);
+    expect(rows[1].pointPct).toBeCloseTo(49 / 84);
+  });
+
+  it("adds a bonus to points for, once, and it can break a tie", () => {
+    const plain = reversePairsStandings(
+      ["a", "b"],
+      [game(["a"], 25, 20, ["x"]), game(["b"], 25, 20, ["y"])],
+      { ranking: "wins_pct" },
+    );
+    // Same record and points: they share first (x and y are below).
+    expect(plain.slice(0, 2).map((r) => r.rank)).toEqual([1, 1]);
+
+    const rows = reversePairsStandings(
+      ["a", "b"],
+      [game(["a"], 25, 20, ["x"]), game(["b"], 25, 20, ["y"])],
+      { ranking: "wins_pct", bonus: { b: 6 } },
+    );
+    expect(rows[0].teamId).toBe("b");
+    expect(rows[0].bonus).toBe(6);
+    expect(rows[0].pointPct).toBeCloseTo(31 / 51);
+    // Raw points stay raw: the bonus is its own column.
+    expect(rows[0].pointsFor).toBe(25);
+    expect(rows[0].differential).toBe(5);
+    expect(rows[1].teamId).toBe("a");
+    expect(rows[1].rank).toBe(2);
+  });
+
+  it("never lets a bonus beat a win", () => {
+    const rows = reversePairsStandings(
+      ["a", "b"],
+      [game(["a"], 25, 24, ["b"])],
+      { ranking: "wins_pct", bonus: { b: 6 } },
+    );
+    expect(rows.map((r) => r.teamId)).toEqual(["a", "b"]);
+  });
+
+  it("adds the bonus to the total in the differential order", () => {
+    const rows = reversePairsStandings(
+      ["a", "b"],
+      [game(["a"], 25, 24, ["b"])],
+      { bonus: { b: 4 } },
+    );
+    expect(rows[0].teamId).toBe("b");
+    expect(rows[0].differential).toBe(3);
+  });
+
+  it("ignores a bonus for a pair not in the event", () => {
+    const rows = reversePairsStandings(["a"], [], {
+      ranking: "wins_pct",
+      bonus: { stranger: 6 },
+    });
+    expect(rows.map((r) => r.teamId)).toEqual(["a"]);
+    expect(rows[0].pointPct).toBeNull();
+  });
+});
+
 describe("partnerMatrix", () => {
   it("counts partnerships and leaves the diagonal at zero", () => {
     const ids = ["a", "b", "c", "d", "e", "f"];

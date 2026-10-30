@@ -25,6 +25,8 @@ import { ReversePairsSchedule } from "@/components/reverse-pairs/schedule";
 import { ReversePairsNowPlaying } from "@/components/reverse-pairs/now-playing";
 import { ReversePairsSwapCard } from "@/components/reverse-pairs/swap-card";
 import { ReversePairsStandingsCard } from "@/components/reverse-pairs/standings";
+import { ReversePairsBonusCard } from "@/components/reverse-pairs/bonus-card";
+import { ReversePairsScoringCard } from "@/components/reverse-pairs/scoring-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrganizerTabs } from "@/components/competition/organizer-tabs";
 
@@ -148,6 +150,18 @@ export default async function ReversePairsPage({
             timezone={detail.timezone}
           />
 
+          {/* Costumes are judged at the door, before the scores pile up. */}
+          {isAdmin && detail.settings.bonusItems.length > 0 && (
+            <ReversePairsBonusCard
+              competitionId={detail.competitionId}
+              pairs={detail.pairs}
+              items={detail.settings.bonusItems}
+              awarded={Object.fromEntries(
+                [...detail.bonusAwards].map(([id, s]) => [id, [...s]]),
+              )}
+            />
+          )}
+
           <ReversePairsSchedule
             games={detail.games}
             byes={detail.byes}
@@ -170,6 +184,7 @@ export default async function ReversePairsPage({
             <ReversePairsStandingsCard
               pairs={detail.pairs}
               standings={detail.standings}
+              ranking={detail.settings.ranking}
             />
           )}
           <PartnerMatrixCard pairs={detail.pairs} matrix={detail.matrix} />
@@ -241,6 +256,13 @@ export default async function ReversePairsPage({
                           registrationDeadline:
                             detail.settings.registrationDeadline,
                           maxPairs: detail.settings.maxPairs,
+                        }}
+                      />
+                      <ReversePairsScoringCard
+                        competitionId={detail.competitionId}
+                        initial={{
+                          ranking: detail.settings.ranking,
+                          bonusItems: detail.settings.bonusItems,
                         }}
                       />
                       <SettingsHistoryCard

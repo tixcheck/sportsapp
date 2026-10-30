@@ -29,6 +29,7 @@ const LABELS: Record<string, string> = {
   rounds: "Rounds",
   minutes_per_game: "Minutes per game",
   point_cap: "Point cap",
+  ranking: "Standings rank by",
   registration_fee_cents: "Registration fee",
   individual_fee_cents: "Individual fee",
   payment_required: "Payment required",
