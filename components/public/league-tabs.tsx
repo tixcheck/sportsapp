@@ -31,6 +31,8 @@ import type { WeightedTable } from "@/lib/queries/weighted-standings";
 import { PlayerStatsTable } from "@/components/stats/player-stats-table";
 import type { ScheduleGate } from "@/lib/queries/schedule-gate";
 import { ScheduleGateCard } from "@/components/schedule/schedule-gate-card";
+import type { RuleSection } from "@/lib/competition/rules";
+import { RulesView } from "@/components/rules/rules-view";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -55,7 +57,10 @@ export function LeagueTabs({
   session = null,
   series = null,
   scheduleGate = null,
+  rules = [],
 }: {
+  /** The league's own rules (0188). Empty hides the tab. */
+  rules?: RuleSection[];
   /**
    * A league that shares its schedule with ready teams only (0161). When this
    * viewer can't see it, the schedule and standings show why instead.
@@ -149,6 +154,7 @@ export function LeagueTabs({
     "teams",
     "standings",
     ...(playerStats.length > 0 ? ["stats"] : []),
+    ...(rules.length > 0 ? ["rules"] : []),
     ...(hasPlayoffs ? ["playoffs"] : []),
   ]);
   const defaultTab =
@@ -159,15 +165,21 @@ export function LeagueTabs({
         <p className="text-muted-foreground truncate text-xs font-medium tracking-wide uppercase">
           {league.name}
         </p>
-        <TabsList>
-          <TabsTrigger value="schedule">Schedule</TabsTrigger>
-          <TabsTrigger value="teams">Teams</TabsTrigger>
-          <TabsTrigger value="standings">Standings</TabsTrigger>
-          {playerStats.length > 0 && (
-            <TabsTrigger value="stats">Stats</TabsTrigger>
-          )}
-          {hasPlayoffs && <TabsTrigger value="playoffs">Playoffs</TabsTrigger>}
-        </TabsList>
+        {/* Six tabs overflow a 375px phone; the bar scrolls instead. */}
+        <div className="-mx-1 overflow-x-auto px-1">
+          <TabsList>
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="teams">Teams</TabsTrigger>
+            <TabsTrigger value="standings">Standings</TabsTrigger>
+            {playerStats.length > 0 && (
+              <TabsTrigger value="stats">Stats</TabsTrigger>
+            )}
+            {rules.length > 0 && <TabsTrigger value="rules">Rules</TabsTrigger>}
+            {hasPlayoffs && (
+              <TabsTrigger value="playoffs">Playoffs</TabsTrigger>
+            )}
+          </TabsList>
+        </div>
       </div>
 
       <TabsContent value="schedule" className="mt-6">
@@ -371,6 +383,11 @@ export function LeagueTabs({
         )}
       </TabsContent>
 
+      {rules.length > 0 && (
+        <TabsContent value="rules" className="mt-6">
+          <RulesView rules={rules} />
+        </TabsContent>
+      )}
       {hasPlayoffs && (
         <TabsContent value="playoffs" className="mt-6 space-y-6">
           {brackets.map((b) => (

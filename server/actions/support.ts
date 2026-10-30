@@ -15,6 +15,8 @@ import { sendSupportReply, sendSupportRouted } from "@/lib/email/send";
 import { getOrigin } from "@/lib/utils/url";
 import { aiShouldAnswer, HAND_OFF_NOTE } from "@/lib/support/assistant";
 import { aiConfigured, askSupportAssistant } from "@/lib/support/ask-ai";
+import { getMyLeagueRules } from "@/lib/queries/rules";
+import { rulesAsText } from "@/lib/competition/rules";
 
 type ActionError = { error: string };
 
@@ -65,10 +67,16 @@ export async function sendSupportMessageAction(
       .select("display_name")
       .eq("id", user.id)
       .maybeSingle();
+    // The rules of the user's own leagues, so "is a double on the set legal?"
+    // gets their organizer's answer rather than a hand-off (0188).
+    const leagueRules = answer
+      ? (await getMyLeagueRules()).map((l) => rulesAsText(l.name, l.rules))
+      : [];
     const reply = answer
       ? await askSupportAssistant(
           chat.messages.map((m) => ({ author: m.author, body: m.body })),
           (profile?.display_name as string | null) ?? null,
+          leagueRules,
         )
       : null;
     // No usable answer: a person takes it from here.

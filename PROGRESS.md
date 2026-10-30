@@ -5,6 +5,14 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-30 — League Rules tab, and the Help chat answers from it (0188)
+
+- Liam (Big Shoots) asked for his rules sheet to live in the app. A league now has a **Rules** tab: players see it on the public league page, after Stats (it only appears once rules are saved), and organizers edit it on their league page's own **Rules** tab (`RulesEditor`, react-hook-form + zod, "Add a rule", reorder, delete, "Save rules").
+- Data: `competitions.rules` jsonb (migration **0188**, applied and verified: column + `competitions_rules_is_array` check). On competitions, not league_settings, so a tournament can use it later. A rule is title / house rule / note / "What it was" / "What it is now" / extra labelled rows / "In short", all plain text; "- " lines are bullets, "  - " sub-bullets, "1. " numbered steps. A rule with a "What it was" is listed under "Rule updates", the rest under "Other rules", matching Liam's sheet. Pure logic in `lib/competition/rules.ts` (parse drops malformed sections rather than repairing them, like `parseSheetNotes`), tested.
+- Help chat: `sendSupportMessageAction` passes the rules of every running league the user plays in, waits in, scores for or helps run (`getMyLeagueRules`) as a LEAGUE RULES system block after the cache breakpoint, so the cached guide stays shared. The prompt says to answer rule questions from it, quote the "In short" line, name the league, never fill gaps with general volleyball rules, and not hand rule questions off. Only the user's own leagues, not every public league's.
+- Liam's 9 rules are loaded on Big Shoots (`lib/db/_tmp/bs-rules.mts`), word for word except "Play discontinues if" → "Play stops if". The public tab bar now scrolls sideways, since six tabs overflow a 375px phone.
+- Checked at 375px on the live data (no horizontal scroll). The organizer editor was not checked in a browser: it needs a signed-in organizer.
+
 ## 2026-10-29 — Big Shoots: split players fixed, `check:players`; BVL data changes
 
 - Liam: Sean Gade showed as two players (15-3 and 7-10). The Oct 21 save-time rule (`linkSubsToAccounts`) only links lineups saved after it shipped, and nobody back-filled the older ones, so 8 of Sean's and 3 of David Aitken's games stayed name-only. Linked to their accounts (`lib/db/_tmp/bs-fix-oct29.mts`, owner-approved).

@@ -20,6 +20,7 @@ import { getMyTeamIds, getScorableMatchIds } from "@/lib/queries/access";
 import { SPORTS } from "@/lib/formats";
 import { LeagueTabs } from "@/components/public/league-tabs";
 import { getScheduleGate } from "@/lib/queries/schedule-gate";
+import { getCompetitionRules } from "@/lib/queries/rules";
 import {
   Card,
   CardContent,
@@ -62,6 +63,7 @@ export default async function PublicLeaguePage({
     weighted,
     rosters,
     scheduleGate,
+    rules,
   ] = await Promise.all([
     getStandings(league.id),
     getMyTeamIds(league.id),
@@ -72,6 +74,7 @@ export default async function PublicLeaguePage({
     getWeightedStandings(league.id),
     getPublicRosterNames(league.id),
     getScheduleGate(league.id),
+    getCompetitionRules(league.id),
   ]);
 
   // Open the schedule on the night people are actually asking about. "Today"
@@ -191,6 +194,7 @@ export default async function PublicLeaguePage({
           scorableMatchIds={scorableMatchIds}
           initialTab={tab}
           scheduleGate={scheduleGate}
+          rules={rules}
         />
       </main>
     </div>

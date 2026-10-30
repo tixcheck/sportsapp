@@ -37,6 +37,7 @@ import { sql } from "drizzle-orm";
 // that logic belongs beside the renderer. Type-only, so nothing is imported
 // at runtime.
 import type { SheetNote } from "@/lib/competition/sheet-notes";
+import type { RuleSection } from "@/lib/competition/rules";
 
 // ---------------------------------------------------------------------------
 // JSONB shapes (PRD §6)
@@ -418,6 +419,8 @@ export const competitions = pgTable(
     description: text("description"),
     /** A linked banner image. Not an upload — see migration 0074. */
     bannerUrl: text("banner_url"),
+    /** The league's own rules: its Rules tab and the Help assistant (0188). */
+    rules: jsonb("rules").$type<RuleSection[]>(),
     timezone: text("timezone").notNull().default("America/Toronto"),
     matchFormat: jsonb("match_format").$type<MatchFormat>().notNull(),
     /**

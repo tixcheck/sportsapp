@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-27 (score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed; nets shared between leagues; Non-Spiking Archdekin 8:05; Women's Round 2 gyms; Thursday Round 1).
+ * Last checked against the app: 2026-10-30 (league Rules tab; score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed; nets shared between leagues; Non-Spiking Archdekin 8:05; Women's Round 2 gyms; Thursday Round 1).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -57,7 +57,7 @@ Two accounts / wrong account: an invite links to the account with the SAME email
 
 === FINDING AND JOINING AN EVENT ===
 Browse: /find ("Find your league"), no account needed. Search by league name or venue. Finished seasons and private events don't appear; for those, ask the organizer or captain for the link. An organizer's page (/o/<name>) lists all their public events with "Register", "Join the waitlist" (when full), "Details" or "Schedule & standings".
-A league's public page has tabs "Schedule", "Teams", "Standings", plus "Stats" and "Playoffs" when there are any. A tournament's has "Pools", "Schedule", "Playoffs", "Teams". When registration is open there's a "Register your team" card with "Go to registration".
+A league's public page has tabs "Schedule", "Teams", "Standings", plus "Stats", "Rules" and "Playoffs" when there are any. "Rules" appears once the organizer has posted their league's rules: changed rules come first under "Rule updates", each with "What it was", "What it is now", rows like "Example", and an "In short" line; a "House rule" tag marks rules specific to that league or gym; other rules follow under "Other rules". Open it from the dashboard: "Schedule & standings" (or "Standings"), then the "Rules" tab. A tournament's has "Pools", "Schedule", "Playoffs", "Teams". When registration is open there's a "Register your team" card with "Go to registration".
 Registering a team (/register/<event>): you need an account (the form offers "Create an account" or "I already have one" and brings you back). Depending on the event:
 - Step by step: "Your team" (team name, division/tier preference, questions) → "Waiver" → "Payment" → "Teammates" ("Add your teammates", name + email, "Send invites", or "I'll do this later").
 - Or a single form: team name, division, players, how you'll pay, then "Register team" or "Register & pay".
@@ -139,7 +139,8 @@ Ladder: an existing league with at least 2 tiers → Settings → Format → "Se
 Net duty: league's Schedule tab → "Net setup" card → tick "Name a team to put up each net". Off until switched on. It names a team to put up each court's net before the first game and one to take it down after the last. When another league plays the same court right before or after (Jim Archdekin on Tuesdays: Reverse 4s, then Non-Spiking), the net stays up: the earlier league names no one to take it down and the later one no one to put it up. Teams see it on their games, dashboard and weekly email, and a BVL round's printed schedule lists "Court A nets: up <team>, down <team>" per gym. There's no way to pick the team by hand.
 
 Publishing: new events start private. League: "Publish" (public page live) / "Unpublish". Registration is separate: "Registration" → "Accept team registrations", optional close date, maximum teams (then a waitlist opens), waitlist claim window → "Copy sign-up link". Players can't reach the form until the league is published. Tournament: "Publish"/"Unpublish" plus "Open registration"/"Close registration". Reverse Pairs: "Publish"/"Take offline" and "Let pairs sign themselves up."
-Running a league (league page tabs: Schedule, Ladder, Standings, Playoffs, Teams, Players, Stats, Settings):
+Running a league (league page tabs: Schedule, Ladder, Standings, Playoffs, Teams, Players, Stats, Rules, Settings):
+- Rules tab: "Add a rule" → "Title", tick "House rule" if it's specific to your league or gym, optional "Note under the title", "What it was" (fill in for a rule you've changed; it's then listed under "Rule updates"), "What it is now" ("The rule" when nothing's in What it was), "Add a row" for extras like "Example" or "Setter faults", and "In short". Start a line with "- " for a bullet, two spaces then "- " for a bullet under it, or "1. " for a numbered step. Arrows reorder rules, the bin deletes one, then "Save rules". "See it as players do" opens the public Rules tab. Players see it straight away, and the Help chat answers their rule questions from it. No rules saved means no Rules tab for players.
 - "Generate schedule" (needs 2+ teams). If games were played, choose "Redraw remaining weeks" (keeps results) or "Erase everything and start over".
 - One game: its "Edit" button → "Reschedule match" (date & time, court). Both teams are emailed.
 - Everyone: "Push schedule" (skip from a date, push 1–4 weeks, optional reason). Players are emailed.
@@ -163,6 +164,7 @@ Payments tab: "Collected", "Outstanding", "Tax collected", "Refunded"; each team
 Refunding: Payments tab → tap the team to expand it → "Refund" next to a card payment → choose "Refund all $X" or "Part of it", add an optional reason (it goes in the player's email). When a team has several card payers there's also "Refund all N payers". Your Stripe balance and the platform fee are both reduced in proportion. If the money has already been paid out and the Stripe balance can't cover it, the refund fails with "There isn't enough in the Stripe balance to cover this refund yet": refund by e-transfer instead, or try again later (the app team is alerted). Cash, e-transfer and PayPal have no refund button: send that money back yourself, then "Undo" the payment if needed. Cancelling an event: message the players, refund card payments, return other payments, then delete (or mark it completed).
 
 === LEAGUE NOTES (rules organizers have confirmed; update when a league changes) ===
+Big Shoots Volleyball (Liam Johnson): its rules are on the league's "Rules" tab (posted 2026-10-30: double contact on the set, rotation on serve and serve receive, screens, push and carry attacks, the ceiling house rule, ball contact on the net plane, serve, net touches). Answer from the LEAGUE RULES block when it's there.
 Brampton Volleyball League (BVL), all nights:
 - Game score at time: when time runs out, a one-point lead wins (25–24 is a valid final). A game can't end tied: if it's tied at the buzzer (25–25), play one more point (26–25). A match of 2 games can still split 1–1, which counts as a tie.
 - Teams move tiers by results. Women's Wednesday and Reverse 4s Tuesday play 2-week rounds: everyone in a tier plays each other across the two weeks, then 2 teams move up and 2 down at each tier line. In 6-team tiers, some pairings play one game each week, and the two games together count as one match (2–0 a win, 1–1 a tie).
@@ -184,5 +186,5 @@ No Google/Apple sign-in, no sign-in by email link, no change-password screen (us
 
 === WHEN TO HAND OFF ===
 Hand off when: the user can't sign in after trying Forgot password; the email is mistyped or two accounts need merging; they want their account deleted; a payment looks wrong (charged twice, charged but the team shows unpaid after an hour); a button or page shows an error or won't load; an invite or link doesn't work after the steps above; an organizer needs something the app can't do (ownership transfer, deleting a Reverse Pairs or KotC event); or they ask for a person.
-Point to the organizer (and don't hand off unless they also need the app team) for: refunds, fees, schedules and game times, tiers or divisions, rules, adding a team to a full event, roster disputes, and fixing a final score.
+Point to the organizer (and don't hand off unless they also need the app team) for: refunds, fees, schedules and game times, tiers or divisions, rules their league hasn't posted on its Rules tab, adding a team to a full event, roster disputes, and fixing a final score.
 `.trim();

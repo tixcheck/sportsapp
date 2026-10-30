@@ -117,6 +117,8 @@ import {
 } from "@/lib/queries/payments";
 import { CourtVenuesCard } from "@/components/venues/court-venues-card";
 import { EventBlurbCard } from "@/components/competition/event-blurb-card";
+import { RulesEditor } from "@/components/rules/rules-editor";
+import { getCompetitionRules } from "@/lib/queries/rules";
 import { getOrgVenues, getVenueIssues } from "@/lib/queries/venues";
 import { ScheduleIssuesCard } from "@/components/venues/schedule-issues-card";
 import {
@@ -272,15 +274,22 @@ export default async function LeaguePage({
   // Empty unless the organizer has priced at least one tier, in which case the
   // section doesn't render at all.
   const weighted = await getWeightedStandings(league.id);
-  const [feeSettings, feeRates, orgAccount, auditEntries, restorePoints] =
-    await Promise.all([
-      getCompetitionPaymentSettings(league.id),
-      getPlatformFeeRatesFor(league.id),
-      getPaymentAccount(orgId),
-      // RLS scopes both; a non-organizer simply gets empty lists.
-      getCompetitionAudit(league.id),
-      getRestorePoints(league.id),
-    ]);
+  const [
+    feeSettings,
+    feeRates,
+    orgAccount,
+    auditEntries,
+    restorePoints,
+    rules,
+  ] = await Promise.all([
+    getCompetitionPaymentSettings(league.id),
+    getPlatformFeeRatesFor(league.id),
+    getPaymentAccount(orgId),
+    // RLS scopes both; a non-organizer simply gets empty lists.
+    getCompetitionAudit(league.id),
+    getRestorePoints(league.id),
+    getCompetitionRules(league.id),
+  ]);
   const payment = {
     settings: feeSettings,
     rates: feeRates,
@@ -1211,6 +1220,17 @@ export default async function LeaguePage({
             ),
           },
           { value: "stats", label: "Stats", content: statsTab },
+          {
+            value: "rules",
+            label: "Rules",
+            content: (
+              <RulesEditor
+                competitionId={league.id}
+                publicPath={`/l/${league.slug}?tab=rules`}
+                initial={rules}
+              />
+            ),
+          },
           { value: "settings", label: "Settings", content: settingsTab },
         ]}
       />

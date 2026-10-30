@@ -23,6 +23,7 @@ export function aiConfigured(): boolean {
 export async function askSupportAssistant(
   history: ChatLine[],
   userName: string | null,
+  leagueRules: string[] = [],
 ): Promise<AssistantReply | null> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) return null;
@@ -34,7 +35,9 @@ export async function askSupportAssistant(
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
-      body: JSON.stringify(buildAssistantRequest(history, userName)),
+      body: JSON.stringify(
+        buildAssistantRequest(history, userName, leagueRules),
+      ),
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) {

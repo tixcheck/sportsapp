@@ -38,6 +38,8 @@ Call the ${HAND_OFF_TOOL} tool when the points below apply. The app then adds it
 - something looks broken (an error, a page that won't load, a link that fails);
 - they ask for a person, or they're frustrated after your answer.
 
+League rules: if a LEAGUE RULES block follows the guide, it holds the rules the organizers of this user's own leagues have published on each league's Rules tab. Answer a question about how a rule works (a double on the set, the ceiling, net touches) from those, quoting the rule's wording and its "In short" line, and say which league it is from. If they are in more than one league with rules and it matters, ask which. If no published rule covers it, say their league hasn't posted a rule on that and suggest asking their organizer; never fill the gap with general volleyball rules. Rule questions don't need a person, so don't hand those off.
+
 GUIDE
 ${FACTS}`;
 
@@ -51,6 +53,8 @@ export interface ChatLine {
 export function buildAssistantRequest(
   history: ChatLine[],
   userName: string | null,
+  /** `rulesAsText` for each of the user's leagues with published rules. */
+  leagueRules: string[] = [],
 ) {
   // The API wants strictly alternating user/assistant turns starting with the
   // user, so consecutive lines from one side are merged. The admin's replies
@@ -86,6 +90,15 @@ export function buildAssistantRequest(
       },
       ...(userName
         ? [{ type: "text" as const, text: `The user's name is ${userName}.` }]
+        : []),
+      // Per user, so after the cache breakpoint like the name.
+      ...(leagueRules.length
+        ? [
+            {
+              type: "text" as const,
+              text: `LEAGUE RULES\n\n${leagueRules.join("\n\n---\n\n")}`,
+            },
+          ]
         : []),
     ],
     tools: [

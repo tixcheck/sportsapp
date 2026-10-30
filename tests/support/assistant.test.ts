@@ -121,3 +121,24 @@ describe("aiShouldAnswer", () => {
     );
   });
 });
+
+describe("buildAssistantRequest with league rules", () => {
+  it("adds the user's league rules after the cached guide", () => {
+    const req = buildAssistantRequest(
+      [{ author: "user", body: "Is a double legal?" }],
+      "Sam",
+      ["League: Big Shoots\n\n## Double contact on the set", "League: Other"],
+    );
+    expect(req.system[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(req.system[0].text).toContain("LEAGUE RULES block");
+    const block = req.system[2].text;
+    expect(block.startsWith("LEAGUE RULES\n\n")).toBe(true);
+    expect(block).toContain("League: Big Shoots");
+    expect(block).toContain("\n\n---\n\nLeague: Other");
+  });
+
+  it("adds no rules block when the user's leagues have none", () => {
+    const req = buildAssistantRequest([{ author: "user", body: "Hi" }], null);
+    expect(req.system).toHaveLength(1);
+  });
+});
