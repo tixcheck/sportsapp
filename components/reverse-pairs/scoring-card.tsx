@@ -110,8 +110,8 @@ export function ReversePairsScoringCard({
         <div className="grid gap-2">
           <Label>Bonus points</Label>
           <p className="text-ink-3 text-xs">
-            Added once for the night to a pair&rsquo;s points. You tick them per
-            pair on the Tonight tab. Each one stacks.
+            Added to a pair&rsquo;s points in every game they play. You tick
+            them per pair on the Tonight tab. Each one stacks.
           </p>
           {items.map((i, n) => (
             <div key={n} className="flex items-center gap-2">

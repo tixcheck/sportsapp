@@ -10,8 +10,9 @@
  * Some organizers rank differently. Offlimits Sports (2026-10-30) ranks by
  * games WON first, then by the share of the points a pair's sides scored
  * ("wins_pct"). Bonus points (a Halloween costume, say) are added to a pair's
- * points FOR once for the night: they feed the percentage in that order and
- * the total in the differential order.
+ * points FOR in every game they play (Offlimits, 2026-10-30: "added per game,
+ * not just end of the night"): they feed the percentage in that order and the
+ * total in the differential order. They never change a game's result.
  *
  * The matrix is the thing the organizer currently keeps by hand: an n x n grid
  * of how many times each pair has been teamed with each other pair. It is what
@@ -40,7 +41,7 @@ export interface ReversePairsStandingOptions {
   pointCap?: number | null;
   /** What orders the table. Default: differential. */
   ranking?: ReversePairsRanking;
-  /** Bonus points per pair id, awarded once for the night. */
+  /** Bonus points per pair id, added in each game the pair has a score in. */
   bonus?: Record<string, number>;
 }
 
@@ -55,7 +56,7 @@ export interface ReversePairsStanding {
   /** Points scored by, and against, the sides this pair played on. */
   pointsFor: number;
   pointsAgainst: number;
-  /** Bonus points awarded to this pair (0 when none). */
+  /** Bonus points so far: the per-game bonus x games scored (0 when none). */
   bonus: number;
   /**
    * (points for + bonus) / (points for + bonus + points against), 0-1. Null
@@ -151,10 +152,11 @@ export function reversePairsStandings(
   }
 
   // Bonuses go only to pairs in the event: an id the caller doesn't list has
-  // no row to put them on, and inventing one would show a stranger.
+  // no row to put them on, and inventing one would show a stranger. Per game
+  // SCORED, so the bonus grows with the night instead of landing up front.
   for (const [id, points] of Object.entries(options.bonus ?? {})) {
     const row = rows.get(id);
-    if (row) row.bonus += points;
+    if (row) row.bonus += points * row.played;
   }
   const ranking = options.ranking ?? "differential";
   for (const row of rows.values()) {

@@ -4,7 +4,8 @@
 -- a pair's sides scored — not by point differential, which is every other
 -- Reverse Pairs night. And their Halloween night gives costume bonuses: +2 for
 -- one player in costume, +2 more for both, +2 more for matching, added to the
--- pair's points FOR once for the night.
+-- pair's points FOR (in every game they play: decided the same day, in
+-- lib/stats/reverse-pairs.ts; the rows here are unchanged by it).
 --
 -- `ranking`: 'differential' (the existing order) or 'wins_pct'.
 -- `bonus_items`: what the organizer can award, [{label, points}], or null for

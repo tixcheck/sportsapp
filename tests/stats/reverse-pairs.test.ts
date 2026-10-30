@@ -328,6 +328,25 @@ describe("reversePairsStandings ranked by wins, then points %", () => {
     expect(rows[1].rank).toBe(2);
   });
 
+  it("adds the bonus in every game scored, not once", () => {
+    const rows = reversePairsStandings(
+      ["a", "b"],
+      [
+        game(["a"], 25, 20, ["b"]),
+        game(["b"], 25, 20, ["a"]),
+        game(["a"], 25, 20, ["b"]),
+        game(["a"], null, null, ["b"]),
+      ],
+      { ranking: "wins_pct", bonus: { b: 6 } },
+    );
+    const b = rows.find((r) => r.teamId === "b")!;
+    // Three scored games x 6; the unscored fourth adds nothing yet.
+    expect(b.bonus).toBe(18);
+    // b: lost 20-25, won 25-20, lost 20-25 → 65 for, 70 against.
+    expect(b.pointPct).toBeCloseTo((65 + 18) / (65 + 18 + 70));
+    expect(b.won).toBe(1);
+  });
+
   it("never lets a bonus beat a win", () => {
     const rows = reversePairsStandings(
       ["a", "b"],

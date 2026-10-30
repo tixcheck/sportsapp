@@ -1,5 +1,6 @@
 /**
- * Bonus points an organizer can award a pair once for the night (0192).
+ * Bonus points an organizer can award a pair (0192), added to the pair's
+ * points in every game they play.
  *
  * Offlimits Sports' Halloween night, 2026-10-30: +2 for one player in costume,
  * +2 for both, +2 for matching costumes, each ticked separately so they stack.
