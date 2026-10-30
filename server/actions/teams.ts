@@ -9,7 +9,7 @@ import {
   rosterChangeRefusal,
   type RosterChange,
 } from "@/lib/teams/roster-permissions";
-import { offerNextWaitlistSpot } from "@/server/actions/waitlist";
+import { offerNextWaitlistSpot } from "@/server/waitlist-offer";
 import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";

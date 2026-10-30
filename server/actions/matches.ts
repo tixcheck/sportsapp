@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { detectConflicts, type SlotMatch } from "@/lib/scheduler/conflicts";
@@ -24,6 +25,17 @@ export type Conflict = {
   detail: string;
 };
 
+const rescheduleSchema = z.object({
+  matchId: z.string().uuid(),
+  scheduledAt: z.iso.datetime({ offset: true }),
+  court: z
+    .string()
+    .trim()
+    .min(1, "Pick a court.")
+    .max(40, "That court name is too long."),
+  override: z.boolean(),
+});
+
 export type RescheduleResult =
   | { error: string }
   | { conflicts: Conflict[] }
@@ -33,13 +45,28 @@ export type RescheduleResult =
  * Reschedule a match's time and/or court. A "slot" is the exact scheduled
  * instant; conflicts are (a) the same court booked twice in a slot, or (b) a
  * team playing twice in a slot. With `override`, conflicts are saved anyway.
+ *
+ * Organizers only. Until the 2026-10-30 security audit this had no admin
+ * check: the database still refused a player's change (0168's guard), but RLS
+ * turns a refused UPDATE into "0 rows, no error", so the "schedule changed"
+ * email still went to the caller's teammates carrying whatever court text they
+ * typed. Now it checks first and only emails about a row it really changed.
  */
 export async function rescheduleMatchAction(
-  matchId: string,
-  scheduledAt: string,
-  court: string,
-  override: boolean,
+  matchIdIn: string,
+  scheduledAtIn: string,
+  courtIn: string,
+  overrideIn: boolean,
 ): Promise<RescheduleResult> {
+  const parsed = rescheduleSchema.safeParse({
+    matchId: matchIdIn,
+    scheduledAt: scheduledAtIn,
+    court: courtIn,
+    override: overrideIn,
+  });
+  if (!parsed.success)
+    return { error: parsed.error.issues[0]?.message ?? "Check the details." };
+  const { matchId, scheduledAt, court, override } = parsed.data;
   const supabase = await createClient();
 
   const { data: match, error } = await supabase
@@ -48,6 +75,12 @@ export async function rescheduleMatchAction(
     .eq("id", matchId)
     .single();
   if (error || !match) return { error: "Match not found." };
+
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: match.competition_id,
+  });
+  if (isAdmin !== true)
+    return { error: "Only an organizer can reschedule a game." };
 
   const { data: others } = await supabase
     .from("matches")
@@ -94,11 +127,13 @@ export async function rescheduleMatchAction(
     return { conflicts };
   }
 
-  const { error: updErr } = await supabase
+  const { data: moved, error: updErr } = await supabase
     .from("matches")
     .update({ scheduled_at: scheduledAt, court })
-    .eq("id", matchId);
+    .eq("id", matchId)
+    .select("id");
   if (updErr) return { error: updErr.message };
+  if (!moved?.length) return { error: "That game couldn't be changed." };
 
   // Best-effort alert to both teams (opt-out: notify_schedule_changes).
   await notifyScheduleChanged(supabase, matchId, scheduledAt, court);
