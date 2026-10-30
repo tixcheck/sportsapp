@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-30 (league Rules tab; security fixes: scorekeepers' defaults now save, captains' 40 invites a day, address suggestions need sign-in; score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed; nets shared between leagues; Non-Spiking Archdekin 8:05; Women's Round 2 gyms; Thursday Round 1).
+ * Last checked against the app: 2026-10-30 (league Rules tab; security fixes: scorekeepers' defaults now save, captains' 40 invites a day, address suggestions need sign-in, team questions can't ask for contact details, avatar links must be http(s); score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed; nets shared between leagues; Non-Spiking Archdekin 8:05; Women's Round 2 gyms; Thursday Round 1).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.

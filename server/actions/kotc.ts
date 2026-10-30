@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
@@ -49,6 +50,9 @@ import {
   type SubmitKotcResultsInput,
   type UpdateKotcSettingsInput,
 } from "@/lib/validations/kotc";
+
+/** Bare ids from the client are checked before use (security audit, 2026-10-30). */
+const uuid = z.string().uuid();
 
 /** The genuinely tied-lowest pairs (the bottom run sharing rank, tiebreakStep 4)
  * — what the organizer must choose between when a drop can't be auto-resolved. */
@@ -281,6 +285,8 @@ export async function removeKotcPairAction(
   competitionId: string,
   pairId: string,
 ): Promise<ActionError | { ok: true }> {
+  if (!uuid.safeParse(competitionId).success) return { error: "Not found." };
+  if (!uuid.safeParse(pairId).success) return { error: "Not found." };
   if (!competitionId || !pairId) return { error: "Invalid request." };
 
   const supabase = await createClient();
@@ -454,6 +460,7 @@ export async function submitKotcPoolResultsAction(
 export async function computeKotcSeedsAction(
   competitionId: string,
 ): Promise<ActionError | { seedCount: number }> {
+  if (!uuid.safeParse(competitionId).success) return { error: "Not found." };
   const supabase = await createClient();
   const denied = await assertKotcAdmin(supabase, competitionId);
   if (denied) return denied;
@@ -688,6 +695,7 @@ export async function seedEliminationAction(
 export async function lockKotcStageAction(
   stageId: string,
 ): Promise<ActionError | { ok: true }> {
+  if (!uuid.safeParse(stageId).success) return { error: "Not found." };
   const supabase = await createClient();
   const { data: stage } = await supabase
     .from("kotc_stages")
@@ -1306,6 +1314,7 @@ export async function appendKotcRallyAction(
 export async function appendKotcServeErrorAction(
   poolId: string,
 ): Promise<ActionError | { ok: true; done: boolean }> {
+  if (!uuid.safeParse(poolId).success) return { error: "Not found." };
   if (!poolId) return { error: "Invalid pool." };
 
   const supabase = await createClient();
@@ -1361,6 +1370,7 @@ export async function appendKotcServeErrorAction(
 export async function undoKotcRallyAction(
   poolId: string,
 ): Promise<ActionError | { ok: true }> {
+  if (!uuid.safeParse(poolId).success) return { error: "Not found." };
   const supabase = await createClient();
   const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
@@ -1410,6 +1420,7 @@ export async function undoKotcRallyAction(
 export async function endKotcRoundAction(
   poolId: string,
 ): Promise<ActionError | { ok: true; done: boolean; dropped?: string }> {
+  if (!uuid.safeParse(poolId).success) return { error: "Not found." };
   const supabase = await createClient();
   const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };
@@ -1525,6 +1536,7 @@ export async function endKotcRoundAction(
 export async function startKotcRoundAction(
   poolId: string,
 ): Promise<ActionError | { startedAt: string; roundIndex: number }> {
+  if (!uuid.safeParse(poolId).success) return { error: "Not found." };
   const supabase = await createClient();
   const log = await loadPoolSession(supabase, poolId);
   if (!log) return { error: "Pool not found." };

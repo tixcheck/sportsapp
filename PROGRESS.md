@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-30 — Security audit, batch 3 (0191)
+
+- **`users` column grants** (0191): `anon`/`authenticated` may now SELECT only id, email, display_name, avatar_url, created_at, the notify_* flags, organizer_status and is_platform_admin. `phone` and `unsubscribe_token` are out: RLS let teammates read each other's rows, and a token switches off someone's emails through the public `unsubscribe` RPC. Organizer messages get tokens from the new definer `unsubscribe_tokens(uuid[])` (self, platform admin, or players in competitions the caller runs). Crons use the secret key, so they're unaffected. **A new `users` column is not readable through the API until it's added to that grant.**
+- **`users_insert_self` dropped**, along with the INSERT grant: a user could insert their own row with any column, `is_platform_admin` included. `handle_new_user` creates every row and the app never inserts one.
+- **Team questions can't ask for email, phone or address** (0191 check constraint, `kindAllowedForScope` in the action and the editor, which hides those kinds on team questions). The whole roster reads team answers. No existing question was affected.
+- **Cron auth is constant-time** (`lib/auth/cron-auth.ts`, used by all 5 crons, tested). **Avatar URLs** must be http(s) (`isSafeImageUrl`, as org logos already were).
+- **zod on the remaining actions**: organizers (6), `setCurrentOrgAction` (the id goes into a cookie and a redirect), `moderateReviewAction`, 7 KotC actions that took bare ids, courts.
+- Verified by impersonation with rollback (`lib/db/_tmp/sec-verify4.mts`): teammates' phone/token refused, names/emails still readable, a player gets 0 of her teammates' tokens and her own 1, an organizer gets their 6 players' tokens, self-insert refused, a team "address" question refused. Public pages smoke-tested on a build.
+- **Accepted, not fixed:** `support_post_ai_reply` stays callable by the thread's owner, so a user can post lines labelled as the assistant in their OWN chat. Closing it needs the secret key in a user-facing action (CLAUDE.md forbids) or a signing secret shared between Vercel and the database; the reach is the user's own thread. `refresh_reverse_pair_name` and `sync_team_entry_status` stay callable: both only recompute derived state. `postcss` (build-time, inside Next) needs Next 16.
+
 ## 2026-10-30 — Security audit, batch 2 (0190, headers, rate limits)
 
 - **Security headers** (`next.config.ts`): nosniff, Referrer-Policy, HSTS, Permissions-Policy everywhere; `X-Frame-Options: SAMEORIGIN` + `frame-ancestors 'self'` everywhere except `/embed/*`, which league websites frame. Checked on a built server.

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -15,6 +16,15 @@ import type { LeagueCourt, WeeklySlot } from "@/lib/db/schema";
 const SETTLED = new Set(["in_progress", "completed", "forfeit"]);
 
 export type ApplyCourtsArgs = { competitionId: string; courts: number };
+
+const argsSchema = z.object({
+  competitionId: z.string().uuid("Unknown league."),
+  courts: z
+    .number()
+    .int("Enter a court count between 1 and 20.")
+    .min(1, "Enter a court count between 1 and 20.")
+    .max(20, "Enter a court count between 1 and 20."),
+});
 
 export type ApplyCourtsPreview = {
   currentCourts: number;
@@ -46,8 +56,9 @@ type Loaded = {
 async function load(
   args: ApplyCourtsArgs,
 ): Promise<{ error: string } | Loaded> {
-  if (!Number.isInteger(args.courts) || args.courts < 1 || args.courts > 20) {
-    return { error: "Enter a court count between 1 and 20." };
+  const parsed = argsSchema.safeParse(args);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the details." };
   }
 
   const supabase = await createClient();

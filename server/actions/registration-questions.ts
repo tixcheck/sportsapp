@@ -5,6 +5,10 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { geocodeTypedAddress } from "@/server/places-api";
+import {
+  kindAllowedForScope,
+  TEAM_CONTACT_MESSAGE,
+} from "@/lib/registration/question-scope";
 import type { AddressMetadata } from "@/lib/registration/locality";
 import {
   getPlayerDirectory,
@@ -39,6 +43,10 @@ const questionSchema = z
     position: z.number().int().min(0).max(200),
     parentQuestionId: z.string().uuid().nullable().optional(),
     showWhen: z.string().trim().max(120).nullable().optional(),
+  })
+  .refine((q) => kindAllowedForScope(q.scope, q.kind), {
+    message: TEAM_CONTACT_MESSAGE,
+    path: ["kind"],
   })
   .refine((q) => q.kind !== "select" || q.options.length >= 2, {
     message: "A choice question needs at least two options.",

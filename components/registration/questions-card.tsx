@@ -10,6 +10,7 @@ import type {
   QuestionScope,
   RegistrationQuestion,
 } from "@/lib/queries/registration-questions";
+import { kindAllowedForScope } from "@/lib/registration/question-scope";
 import { saveRegistrationQuestionsAction } from "@/server/actions/registration-questions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -293,11 +294,17 @@ export function RegistrationQuestionsCard({
                         }
                         className="h-8 text-xs"
                       >
-                        {Object.entries(KIND_LABEL).map(([k, label]) => (
-                          <option key={k} value={k}>
-                            {label}
-                          </option>
-                        ))}
+                        {Object.entries(KIND_LABEL)
+                          // The roster can read team answers: no contact
+                          // details there (0191).
+                          .filter(([k]) =>
+                            kindAllowedForScope(q.scope, k as QuestionKind),
+                          )
+                          .map(([k, label]) => (
+                            <option key={k} value={k}>
+                              {label}
+                            </option>
+                          ))}
                       </NativeSelect>
 
                       <label className="text-muted-foreground flex items-center gap-1.5 text-xs">

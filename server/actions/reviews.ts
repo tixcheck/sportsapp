@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
@@ -64,6 +66,13 @@ export async function moderateReviewAction(
   reviewId: string,
   status: "approved" | "hidden",
 ): Promise<ActionError | { success: true }> {
+  const parsed = z
+    .object({
+      reviewId: z.string().uuid(),
+      status: z.enum(["approved", "hidden"]),
+    })
+    .safeParse({ reviewId, status });
+  if (!parsed.success) return { error: "Unknown review or status." };
   const supabase = await createClient();
   const { error } = await supabase
     .from("reviews")

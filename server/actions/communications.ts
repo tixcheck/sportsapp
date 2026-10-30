@@ -172,19 +172,32 @@ export async function sendOrgMessageAction(
     return { error: "Nobody has joined those events yet." };
   }
 
-  const { data: users } = await supabase
-    .from("users")
-    .select("id, email, notify_org_messages, unsubscribe_token")
-    .in("id", userIds);
+  // Tokens come from their own function: the column isn't readable through
+  // the API, or every teammate could read (and use) each other's (0191).
+  const [{ data: users }, { data: tokens }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id, email, notify_org_messages")
+      .in("id", userIds),
+    supabase.rpc("unsubscribe_tokens", { _user_ids: userIds }),
+  ]);
+  const tokenById = new Map(
+    ((tokens ?? []) as { user_id: string; token: string | null }[]).map((t) => [
+      t.user_id,
+      t.token,
+    ]),
+  );
   const userById = new Map(
     (
       (users ?? []) as {
         id: string;
         email: string | null;
         notify_org_messages: boolean;
-        unsubscribe_token: string | null;
       }[]
-    ).map((u) => [u.id, u]),
+    ).map((u) => [
+      u.id,
+      { ...u, unsubscribe_token: tokenById.get(u.id) ?? null },
+    ]),
   );
 
   const candidates: BroadcastMember[] = memberRows.map((m) => {
@@ -217,11 +230,13 @@ export async function sendOrgMessageAction(
 
   if (v.test) {
     if (!user.email) return { error: "Your account has no email to send to." };
-    const { data: me } = await supabase
-      .from("users")
-      .select("unsubscribe_token")
-      .eq("id", user.id)
-      .maybeSingle();
+    const { data: myTokens } = await supabase.rpc("unsubscribe_tokens", {
+      _user_ids: [user.id],
+    });
+    const me = {
+      unsubscribe_token:
+        ((myTokens ?? []) as { token: string | null }[])[0]?.token ?? null,
+    };
     const result = await sendOrgMessageBatch(
       `[Test] ${v.subject}`,
       [

@@ -67,6 +67,8 @@ export async function createOrganizationAction(
 }
 
 export async function setCurrentOrgAction(orgId: string): Promise<void> {
+  // It lands in a cookie and a redirect path: an id or nothing.
+  if (!z.string().uuid().safeParse(orgId).success) redirect("/dashboard");
   const cookieStore = await cookies();
   cookieStore.set(CURRENT_ORG_COOKIE, orgId, {
     path: "/",
