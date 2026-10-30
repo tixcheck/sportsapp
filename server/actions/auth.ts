@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/pending-registration";
 import { isExistingUser } from "@/lib/auth/existing-user";
 import { sendAccountExists } from "@/lib/email/send";
+import { takeRateLimit } from "@/server/rate-limit";
 import { getOrigin } from "@/lib/utils/url";
 import { safeNext } from "@/lib/utils/safe-next";
 import {
@@ -73,10 +74,15 @@ export async function signUpAction(
   // where only the owner of the address can read it, because otherwise they sit
   // on "check your email" waiting for a message that is never coming.
   if (isExistingUser(data.user, data.session)) {
-    await sendAccountExists(parsed.data.email, {
-      signInUrl: `${origin}/login?next=${encodeURIComponent(destination)}`,
-      resetUrl: `${origin}/forgot-password`,
-    });
+    // At most one an hour per address: otherwise anyone could flood a known
+    // user's inbox from our domain by signing up as them over and over. The
+    // page the visitor sees is the same either way.
+    if (await takeRateLimit(supabase, "account_exists", parsed.data.email)) {
+      await sendAccountExists(parsed.data.email, {
+        signInUrl: `${origin}/login?next=${encodeURIComponent(destination)}`,
+        resetUrl: `${origin}/forgot-password`,
+      });
+    }
     redirect(`/check-email?next=${encodeURIComponent(destination)}`);
   }
 

@@ -5,6 +5,16 @@ gotchas lives in `HANDOFF.md`; this file is the "what happened when".
 
 ---
 
+## 2026-10-30 — Security audit, batch 2 (0190, headers, rate limits)
+
+- **Security headers** (`next.config.ts`): nosniff, Referrer-Policy, HSTS, Permissions-Policy everywhere; `X-Frame-Options: SAMEORIGIN` + `frame-ancestors 'self'` everywhere except `/embed/*`, which league websites frame. Checked on a built server.
+- **Rate limits** (0190): `rate_limit_events` + `take_rate_limit(bucket, subject)` (definer; the limits live in the function so callers can't raise them; per-user buckets key on `auth.uid()` itself). `server/rate-limit.ts` wraps it and fails open on a DB error. Applied to: captain invites and resends, 40 a day (organizers exempt); the sign-up "you already have an account" email, 1 an hour per address (the page looks the same either way); Google Places lookups, signed-in only and 300 a day. The Help chat now sends the assistant the last 20 lines, not the whole thread.
+- `geocodeTypedAddress` and the Places config moved from `server/actions/places.ts` (a public endpoint) to `server/places-api.ts` (`server-only`).
+- **Unpaid-admission notes off the public row** (0190): `teams.admitted_unpaid_note`/`_by` were readable through the API for any public competition. Moved to `team_unpaid_admissions` (organizer-only RLS), written by `admit_team_unpaid`; the 1 existing row moved. Nothing in the app read them.
+- **Internal definer functions no longer directly callable** (0190): `fill_roster_appearances` (anyone could add appearance rows to any game), `alignment_advance`, `reverse_pair_base_name` (falls back to the start of an email), `platform_fee_debts`. They still run from triggers and other definer functions as the owner. `org_payment_account` is now signed-in only: not organizers-only, because a player's card checkout reads it, and a Stripe account id is on every checkout anyway.
+- Verified in rolled-back transactions (`lib/db/_tmp/sec-verify2.mts`): a stranger can't run `fill_roster_appearances`; the note column is gone; players see 0 admission rows and organizers 1; the 2nd "account exists" email in an hour and the 41st invite are refused; an organizer completing a game still works.
+- Left for batch 3: teammates reading each other's `phone`/`unsubscribe_token`; `support_post_ai_reply` callable by users; avatar URL scheme; constant-time cron secret compare; contact-type team questions; zod on the remaining actions; `postcss` (needs Next 16).
+
 ## 2026-10-30 — Security audit, batch 1 (0189, Next.js 15.5.28)
 
 - Full audit: live-database checks (RLS on every table; acting as an anonymous visitor and as an ordinary player, then counting what each can read) plus code reviews of server actions, routes and secrets, and personal-data exposure. The core held up: no table without RLS, anon reads zero user emails, a player sees only her own rows and her teammates', actions all run under RLS, no secrets in git history. Findings were ranked into three batches; this is batch 1.

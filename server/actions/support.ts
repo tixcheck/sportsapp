@@ -20,6 +20,9 @@ import { rulesAsText } from "@/lib/competition/rules";
 
 type ActionError = { error: string };
 
+/** Lines of the conversation the assistant sees (security audit, 2026-10-30). */
+const AI_HISTORY_LINES = 20;
+
 const bodySchema = z
   .string()
   .trim()
@@ -74,7 +77,11 @@ export async function sendSupportMessageAction(
       : [];
     const reply = answer
       ? await askSupportAssistant(
-          chat.messages.map((m) => ({ author: m.author, body: m.body })),
+          // The recent part of the thread only: every message re-sends the
+          // history, so an endless thread would cost more on every reply.
+          chat.messages
+            .slice(-AI_HISTORY_LINES)
+            .map((m) => ({ author: m.author, body: m.body })),
           (profile?.display_name as string | null) ?? null,
           leagueRules,
         )

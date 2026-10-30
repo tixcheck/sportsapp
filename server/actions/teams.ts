@@ -10,6 +10,7 @@ import {
   type RosterChange,
 } from "@/lib/teams/roster-permissions";
 import { offerNextWaitlistSpot } from "@/server/waitlist-offer";
+import { takeRateLimit } from "@/server/rate-limit";
 import { captureRestorePoint } from "@/server/actions/restore-points";
 import { getOrigin } from "@/lib/utils/url";
 import { generateToken } from "@/lib/utils/token";
@@ -271,6 +272,18 @@ export async function editInviteEmailAction(
   });
   if ("error" in guard) return guard;
   const { team } = guard;
+
+  // Same address = "resend", which sends an email every time: same daily
+  // allowance as new invites, for captains.
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: team.competitionId,
+  });
+  if (isAdmin !== true && !(await takeRateLimit(supabase, "invite"))) {
+    return {
+      error:
+        "You've sent a lot of invites today. Try again tomorrow, or ask your organizer to add players.",
+    };
+  }
 
   const token = generateToken();
   const expiresAt = new Date(
@@ -543,16 +556,21 @@ export async function inviteTeammateAction(
     .single();
   if (!team) return { error: "Team not found." };
 
+  const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
+    _competition_id: team.competition_id,
+  });
   const isCaptain = team.captain_user_id === user.id;
-  let allowed = isCaptain;
-  if (!allowed) {
-    const { data: isAdmin } = await supabase.rpc("is_competition_admin", {
-      _competition_id: team.competition_id,
-    });
-    allowed = isAdmin === true;
-  }
-  if (!allowed) {
+  if (!isCaptain && isAdmin !== true) {
     return { error: "Only the captain or organizer can add teammates." };
+  }
+  // Each invite is an email from our domain to any address the captain types,
+  // so captains get a daily allowance (security audit, 2026-10-30).
+  // Organizers entering a whole league's rosters don't.
+  if (isAdmin !== true && !(await takeRateLimit(supabase, "invite"))) {
+    return {
+      error:
+        "You've sent a lot of invites today. Try again tomorrow, or ask your organizer to add players.",
+    };
   }
 
   // A Reverse Pairs pair is two people. Inviting someone new while an invite is

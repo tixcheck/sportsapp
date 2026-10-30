@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import { geocodeTypedAddress } from "@/server/actions/places";
+import { geocodeTypedAddress } from "@/server/places-api";
 import type { AddressMetadata } from "@/lib/registration/locality";
 import {
   getPlayerDirectory,

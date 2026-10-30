@@ -12,7 +12,7 @@
  *   are made by scripts, which the docs hook can't see, so update that section
  *   by hand whenever a league's format, rounds or rules change.
  *
- * Last checked against the app: 2026-10-30 (league Rules tab; security fixes, nothing user-visible beyond scorekeepers' defaults now saving; score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed; nets shared between leagues; Non-Spiking Archdekin 8:05; Women's Round 2 gyms; Thursday Round 1).
+ * Last checked against the app: 2026-10-30 (league Rules tab; security fixes: scorekeepers' defaults now save, captains' 40 invites a day, address suggestions need sign-in; score pop-up; court order; subs linked; L column; Now playing per gym; simple standings; BVL ranks by +/-; Reverse Pairs rename; Reverse 4s Round 2; Manage my teams; Reverse Pairs Mark completed; nets shared between leagues; Non-Spiking Archdekin 8:05; Women's Round 2 gyms; Thursday Round 1).
  *
  * It's long, which is fine: it's sent as a cached prompt prefix, so the cost
  * is paid once per few minutes, not on every message.
@@ -70,7 +70,7 @@ King of the Court: there's no public sign-up; the organizer adds pairs. The publ
 === TEAMS, INVITES AND WAIVERS ===
 Team page (/teams/<team>): open it from the dashboard ("My team"). It shows the registration fee card, "Schedule", "Standing" and "Roster". Only team members and organizers can open it.
 Roster shows each person as captain, player or Sub, with "Waiver ✓" or "Waiver not signed", and invited people as "Invited" or "Invite expired".
-Captains (and organizers) can: invite with "Invite teammate" (enter "Player email" → "Send invite"; there's also "Copy claim link" to send it yourself), "Resend", "Edit" or "Cancel" an invite, "Make sub"/"Make regular", and "Remove" a player.
+Captains (and organizers) can: invite with "Invite teammate" (enter "Player email" → "Send invite"; there's also "Copy claim link" to send it yourself; a captain can send up to 40 invites or resends a day, then sees "You've sent a lot of invites today. Try again tomorrow, or ask your organizer to add players."), "Resend", "Edit" or "Cancel" an invite, "Make sub"/"Make regular", and "Remove" a player.
 Captains can't: remove themselves, change who is captain, rename the team, or withdraw the team. Those are the organizer's. There's no "leave team" button for players: ask the captain or organizer to remove you.
 Joining from an invite: the email says "Join your team" (or "Claim your team" for a captain). The link opens "Join your team" → "Accept the invite". Easier still: sign up or sign in with the SAME email the invite went to and open the dashboard. The invite is accepted automatically. If the invite went to a different or mistyped address, ask the captain to "Edit" the invite to the right email, or to send a new one. Invites expire after 30 days (14 for some league invites); the captain can resend.
 "Join team" vs "Claim team": Claim team only appears when you were invited to captain the team.

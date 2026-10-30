@@ -776,13 +776,10 @@ export const teams = pgTable(
     /**
      * Set when an organizer admitted this team despite an outstanding balance
      * (Slice C). The debt is NOT forgiven — it keeps showing on the payments
-     * dashboard; this only records who decided to let them play and why.
+     * dashboard. Who decided and why live in `teamUnpaidAdmissions` (0190):
+     * this row is readable by anyone for a public competition.
      */
     admittedUnpaidAt: timestamp("admitted_unpaid_at", { withTimezone: true }),
-    admittedUnpaidBy: uuid("admitted_unpaid_by").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    admittedUnpaidNote: text("admitted_unpaid_note"),
     // The one pool game this team drops from ITS OWN standings (v1 "drop a
     // game"; only meaningful when the team's pool has needs_drop). The result
     // still counts for the opponent. Cleared if the match is deleted.
@@ -799,6 +796,37 @@ export const teams = pgTable(
     index("teams_competition_id_idx").on(t.competitionId),
     index("teams_pool_id_idx").on(t.poolId),
   ],
+);
+
+/**
+ * Who let a team play unpaid, and their note (0190). Moved off `teams`, whose
+ * rows anyone can read for a public competition; organizers only.
+ */
+export const teamUnpaidAdmissions = pgTable("team_unpaid_admissions", {
+  teamId: uuid("team_id")
+    .primaryKey()
+    .references(() => teams.id, { onDelete: "cascade" }),
+  admittedBy: uuid("admitted_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * One row per rate-limited action (0190), counted by `take_rate_limit`.
+ * Serverless instances share no memory, so the count lives in the database.
+ */
+export const rateLimitEvents = pgTable(
+  "rate_limit_events",
+  {
+    bucket: text("bucket").notNull(),
+    subject: text("subject").notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("rate_limit_events_lookup").on(t.bucket, t.subject, t.at)],
 );
 
 export const teamMembers = pgTable(
