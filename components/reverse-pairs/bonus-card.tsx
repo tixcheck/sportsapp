@@ -87,8 +87,9 @@ export function ReversePairsBonusCard({
           Bonus points
         </CardTitle>
         <CardDescription>
-          Tap each bonus a pair has earned. It&rsquo;s added to the pair&rsquo;s
-          points in every game they play, and shows in the Standings.
+          Tap each bonus a pair has earned. It&rsquo;s added once to the
+          pair&rsquo;s points in the Standings ratio. Game scores and wins
+          don&rsquo;t change.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -106,7 +107,7 @@ export function ReversePairsBonusCard({
                   {p.drawNumberSet ? p.name : p.entryName}
                   {total !== 0 && (
                     <span className="text-pine ml-2 text-xs tabular-nums">
-                      {signedPoints(total)} a game
+                      {signedPoints(total)}
                     </span>
                   )}
                 </span>

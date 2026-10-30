@@ -8,11 +8,11 @@
  * you than winning 25-12 with a strong one.
  *
  * Some organizers rank differently. Offlimits Sports (2026-10-30) ranks by
- * games WON first, then by the share of the points a pair's sides scored
- * ("wins_pct"). Bonus points (a Halloween costume, say) are added to a pair's
- * points FOR in every game they play (Offlimits, 2026-10-30: "added per game,
- * not just end of the night"): they feed the percentage in that order and the
- * total in the differential order. They never change a game's result.
+ * games WON first, then by point ratio ("wins_pct"). Bonus points (a
+ * Halloween costume, say) are added ONCE to a pair's points for, inside the
+ * ratio only: Eric (Offlimits, 2026-10-30), "(points scored + bonus points) /
+ * points against", and never to a game's score, so a bonus can't flip who won.
+ * In the differential order a bonus adds to the total.
  *
  * The matrix is the thing the organizer currently keeps by hand: an n x n grid
  * of how many times each pair has been teamed with each other pair. It is what
@@ -41,7 +41,7 @@ export interface ReversePairsStandingOptions {
   pointCap?: number | null;
   /** What orders the table. Default: differential. */
   ranking?: ReversePairsRanking;
-  /** Bonus points per pair id, added in each game the pair has a score in. */
+  /** Bonus points per pair id, counted once for the night. */
   bonus?: Record<string, number>;
 }
 
@@ -56,7 +56,7 @@ export interface ReversePairsStanding {
   /** Points scored by, and against, the sides this pair played on. */
   pointsFor: number;
   pointsAgainst: number;
-  /** Bonus points so far: the per-game bonus x games scored (0 when none). */
+  /** Bonus points awarded to this pair (0 when none). */
   bonus: number;
   /**
    * (points for + bonus) / (points for + bonus + points against), 0-1. Null
@@ -64,6 +64,12 @@ export interface ReversePairsStanding {
    * exactly as points for / points against would: one rises with the other.
    */
   pointPct: number | null;
+  /**
+   * (points for + bonus) / points against: what the table shows in the
+   * "wins_pct" order. Null before any points against (it would be infinite);
+   * the ranking uses `pointPct`, which orders identically and stays finite.
+   */
+  pointRatio: number | null;
   /** Games their side won, lost and drew. Shown, but never the ranking. */
   won: number;
   lost: number;
@@ -111,6 +117,7 @@ export function reversePairsStandings(
     pointsAgainst: 0,
     bonus: 0,
     pointPct: null,
+    pointRatio: null,
     won: 0,
     lost: 0,
     rank: 0,
@@ -152,11 +159,10 @@ export function reversePairsStandings(
   }
 
   // Bonuses go only to pairs in the event: an id the caller doesn't list has
-  // no row to put them on, and inventing one would show a stranger. Per game
-  // SCORED, so the bonus grows with the night instead of landing up front.
+  // no row to put them on, and inventing one would show a stranger.
   for (const [id, points] of Object.entries(options.bonus ?? {})) {
     const row = rows.get(id);
-    if (row) row.bonus += points * row.played;
+    if (row) row.bonus += points;
   }
   const ranking = options.ranking ?? "differential";
   for (const row of rows.values()) {
@@ -164,6 +170,7 @@ export function reversePairsStandings(
     const scored = row.pointsFor + row.bonus;
     const total = scored + row.pointsAgainst;
     row.pointPct = total > 0 ? scored / total : null;
+    row.pointRatio = row.pointsAgainst > 0 ? scored / row.pointsAgainst : null;
   }
 
   // Compared exactly, so two pairs on 3 wins and 52.0% share a rank rather

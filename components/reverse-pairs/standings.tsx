@@ -22,9 +22,11 @@ function signed(n: number): string {
   return n > 0 ? `+${n}` : String(n);
 }
 
-/** 0.5234 → "52.3%". One decimal: whole percents tie far too often. */
-function percent(p: number | null): string {
-  return p === null ? "—" : `${(p * 100).toFixed(1)}%`;
+/** 1.0833 → "1.083". Three places: two tie far too often. */
+function ratio(r: number | null, pointsFor: number): string {
+  if (r !== null) return r.toFixed(3);
+  // Nothing against yet: a ratio is infinite once they've scored.
+  return pointsFor > 0 ? "∞" : "—";
 }
 
 /**
@@ -65,9 +67,9 @@ export function ReversePairsStandingsCard({
         <CardDescription>
           {byWins ? (
             <>
-              Ranked by games won, then by Pts %: the share of all the points in
-              a pair&rsquo;s games that their side scored
-              {showBonus ? ", with bonus points added to their side" : ""}.
+              Ranked by games won, then by Ratio: points scored
+              {showBonus ? " plus bonus points" : ""} ÷ points against. Bonus
+              points never change a game&rsquo;s score.
             </>
           ) : (
             <>
@@ -98,7 +100,7 @@ export function ReversePairsStandingsCard({
                   <th className="p-2 text-right font-medium">Bonus</th>
                 )}
                 <th className="p-2 text-right font-medium">
-                  {byWins ? "Pts %" : "Total"}
+                  {byWins ? "Ratio" : "Total"}
                 </th>
               </tr>
             </thead>
@@ -145,7 +147,7 @@ export function ReversePairsStandingsCard({
                   )}
                   {byWins ? (
                     <td className="p-2 text-right font-semibold whitespace-nowrap">
-                      {percent(s.pointPct)}
+                      {ratio(s.pointRatio, s.pointsFor + s.bonus)}
                     </td>
                   ) : (
                     <td

@@ -29,8 +29,8 @@ const RANKINGS: { value: ReversePairsRanking; label: string; hint: string }[] =
     },
     {
       value: "wins_pct",
-      label: "Wins, then points %",
-      hint: "Most games won first; ties go to the higher share of points scored.",
+      label: "Wins, then point ratio",
+      hint: "Most games won first; ties go to points scored ÷ points against.",
     },
   ];
 
@@ -110,8 +110,9 @@ export function ReversePairsScoringCard({
         <div className="grid gap-2">
           <Label>Bonus points</Label>
           <p className="text-ink-3 text-xs">
-            Added to a pair&rsquo;s points in every game they play. You tick
-            them per pair on the Tonight tab. Each one stacks.
+            Added once to a pair&rsquo;s points scored in the standings ratio;
+            game scores don&rsquo;t change. You tick them per pair on the
+            Tonight tab. Each one stacks.
           </p>
           {items.map((i, n) => (
             <div key={n} className="flex items-center gap-2">

@@ -328,7 +328,7 @@ describe("reversePairsStandings ranked by wins, then points %", () => {
     expect(rows[1].rank).toBe(2);
   });
 
-  it("adds the bonus in every game scored, not once", () => {
+  it("adds the bonus once, into the ratio only", () => {
     const rows = reversePairsStandings(
       ["a", "b"],
       [
@@ -340,11 +340,14 @@ describe("reversePairsStandings ranked by wins, then points %", () => {
       { ranking: "wins_pct", bonus: { b: 6 } },
     );
     const b = rows.find((r) => r.teamId === "b")!;
-    // Three scored games x 6; the unscored fourth adds nothing yet.
-    expect(b.bonus).toBe(18);
+    // Eric's formula: (points scored + bonus) / points against, once.
+    expect(b.bonus).toBe(6);
     // b: lost 20-25, won 25-20, lost 20-25 → 65 for, 70 against.
-    expect(b.pointPct).toBeCloseTo((65 + 18) / (65 + 18 + 70));
+    expect(b.pointRatio).toBeCloseTo((65 + 6) / 70);
+    expect(b.pointPct).toBeCloseTo((65 + 6) / (65 + 6 + 70));
+    // Game results untouched: still one win, raw points still raw.
     expect(b.won).toBe(1);
+    expect(b.pointsFor).toBe(65);
   });
 
   it("never lets a bonus beat a win", () => {
