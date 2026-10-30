@@ -13,12 +13,25 @@ export interface DrawNumbered {
   drawNumberSet: boolean;
 }
 
+/**
+ * The team name when the pair has one. Organizers write "Space Jam - Sydney P.
+ * & Raj K." (Offlimits, 2026-10-30): team, then players. On a phone the whole
+ * thing makes the schedule and standings scroll sideways, so they show "Space
+ * Jam"; a pair with no team name ("Kaidi L. & Chris N.") shows as written.
+ * Only a spaced " - " splits, so "Nina E-G" stays whole.
+ */
+export function shortPairName(name: string): string {
+  const i = name.indexOf(" - ");
+  if (i <= 0) return name;
+  const team = name.slice(0, i).trim();
+  return team || name;
+}
+
 /** What the schedule and standings call a pair. */
 export function displayPairName(p: DrawNumbered): string {
-  if (p.drawNumber === null) return p.name;
-  return p.drawNumberSet
-    ? `${p.drawNumber} · ${p.name}`
-    : `Pair ${p.drawNumber}`;
+  const name = shortPairName(p.name);
+  if (p.drawNumber === null) return name;
+  return p.drawNumberSet ? `${p.drawNumber} · ${name}` : `Pair ${p.drawNumber}`;
 }
 
 /** Numbers nobody has been given yet, in order. */

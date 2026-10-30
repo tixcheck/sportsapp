@@ -4,6 +4,7 @@ import {
   displayPairName,
   numbersLeft,
   parseDrawNumber,
+  shortPairName,
 } from "@/lib/reverse-pairs/draw-number";
 
 const pair = (
@@ -29,6 +30,33 @@ describe("displayPairName", () => {
 
   it("leaves events without drawn numbers alone", () => {
     expect(displayPairName(pair("Sam & Mel", null))).toBe("Sam & Mel");
+  });
+
+  it("shows the team name when the pair has one", () => {
+    expect(
+      displayPairName(pair("Space Jam - Sydney P. & Raj K.", 4, true)),
+    ).toBe("4 · Space Jam");
+    expect(
+      displayPairName(pair("Hot & Holy - Nicole V. & Kevin S.", null)),
+    ).toBe("Hot & Holy");
+    // Still hidden until the number is in.
+    expect(displayPairName(pair("Space Jam - Sydney P. & Raj K.", 4))).toBe(
+      "Pair 4",
+    );
+  });
+});
+
+describe("shortPairName", () => {
+  it("keeps player names when there is no team name", () => {
+    expect(shortPairName("Kaidi L. & Chris N.")).toBe("Kaidi L. & Chris N.");
+  });
+
+  it("splits only on a spaced dash", () => {
+    expect(shortPairName("Bubble Tea Duo - Nina E-G & Dan K.")).toBe(
+      "Bubble Tea Duo",
+    );
+    expect(shortPairName("Nina E-G & Dan K.")).toBe("Nina E-G & Dan K.");
+    expect(shortPairName(" - Sam & Mel")).toBe(" - Sam & Mel");
   });
 });
 
